@@ -1,0 +1,184 @@
+"""Harness core: reproducible comparison helpers.
+
+These are extracted and generalized from ``torchregress.comparison``
+so the harness is self-contained for its infrastructure layer, but the
+actual regression methods are always called through ``torchregress`` itself.
+"""
+
+from __future__ import annotations
+
+import json
+import platform
+import random
+from dataclasses import asdict, is_dataclass
+from pathlib import Path
+from time import perf_counter
+from typing import Any, Callable
+
+import numpy as np
+import torch
+
+
+def set_harness_seed(seed: int) -> None:
+    """Set Python/NumPy/PyTorch RNGs for reproducible harness runs."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def timed_call(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, float]:
+    """Run ``fn`` and return ``(result, elapsed_seconds)``."""
+    start = perf_counter()
+    result = fn(*args, **kwargs)
+    elapsed = perf_counter() - start
+    return result, elapsed
+
+
+def compute_point_metrics(
+    y_pred: np.ndarray | torch.Tensor, y_true: np.ndarray | torch.Tensor
+) -> dict[str, float]:
+    """Compute common point-prediction regression metrics.
+
+    Accepts both numpy arrays and torch tensors.
+    """
+    y_pred_np = np.asarray(y_pred).reshape(-1)
+    y_true_np = np.asarray(y_true).reshape(-1)
+
+    mse = float(np.mean((y_pred_np - y_true_np) ** 2))
+    mae = float(np.mean(np.abs(y_pred_np - y_true_np)))
+    rmse = float(np.sqrt(mse))
+
+    y_true_mean = float(np.mean(y_true_np))
+    ss_res = float(np.sum((y_true_np - y_pred_np) ** 2))
+    ss_tot = float(np.sum((y_true_np - y_true_mean) ** 2))
+    r2 = (1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
+
+    return {"MSE": mse, "MAE": mae, "RMSE": rmse, "R2": r2}
+
+
+def print_fairness_notes(
+    *,
+    title: str,
+    seed_policy: str,
+    train_budget: str,
+    metric_policy: str,
+) -> None:
+    """Print a compact comparability statement for harness outputs."""
+    print(f"\n[{title} | harness fairness]")
+    print(f"  seeds:   {seed_policy}")
+    print(f"  budget:  {train_budget}")
+    print(f"  metrics: {metric_policy}")
+
+
+def print_comparison_summary(
+    title: str,
+    rows: list[dict[str, Any]],
+    metric_order: list[str] | None = None,
+) -> None:
+    """Print an aligned summary table for a harness run."""
+    if not rows:
+        print(f"\n{title}\n(no rows)")
+        return
+
+    metric_order = metric_order or [
+        "Dataset", "RMSE", "MAE", "R2", "NLL", "CRPS",
+        "Coverage", "Width", "IntervalScore", "ECE", "train_s", "eval_s",
+    ]
+    present_metrics = [m for m in metric_order if any(m in row for row in rows)]
+    headers = ["Method", "Library", *present_metrics]
+    include_notes = any(row.get("Notes") for row in rows)
+    if include_notes:
+        headers.append("Notes")
+
+    table_rows: list[list[str]] = []
+    for row in rows:
+        vals = [
+            str(row.get("Method", "")),
+            str(row.get("Library", "")),
+        ]
+        for key in present_metrics:
+            value = row.get(key)
+            if value is None:
+                vals.append("-")
+            elif isinstance(value, float):
+                vals.append(f"{value:.4f}")
+            else:
+                vals.append(str(value))
+        if include_notes:
+            vals.append(str(row.get("Notes", "")))
+        table_rows.append(vals)
+
+    widths = [len(h) for h in headers]
+    for r in table_rows:
+        for i, cell in enumerate(r):
+            widths[i] = max(widths[i], len(cell))
+
+    def _fmt(cells: list[str]) -> str:
+        return " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(cells))
+
+    print(f"\n{title}")
+    print(_fmt(headers))
+    print("-+".join("-" * w for w in widths))
+    for r in table_rows:
+        print(_fmt(r))
+
+
+def write_harness_json(
+    path: str | Path,
+    *,
+    config: Any,
+    rows: list[dict[str, Any]],
+    suites: list[str] | None = None,
+    datasets: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> Path:
+    """Write a machine-readable harness run artifact.
+
+    Produces a unified JSON artifact following the harness output schema.
+    """
+    import datetime
+
+    out_path = Path(path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    config_payload: Any
+    if is_dataclass(config) and not isinstance(config, type):
+        config_payload = asdict(config)
+    elif hasattr(config, "__dict__"):
+        config_payload = dict(vars(config))
+    else:
+        config_payload = config
+
+    n_ok = sum(1 for r in rows if all(r.get(m) is not None for m in ("RMSE", "MAE") if m in r))
+    n_skipped = sum(1 for r in rows if "skipped" in str(r.get("Notes", "")).lower())
+    n_error = sum(1 for r in rows if "failed" in str(r.get("Notes", "")).lower() or
+                  "error" in str(r.get("Notes", "")).lower())
+
+    payload: dict[str, Any] = {
+        "artifact": "harness_run",
+        "version": 1,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "environment": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "torch": torch.__version__,
+            "cuda_available": torch.cuda.is_available(),
+        },
+        "suites": suites or [],
+        "datasets": datasets or [],
+        "config": config_payload,
+        "rows": rows,
+        "notes": notes or [],
+        "aggregate": {
+            "n_total": len(rows),
+            "n_ok": n_ok,
+            "n_skipped": n_skipped,
+            "n_error": n_error,
+        },
+    }
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return out_path
