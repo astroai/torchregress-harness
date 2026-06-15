@@ -14,6 +14,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -58,6 +68,16 @@ jobs:
           - botorch_reference
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -115,6 +135,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -160,6 +190,16 @@ jobs:
           - tabred_weather
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -215,6 +255,16 @@ jobs:
           - botorch_reference
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -288,6 +338,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -334,6 +394,16 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout torchregress
+        uses: actions/checkout@v4
+        with:
+          repository: sfabbro/torchregress
+          path: torchregress
+
+      - name: Link torchregress for uv path source
+        run: ln -sfn "$PWD/torchregress" ../torchregress
+
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

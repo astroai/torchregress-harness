@@ -32,6 +32,7 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+.mplconfig/
 
 # Logs / temp
 *.log
@@ -51,10 +52,6 @@ results/archive/
 
 # Keep directory structure files
 !datasets/README.md
-
-# UV cache / lock
-.uv-cache/
-uv.lock
 
 # Model outputs
 *.pt

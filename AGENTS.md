@@ -6,6 +6,14 @@ This file provides guidance to coding agents (Claude, Gemini, Codex) when workin
 
 **torchregress-harness** is a standalone benchmarking harness for [torchregress](https://github.com/sfabbro/torchregress). It compares torchregress regression methods against external software on known tabular and image datasets, producing structured JSON artifacts and Markdown reports.
 
+## Sibling repositories
+
+| Repo | Scope |
+|------|-------|
+| **torchregress** | Library (losses, conformal, ensembles, metrics) |
+| **torchregress-research** | NeurIPS manuscripts + SAGE/SPT benchmarks (**not here**) |
+| **torchregress-harness** (this repo) | torchregress vs MAPIE, LightGBM, TabPFN, BoTorch, … |
+
 ## Development Commands
 
 This project uses [uv](https://github.com/astral-sh/uv) as the package manager.

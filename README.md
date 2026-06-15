@@ -6,6 +6,8 @@
 
 Compares every torchregress regression method against external software on known tabular and image datasets. Produces machine-readable JSON artifacts and human-readable Markdown reports.
 
+**Related:** [torchregress](https://github.com/sfabbro/torchregress) (library) ·
+[torchregress-research](https://github.com/sfabbro/torchregress-research) (NeurIPS SAGE/SPT manuscripts and benchmarks — not part of this harness).
 
 ## Quick Start
 
