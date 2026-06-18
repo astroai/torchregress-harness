@@ -249,12 +249,13 @@ class CalibrationSuite(HarnessRunner):
         # --- Resolve canonical scenario (reusable helper) ---
         dataset_name, splits = self._prepare_scenario_run(
             scenario_name, dataset_name, splits,
+            standardize_targets=cfg.standardize_targets,
         )
 
         if splits is None:
             from harness.datasets import load_dataset
 
-            splits = load_dataset(dataset_name)
+            splits = load_dataset(dataset_name, standardize_targets=cfg.standardize_targets)
 
         # Read scenario-driven parameters (with suite defaults as fallback)
         cal_frac = float(splits.get("_calibration_fraction", self.CALIBRATION_FRAC))
@@ -335,7 +336,7 @@ class CalibrationSuite(HarnessRunner):
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except Exception as exc:
+            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
