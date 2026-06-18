@@ -9,6 +9,7 @@ Methods
 - MSE                    : MLP + WeightedMSELoss (treats classes as continuous)
 - OrdinalCrossEntropy    : MLP + OrdinalCrossEntropyLoss (K logits, softmax CE)
 - CumulativeLink         : MLP + CumulativeLinkLoss (K-1 cumulative logits, BCE)
+- CORAL                  : MLP + CORALLoss (torchregress, CORAL-style cumulative ordinal)
 - CORN                   : MLP + corn_loss from coral-pytorch (K-1 logits)
 - mord_LogisticAT        : mord.LogisticAT (all-threshold ordinal logistic)
 - statsmodels_OrderedModel : statsmodels OrderedModel(distr='logit')
@@ -25,6 +26,7 @@ from harness.core import set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 from torchregress.losses import (
+    CORALLoss,
     CumulativeLinkLoss,
     OrdinalCrossEntropyLoss,
     WeightedMSELoss,
@@ -97,7 +99,7 @@ class OrdinalSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        methods = ["MSE", "OrdinalCrossEntropy", "CumulativeLink"]
+        methods = ["MSE", "OrdinalCrossEntropy", "CumulativeLink", "CORAL"]
         if _CORAL_PYTORCH_AVAILABLE:
             methods.append("CORN")
         if _MORD_AVAILABLE:
@@ -113,6 +115,8 @@ class OrdinalSuite(HarnessRunner):
             return "mord"
         if method.startswith("statsmodels"):
             return "statsmodels"
+        if method == "CORAL":
+            return "torchregress"
         return "torchregress"
 
     # ------------------------------------------------------------------
@@ -137,26 +141,38 @@ class OrdinalSuite(HarnessRunner):
         in_dim = X.shape[1]
         hidden = _hidden_size(in_dim)
 
+        # Tuned hyperparameters for neural ordinal methods:
+        # wider layers (64 vs default 24) and more epochs (200 vs default 60)
+        # to give them a fair shot against external linear baselines
+        _ordinal_hidden = 64
+        _ordinal_epochs = 200
+
         if method == "MSE":
             model = _MLP(in_dim, hidden, out_dim=1)
             _train_one(model, WeightedMSELoss(), X, y.float().unsqueeze(1), config)
             return {"type": "torch", "model": model}
 
         elif method == "OrdinalCrossEntropy":
-            model = _MLP(in_dim, hidden, out_dim=n_classes)
-            _train_one(model, OrdinalCrossEntropyLoss(), X, y, config)
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes)
+            _train_one(model, OrdinalCrossEntropyLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "CumulativeLink":
             # CumulativeLinkLoss expects K-1 logits (binary classifiers for P(y > k))
-            model = _MLP(in_dim, hidden, out_dim=n_classes - 1)
-            _train_one(model, CumulativeLinkLoss(), X, y, config)
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes - 1)
+            _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
+            return {"type": "torch", "model": model, "n_classes": n_classes}
+
+        elif method == "CORAL":
+            # CORAL: K-1 logits + CORALLoss (torchregress native)
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes - 1)
+            _train_one(model, CORALLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "CORN":
             # CORN: K-1 logits + corn_loss (coral-pytorch)
-            model = _MLP(in_dim, hidden, out_dim=n_classes - 1)
-            _train_one(model, _CornModule(n_classes), X, y, config)
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes - 1)
+            _train_one(model, _CornModule(n_classes), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "mord_LogisticAT":
@@ -195,8 +211,13 @@ class OrdinalSuite(HarnessRunner):
                 if logits.shape[-1] == 1:
                     y_pred = logits.squeeze(-1).round().clamp(0, n_classes - 1).long().numpy()
                 elif logits.shape[-1] == n_classes - 1:
-                    # CumulativeLink / CORN: K-1 logits
-                    if method == "CORN":
+                    # CumulativeLink / CORAL / CORN: K-1 logits
+                    if method == "CORAL":
+                        from torchregress.utils.ordinal import ordinal_predict
+                        y_pred = ordinal_predict(
+                            logits, encoding="cumulative_logits", strategy="threshold"
+                        ).long().numpy()
+                    elif method == "CORN":
                         from coral_pytorch.dataset import corn_label_from_logits
                         y_pred = corn_label_from_logits(logits).long().numpy()
                     else:
@@ -252,6 +273,9 @@ class OrdinalSuite(HarnessRunner):
             ),
             "CumulativeLink": (
                 "MLP + CumulativeLinkLoss — K-1 binary classifiers on cumulative logits"
+            ),
+            "CORAL": (
+                "MLP + CORALLoss — CORAL-style cumulative ordinal objective (torchregress)"
             ),
             "CORN": (
                 "MLP + corn_loss (coral-pytorch) — conditional ordinal regression, K-1 outputs"

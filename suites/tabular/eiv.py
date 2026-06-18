@@ -9,9 +9,12 @@ Methods
 ------
 - MSE              : MLP + WeightedMSELoss (no EIV correction — baseline)
 - FunctionalEIV    : MLP + FunctionalEIVLoss (analytical gradient-based)
+- FunctionalEIV_MC : MLP + FunctionalEIVLoss (Monte-Carlo variance — no Jacobian)
 - StructuralEIV    : MLP + StructuralEIVLoss (full cross-covariance model)
 - ODR              : MLP + OrthogonalDistanceRegressionLoss (latent-x opt)
 - EnsembleEIV      : MLP + EnsembleEIVLoss (Monte-Carlo input perturbation)
+- InputNoiseMC     : MLP + InputNoiseMarginalizationLoss (MC marginalisation at train time)
+- MSE_NoisyPredict : MSE-trained MLP + NoisyInputPredictor (MC averaging at inference only)
 - TLS              : Total Least Squares via SVD (numpy-only)
 - SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
 """
@@ -32,10 +35,12 @@ from suites._backbones import _MLP, _hidden_size, _train_one
 from torchregress.losses import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,
+    InputNoiseMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
     WeightedMSELoss,
 )
+from torchregress.losses.eiv import NoisyInputPredictor
 
 # --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
 try:
@@ -123,6 +128,8 @@ class EIVSuite(HarnessRunner):
             "synthetic_eiv_highnoise",
             "synthetic_eiv_nonlinear",
             "synthetic_eiv_nonlinear_highnoise",
+            "synthetic_eiv_veryhighnoise",
+            "synthetic_eiv_nonlinear_veryhighnoise",
         ]
 
     @property
@@ -130,7 +137,8 @@ class EIVSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        return ["MSE", "FunctionalEIV", "StructuralEIV", "ODR", "EnsembleEIV", "TLS", "SciPyODR"]
+        return ["MSE", "FunctionalEIV", "FunctionalEIV_MC", "StructuralEIV", "ODR",
+                "EnsembleEIV", "InputNoiseMC", "MSE_NoisyPredict", "TLS", "SciPyODR"]
 
     def library_name(self, method: str) -> str:
         if method == "TLS":
@@ -180,6 +188,18 @@ class EIVSuite(HarnessRunner):
             _train_eiv(model, loss_fn, X, y, config)
             return {"type": "torch", "model": model}
 
+        elif method == "FunctionalEIV_MC":
+            # Monte-Carlo variance propagation — avoids noisy Jacobian entirely.
+            # Sampled perturbations → empirical covariance → Gaussian NLL.
+            # Same loss function as analytical EIV but without the Jacobian path.
+            model = _MLP(in_dim, hidden, out_dim)
+            loss_fn = FunctionalEIVLoss(
+                model=model, sigma_x=sigma_x, sigma_y=sigma_y,
+                monte_carlo=True, n_samples=20,
+            )
+            _train_eiv(model, loss_fn, X, y, config)
+            return {"type": "torch", "model": model}
+
         elif method == "StructuralEIV":
             model = _MLP(in_dim, hidden, out_dim)
             # Uncorrelated feature/target noise → zero cross-covariance
@@ -203,6 +223,26 @@ class EIVSuite(HarnessRunner):
             loss_fn = EnsembleEIVLoss(model=model, sigma_x=sigma_x)
             _train_eiv(model, loss_fn, X, y, config)
             return {"type": "torch", "model": model}
+
+        elif method == "InputNoiseMC":
+            # Input-noise marginalization: perturb inputs → run model → avg MSE.
+            # More principled than EnsembleEIV — proper MC marginalisation over
+            # input noise with configurable base loss.
+            model = _MLP(in_dim, hidden, out_dim)
+            loss_fn = InputNoiseMarginalizationLoss(
+                model=model, base_loss=WeightedMSELoss(),
+                sigma_x=sigma_x, n_samples=20,
+            )
+            _train_eiv(model, loss_fn, X, y, config)
+            return {"type": "torch", "model": model}
+
+        elif method == "MSE_NoisyPredict":
+            # Train with plain MSE; at inference time, wrap with NoisyInputPredictor
+            # for MC input-noise averaging.  Tests whether EIV correction at
+            # inference time alone is sufficient.
+            model = _MLP(in_dim, hidden, out_dim)
+            _train_one(model, WeightedMSELoss(), X, y, config)
+            return {"type": "torch", "model": model, "sigma_x": sigma_x}
 
         elif method == "SciPyODR":
             if not HAS_SCIPY_ODR:
@@ -257,7 +297,6 @@ class EIVSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        del method, config
         model_type = model_state.get("type", "torch")
 
         if model_type == "scipy_odr":
@@ -269,6 +308,16 @@ class EIVSuite(HarnessRunner):
             beta = model_state["coef"]
             intercept = model_state["intercept"]
             y_pred = X_test @ beta + intercept
+            return {"y_pred": y_pred}
+
+        if method == "MSE_NoisyPredict":
+            # Inference-time MC averaging via NoisyInputPredictor wrapper
+            m = model_state["model"]
+            sigma_x_val = float(model_state.get("sigma_x", 0.2))
+            noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
+            with torch.no_grad():
+                X = torch.from_numpy(X_test).float()
+                y_pred = noisy_pred(X).squeeze(-1).numpy()
             return {"y_pred": y_pred}
 
         # Torch models
@@ -318,6 +367,9 @@ class EIVSuite(HarnessRunner):
             "FunctionalEIV": (
                 "MLP + FunctionalEIVLoss — analytical gradient-based variance propagation"
             ),
+            "FunctionalEIV_MC": (
+                "MLP + FunctionalEIVLoss(monte_carlo=True) — MC sample covariance, no Jacobian"
+            ),
             "StructuralEIV": (
                 "MLP + StructuralEIVLoss — full cross-covariance structural model"
             ),
@@ -332,6 +384,12 @@ class EIVSuite(HarnessRunner):
             ),
             "SciPyODR": (
                 "scipy.odr.ODR — classical orthogonal distance regression (external, linear model)"
+            ),
+            "InputNoiseMC": (
+                "MLP + InputNoiseMarginalizationLoss(MSE) — proper MC marginalisation over input noise"
+            ),
+            "MSE_NoisyPredict": (
+                "MSE-trained MLP + NoisyInputPredictor — MC averaging at inference time only"
             ),
         }
         return notes.get(method, "")

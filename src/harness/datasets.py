@@ -1122,6 +1122,22 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         description="Nonlinear EIV with high input noise (σx=1.0) — definitive EIV stress test.",
         loader=_registry_loader(_load_synthetic_eiv_nonlinear, sigma_x=1.0),
     ),
+    "synthetic_eiv_veryhighnoise": DatasetInfo(
+        name="synthetic_eiv_veryhighnoise",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Linear EIV with extreme input noise (σx=2.0) — maximum stress test for EIV methods.",
+        loader=_registry_loader(_load_synthetic_eiv, sigma_x=2.0),
+    ),
+    "synthetic_eiv_nonlinear_veryhighnoise": DatasetInfo(
+        name="synthetic_eiv_nonlinear_veryhighnoise",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Nonlinear EIV with extreme input noise (σx=2.0) — ultimate EIV stress test.",
+        loader=_registry_loader(_load_synthetic_eiv_nonlinear, sigma_x=2.0),
+    ),
     "synthetic_multivariate": DatasetInfo(
         name="synthetic_multivariate",
         category="synthetic",
