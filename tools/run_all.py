@@ -36,7 +36,15 @@ from harness import (
 from harness.datasets import load_dataset
 from harness.runners import HarnessRunner
 from tools._suite_registry import ALL_SUITES
-from tools._validate import validate_suites, validate_torchregress
+from tools._validate import (
+    validate_gaussiannll_coverage,
+    validate_multivariate_gaussian_coverage,
+    validate_nf_architecture,
+    validate_sls_architecture,
+    validate_sls_coverage,
+    validate_suites,
+    validate_torchregress,
+)
 
 
 def main() -> None:
@@ -76,6 +84,19 @@ def main() -> None:
         help="Run torchregress + suite validation checks before benchmarks",
     )
     parser.add_argument(
+        "--standardize-targets",
+        dest="standardize_targets",
+        action="store_true",
+        default=True,
+        help="Standardize targets with StandardScaler (default: True)",
+    )
+    parser.add_argument(
+        "--no-standardize-targets",
+        dest="standardize_targets",
+        action="store_false",
+        help="Skip target standardization",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("results/latest/harness.json"),
@@ -98,7 +119,40 @@ def main() -> None:
             print(m)
         print()
 
-        if not tr_ok or not suite_ok:
+        print()
+        print("=== NF architecture smoketest ===")
+        nf_ok, nf_msgs = validate_nf_architecture()
+        for m in nf_msgs:
+            print(m)
+        print()
+
+        print("=== SLS coverage smoketest ===")
+        sls_ok, sls_msgs = validate_sls_coverage()
+        for m in sls_msgs:
+            print(m)
+        print()
+
+        print()
+        print("=== SLS architecture smoketest ===")
+        sls_arch_ok, sls_arch_msgs = validate_sls_architecture()
+        for m in sls_arch_msgs:
+            print(m)
+        print()
+
+        print()
+        print("=== GaussianNLL coverage smoketest ===")
+        gnll_ok, gnll_msgs = validate_gaussiannll_coverage()
+        for m in gnll_msgs:
+            print(m)
+        print()
+
+        print("=== MultivariateGaussian coverage smoketest ===")
+        mvg_ok, mvg_msgs = validate_multivariate_gaussian_coverage()
+        for m in mvg_msgs:
+            print(m)
+        print()
+
+        if not tr_ok or not suite_ok or not nf_ok or not sls_ok or not sls_arch_ok or not gnll_ok or not mvg_ok:
             print("Validation FAILED — fix the issues above before running benchmarks.")
             sys.exit(1)
         print("Validation PASSED — all checks green.\n")
@@ -120,6 +174,7 @@ def main() -> None:
         seed=args.seed,
         epochs=2 if args.smoke else args.epochs,
         smoke=args.smoke,
+        standardize_targets=args.standardize_targets,
     )
 
     # Run each suite on its supported datasets
@@ -132,7 +187,7 @@ def main() -> None:
             print(f"\n=== Suite: {suite.name} · Dataset: {dataset_name} ===")
             try:
                 try:
-                    split = load_dataset(dataset_name, n_samples=200 if args.smoke else None)
+                    split = load_dataset(dataset_name, n_samples=200 if args.smoke else None, standardize_targets=config.standardize_targets)
                 except KeyError:
                     print(f"  Dataset {dataset_name!r} not found — skipping")
                     continue
@@ -141,12 +196,12 @@ def main() -> None:
                 all_rows.extend(rows)
 
                 for row in rows:
-                    # Interval/conformal suites don't produce RMSE — use relevant metric
-                    has_result = (
-                        row.get("RMSE") is not None
-                        or row.get("Coverage") is not None
-                        or row.get("MAE") is not None
-                        or row.get("TweedieDeviance") is not None
+                    # Any non-structural key with a non-None value = has results
+                    has_result = any(
+                        v is not None and k not in (
+                            "Method", "Library", "Dataset", "Suite", "Notes"
+                        )
+                        for k, v in row.items()
                     )
                     status = "✓" if has_result else "✗"
                     print(f"  {status} {row['Method']}")
