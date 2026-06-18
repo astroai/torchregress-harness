@@ -50,3 +50,62 @@ def test_list_datasets_by_category() -> None:
     synthetic = list_datasets(category="synthetic")
     assert len(tabular) >= 2
     assert len(synthetic) >= 3
+
+
+# ===========================================================================
+# End-to-end PIT diagnostics wiring (Proposal #9 + #10)
+# ===========================================================================
+#
+# Verifies that the DistributionalBinsSuite.evaluate() path calls
+# compute_pit_values + pit_uniformity_tests and merges ``PIT_Mean``,
+# ``PIT_Std``, ``PIT_KS``, ``PIT_CvM`` into the suite row dict.
+# Without this wiring, the benchmark_pit_ensemble.py script would parse
+# rows that contain only ``Coverage``/``Width``/``IntervalScore``.
+
+
+def test_distributional_bins_emits_pit_diagnostics() -> None:
+    """End-to-end: DistributionalBinsSuite must include PIT_* metrics in /dev_summary rows.
+
+    Runs a 3-epoch smoke bench on ``synthetic_hetero`` (fastest dataset
+    in the suite's list) and confirms that NF + NF_Ensemble_K5 + MDN
+    rows carry the four calibration diagnostics.
+    """
+    from harness.runners import HarnessConfig
+    from suites.tabular.distributional_bins import DistributionalBinsSuite
+
+    suite = DistributionalBinsSuite()
+    cfg = HarnessConfig(seed=42, epochs=3, smoke=True)
+    rows = suite.run("synthetic_hetero", config=cfg)
+
+    # Find dev_summary rows for NormalizingFlow and NF_Ensemble_K5
+    nf_summary = None
+    ens_summary = None
+    for r in rows:
+        method_full = r.get("Method", "")
+        if method_full == "distributional_bins/NormalizingFlow/dev_summary":
+            nf_summary = r
+        elif method_full == "distributional_bins/NF_Ensemble_K5/dev_summary":
+            ens_summary = r
+
+    assert nf_summary is not None, "NF /dev_summary row not produced"
+    assert ens_summary is not None, "NF_Ensemble_K5 /dev_summary row not produced"
+
+    # The /dev_summary row from evaluate() inherits CoverageDeviationAbsMean
+    # but PIT_* come from per-method evaluate() rather than the bin
+    # aggregation.  Verify by checking the per-method source row.
+    nf_method_row = next(
+        r for r in rows if r.get("Method") == "distributional_bins/NormalizingFlow"
+    )
+    assert "PIT_Mean" in nf_method_row, (
+        "DistributionalBinsSuite.evaluate() must emit PIT_Mean (Proposal #9 wiring regression)"
+    )
+    assert "PIT_Std" in nf_method_row
+    assert "PIT_KS" in nf_method_row
+    assert "PIT_CvM" in nf_method_row
+
+    # Ensemble's PIT diagnostics should also be present.
+    ens_method_row = next(
+        r for r in rows if r.get("Method") == "distributional_bins/NF_Ensemble_K5"
+    )
+    assert "PIT_Mean" in ens_method_row
+    assert "PIT_KS" in ens_method_row

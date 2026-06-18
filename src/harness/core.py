@@ -18,6 +18,17 @@ from typing import Any, Callable
 import numpy as np
 import torch
 
+# Keys that are row metadata, not performance metrics.
+_NON_METRIC_KEYS: frozenset[str] = frozenset(
+    {
+        "Method",
+        "Library",
+        "Dataset",
+        "Suite",
+        "Notes",
+    }
+)
+
 
 def set_harness_seed(seed: int) -> None:
     """Set Python/NumPy/PyTorch RNGs for reproducible harness runs."""
@@ -84,11 +95,52 @@ def print_comparison_summary(
         print(f"\n{title}\n(no rows)")
         return
 
+    # Auto-discover all metric keys from rows, then reorder by metric_order preference.
+    all_metric_keys: set[str] = set()
+    for row in rows:
+        for key in row:
+            if key not in _NON_METRIC_KEYS:
+                all_metric_keys.add(key)
+
     metric_order = metric_order or [
-        "Dataset", "RMSE", "MAE", "R2", "NLL", "CRPS",
-        "Coverage", "Width", "IntervalScore", "ECE", "train_s", "eval_s",
+        "Dataset",
+        "RMSE",
+        "MAE",
+        "R2",
+        "NLL",
+        "CRPS",
+        "Coverage",
+        "Width",
+        "IntervalScore",
+        "ECE",
+        # PIT calibration diagnostics (Proposal #9)
+        "PIT_Mean",
+        "PIT_Std",
+        "PIT_KS",
+        "PIT_CvM",
+        # dev_summary / bin metrics
+        "AvgBinCoverage",
+        "AvgBinWidth",
+        "CoverageDeviationMean",
+        "CoverageDeviationAbsMean",
+        "CoverageDeviationRMSE",
+        "CoverageDeviation",
+        "BinCenter",
+        "BinSize",
+        "BinCoverage",
+        "BinMeanWidth",
+        # timing
+        "train_s",
+        "eval_s",
     ]
-    present_metrics = [m for m in metric_order if any(m in row for row in rows)]
+    # Start with ordered metrics that are present, then append any remaining
+    present_metrics: list[str] = []
+    for m in metric_order:
+        if m in all_metric_keys:
+            present_metrics.append(m)
+    # Append any metrics not in the preferred order (future-proofing)
+    for m in sorted(all_metric_keys - set(present_metrics)):
+        present_metrics.append(m)
     headers = ["Method", "Library", *present_metrics]
     include_notes = any(row.get("Notes") for row in rows)
     if include_notes:
@@ -153,10 +205,15 @@ def write_harness_json(
     else:
         config_payload = config
 
-    n_ok = sum(1 for r in rows if all(r.get(m) is not None for m in ("RMSE", "MAE") if m in r))
+    n_ok = sum(
+        1 for r in rows if any(r.get(m) is not None and m not in _NON_METRIC_KEYS for m in r)
+    )
     n_skipped = sum(1 for r in rows if "skipped" in str(r.get("Notes", "")).lower())
-    n_error = sum(1 for r in rows if "failed" in str(r.get("Notes", "")).lower() or
-                  "error" in str(r.get("Notes", "")).lower())
+    n_error = sum(
+        1
+        for r in rows
+        if "failed" in str(r.get("Notes", "")).lower() or "error" in str(r.get("Notes", "")).lower()
+    )
 
     payload: dict[str, Any] = {
         "artifact": "harness_run",

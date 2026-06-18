@@ -43,6 +43,7 @@ from sklearn.linear_model import (
     Ridge,
 )
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 
@@ -53,7 +54,14 @@ from torchregress.losses import BetaNLLLoss, MultiQuantileLoss
 
 from harness.core import set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
-from suites._backbones import _MLP, _gaussian_nll_predict, _hidden_size, _train_one
+from suites._backbones import (
+    _MLP,
+    _gaussian_nll_predict,
+    _hidden_size,
+    _Linear,
+    _train_lbfgs,
+    _train_one,
+)
 
 # ---------------------------------------------------------------------------
 # Registry: sklearn methods
@@ -126,6 +134,10 @@ _SKLEARN_REGRESSORS: dict[str, tuple] = {
         lambda seed: KNeighborsRegressor(n_neighbors=5, weights="distance", n_jobs=-1),
         "k-nearest neighbors (k=5, distance-weighted)",
     ),
+    "sklearn_MLPRegressor": (
+        None,  # handled in its own elif branch — needs config-aware hyperparams
+        "3-layer MLP (ReLU) + Adam — direct parity with torchregress MSE",
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -146,7 +158,7 @@ class SklearnBaselinesSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Torchregress (GaussianNLL / MultiQuantile / MSE) vs all 14 sklearn regressors"
+        return "Torchregress (OLS / GaussianNLL / MultiQuantile / MSE) vs all 14 sklearn regressors"
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -180,7 +192,7 @@ class SklearnBaselinesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     # Torchregress method keys (always available)
-    _TR_METHODS: list[str] = ["GaussianNLL", "MultiQuantile", "MSE"]
+    _TR_METHODS: list[str] = ["OLS", "GaussianNLL_Linear", "GaussianNLL", "MultiQuantile", "MSE"]
 
     def methods(self) -> list[str]:
         # torchregress methods first, then all sklearn methods
@@ -192,12 +204,18 @@ class SklearnBaselinesSuite(HarnessRunner):
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
+        if method == "OLS":
+            return "analytic linear regression (torch.linalg.lstsq) → point prediction"
+        if method == "GaussianNLL_Linear":
+            return "_Linear + BetaNLLLoss(beta=0.0) via two-stage: MSE→OLS (LBFGS) + analytic residual variance; exact mean parity with sklearn LinearRegression"
         if method == "GaussianNLL":
             return "MLP + BetaNLLLoss(beta=0.5) → mean & std"
         if method == "MultiQuantile":
             return "MLP + MultiQuantileLoss (q=0.1,0.5,0.9) → median & quantile intervals"
         if method == "MSE":
-            return "MLP + MSELoss → point prediction"
+            return "3-layer MLP + Adam + MSE — Kaiming init (sklearn uses Glorot); converges to same optimum at 200+ epochs"
+        if method == "sklearn_MLPRegressor":
+            return "3-layer MLP (ReLU) + Adam + MSE — Glorot init (torchregress uses Kaiming); converges to same optimum at 200+ epochs"
         if method in _SKLEARN_REGRESSORS:
             return _SKLEARN_REGRESSORS[method][1]
         return ""
@@ -215,8 +233,46 @@ class SklearnBaselinesSuite(HarnessRunner):
         y_train_np = splits["y_train"].reshape(-1)
         in_dim = X_train_np.shape[1]
 
+        # --- torchregress: OLS (analytic closed-form, matches sklearn LinearRegression) ---
+        if method == "OLS":
+            X_t = torch.from_numpy(X_train_np).float()
+            y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
+
+            # Design matrix [X | 1] with intercept column
+            ones = torch.ones(X_t.shape[0], 1, dtype=X_t.dtype, device=X_t.device)
+            A = torch.cat([X_t, ones], dim=-1)
+
+            # Analytic OLS via lstsq:  w = argmin ||A w - y||₂
+            solution = torch.linalg.lstsq(A, y_t)
+            coef = solution.solution.squeeze(-1)  # (in_dim + 1,)
+
+            return {"type": "ols", "coef": coef}
+
+        # --- torchregress: GaussianNLL_Linear (OLS parity + analytic variance) ---
+        elif method == "GaussianNLL_Linear":
+            X = torch.from_numpy(X_train_np).float()
+            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+
+            # Stage 1: _Linear(→1) + MSE via LBFGS → exact OLS optimum
+            # (MSE is strictly convex for a linear model)
+            model_mse = _Linear(in_dim, out_dim=1)
+            _train_lbfgs(model_mse, nn.MSELoss(), X, y, max_iter=500, tolerance_grad=1e-7)
+
+            # Stage 2: Clone to 2-output model with analytic residual variance
+            # No further training needed — mean is exactly OLS, variance is
+            # the homoscedastic residual variance (MLE for constant σ²)
+            model = _Linear(in_dim, out_dim=2)
+            with torch.no_grad():
+                model.fc.weight[0, :].copy_(model_mse.fc.weight[0, :])
+                model.fc.bias[0].copy_(model_mse.fc.bias[0])
+                residuals = (y - model_mse(X)).squeeze(-1)
+                model.fc.weight[1, :].zero_()
+                model.fc.bias[1].fill_(torch.log(residuals.var().clamp_min(1e-8)).item())
+
+            return {"type": "gaussian_nll", "model": model}
+
         # --- torchregress: GaussianNLL ---
-        if method == "GaussianNLL":
+        elif method == "GaussianNLL":
             X = torch.from_numpy(X_train_np).float()
             y = torch.from_numpy(y_train_np).float().unsqueeze(1)
 
@@ -254,6 +310,24 @@ class SklearnBaselinesSuite(HarnessRunner):
             model.eval()
 
             return {"type": "mse", "model": model}
+
+        # --- sklearn MLPRegressor — direct parity with torchregress MSE ---
+        elif method == "sklearn_MLPRegressor":
+            hidden = _hidden_size(in_dim)
+            est = MLPRegressor(
+                hidden_layer_sizes=(hidden, hidden),
+                activation="relu",
+                solver="adam",
+                alpha=0.0,
+                batch_size=min(config.batch_size, len(X_train_np)),
+                learning_rate_init=config.lr,
+                max_iter=config.epochs,
+                tol=1e-10,  # disable early stopping
+                random_state=config.seed,
+                early_stopping=False,
+            )
+            est.fit(X_train_np, y_train_np)
+            return {"type": "sklearn", "model": est}
 
         # --- sklearn methods ---
         elif method in _SKLEARN_REGRESSORS:
@@ -299,6 +373,15 @@ class SklearnBaselinesSuite(HarnessRunner):
                 med = out[:, 1].numpy().reshape(-1)
                 hi = out[:, 2].numpy().reshape(-1)
             return {"y_pred": med, "lower": lo, "upper": hi}
+
+        # --- torchregress: OLS → y_pred (analytic, matches sklearn LinearRegression) ---
+        elif model_type == "ols":
+            coef = model_state["coef"]
+            X_t = torch.from_numpy(X_test).float()
+            ones = torch.ones(X_t.shape[0], 1, dtype=X_t.dtype, device=coef.device)
+            A = torch.cat([X_t, ones], dim=-1)
+            y_pred = (A @ coef).numpy().reshape(-1)
+            return {"y_pred": y_pred}
 
         # --- torchregress: MSE → y_pred ---
         elif model_type == "mse":

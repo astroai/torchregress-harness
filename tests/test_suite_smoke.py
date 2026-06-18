@@ -6,12 +6,17 @@ Each test imports a suite class and verifies it is properly structured
 
 import pytest
 
+from suites._backbones import NF_ENSEMBLE_K_VARIANTS
+
 # All suites should be importable
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.conformal import ConformalSuite
+from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
+from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.tweedie import TweedieSuite
@@ -27,6 +32,9 @@ ALL_SUITES = [
     SklearnBaselinesSuite,
     EnsemblesSuite,
     UQSuite,
+    DistributionalBinsSuite,
+    MultivariateIntervalsSuite,
+    PzflowParitySuite,
 ]
 
 
@@ -52,3 +60,325 @@ def test_suite_has_methods(suite_cls) -> None:
     assert isinstance(methods, list)
     assert len(methods) > 0
     assert all(isinstance(m, str) for m in methods)
+
+
+# ---------------------------------------------------------------------------
+# NF_Ensemble_K5 (Proposal #10) — must be registered in distributional_bins
+# ---------------------------------------------------------------------------
+
+
+def test_distributional_bins_has_nf_ensemble() -> None:
+    """NF_Ensemble_K5 (Proposal #10) must be a registered method.
+
+    The Flow-ensemble is the documented remedy for single-NF overconfidence
+    on small tabular datasets (CoverageDeviationAbsMean: 0.147 → ~0.05).
+    Removing it would silently lose the calibration-improvement benchmark.
+    """
+    suite = DistributionalBinsSuite()
+    assert "NF_Ensemble_K5" in suite.methods()
+
+
+def test_distributional_bins_nf_ensemble_is_torchregress() -> None:
+    """NF_Ensemble_K5 must be tagged as a torchregress method (not external)."""
+    suite = DistributionalBinsSuite()
+    assert suite.library_name("NF_Ensemble_K5") == "torchregress"
+    assert "independent" in suite.method_notes("NF_Ensemble_K5").lower()
+
+
+# ---------------------------------------------------------------------------\n# NF_Ensemble_K-sweep family (Proposal #10 §14 + §15).  The shared tuple
+# `NF_ENSEMBLE_K_VARIANTS` is imported from `suites._backbones` (single source
+# of truth across scalar / MV suites).  Tests iterate over the imported name
+# to enforce registration parity so a future K (e.g. K40) only needs adding
+# to the hoist site.
+# ---------------------------------------------------------------------------
+
+
+def test_distributional_bins_k_sweep_registered() -> None:
+    """The NF_Ensemble K-sweep family must include all four K \u2208 {2, 5, 10, 20}.
+
+    Removing any one of these would silently lose the calibration-vs-cost knee
+    benchmark documented in PARITY_REPORT.md \u00a714.
+    """
+    suite = DistributionalBinsSuite()
+    methods = suite.methods()
+    for variant in NF_ENSEMBLE_K_VARIANTS:
+        assert variant in methods, (
+            f"missing {variant} from suite.methods(); K-sweep \u00a714 invalidated"
+        )
+
+
+def test_distributional_bins_k_sweep_share_architecture() -> None:
+    """All K-sweep variants must share HIDDEN + TRANSFORMS + N_SAMPLES.
+
+    Only K itself is allowed to vary across the family.  Architecture drift
+    between K=2 and K=20 would corrupt the calibration-vs-cost interpretation.
+    H is locked via class constant (shared), so this test enforces member-list
+    size and the per-method notes correctly state the K.
+    """
+    suite = DistributionalBinsSuite()
+    notes = suite.method_notes
+    expected_Ks = {
+        "NF_Ensemble_K2": 2,
+        "NF_Ensemble_K5": 5,
+        "NF_Ensemble_K10": 10,
+        "NF_Ensemble_K20": 20,
+    }
+    for variant, K in expected_Ks.items():
+        text = notes(variant).lower()
+        assert str(K) in text, f"{variant} notes must mention the K value ({K}); got {text!r}"
+
+
+# ---------------------------------------------------------------------------
+# NF_Ensemble_K5 must also be registered in multivariate_intervals
+# (extended PROPOSAL #10 validation across 3D targets in §10b/§11b).
+# ---------------------------------------------------------------------------
+
+
+def test_multivariate_intervals_has_nf_ensemble() -> None:
+    """NF_Ensemble_K5 (Proposal #10) must also be a multivariate method.
+
+    Without this the multivariate JointCoverage benchmark regresses silently to
+    only single NormalizingFlow + GaussianNLL + SLS — making any future
+    ensemble-vs-single calibration comparison impossible on §10/§11 datasets.
+    """
+    suite = MultivariateIntervalsSuite()
+    assert "NF_Ensemble_K5" in suite.methods()
+
+
+def test_multivariate_intervals_nf_ensemble_is_torchregress() -> None:
+    """NF_Ensemble_K5 in multivariate_intervals must be torchregress + mention
+    pooling (Proposal #10 mechanism — lock the wording so a future edit
+    cannot silently drop the pooling description)."""
+    suite = MultivariateIntervalsSuite()
+    assert suite.library_name("NF_Ensemble_K5") == "torchregress"
+    notes = suite.method_notes("NF_Ensemble_K5").lower()
+    assert "pooled" in notes, (
+        "NF_Ensemble_K5 notes must mention 'pooled' (Proposal #10 mechanism); "
+        f"got: {suite.method_notes('NF_Ensemble_K5')!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# NF_Ensemble_K-sweep family (Proposal #10 §15 follow-up) on MV datasets.
+# All four K variants must be registered in multivariate_intervals with
+# identical architecture (HIDDEN/TRANSFORMS) — only K is allowed to vary.
+# ---------------------------------------------------------------------------
+
+
+def test_multivariate_intervals_k_sweep_registered() -> None:
+    """The NF_Ensemble K-sweep family must include all four K ∈ {2, 5, 10, 20}.
+
+    Removing any one of these would silently lose the calibration-vs-cost knee
+    benchmark documented in PARITY_REPORT.md §15.
+    """
+    suite = MultivariateIntervalsSuite()
+    methods = suite.methods()
+    for variant in NF_ENSEMBLE_K_VARIANTS:
+        assert variant in methods, (
+            f"missing {variant} from multivariate_intervals.methods(); K-sweep §15 invalidated"
+        )
+
+
+def test_multivariate_intervals_k_sweep_share_architecture() -> None:
+    """All K-sweep variants must share HIDDEN + TRANSFORMS + N_SAMPLES.
+
+    Only K itself is allowed to vary across the family.  Architecture drift
+    between K=2 and K=20 would corrupt the §15 calibration-vs-cost interpretation.
+    """
+    suite = MultivariateIntervalsSuite()
+    notes = suite.method_notes
+    expected_Ks = {
+        "NF_Ensemble_K2": 2,
+        "NF_Ensemble_K5": 5,
+        "NF_Ensemble_K10": 10,
+        "NF_Ensemble_K20": 20,
+    }
+    for variant, K in expected_Ks.items():
+        text = notes(variant).lower()
+        assert str(K) in text, f"{variant} notes must mention the K value ({K}); got {text!r}"
+
+
+# ---------------------------------------------------------------------------
+# Cross-suite ensemble-config parity.  The §11b vs §13 comparison is only
+# valid if both suites use the same K / hidden / transforms / n_samples.
+# ---------------------------------------------------------------------------
+
+
+def test_nf_ensemble_constants_match_across_suites() -> None:
+    """`_NF_ENSEMBLE_K / HIDDEN / TRANSFORMS` must be identical between scalar and multivariate suites.
+
+    If anyone tweaks one suite's constants without the other, the cross-suite
+    NF_Ensemble_K5 comparison in PARITY_REPORT.md §11b becomes invalid silently.
+
+    NOTE: `_NF_ENSEMBLE_N_SAMPLES` is intentionally allowed to differ across
+    suites because the per-test-point memory cost scales with
+    ``(K * N_SAMPLES * D)``, where D = output dimensionality (1 for scalar,
+    3 for MV).  Scalar distributional_bins uses 256 (sized for D=1, hundreds
+    of KB per test point); multivariate_intervals uses 512 (sized for D=3,
+    ~18 MB per test point on synthetic_multivariate).  Bumping both to the
+    same value would either over-allocate scalar (no benefit) or starve MV
+    coverage estimation.
+    """
+    scalar = DistributionalBinsSuite
+    mv = MultivariateIntervalsSuite
+    assert scalar._NF_ENSEMBLE_K_REFERENCE == mv._NF_ENSEMBLE_K_REFERENCE, (
+        f"K differs: scalar={scalar._NF_ENSEMBLE_K_REFERENCE}, mv={mv._NF_ENSEMBLE_K_REFERENCE}"
+    )
+    assert scalar._NF_ENSEMBLE_HIDDEN == mv._NF_ENSEMBLE_HIDDEN
+    assert scalar._NF_ENSEMBLE_TRANSFORMS == mv._NF_ENSEMBLE_TRANSFORMS
+
+
+def test_nf_ensemble_k_sweep_min_smoke_completes() -> None:
+    """Smoke execution: NF_Ensemble_K2 fit+predict must not crash.
+
+    Regression target: the original AttributeError bug (when method_names
+    were added without updating fit()/predict() dispatch) escaped the
+    registration-only smoke tests in this file.  This 1-iteration smoke
+    runs the actual code path with K=2 (smallest non-single ensemble) to
+    catch future dispatch regressions.
+
+    Uses load_dataset() directly instead of _carve_calibration_split() because
+    NF_Ensemble_K2 only needs X_train/y_train (the carver's X_test/y_test/X_cal
+    keys would trip our rewrap).
+    """
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = DistributionalBinsSuite()
+    cfg = HarnessConfig(
+        seed=42,
+        epochs=1,
+        batch_size=64,
+        standardize_targets=True,
+    )
+    splits = load_dataset("synthetic_hetero", n_samples=60, standardize_targets=True)
+    model_state = suite.fit("NF_Ensemble_K2", splits, cfg)
+    assert model_state["type"] == "nflow_ensemble"
+    assert len(model_state["members"]) == 2
+    assert model_state["K"] == 2
+    preds = suite.predict("NF_Ensemble_K2", model_state, splits["X_test"], cfg)
+    n_test = len(splits["X_test"])
+    assert preds["samples"].shape == (n_test, 2 * 256), (
+        f"expected ({n_test}, 512) pooled samples for K=2; got {preds['samples'].shape}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Split_CP (post-hoc split conformal prediction) carve-then-fit regression
+# lock.  When fit() was refactored so that X_cal/y_cal are extracted only
+# inside the Split_CP branch, a future bug that breaks the carve-then-fit
+# chain (carver forwarding wrong keys, fit() misreading X_cal/y_cal, etc.)
+# would otherwise escape every other test in this file.  This 1-iteration
+# smoke simulates exactly the run() flow used in production.
+# ---------------------------------------------------------------------------
+
+
+def test_split_cp_carve_then_fit_smoke_completes() -> None:
+    """Split_CP carve-then-fit dispatch smoke.
+
+    Regression target introduced by the §14 X_cal extraction move: previously
+    X_cal/y_cal were extracted unconditionally at the top of fit(), so Split_CP
+    was effectively self-contained.  After the move, fit() extracts them only
+    inside the Split_CP branch, which means the consumer (run()) MUST pre-carve
+    the split and forward ``X_cal``/``y_cal`` as input keys.  This test runs
+    exactly that chain via ``_carve_calibration_split`` and asserts the
+    distributor returns ``"split_cp"`` rather than crashing with KeyError or
+    silently training on misshaped data.
+    """
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+    from suites._backbones import _carve_calibration_split
+
+    suite = DistributionalBinsSuite()
+    cfg = HarnessConfig(
+        seed=42,
+        epochs=1,
+        batch_size=64,
+        standardize_targets=True,
+    )
+    splits = load_dataset("synthetic_hetero", n_samples=60, standardize_targets=True)
+    augmented = _carve_calibration_split(
+        splits,
+        cal_frac=0.3,
+        seed=cfg.seed,
+        smoke=cfg.smoke,
+        suite_name=suite.name,
+        forward_keys=("X_test", "y_test"),
+    )
+    # Carve contract: X_train/y_train shrink, X_cal/y_cal are produced,
+    # forwarded keys (X_test/y_test) are preserved.
+    assert "X_cal" in augmented and "y_cal" in augmented
+    assert "X_test" in augmented and "y_test" in augmented
+    assert len(augmented["X_cal"]) > 0 and len(augmented["X_train"]) > 0
+
+    model_state = suite.fit("Split_CP", augmented, cfg)
+    assert model_state["type"] == "split_cp", (
+        f"expected 'split_cp' (carve-then-fit dispatch); got {model_state['type']!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# normflows_NSF known-bad pattern lock-in (PARITY_REPORT.md §12).
+# `normflows_NSF` is intrinsically broken on the harness's 1-D tabular target
+# (broadcast error in the normflows library when combining `num_blocks>1` with
+# `num_context_channels≠None` on single-channel input).  The PzflowParitySuite
+# short-circuits the method via its `_KNOWN_BAD` registry and emits a
+# deterministic `known-bad:` row.  This test catches a future PR that:
+#   (a) accidentally drops `normflows_NSF` from `PzflowParitySuite.methods()`,
+#   (b) removes the `_KNOWN_BAD["normflows_NSF"]` entry, or
+#   (c) re-attempts the import and emits a `failed:` row (which would
+#       conflate the limitation with transient environment failures).
+# ---------------------------------------------------------------------------
+
+
+def test_pzflow_parity_normflows_nsf_emits_known_bad_row() -> None:
+    from harness.runners import HarnessConfig
+
+    suite = PzflowParitySuite()
+
+    # (a) Registration lock — method remains in methods() so it always surfaces.
+    assert "normflows_NSF" in suite.methods(), (
+        "normflows_NSF must remain in PzflowParitySuite.methods() so it appears in "
+        "the leaderboard even though it never runs (known-bad pattern)."
+    )
+
+    # (b) _KNOWN_BAD registry lock — method is in the known-bad string map.
+    assert "normflows_NSF" in PzflowParitySuite._KNOWN_BAD, (
+        f"PzflowParitySuite._KNOWN_BAD must include `normflows_NSF`; "
+        f"current keys: {sorted(PzflowParitySuite._KNOWN_BAD.keys())!r}"
+    )
+
+    # (c) End-to-end row emission — the synthesized row carries the exact
+    # `Notes` string the user/leaderboard contract expects, with null metrics.
+    rows = suite.run(
+        "synthetic_cond_gaussian",
+        config=HarnessConfig(seed=42, smoke=True, epochs=1, batch_size=64),
+    )
+    nb_row = next(
+        (r for r in rows if r["Method"].endswith("/normflows_NSF")),
+        None,
+    )
+    assert nb_row is not None, "normflows_NSF row must be emitted by run()"
+
+    expected_notes_prefix = (
+        "known-bad: normflows_NSF pzflow_parity #broadcast error on 1-D tabular inputs"
+    )
+    assert nb_row["Notes"] == expected_notes_prefix, (
+        f"known-bad Notes for normflows_NSF must match exactly; got {nb_row['Notes']!r}"
+    )
+
+    # All performance metrics are null on a known-bad row (the method never ran).
+    for metric in ("Coverage", "Width", "IntervalScore", "NLL"):
+        assert nb_row.get(metric) is None, (
+            f"{metric} must be None on a known-bad row; got {nb_row.get(metric)!r}"
+        )
+
+    # None of the keys must trigger tools/leaderboard_regression._is_skipped()
+    # i.e. not "skipped", "failed", or "error" — these are reserved for transient
+    # environment failures and missing imports.
+    from tools.leaderboard_regression import _is_skipped
+
+    assert not _is_skipped(nb_row), (
+        f"known-bad rows must NOT trigger _is_skipped (would be filtered out of "
+        f"the leaderboard); got Notes={nb_row['Notes']!r}"
+    )

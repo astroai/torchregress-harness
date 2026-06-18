@@ -15,6 +15,18 @@ import torch.optim as optim
 
 from harness.runners import HarnessConfig
 
+# ---------------------------------------------------------------------------
+# Shared NF-ensemble configuration (Proposal #10)
+#
+# `NF_ENSEMBLE_K_VARIANTS` is the canonical K-sweep tuple imported by every
+# suite that registers the K-sweep family (currently
+# `distributional_bins` and `multivariate_intervals`).  Hoisting it here
+# gives a single source of truth — if a future extension adds K=40 or K=50,
+# only this tuple needs updating, and every suite picks it up automatically.
+# ---------------------------------------------------------------------------
+
+NF_ENSEMBLE_K_VARIANTS = ("NF_Ensemble_K2", "NF_Ensemble_K5", "NF_Ensemble_K10", "NF_Ensemble_K20")
+
 
 class _MLP(nn.Module):
     """Three-layer MLP backbone (Linear→ReLU→Linear→ReLU→Linear).
@@ -36,10 +48,12 @@ class _MLP(nn.Module):
         ]
         if dropout_p > 0:
             layers.append(nn.Dropout(dropout_p))
-        layers.extend([
-            nn.Linear(hidden, hidden),
-            nn.ReLU(),
-        ])
+        layers.extend(
+            [
+                nn.Linear(hidden, hidden),
+                nn.ReLU(),
+            ]
+        )
         if dropout_p > 0:
             layers.append(nn.Dropout(dropout_p))
         layers.append(nn.Linear(hidden, out_dim))
@@ -98,7 +112,9 @@ def _train_one(
         Overrides ``config.lr``.
     """
     _epochs = epochs if epochs is not None else config.epochs if config is not None else 60
-    _batch = batch_size if batch_size is not None else config.batch_size if config is not None else 64
+    _batch = (
+        batch_size if batch_size is not None else config.batch_size if config is not None else 64
+    )
     _lr = lr if lr is not None else config.lr if config is not None else 1e-3
 
     params = list(model.parameters())
@@ -121,6 +137,62 @@ def _train_one(
             opt.step()
 
 
+def _train_lbfgs(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    X: torch.Tensor,
+    y: torch.Tensor,
+    *,
+    max_iter: int = 500,
+    tolerance_grad: float = 1e-7,
+    history_size: int = 100,
+) -> None:
+    """Train a model with LBFGS (full-batch quasi-Newton) to convergence.
+
+    Suitable for convex losses on linear models where LBFGS converges to
+    the same solution as IRLS / closed-form methods — enabling exact parity
+    with sklearn and statsmodels reference implementations.
+
+    Parameters
+    ----------
+    model : nn.Module
+    loss_fn : nn.Module
+    X : (N, D) float tensor
+    y : (N, 1) float tensor
+    max_iter : int
+        Maximum number of LBFGS iterations.
+    tolerance_grad : float
+        Convergence threshold on max absolute gradient component.
+    history_size : int
+        LBFGS memory size.
+    """
+    model.train()
+
+    params = list(model.parameters())
+    for p in loss_fn.parameters():
+        if p.requires_grad:
+            params.append(p)
+
+    opt = optim.LBFGS(
+        params,
+        lr=1.0,
+        max_iter=max_iter,
+        tolerance_grad=tolerance_grad,
+        history_size=history_size,
+        line_search_fn="strong_wolfe",
+    )
+
+    def _closure() -> torch.Tensor:
+        opt.zero_grad()
+        out = model(X)
+        loss = loss_fn(out, y)
+        loss.backward()
+        return loss
+
+    opt.step(_closure)
+    model.eval()
+
+
 # ---------------------------------------------------------------------------
 # Shared utilities
 # ---------------------------------------------------------------------------
@@ -132,7 +204,8 @@ def _hidden_size(in_dim: int) -> int:
 
 
 def _gaussian_nll_predict(
-    model: nn.Module, X: np.ndarray,
+    model: nn.Module,
+    X: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Extract predictive mean & std from a 2-output GaussianNLL model.
 
@@ -175,7 +248,7 @@ def _mixture_gaussian_stats(
     mixture_std  : (N,) numpy array
     """
     means_s = np.stack(means, axis=0)  # (K, N)
-    vars_s = np.stack([s ** 2 for s in stds], axis=0)
+    vars_s = np.stack([s**2 for s in stds], axis=0)
     mixture_mean = means_s.mean(axis=0)
     mixture_var = vars_s.mean(axis=0) + means_s.var(axis=0, ddof=0)
     mixture_std = np.sqrt(np.maximum(mixture_var, 1e-8))

@@ -54,6 +54,7 @@ class HarnessConfig:
     lr: float = 1e-3
     device: str = "cpu"
     smoke: bool = False  # if True, use tiny data/fewer epochs for CI
+    standardize_targets: bool = True  # if True, StandardScaler on y_train/y_test
     output_dir: str = "results/latest"
 
 
@@ -194,6 +195,8 @@ class HarnessRunner(ABC):
         scenario_name: str | None,
         dataset_name: str,
         splits: dict[str, np.ndarray] | None,
+        *,
+        standardize_targets: bool = True,
     ) -> tuple[str, dict[str, np.ndarray] | None]:
         """Validate, resolve, and merge a canonical scenario.
 
@@ -217,7 +220,9 @@ class HarnessRunner(ABC):
                 f"{scenario_name!r}. Supported: {self.canonical_scenarios}"
             )
 
-        scenario_dataset_key, scenario_splits = self._resolve_scenario(scenario_name)
+        scenario_dataset_key, scenario_splits = self._resolve_scenario(
+            scenario_name, standardize_targets=standardize_targets,
+        )
 
         effective_dataset = dataset_name if dataset_name else scenario_dataset_key
 
@@ -233,7 +238,9 @@ class HarnessRunner(ABC):
         return effective_dataset, effective_splits
 
     @staticmethod
-    def _resolve_scenario(scenario_name: str) -> tuple[str, dict[str, np.ndarray]]:
+    def _resolve_scenario(
+        scenario_name: str, *, standardize_targets: bool = True,
+    ) -> tuple[str, dict[str, np.ndarray]]:
         """Resolve a canonical scenario into (dataset_key, loaded_splits_with_metadata).
 
         Looks up ``scenario_name`` in ``CANONICAL_SCENARIOS``, loads the
@@ -264,7 +271,11 @@ class HarnessRunner(ABC):
         loader_kwargs: dict[str, Any] = (
             dict(scenario.loader_kwargs) if scenario.loader_kwargs else {}
         )
-        splits = load_dataset(scenario.dataset_key, **loader_kwargs)
+        splits = load_dataset(
+            scenario.dataset_key,
+            standardize_targets=standardize_targets,
+            **loader_kwargs,
+        )
 
         # Attach scenario metadata so suite run() overrides can consume them
         splits["_scenario"] = scenario.scenario_name
@@ -312,13 +323,14 @@ class HarnessRunner(ABC):
         # --- Resolve canonical scenario (reusable helper for sub-suites) ---
         dataset_name, splits = self._prepare_scenario_run(
             scenario_name, dataset_name, splits,
+            standardize_targets=cfg.standardize_targets,
         )
 
         # --- Load dataset if not already loaded ---
         if splits is None:
             from .datasets import load_dataset
 
-            splits = load_dataset(dataset_name)
+            splits = load_dataset(dataset_name, standardize_targets=cfg.standardize_targets)
 
         # Data extracted once (splits is guaranteed non-None after the guard above)
         X_train: np.ndarray = splits["X_train"]

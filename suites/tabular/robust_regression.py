@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from sklearn.linear_model import QuantileRegressor
 
 # ---------------------------------------------------------------------------
 # Torchregress robust losses — all hard dependencies (from torchregress)
@@ -29,6 +30,7 @@ from torchregress.losses import (
     CauchyLoss,
     CharbonnierLoss,
     LogCoshLoss,
+    MultiQuantileLoss,
     PseudoHuberLoss,
     TukeyBiweightLoss,
     WeightedHuberLoss,
@@ -38,7 +40,7 @@ from torchregress.losses import (
 
 from harness.core import set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
-from suites._backbones import _MLP, _hidden_size, _train_one
+from suites._backbones import _MLP, _hidden_size, _Linear, _train_lbfgs, _train_one
 
 # ---------------------------------------------------------------------------
 # Optional external gradient-boosting libraries
@@ -57,6 +59,13 @@ try:
     _XGBOOST_AVAILABLE = True
 except ImportError:
     _XGBOOST_AVAILABLE = False
+
+try:
+    import statsmodels.api as sm
+
+    _STATSMODELS_AVAILABLE = True
+except ImportError:
+    _STATSMODELS_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +107,7 @@ class RobustRegressionSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Robust regression losses vs LightGBM / XGBoost on outlier data"
+        return "Robust regression: Huber_Linear parity (LBFGS) vs statsmodels RLM vs MLP losses"
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -117,7 +126,16 @@ class RobustRegressionSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def methods(self) -> list[str]:
-        methods = list(_TORCHREGRESS_LOSSES.keys())
+        # Linear + LBFGS parity variants for every loss (matches statsmodels RLM)
+        linear_methods = [f"{name}_Linear" for name in _TORCHREGRESS_LOSSES]
+        # MLP + Adam variants (original)
+        mlp_methods = list(_TORCHREGRESS_LOSSES.keys())
+        methods = linear_methods + mlp_methods + [
+            "Quantile_Linear",          # torchregress: _Linear + MultiQuantileLoss via LBFGS
+            "sklearn_QuantileRegressor", # sklearn: QuantileRegressor via LP
+        ]
+        if _STATSMODELS_AVAILABLE:
+            methods.append("statsmodels_RLM")
         if _LIGHTGBM_AVAILABLE:
             methods.append("LightGBM")
         if _XGBOOST_AVAILABLE:
@@ -129,9 +147,24 @@ class RobustRegressionSuite(HarnessRunner):
             return "LightGBM"
         if method == "XGBoost":
             return "XGBoost"
+        if method == "statsmodels_RLM":
+            return "statsmodels"
+        if method == "sklearn_QuantileRegressor":
+            return "sklearn"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
+        if method == "statsmodels_RLM":
+            return "IRLS + HuberT(delta=1.345) — gold-standard ground truth"
+        if method == "Quantile_Linear":
+            return "linear model + MultiQuantileLoss(q=0.5) via LBFGS — parity with sklearn QuantileRegressor"
+        if method == "sklearn_QuantileRegressor":
+            return "linear median regression via linear programming (solver=highs)"
+        if method.endswith("_Linear"):
+            base = method[:-7]  # strip "_Linear" suffix
+            if base in _TORCHREGRESS_LOSSES:
+                return f"linear model + {base}Loss via LBFGS — parity reference"
+            return "linear model via LBFGS"
         if method in _TORCHREGRESS_LOSSES:
             return _TORCHREGRESS_LOSSES[method][1]
         if method == "LightGBM":
@@ -152,8 +185,43 @@ class RobustRegressionSuite(HarnessRunner):
         X_train_np = splits["X_train"]
         y_train_np = splits["y_train"].reshape(-1)
 
-        # --- Torchregress methods ---
-        if method in _TORCHREGRESS_LOSSES:
+        # --- sklearn QuantileRegressor (LP-based median regression) ---
+        if method == "sklearn_QuantileRegressor":
+            qr = QuantileRegressor(quantile=0.5, alpha=0.0, fit_intercept=True, solver="highs")
+            qr.fit(X_train_np, y_train_np)
+            return {"type": "sklearn_qr", "model": qr}
+
+        # --- Torchregress: Quantile_Linear (LBFGS parity with sklearn QuantileRegressor) ---
+        elif method == "Quantile_Linear":
+            X = torch.from_numpy(X_train_np).float()
+            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+
+            in_dim = X.shape[1]
+            model = _Linear(in_dim, out_dim=1)  # single Linear with bias
+            loss_fn = MultiQuantileLoss(quantiles=[0.5])
+            _train_lbfgs(model, loss_fn, X, y, max_iter=500, tolerance_grad=1e-7)
+
+            return {"type": "torch", "model": model}
+
+        # --- Torchregress: _Linear variants (LBFGS, parity with statsmodels RLM) ---
+        elif method.endswith("_Linear"):
+            base = method[:-7]  # strip "_Linear" suffix
+            if base not in _TORCHREGRESS_LOSSES:
+                raise ValueError(f"Unknown _Linear variant: {method}")
+
+            X = torch.from_numpy(X_train_np).float()
+            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+
+            in_dim = X.shape[1]
+            model = _Linear(in_dim, out_dim=1)  # single Linear with bias
+            loss_factory = _TORCHREGRESS_LOSSES[base][0]
+            loss_fn = loss_factory()
+            _train_lbfgs(model, loss_fn, X, y, max_iter=500, tolerance_grad=1e-7)
+
+            return {"type": "torch", "model": model}
+
+        # --- Torchregress MLP losses ---
+        elif method in _TORCHREGRESS_LOSSES:
             X = torch.from_numpy(X_train_np).float()
             y = torch.from_numpy(y_train_np).float().unsqueeze(1)
 
@@ -167,6 +235,18 @@ class RobustRegressionSuite(HarnessRunner):
             model.eval()
 
             return {"type": "torch", "model": model}
+
+        # --- statsmodels RLM (ground truth) ---
+        elif method == "statsmodels_RLM":
+            # Add intercept column (statsmodels convention)
+            X_const = sm.add_constant(X_train_np, prepend=True)
+            rlm = sm.RLM(
+                y_train_np,
+                X_const,
+                M=sm.robust.norms.HuberT(t=1.345),
+            )
+            result = rlm.fit(maxiter=100)
+            return {"type": "statsmodels_rlm", "model": result}
 
         # --- LightGBM ---
         elif method == "LightGBM":
@@ -209,6 +289,11 @@ class RobustRegressionSuite(HarnessRunner):
                 y_pred = m(X).squeeze(-1).numpy()
             return {"y_pred": y_pred}
 
+        elif model_type == "sklearn_qr":
+            qr = model_state["model"]
+            y_pred = qr.predict(X_test).reshape(-1)
+            return {"y_pred": y_pred}
+
         elif model_type == "lgbm":
             booster = model_state["model"]
             y_pred = booster.predict(X_test, num_iteration=booster.best_iteration)
@@ -217,6 +302,12 @@ class RobustRegressionSuite(HarnessRunner):
         elif model_type == "xgb":
             booster = model_state["model"]
             y_pred = booster.predict(xgb.DMatrix(X_test))
+            return {"y_pred": np.asarray(y_pred).reshape(-1)}
+
+        elif model_type == "statsmodels_rlm":
+            result = model_state["model"]
+            X_const = sm.add_constant(X_test, prepend=True)
+            y_pred = result.predict(X_const)
             return {"y_pred": np.asarray(y_pred).reshape(-1)}
 
         raise ValueError(f"Unknown model type: {model_type}")

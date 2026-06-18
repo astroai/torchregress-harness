@@ -215,6 +215,7 @@ def _load_synthetic_tweedie(
     return {
         "X_train": X_train, "X_test": X_test,
         "y_train": y_train, "y_test": y_test,
+        "_skip_y_standardization": True,  # preserve zero-inflated Tweedie distribution
     }
 
 
@@ -246,6 +247,267 @@ def _load_synthetic_censored(
         "y_train": y_train, "y_test": y_test,
         "censoring_train": codes_train, "censoring_test": codes_test,
         "_skip_y_standardization": True,  # preserve censoring threshold semantics
+    }
+
+
+def _load_synthetic_multivariate(
+    n_samples: int = 2000, n_features: int = 8,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic data with 3 correlated output dimensions.
+
+    Targets are correlated: y1 depends on y0, y2 depends on both y0 and y1.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+
+    y0 = (0.7 * X[:, 0] - 0.5 * X[:, 1] + 0.3 * np.sin(1.6 * X[:, 2])
+          + 0.15 * rng.standard_normal(n_samples)).astype(np.float32)
+    y1 = (0.5 * y0 + 0.4 * X[:, 3] - 0.3 * X[:, 4]
+          + 0.2 * rng.standard_normal(n_samples)).astype(np.float32)
+    y2 = (-0.3 * y0 + 0.4 * y1 + 0.6 * X[:, 5] - 0.2 * X[:, 6]
+          + 0.25 * rng.standard_normal(n_samples)).astype(np.float32)
+
+    y = np.column_stack([y0, y1, y2]).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_multi_output": True,
+        "_skip_y_standardization": True,  # preserve (N, D) shape for multi-output
+    }
+
+
+def _load_synthetic_mv_gaussian(
+    n_samples: int = 2000, n_features: int = 8,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic 3D targets from a purely multivariate Gaussian.
+
+    y | X ~ N(μ(X), Σ) where Σ is a fixed covariance matrix with
+    cross-dimension correlations.  This is the correctly-specified
+    setting for GaussianNLL and MultivariateGaussian — they should
+    achieve optimal IntervalScore here.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+
+    # Conditional mean depends on X
+    mu0 = 0.7 * X[:, 0] - 0.5 * X[:, 1]
+    mu1 = 0.4 * X[:, 2] - 0.3 * X[:, 3]
+    mu2 = 0.6 * X[:, 4] - 0.2 * X[:, 5]
+    mu = np.column_stack([mu0, mu1, mu2])
+
+    # Fixed covariance with correlations
+    cov = np.array([
+        [1.0,  0.6, -0.3],
+        [0.6,  0.8,  0.2],
+        [-0.3, 0.2,  1.2],
+    ], dtype=np.float32)
+    L = np.linalg.cholesky(cov)
+
+    y = (mu + rng.standard_normal((n_samples, 3)) @ L.T).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+    }
+
+
+def _load_synthetic_mv_nongaussian(
+    n_samples: int = 2000, n_features: int = 8,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic 3D targets with non-Gaussian conditional distributions.
+
+    y0: μ₀(X) + t₃(ν=4) noise  — heavy-tailed
+    y1: μ₁(X) + χ²(3) noise    — right-skewed
+    y2: μ₂(X) + bimodal        — 0.5·N(-1,0.3²) + 0.5·N(1,0.3²)
+
+    This is the *misspecified* setting for Gaussian methods — the true
+    conditional p(y|X) is non-Gaussian, so NormalizingFlow and SLS
+    should outperform.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+
+    # Conditional means (same structure as Gaussian dataset for fair comparison)
+    mu0 = 0.7 * X[:, 0] - 0.5 * X[:, 1]
+    mu1 = 0.4 * X[:, 2] - 0.3 * X[:, 3]
+    mu2 = 0.6 * X[:, 4] - 0.2 * X[:, 5]
+
+    # Non-Gaussian noise — each dimension scaled to unit variance
+    #   t₄ variance = ν/(ν-2) = 2   → scale = 1/√2 ≈ 0.707
+    #   χ²(3) variance = 2·ν = 6    → scale = 1/√6 ≈ 0.408
+    #   bimodal already ≈ 1.09 → close enough, leave unscaled
+    y0 = mu0 + rng.standard_t(df=4, size=n_samples).astype(np.float32) * 0.707
+    y1 = mu1 + (rng.chisquare(df=3, size=n_samples) - 3).astype(np.float32) * 0.408
+    bimodal_comp = rng.choice(2, size=n_samples)
+    bimodal_noise = np.where(
+        bimodal_comp == 0,
+        rng.normal(-1.0, 0.3, n_samples),
+        rng.normal(1.0, 0.3, n_samples),
+    ).astype(np.float32)
+    y2 = mu2 + bimodal_noise
+
+    y = np.column_stack([y0, y1, y2]).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+    }
+
+def _load_synthetic_mv_bimodal(
+    n_samples: int = 2000, n_features: int = 8,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic 3D targets from a mixture of two multivariate Gaussians.
+
+    y | X ~ 0.5·N(μ₁(X), Σ₁) + 0.5·N(μ₂(X), Σ₂)
+
+    The two components have different mean offsets and covariance matrices,
+    creating a bimodal conditional distribution.  Gaussian methods (GaussianNLL,
+    MultivariateGaussian) can only fit a single Gaussian — they will place their
+    mean between the two modes and inflate variance.  NormalizingFlow and SLS
+    should capture the bimodality and produce tighter, better-calibrated intervals.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+
+    # Shared base mean (identical to other MV datasets for comparability)
+    mu0 = 0.7 * X[:, 0] - 0.5 * X[:, 1]
+    mu1 = 0.4 * X[:, 2] - 0.3 * X[:, 3]
+    mu2 = 0.6 * X[:, 4] - 0.2 * X[:, 5]
+    mu_base = np.column_stack([mu0, mu1, mu2])
+
+    # Two modes with distinct means and covariances
+    # 3.5σ separation → <1% overlap, definitive stress test
+    offset = np.array([3.5, -2.5, 2.5], dtype=np.float32)
+    mu_a = mu_base
+    mu_b = mu_base + offset[np.newaxis, :]
+
+    # Different covariance per component
+    cov_a = np.array([
+        [1.0,  0.3,  0.0],
+        [0.3,  0.6,  0.0],
+        [0.0,  0.0,  0.8],
+    ], dtype=np.float32)
+    cov_b = np.array([
+        [0.5, -0.2,  0.1],
+        [-0.2,  0.7,  0.0],
+        [0.1,  0.0,  0.6],
+    ], dtype=np.float32)
+
+    L_a = np.linalg.cholesky(cov_a)
+    L_b = np.linalg.cholesky(cov_b)
+
+    # Sample from mixture
+    comp = rng.choice(2, size=n_samples, p=[0.5, 0.5])
+    noise = rng.standard_normal((n_samples, 3))
+    y = np.empty((n_samples, 3), dtype=np.float32)
+    mask_a = comp == 0
+    mask_b = comp == 1
+    y[mask_a] = mu_a[mask_a] + noise[mask_a] @ L_a.T
+    y[mask_b] = mu_b[mask_b] + noise[mask_b] @ L_b.T
+    y = y.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Conditional flow benchmark datasets (pzflow parity)
+# ---------------------------------------------------------------------------
+
+
+def _load_synthetic_cond_gaussian(
+    n_samples: int = 2000, n_features: int = 5,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate 1D target with Gaussian conditional distribution.
+
+    y | X ~ N(μ(X), σ²)  where μ(X) = X·β and σ = 0.3.
+
+    This is the correctly-specified setting for all flow methods —
+    the true conditional is exactly a Normal distribution, so flows
+    should converge to the theoretical NLL lower bound.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+    beta = np.array([1.0, -2.0, 0.5, 1.5, -0.8], dtype=np.float32)
+    mu = X @ beta
+    sigma = 0.3
+    y = (mu + sigma * rng.standard_normal(n_samples)).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_y_true_sigma": sigma,  # for computing theoretical NLL lower bound
+    }
+
+
+def _load_synthetic_cond_nongaussian(
+    n_samples: int = 2000, n_features: int = 5,
+    test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate 1D target with non-Gaussian conditional distribution.
+
+    y | X = μ(X) + ε  where ε are i.i.d. draws from a 3-component
+    Gaussian mixture: 0.3·N(-0.8, 0.15²) + 0.4·N(0.2, 0.3²) + 0.3·N(0.9, 0.12²).
+
+    The mixture has mean ≈ 0, variance ≈ 1 (after scaling).
+    This is *misspecified* for diagonal Gaussian — flows should capture
+    the multi-modal conditional density.
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+    beta = np.array([1.0, -2.0, 0.5, 1.5, -0.8], dtype=np.float32)
+    mu = X @ beta
+
+    # 3-component Gaussian mixture noise (unit variance after scaling)
+    comp = rng.choice(3, size=n_samples, p=[0.3, 0.4, 0.3])
+    eps = np.where(
+        comp == 0,
+        rng.normal(-0.8, 0.15, n_samples),
+        np.where(
+            comp == 1,
+            rng.normal(0.2, 0.3, n_samples),
+            rng.normal(0.9, 0.12, n_samples),
+        ),
+    ).astype(np.float32)
+    # Scale to unit variance
+    eps = eps / np.std(eps).item()
+    y = (mu + eps).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
     }
 
 
@@ -463,6 +725,47 @@ def _load_make_regression_synthetic(
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
         "y_test": y_test.astype(np.float32),
+    }
+
+
+def _load_synthetic_ordinal(
+    n_samples: int = 2000,
+    n_features: int = 6,
+    n_classes: int = 5,
+    *,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Synthetic ordinal regression data.
+
+    Generates continuous targets as a linear combination of features
+    plus noise, then discretises into ``n_classes`` ordinal bins
+    using quantile-based thresholds.  Returns class indices 0..K-1.
+    """
+    import numpy as np
+    from sklearn.model_selection import train_test_split
+
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+    # True continuous target
+    y_cts = (
+        0.8 * X[:, 0] - 0.6 * X[:, 1] + 0.4 * X[:, 2]
+        + 0.3 * rng.standard_normal(n_samples).astype(np.float32)
+    )
+    # Discretise into ordinal classes using quantile thresholds
+    thresholds = np.quantile(y_cts, np.linspace(0, 1, n_classes + 1)[1:-1])
+    y = np.digitize(y_cts, thresholds).astype(np.int64)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "n_classes": n_classes,
+        "_skip_y_standardization": True,
     }
 
 
@@ -740,6 +1043,14 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         description="Synthetic right-censored targets at 70th percentile of true values.",
         loader=_registry_loader(_load_synthetic_censored),
     ),
+    "synthetic_ordinal": DatasetInfo(
+        name="synthetic_ordinal",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Synthetic ordinal regression (5 classes from quantile-binned continuous target)",
+        loader=_registry_loader(_load_synthetic_ordinal),
+    ),
     "synthetic_eiv": DatasetInfo(
         name="synthetic_eiv",
         category="synthetic",
@@ -747,6 +1058,73 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_samples=2000,
         description="Synthetic errors-in-variables with noisy input measurements.",
         loader=_registry_loader(_load_synthetic_eiv),
+    ),
+    "synthetic_multivariate": DatasetInfo(
+        name="synthetic_multivariate",
+        category="synthetic",
+        n_features=8,
+        n_samples=2000,
+        description=(
+            "Synthetic 3D correlated targets: "
+            "y0, y1=0.5*y0+f1(X), y2=-0.3*y0+0.4*y1+f2(X)."
+        ),
+        loader=_registry_loader(_load_synthetic_multivariate),
+    ),
+    "synthetic_mv_gaussian": DatasetInfo(
+        name="synthetic_mv_gaussian",
+        category="synthetic",
+        n_features=8,
+        n_samples=2000,
+        description=(
+            "Purely multivariate Gaussian 3D targets: "
+            "y|X ~ N(μ(X), Σ). Correctly specified for Gaussian methods."
+        ),
+        loader=_registry_loader(_load_synthetic_mv_gaussian),
+    ),
+    "synthetic_mv_nongaussian": DatasetInfo(
+        name="synthetic_mv_nongaussian",
+        category="synthetic",
+        n_features=8,
+        n_samples=2000,
+        description=(
+            "Non-Gaussian 3D targets: t₃ heavy tails + χ² skew + bimodal. "
+            "Misspecified for Gaussian methods."
+        ),
+        loader=_registry_loader(_load_synthetic_mv_nongaussian),
+    ),
+    "synthetic_mv_bimodal": DatasetInfo(
+        name="synthetic_mv_bimodal",
+        category="synthetic",
+        n_features=8,
+        n_samples=2000,
+        description=(
+            "Bimodal 3D targets: 0.5·N(μ₁,Σ₁) + 0.5·N(μ₂,Σ₂). "
+            "Gaussian methods fail — NF/SLS should excel."
+        ),
+        loader=_registry_loader(_load_synthetic_mv_bimodal),
+    ),
+    # --- Conditional flow benchmarks (pzflow parity) ---
+    "synthetic_cond_gaussian": DatasetInfo(
+        name="synthetic_cond_gaussian",
+        category="synthetic",
+        n_features=5,
+        n_samples=2000,
+        description=(
+            "1D target with Gaussian conditional: y|X ~ N(X·β, 0.3²). "
+            "Correctly specified for all flow methods."
+        ),
+        loader=_registry_loader(_load_synthetic_cond_gaussian),
+    ),
+    "synthetic_cond_nongaussian": DatasetInfo(
+        name="synthetic_cond_nongaussian",
+        category="synthetic",
+        n_features=5,
+        n_samples=2000,
+        description=(
+            "1D target with non-Gaussian conditional: y|X has 3-component "
+            "mixture noise. Misspecified for Gaussian — flows should excel."
+        ),
+        loader=_registry_loader(_load_synthetic_cond_nongaussian),
     ),
     # --- Upstream canonical datasets ---
     "insurance_claims": DatasetInfo(
@@ -830,7 +1208,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             dataset_id="cooking",
             n_rows=319986,
             n_features=192,
-            n_samples=50000,
+            n_samples=10000,
         ),
     ),
     "tabred_delivery": DatasetInfo(
@@ -848,7 +1226,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             dataset_id="delivery",
             n_rows=416451,
             n_features=223,
-            n_samples=50000,
+            n_samples=10000,
         ),
     ),
     "tabred_maps": DatasetInfo(
@@ -884,7 +1262,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             dataset_id="weather",
             n_rows=423795,
             n_features=103,
-            n_samples=50000,
+            n_samples=10000,
         ),
     ),
 }
@@ -904,6 +1282,8 @@ def load_dataset(name: str, **kwargs: Any) -> dict[str, np.ndarray]:
 
     Args:
         name: Dataset key from ``DATASET_REGISTRY``.
+        standardize_targets: If False, skip target standardisation.
+            Overrides ``_skip_y_standardization`` in dataset loaders.
         **kwargs: Override default loader parameters (e.g., ``n_samples=500``).
 
     Returns:
@@ -914,10 +1294,13 @@ def load_dataset(name: str, **kwargs: Any) -> dict[str, np.ndarray]:
         raise KeyError(
             f"Unknown dataset: {name!r}. Available: {sorted(DATASET_REGISTRY.keys())}"
         )
+    # Pop harness-level kwargs before passing through to the dataset loader
+    standardize = bool(kwargs.pop("standardize_targets", True))
     splits = DATASET_REGISTRY[name].loader(**kwargs)
 
     # Standardise targets unless the dataset opts out (Tweedie, censored)
-    if not splits.get("_skip_y_standardization"):
+    # or the harness is explicitly configured to skip standardisation.
+    if standardize and not splits.get("_skip_y_standardization"):
         y_scaler = StandardScaler()
         y_scaler.fit(splits["y_train"].reshape(-1, 1))
         splits["y_train"] = (

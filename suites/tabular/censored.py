@@ -7,10 +7,11 @@ losses and evaluates point-prediction quality on the observed data.
 
 Methods
 ------
-- MSE                  : MLP + WeightedMSELoss (ignores censoring — baseline)
-- CensoredGaussianNLL  : MLP + CensoredGaussianNLLLoss (censored Gaussian NLL)
-- CensoredQuantile     : MLP + CensoredQuantileLoss (censored quantile / median)
-- AFT                  : MLP + AFTLoss (log-normal accelerated failure time)
+- MSE                      : MLP + WeightedMSELoss (ignores censoring — baseline)
+- CensoredGaussianNLL      : MLP + CensoredGaussianNLLLoss (censored Gaussian NLL)
+- CensoredQuantile         : MLP + CensoredQuantileLoss (censored quantile / median)
+- AFT                      : MLP + AFTLoss (log-normal accelerated failure time)
+- lifelines_LogNormalAFT   : lifelines.LogNormalAFTFitter (log-normal AFT, external)
 """
 
 from __future__ import annotations
@@ -31,6 +32,14 @@ from torchregress.losses import (
     CensoredQuantileLoss,
     WeightedMSELoss,
 )
+
+# Optional external censored regression packages
+try:
+    import pandas as pd
+    from lifelines import LogNormalAFTFitter
+    _LIFELINES_AVAILABLE = True
+except ImportError:
+    _LIFELINES_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -118,9 +127,14 @@ class CensoredSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        return ["MSE", "CensoredGaussianNLL", "CensoredQuantile", "AFT"]
+        methods = ["MSE", "CensoredGaussianNLL", "CensoredQuantile", "AFT"]
+        if _LIFELINES_AVAILABLE:
+            methods.append("lifelines_LogNormalAFT")
+        return methods
 
     def library_name(self, method: str) -> str:
+        if method.startswith("lifelines"):
+            return "lifelines"
         return "torchregress"
 
     # ------------------------------------------------------------------
@@ -170,6 +184,24 @@ class CensoredSuite(HarnessRunner):
             _train_censored(model, loss_fn, X, y, censoring, config)
             return {"type": "torch", "model": model}
 
+        elif method == "lifelines_LogNormalAFT":
+            # lifelines uses 1=observed, 0=censored (opposite of torchregress convention)
+            feature_cols = [f"x{i}" for i in range(X_train_np.shape[1])]
+            event = 1 - censoring_np.astype(int)
+            y_raw = y_train_np.ravel()
+            # LogNormalAFTFitter requires strictly positive durations — shift if needed
+            y_min = float(y_raw.min())
+            y_shift = 0.0
+            if y_min <= 0:
+                y_shift = abs(y_min) + 1.0
+            y_pos = y_raw + y_shift
+            df = pd.DataFrame(X_train_np, columns=feature_cols)
+            df["duration"] = y_pos
+            df["event"] = event.ravel()
+            aft = LogNormalAFTFitter()
+            aft.fit(df, duration_col="duration", event_col="event")
+            return {"type": "lifelines", "model": aft, "feature_cols": feature_cols, "y_shift": y_shift}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -184,6 +216,19 @@ class CensoredSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         del method, config
+        model_type = model_state.get("type", "torch")
+
+        if model_type == "lifelines":
+            m = model_state["model"]
+            feature_cols = model_state["feature_cols"]
+            y_shift = model_state.get("y_shift", 0.0)
+            df_test = pd.DataFrame(X_test, columns=feature_cols)
+            y_pred = np.asarray(m.predict_expectation(df_test), dtype=np.float64)
+            if y_shift != 0.0:
+                y_pred = y_pred - y_shift
+            return {"y_pred": y_pred}
+
+        # Torch models
         m = model_state["model"]
         with torch.no_grad():
             X = torch.from_numpy(X_test).float()
@@ -241,6 +286,9 @@ class CensoredSuite(HarnessRunner):
             ),
             "AFT": (
                 "MLP + AFTLoss — log-normal accelerated failure time model"
+            ),
+            "lifelines_LogNormalAFT": (
+                "lifelines.LogNormalAFTFitter — log-normal AFT (parametric, external)"
             ),
         }
         return notes.get(method, "")

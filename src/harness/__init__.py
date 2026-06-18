@@ -20,6 +20,13 @@ from harness.datasets import (
     list_datasets,
     load_dataset,
 )
+
+# Apply PROPOSAL #15 protocol patches to torchregress distribution losses.
+# Idempotent — guarded by the _PATCH_SENTINEL attribute on each class.
+# Importing this module therefore completes the ``log_prob`` /
+# ``predict_interval`` surface on MixtureDensityLoss / NormalizingFlowLoss
+# before any test or suite runs.
+from harness.loss_augments import install_loss_protocol_augments  # noqa: E402, F401
 from harness.metrics import (
     compute_all_metrics,
     compute_calibration_metrics,
@@ -28,6 +35,14 @@ from harness.metrics import (
 )
 from harness.report import load_run, render_markdown, render_report_file
 from harness.runners import HarnessConfig, HarnessRunner
+from harness.wrappers import (
+    EvidentialRegressor,
+    GaussianNLLRegressor,
+    MDNRegressor,
+    NormalizingFlowRegressor,
+)
+
+install_loss_protocol_augments()
 
 __all__ = [
     # core
@@ -52,6 +67,11 @@ __all__ = [
     # runners
     "HarnessConfig",
     "HarnessRunner",
+    # wrappers (Proposal #3 — sklearn-style fit/predict API)
+    "GaussianNLLRegressor",
+    "MDNRegressor",
+    "EvidentialRegressor",
+    "NormalizingFlowRegressor",
     # report
     "load_run",
     "render_markdown",

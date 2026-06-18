@@ -16,6 +16,7 @@ from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+from suites.tabular.ordinal import OrdinalSuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
@@ -34,6 +35,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "ensembles": EnsemblesSuite,
     "uq": UQSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
+    "ordinal": OrdinalSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
     "pzflow_parity": PzflowParitySuite,

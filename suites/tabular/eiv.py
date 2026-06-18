@@ -12,6 +12,7 @@ Methods
 - StructuralEIV    : MLP + StructuralEIVLoss (full cross-covariance model)
 - ODR              : MLP + OrthogonalDistanceRegressionLoss (latent-x opt)
 - EnsembleEIV      : MLP + EnsembleEIVLoss (Monte-Carlo input perturbation)
+- TLS              : Total Least Squares via SVD (orthogonal distance, external)
 """
 
 from __future__ import annotations
@@ -107,9 +108,11 @@ class EIVSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        return ["MSE", "FunctionalEIV", "StructuralEIV", "ODR", "EnsembleEIV"]
+        return ["MSE", "FunctionalEIV", "StructuralEIV", "ODR", "EnsembleEIV", "TLS"]
 
     def library_name(self, method: str) -> str:
+        if method == "TLS":
+            return "numpy"
         return "torchregress"
 
     # ------------------------------------------------------------------
@@ -176,6 +179,24 @@ class EIVSuite(HarnessRunner):
             _train_eiv(model, loss_fn, X, y, config)
             return {"type": "torch", "model": model}
 
+        elif method == "TLS":
+            # Total Least Squares via SVD — minimises orthogonal distances
+            X_np = X_train_np.astype(np.float64)
+            y_np = y_train_np.ravel().astype(np.float64)
+            # Centre the data
+            X_mean = X_np.mean(axis=0)
+            y_mean = y_np.mean()
+            X_c = X_np - X_mean
+            y_c = y_np - y_mean
+            # SVD of the augmented matrix [X_c | y_c]
+            Z = np.column_stack([X_c, y_c])
+            _, _, Vt = np.linalg.svd(Z, full_matrices=False)
+            # Solution from the right singular vector of the smallest singular value
+            V = Vt[-1]  # last row = smallest singular vector
+            beta = -V[:-1] / V[-1]
+            intercept = y_mean - X_mean @ beta
+            return {"type": "tls", "coef": beta, "intercept": intercept}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -190,6 +211,15 @@ class EIVSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         del method, config
+        model_type = model_state.get("type", "torch")
+
+        if model_type == "tls":
+            beta = model_state["coef"]
+            intercept = model_state["intercept"]
+            y_pred = X_test @ beta + intercept
+            return {"y_pred": y_pred}
+
+        # Torch models
         m = model_state["model"]
         with torch.no_grad():
             X = torch.from_numpy(X_test).float()
@@ -244,6 +274,9 @@ class EIVSuite(HarnessRunner):
             ),
             "EnsembleEIV": (
                 "MLP + EnsembleEIVLoss — Monte-Carlo input perturbation averaging"
+            ),
+            "TLS": (
+                "Total Least Squares via SVD — minimises orthogonal distances (self-contained, numpy-only)"
             ),
         }
         return notes.get(method, "")
