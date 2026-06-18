@@ -534,6 +534,45 @@ def _load_synthetic_eiv(
         "X_train": X_train_obs, "X_test": X_test_obs,
         "y_train": y_train, "y_test": y_test,
         "X_train_true": X_train_true, "X_test_true": X_test_true,
+        "sigma_x": sigma_x,
+        "sigma_y": sigma_y,
+    }
+
+
+def _load_synthetic_eiv_nonlinear(
+    n_samples: int = 2000, n_features: int = 6,
+    sigma_x: float = 0.5, sigma_y: float = 0.1, test_size: float = 0.3, seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic EIV data with nonlinear ground truth.
+
+    The true relationship is sinusoidal — a linear model (TLS / OLS)
+    cannot fit it, forcing neural EIV methods to earn their keep.
+
+    Ground truth:  y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε
+    where ε ∼ 𝒩(0, σy²).  Features 3..n are noise.
+    """
+    rng = np.random.default_rng(seed)
+    X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
+    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
+    y = (
+        np.sin(2.0 * np.pi * X_true[:, 0])
+        + 0.5 * np.cos(4.0 * np.pi * X_true[:, 1])
+        + 0.3 * np.tanh(2.0 * X_true[:, 2])
+        + sigma_y * rng.standard_normal(n_samples).astype(np.float32)
+    )
+
+    X_train_obs, X_test_obs, y_train, y_test = train_test_split(
+        X_obs, y, test_size=test_size, random_state=seed
+    )
+    X_train_true, X_test_true, _, _ = train_test_split(
+        X_true, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train_obs, "X_test": X_test_obs,
+        "y_train": y_train, "y_test": y_test,
+        "X_train_true": X_train_true, "X_test_true": X_test_true,
+        "sigma_x": sigma_x,
+        "sigma_y": sigma_y,
     }
 
 
@@ -1058,6 +1097,30 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_samples=2000,
         description="Synthetic errors-in-variables with noisy input measurements.",
         loader=_registry_loader(_load_synthetic_eiv),
+    ),
+    "synthetic_eiv_highnoise": DatasetInfo(
+        name="synthetic_eiv_highnoise",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Synthetic EIV with high input noise (σx=1.0) — stress test for EIV losses.",
+        loader=_registry_loader(_load_synthetic_eiv, sigma_x=1.0),
+    ),
+    "synthetic_eiv_nonlinear": DatasetInfo(
+        name="synthetic_eiv_nonlinear",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Synthetic EIV with nonlinear ground-truth (sin/cos/tanh) — TLS cannot fit.",
+        loader=_registry_loader(_load_synthetic_eiv_nonlinear, sigma_x=0.5),
+    ),
+    "synthetic_eiv_nonlinear_highnoise": DatasetInfo(
+        name="synthetic_eiv_nonlinear_highnoise",
+        category="synthetic",
+        n_features=6,
+        n_samples=2000,
+        description="Nonlinear EIV with high input noise (σx=1.0) — definitive EIV stress test.",
+        loader=_registry_loader(_load_synthetic_eiv_nonlinear, sigma_x=1.0),
     ),
     "synthetic_multivariate": DatasetInfo(
         name="synthetic_multivariate",

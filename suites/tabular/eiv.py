@@ -12,7 +12,8 @@ Methods
 - StructuralEIV    : MLP + StructuralEIVLoss (full cross-covariance model)
 - ODR              : MLP + OrthogonalDistanceRegressionLoss (latent-x opt)
 - EnsembleEIV      : MLP + EnsembleEIVLoss (Monte-Carlo input perturbation)
-- TLS              : Total Least Squares via SVD (orthogonal distance, external)
+- TLS              : Total Least Squares via SVD (numpy-only)
+- SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
 """
 
 from __future__ import annotations
@@ -36,8 +37,24 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 
-# ---------------------------------------------------------------------------
-# Custom training helper for EIV losses
+# --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
+try:
+    from scipy.odr import ODR as _ODR, Model as _ODRModel, RealData
+
+    # Verify it actually works with sx/sy parameters (it may be broken
+    # in the deprecation window, e.g. scipy >= 1.17 on macOS).
+    _x_test = np.random.randn(10, 3).astype(np.float64)
+    _y_test = np.random.randn(10).astype(np.float64)
+    _model_test = _ODRModel(lambda beta, x: beta[0] + x @ beta[1:])
+    _odr_test = _ODR(RealData(_x_test, _y_test, sx=0.2, sy=0.1),
+                     _model_test, beta0=np.zeros(4))
+    _odr_test.run()
+    HAS_SCIPY_ODR = True
+except Exception:
+    HAS_SCIPY_ODR = False
+
+
+# --- Custom training helper for EIV losses
 #
 # EIV losses are called with (x_obs, y_obs), NOT (model(x), y).  The model
 # is passed at construction time and the loss calls it internally.
@@ -101,18 +118,25 @@ class EIVSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_eiv"]
+        return [
+            "synthetic_eiv",
+            "synthetic_eiv_highnoise",
+            "synthetic_eiv_nonlinear",
+            "synthetic_eiv_nonlinear_highnoise",
+        ]
 
     @property
     def canonical_scenarios(self) -> list[str]:
         return []
 
     def methods(self) -> list[str]:
-        return ["MSE", "FunctionalEIV", "StructuralEIV", "ODR", "EnsembleEIV", "TLS"]
+        return ["MSE", "FunctionalEIV", "StructuralEIV", "ODR", "EnsembleEIV", "TLS", "SciPyODR"]
 
     def library_name(self, method: str) -> str:
         if method == "TLS":
             return "numpy"
+        if method == "SciPyODR":
+            return "scipy"
         return "torchregress"
 
     # ------------------------------------------------------------------
@@ -135,8 +159,9 @@ class EIVSuite(HarnessRunner):
         if y.dim() == 1:
             y = y.unsqueeze(1)
 
-        # Known noise parameters from the dataset generator
-        sigma_x = float(splits.get("sigma_x", 0.5))
+        # Known noise parameters from the dataset generator (fallback matches
+        # the defaults in _load_synthetic_eiv: sigma_x=0.2, sigma_y=0.1).
+        sigma_x = float(splits.get("sigma_x", 0.2))
         sigma_y = float(splits.get("sigma_y", 0.1))
 
         in_dim = X.shape[1]
@@ -179,6 +204,28 @@ class EIVSuite(HarnessRunner):
             _train_eiv(model, loss_fn, X, y, config)
             return {"type": "torch", "model": model}
 
+        elif method == "SciPyODR":
+            if not HAS_SCIPY_ODR:
+                raise ImportError("scipy.odr unavailable (deprecated in scipy >= 1.17)")
+
+            X_np = X_train_np.astype(np.float64)
+            y_np = y_train_np.ravel().astype(np.float64)
+
+            # Linear model: y = intercept + X @ coef
+            def _linear_fcn(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
+                return beta[0] + np.dot(x, beta[1:])
+
+            model = _ODRModel(_linear_fcn)
+            data = RealData(x=X_np, y=y_np, sx=sigma_x, sy=sigma_y)
+
+            # Initial guess from OLS
+            X_with_bias = np.column_stack([np.ones(len(X_np), dtype=np.float64), X_np])
+            beta0, _, _, _ = np.linalg.lstsq(X_with_bias, y_np, rcond=None)
+
+            odr = _ODR(data, model, beta0=beta0)
+            output = odr.run()
+            return {"type": "scipy_odr", "coef": output.beta}
+
         elif method == "TLS":
             # Total Least Squares via SVD — minimises orthogonal distances
             X_np = X_train_np.astype(np.float64)
@@ -212,6 +259,11 @@ class EIVSuite(HarnessRunner):
     ) -> dict[str, np.ndarray]:
         del method, config
         model_type = model_state.get("type", "torch")
+
+        if model_type == "scipy_odr":
+            beta = model_state["coef"]
+            y_pred = beta[0] + X_test @ beta[1:]
+            return {"y_pred": y_pred}
 
         if model_type == "tls":
             beta = model_state["coef"]
@@ -277,6 +329,9 @@ class EIVSuite(HarnessRunner):
             ),
             "TLS": (
                 "Total Least Squares via SVD — minimises orthogonal distances (self-contained, numpy-only)"
+            ),
+            "SciPyODR": (
+                "scipy.odr.ODR — classical orthogonal distance regression (external, linear model)"
             ),
         }
         return notes.get(method, "")
