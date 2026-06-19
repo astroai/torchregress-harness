@@ -3465,6 +3465,7 @@ provides-extras = ["test", "dev", "docs", "flows", "all"]
 [package.metadata.requires-dev]
 dev = [
     { name = "mkdocstrings-python", specifier = ">=2.0.4" },
+    { name = "torchregress", extras = ["all"] },
     { name = "zensical", specifier = ">=0.0.45" },
 ]
 

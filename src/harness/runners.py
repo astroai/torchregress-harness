@@ -56,6 +56,7 @@ class HarnessConfig:
     smoke: bool = False  # if True, use tiny data/fewer epochs for CI
     standardize_targets: bool = True  # if True, StandardScaler on y_train/y_test
     output_dir: str = "results/latest"
+    warmup_epochs: int = 20  # MSE warmup epochs before switching to MC (MSE_WarmupMC)
 
 
 class HarnessRunner(ABC):
