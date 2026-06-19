@@ -15,6 +15,10 @@ Methods
 - EnsembleEIV      : MLP + EnsembleEIVLoss (Monte-Carlo input perturbation)
 - InputNoiseMC     : MLP + InputNoiseMarginalizationLoss (MC marginalisation at train time)
 - MSE_NoisyPredict : MSE-trained MLP + NoisyInputPredictor (MC averaging at inference only)
+- LatentNN         : LatentNN algorithm — jointly optimises model + latent clean inputs
+- NoiseAware       : NoiseAwareRegressor — error-aware feature encoder + backbone
+- SIMEX            : SIMEX algorithm — simulation-extrapolation measurement error correction
+- RC               : RegressionCalibration — pre-processing input calibration via reliability
 - TLS              : Total Least Squares via SVD (numpy-only)
 - SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
 """
@@ -41,6 +45,10 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 from torchregress.losses.eiv import NoisyInputPredictor
+from torchregress.algorithms import LatentNN
+from torchregress.algorithms import NoiseAwareRegressor
+from torchregress.algorithms import SIMEX
+from torchregress.algorithms import RegressionCalibration
 
 # --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
 try:
@@ -138,7 +146,8 @@ class EIVSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         return ["MSE", "FunctionalEIV", "FunctionalEIV_MC", "StructuralEIV", "ODR",
-                "EnsembleEIV", "InputNoiseMC", "MSE_NoisyPredict", "TLS", "SciPyODR"]
+                "EnsembleEIV", "InputNoiseMC", "MSE_NoisyPredict", "LatentNN",
+                "NoiseAware", "SIMEX", "RC", "TLS", "SciPyODR"]
 
     def library_name(self, method: str) -> str:
         if method == "TLS":
@@ -244,6 +253,84 @@ class EIVSuite(HarnessRunner):
             _train_one(model, WeightedMSELoss(), X, y, config)
             return {"type": "torch", "model": model, "sigma_x": sigma_x}
 
+        elif method == "LatentNN":
+            # LatentNN: jointly optimises model parameters AND per-sample latent
+            # clean inputs under a Gaussian quadratic penalty.  This is the most
+            # principled algorithm-level EIV approach — it explicitly learns the
+            # true (unobserved) inputs during training.
+            latent = LatentNN(
+                model_factory=lambda: _MLP(in_dim, hidden, out_dim),
+                loss_fn=torch.nn.MSELoss(),  # nn.MSELoss activates sigma_y scaling
+                sigma_x=sigma_x,
+                sigma_y=sigma_y,
+                epochs=200,
+                lr=config.lr,
+                batch_size=config.batch_size,
+            )
+            latent.fit(X, y)
+            return {"type": "latentnn", "model": latent}
+
+        elif method == "NoiseAware":
+            # NoiseAwareRegressor: encodes features alongside derived quality
+            # signals (log-uncertainty, SNR, quality-gated features).  The
+            # encoder learns to downweight low-SNR inputs via a learned gate.
+            # forward(x, sigma_x) — wrapper bakes sigma_x for _train_one compat.
+            nar = NoiseAwareRegressor(
+                in_dim, out_dim,
+                encoder_hidden_dim=hidden,
+                backbone_hidden_dims=(hidden, hidden),
+            )
+
+            # Wrapper: makes forward(x) call nar(x, sigma_x) internally
+            class _NARWrapper(torch.nn.Module):
+                def __init__(self, nar):
+                    super().__init__()
+                    self.nar = nar
+                def forward(self, x):
+                    return self.nar(x, sigma_x)
+
+            wrapped = _NARWrapper(nar)
+            _train_one(wrapped, WeightedMSELoss(), X, y, config)
+            return {"type": "torch", "model": nar, "sigma_x": sigma_x}
+
+        elif method == "SIMEX":
+            # SIMEX: adds extra noise at multiple levels, retrains models,
+            # extrapolates back to zero-error via polynomial fit.
+            # _train_func trains one model on perturbed data and returns it.
+            def _simex_train(m, X_data, y_data):
+                m.train()
+                opt = Adam(m.parameters(), lr=config.lr)
+                dataset = TensorDataset(X_data, y_data)
+                loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        opt.zero_grad()
+                        loss = ((m(Xb) - yb) ** 2).mean()
+                        loss.backward()
+                        opt.step()
+                m.eval()
+                return m
+
+            simex = SIMEX(
+                model_factory=lambda: _MLP(in_dim, hidden, out_dim),
+                train_func=_simex_train,
+                sigma_u=sigma_x,
+                n_simulations=1,
+            )
+            simex.fit(X, y)
+            return {"type": "simex", "model": simex}
+
+        elif method == "RC":
+            # RegressionCalibration: pre-processing step that estimates true
+            # inputs via E[X|W] = mu_w + reliability @ (W - mu_w), then trains
+            # an MLP on the calibrated inputs.
+            rc = RegressionCalibration(sigma_u=sigma_x)
+            X_cal_train = rc.fit_transform(X)
+            X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
+            model = _MLP(in_dim, hidden, out_dim)
+            _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
+            return {"type": "rc", "model": model, "X_cal_test": X_cal_test}
+
         elif method == "SciPyODR":
             if not HAS_SCIPY_ODR:
                 raise ImportError("scipy.odr unavailable (deprecated in scipy >= 1.17)")
@@ -310,6 +397,30 @@ class EIVSuite(HarnessRunner):
             y_pred = X_test @ beta + intercept
             return {"y_pred": y_pred}
 
+        if model_type == "latentnn":
+            # LatentNN.predict() returns a tensor directly
+            latent = model_state["model"]
+            with torch.no_grad():
+                X = torch.from_numpy(X_test).float()
+                y_pred = latent.predict(X).squeeze(-1).numpy()
+            return {"y_pred": y_pred}
+
+        if model_type == "simex":
+            # SIMEX.predict() returns a tensor directly
+            simex = model_state["model"]
+            with torch.no_grad():
+                X = torch.from_numpy(X_test).float()
+                y_pred = simex.predict(X).squeeze(-1).numpy()
+            return {"y_pred": y_pred}
+
+        if model_type == "rc":
+            # RC: predict on pre-computed calibrated test inputs
+            m = model_state["model"]
+            X_cal = model_state["X_cal_test"]
+            with torch.no_grad():
+                y_pred = m(X_cal).squeeze(-1).numpy()
+            return {"y_pred": y_pred}
+
         if method == "MSE_NoisyPredict":
             # Inference-time MC averaging via NoisyInputPredictor wrapper
             m = model_state["model"]
@@ -324,7 +435,12 @@ class EIVSuite(HarnessRunner):
         m = model_state["model"]
         with torch.no_grad():
             X = torch.from_numpy(X_test).float()
-            y_pred = m(X).squeeze(-1).numpy()
+            # NoiseAwareRegressor needs sigma_x as second argument at test time too
+            if method == "NoiseAware":
+                sigma_x_val = float(model_state.get("sigma_x", 0.2))
+                y_pred = m(X, sigma_x_val).squeeze(-1).numpy()
+            else:
+                y_pred = m(X).squeeze(-1).numpy()
         return {"y_pred": y_pred}
 
     # ------------------------------------------------------------------
@@ -390,6 +506,18 @@ class EIVSuite(HarnessRunner):
             ),
             "MSE_NoisyPredict": (
                 "MSE-trained MLP + NoisyInputPredictor — MC averaging at inference time only"
+            ),
+            "LatentNN": (
+                "LatentNN — jointly optimises model + per-sample latent clean inputs (Gaussian penalty)"
+            ),
+            "NoiseAware": (
+                "NoiseAwareRegressor — error-aware feature encoder (SNR, quality gates) + MLP backbone"
+            ),
+            "SIMEX": (
+                "SIMEX — simulation-extrapolation: adds noise, retrains, extrapolates to zero-error"
+            ),
+            "RC": (
+                "RegressionCalibration — pre-processing input calibration via reliability matrix"
             ),
         }
         return notes.get(method, "")
