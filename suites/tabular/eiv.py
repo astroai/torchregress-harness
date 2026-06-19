@@ -17,7 +17,6 @@ Methods
 - MSE_NoisyPredict : MSE-trained MLP + NoisyInputPredictor (MC averaging at inference only)
 - LatentNN         : LatentNN algorithm — jointly optimises model + latent clean inputs
 - NoiseAware       : NoiseAwareRegressor — error-aware feature encoder + backbone
-- SIMEX            : SIMEX algorithm — simulation-extrapolation measurement error correction
 - RC               : RegressionCalibration — pre-processing input calibration via reliability
 - TLS              : Total Least Squares via SVD (numpy-only)
 - SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
@@ -47,7 +46,6 @@ from torchregress.losses import (
 from torchregress.losses.eiv import NoisyInputPredictor
 from torchregress.algorithms import LatentNN
 from torchregress.algorithms import NoiseAwareRegressor
-from torchregress.algorithms import SIMEX
 from torchregress.algorithms import RegressionCalibration
 
 # --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
@@ -147,7 +145,7 @@ class EIVSuite(HarnessRunner):
     def methods(self) -> list[str]:
         return ["MSE", "FunctionalEIV", "FunctionalEIV_MC", "StructuralEIV", "ODR",
                 "EnsembleEIV", "InputNoiseMC", "MSE_NoisyPredict", "LatentNN",
-                "NoiseAware", "SIMEX", "RC", "TLS", "SciPyODR"]
+                "NoiseAware", "RC", "TLS", "SciPyODR"]
 
     def library_name(self, method: str) -> str:
         if method == "TLS":
@@ -293,33 +291,6 @@ class EIVSuite(HarnessRunner):
             _train_one(wrapped, WeightedMSELoss(), X, y, config)
             return {"type": "torch", "model": nar, "sigma_x": sigma_x}
 
-        elif method == "SIMEX":
-            # SIMEX: adds extra noise at multiple levels, retrains models,
-            # extrapolates back to zero-error via polynomial fit.
-            # _train_func trains one model on perturbed data and returns it.
-            def _simex_train(m, X_data, y_data):
-                m.train()
-                opt = Adam(m.parameters(), lr=config.lr)
-                dataset = TensorDataset(X_data, y_data)
-                loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
-                for _ in range(config.epochs):
-                    for Xb, yb in loader:
-                        opt.zero_grad()
-                        loss = ((m(Xb) - yb) ** 2).mean()
-                        loss.backward()
-                        opt.step()
-                m.eval()
-                return m
-
-            simex = SIMEX(
-                model_factory=lambda: _MLP(in_dim, hidden, out_dim),
-                train_func=_simex_train,
-                sigma_u=sigma_x,
-                n_simulations=1,
-            )
-            simex.fit(X, y)
-            return {"type": "simex", "model": simex}
-
         elif method == "RC":
             # RegressionCalibration: pre-processing step that estimates true
             # inputs via E[X|W] = mu_w + reliability @ (W - mu_w), then trains
@@ -403,14 +374,6 @@ class EIVSuite(HarnessRunner):
             with torch.no_grad():
                 X = torch.from_numpy(X_test).float()
                 y_pred = latent.predict(X).squeeze(-1).numpy()
-            return {"y_pred": y_pred}
-
-        if model_type == "simex":
-            # SIMEX.predict() returns a tensor directly
-            simex = model_state["model"]
-            with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                y_pred = simex.predict(X).squeeze(-1).numpy()
             return {"y_pred": y_pred}
 
         if model_type == "rc":
@@ -512,9 +475,6 @@ class EIVSuite(HarnessRunner):
             ),
             "NoiseAware": (
                 "NoiseAwareRegressor — error-aware feature encoder (SNR, quality gates) + MLP backbone"
-            ),
-            "SIMEX": (
-                "SIMEX — simulation-extrapolation: adds noise, retrains, extrapolates to zero-error"
             ),
             "RC": (
                 "RegressionCalibration — pre-processing input calibration via reliability matrix"
