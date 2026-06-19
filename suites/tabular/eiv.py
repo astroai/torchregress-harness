@@ -107,6 +107,64 @@ def _train_eiv(
     model.eval()
 
 
+# --- Shared prediction helper (noisy and clean X paths) ---
+
+def _eiv_predict(
+    method: str,
+    model_state: dict[str, Any],
+    m: Any,
+    X_np: np.ndarray,
+    *,
+    noisy: bool,
+) -> np.ndarray:
+    """Predict on X_np for an EIV method, returning squeezed numpy array."""
+    model_type = model_state.get("type", "torch")
+
+    if model_type in ("scipy_odr", "tls"):
+        beta = model_state["coef"]
+        if model_type == "scipy_odr":
+            return beta[0] + X_np @ beta[1:]
+        intercept = model_state["intercept"]
+        return X_np @ beta + intercept
+
+    if model_type == "latentnn":
+        sigma_x_val = float(model_state.get("sigma_x", 0.2))
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float()
+            return m.predict(X, sigma_x=sigma_x_val).squeeze(-1).numpy()
+
+    if model_type == "simex":
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float()
+            return m.predict(X).squeeze(-1).numpy()
+
+    if model_type == "rc":
+        if noisy:
+            X_cal = model_state["X_cal_test"]
+            with torch.no_grad():
+                return m(X_cal).squeeze(-1).numpy()
+        # Clean X doesn't need RC calibration — use model directly
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float()
+            return m(X).squeeze(-1).numpy()
+
+    if method == "MSE_NoisyPredict" and noisy:
+        sigma_x_val = float(model_state.get("sigma_x", 0.2))
+        noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float()
+            return noisy_pred(X).squeeze(-1).numpy()
+
+    # Torch models
+    with torch.no_grad():
+        X = torch.from_numpy(X_np).float()
+        if method == "NoiseAware":
+            # NoiseAware always needs sigma_x (architectural requirement)
+            sigma_x_val = float(model_state.get("sigma_x", 0.2))
+            return m(X, sigma_x_val).squeeze(-1).numpy()
+        return m(X).squeeze(-1).numpy()
+
+
 # ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------
@@ -182,17 +240,26 @@ class EIVSuite(HarnessRunner):
         out_dim = y.shape[1]
         hidden = _hidden_size(in_dim)
 
+        # Store clean test data for attenuation-bias evaluation
+        _X_test_true = splits.get("X_test_true")
+
         if method == "MSE":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = WeightedMSELoss()
             _train_one(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "FunctionalEIV":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = FunctionalEIVLoss(model=model, sigma_x=sigma_x, sigma_y=sigma_y)
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "FunctionalEIV_MC":
             # Monte-Carlo variance propagation — avoids noisy Jacobian entirely.
@@ -204,7 +271,10 @@ class EIVSuite(HarnessRunner):
                 monte_carlo=True, n_samples=20,
             )
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "StructuralEIV":
             model = _MLP(in_dim, hidden, out_dim)
@@ -214,7 +284,10 @@ class EIVSuite(HarnessRunner):
                 model=model, sigma_x=sigma_x, sigma_y=sigma_y, sigma_xy=sigma_xy
             )
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "ODR":
             model = _MLP(in_dim, hidden, out_dim)
@@ -222,13 +295,19 @@ class EIVSuite(HarnessRunner):
                 model=model, sigma_x=sigma_x, sigma_y=sigma_y
             )
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "EnsembleEIV":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = EnsembleEIVLoss(model=model, sigma_x=sigma_x)
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "InputNoiseMC":
             # Input-noise marginalization: perturb inputs → run model → avg MSE.
@@ -240,7 +319,10 @@ class EIVSuite(HarnessRunner):
                 sigma_x=sigma_x, n_samples=20,
             )
             _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "torch", "model": model}
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "MSE_NoisyPredict":
             # Train with plain MSE; at inference time, wrap with NoisyInputPredictor
@@ -248,7 +330,10 @@ class EIVSuite(HarnessRunner):
             # inference time alone is sufficient.
             model = _MLP(in_dim, hidden, out_dim)
             _train_one(model, WeightedMSELoss(), X, y, config)
-            return {"type": "torch", "model": model, "sigma_x": sigma_x}
+            result = {"type": "torch", "model": model, "sigma_x": sigma_x}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "LatentNN":
             # LatentNN: jointly optimises model parameters AND per-sample latent
@@ -265,7 +350,10 @@ class EIVSuite(HarnessRunner):
                 batch_size=config.batch_size,
             )
             latent.fit(X, y)
-            return {"type": "latentnn", "model": latent, "sigma_x": sigma_x}
+            result = {"type": "latentnn", "model": latent, "sigma_x": sigma_x}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "NoiseAware":
             # NoiseAwareRegressor: encodes features alongside derived quality
@@ -288,7 +376,10 @@ class EIVSuite(HarnessRunner):
 
             wrapped = _NARWrapper(nar)
             _train_one(wrapped, WeightedMSELoss(), X, y, config)
-            return {"type": "torch", "model": nar, "sigma_x": sigma_x}
+            result = {"type": "torch", "model": nar, "sigma_x": sigma_x}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "SIMEX":
             # SIMEX: adds extra noise at multiple levels, retrains models,
@@ -316,7 +407,10 @@ class EIVSuite(HarnessRunner):
                 n_simulations=1,
             )
             simex.fit(X, y)
-            return {"type": "simex", "model": simex}
+            result = {"type": "simex", "model": simex}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "RC":
             # RegressionCalibration: pre-processing step that estimates true
@@ -327,7 +421,10 @@ class EIVSuite(HarnessRunner):
             X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
             model = _MLP(in_dim, hidden, out_dim)
             _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
-            return {"type": "rc", "model": model, "X_cal_test": X_cal_test}
+            result = {"type": "rc", "model": model, "X_cal_test": X_cal_test}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
 
         elif method == "SciPyODR":
             if not HAS_SCIPY_ODR:
@@ -382,68 +479,19 @@ class EIVSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        model_type = model_state.get("type", "torch")
 
-        if model_type == "scipy_odr":
-            beta = model_state["coef"]
-            y_pred = beta[0] + X_test @ beta[1:]
-            return {"y_pred": y_pred}
+        m = model_state.get("model")
+        y_pred = _eiv_predict(method, model_state, m, X_test, noisy=True)
+        result: dict[str, np.ndarray] = {"y_pred": y_pred}
 
-        if model_type == "tls":
-            beta = model_state["coef"]
-            intercept = model_state["intercept"]
-            y_pred = X_test @ beta + intercept
-            return {"y_pred": y_pred}
+        # Clean-X evaluation: shows attenuation bias correction (structural recovery)
+        X_test_true = model_state.get("_X_test_true")
+        if X_test_true is not None:
+            result["y_pred_clean"] = _eiv_predict(
+                method, model_state, m, X_test_true, noisy=False,
+            )
 
-        if model_type == "latentnn":
-            # LatentNN with test-time MC marginalization over input noise.
-            # Bridges the distribution shift between clean latent training
-            # and noisy test data by perturbing inputs and averaging predictions.
-            latent = model_state["model"]
-            sigma_x_val = float(model_state.get("sigma_x", 0.2))
-            with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                y_pred = latent.predict(X, sigma_x=sigma_x_val).squeeze(-1).numpy()
-            return {"y_pred": y_pred}
-
-        if model_type == "simex":
-            # SIMEX with matched-noise predict: each λ model receives
-            # test inputs perturbed at its noise level before extrapolation.
-            simex = model_state["model"]
-            with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                y_pred = simex.predict(X).squeeze(-1).numpy()
-            return {"y_pred": y_pred}
-
-        if model_type == "rc":
-            # RC: predict on pre-computed calibrated test inputs
-            m = model_state["model"]
-            X_cal = model_state["X_cal_test"]
-            with torch.no_grad():
-                y_pred = m(X_cal).squeeze(-1).numpy()
-            return {"y_pred": y_pred}
-
-        if method == "MSE_NoisyPredict":
-            # Inference-time MC averaging via NoisyInputPredictor wrapper
-            m = model_state["model"]
-            sigma_x_val = float(model_state.get("sigma_x", 0.2))
-            noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
-            with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                y_pred = noisy_pred(X).squeeze(-1).numpy()
-            return {"y_pred": y_pred}
-
-        # Torch models
-        m = model_state["model"]
-        with torch.no_grad():
-            X = torch.from_numpy(X_test).float()
-            # NoiseAwareRegressor needs sigma_x as second argument at test time too
-            if method == "NoiseAware":
-                sigma_x_val = float(model_state.get("sigma_x", 0.2))
-                y_pred = m(X, sigma_x_val).squeeze(-1).numpy()
-            else:
-                y_pred = m(X).squeeze(-1).numpy()
-        return {"y_pred": y_pred}
+        return result
 
     # ------------------------------------------------------------------
     # evaluate
@@ -463,6 +511,11 @@ class EIVSuite(HarnessRunner):
         if y_scaler is not None:
             predictions = _inverse_transform_predictions(predictions, y_scaler)
             y_test = _inverse_transform_y(y_test, y_scaler)
+            # Also inverse-transform clean predictions if present
+            if "y_pred_clean" in predictions:
+                predictions["y_pred_clean"] = _inverse_transform_y(
+                    predictions.pop("y_pred_clean"), y_scaler,
+                )
 
         y_pred = np.asarray(predictions["y_pred"]).reshape(-1)
         y_true = np.asarray(y_test).reshape(-1)
@@ -473,7 +526,18 @@ class EIVSuite(HarnessRunner):
         ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
         r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else float("nan")
 
-        return {"RMSE": rmse, "MAE": mae, "R2": r2}
+        result = {"RMSE": rmse, "MAE": mae, "R2": r2}
+
+        # Clean-X metrics: evaluate on X_test_true to measure attenuation bias correction
+        if "y_pred_clean" in predictions:
+            y_pred_clean = np.asarray(predictions["y_pred_clean"]).reshape(-1)
+            rmse_clean = float(np.sqrt(np.mean((y_pred_clean - y_true) ** 2)))
+            ss_res_clean = float(np.sum((y_true - y_pred_clean) ** 2))
+            r2_clean = float(1.0 - ss_res_clean / ss_tot) if ss_tot > 1e-12 else float("nan")
+            result["RMSE_clean"] = rmse_clean
+            result["R2_clean"] = r2_clean
+
+        return result
 
     # ------------------------------------------------------------------
     # notes
