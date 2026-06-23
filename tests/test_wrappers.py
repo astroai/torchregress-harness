@@ -20,15 +20,19 @@ import pandas as pd
 import pytest
 
 from harness.wrappers import (
+    DeepEnsembleRegressor,
     EvidentialRegressor,
     GaussianNLLRegressor,
+    HeteroscedasticEnsembleRegressor,
     MDNRegressor,
     NormalizingFlowRegressor,
 )
 
-# All four estimators share the same protocol surface.
+# All estimators share the same protocol surface.
 ALL_ESTIMATORS = [
+    DeepEnsembleRegressor,
     GaussianNLLRegressor,
+    HeteroscedasticEnsembleRegressor,
     MDNRegressor,
     EvidentialRegressor,
     NormalizingFlowRegressor,
@@ -552,3 +556,88 @@ def test_dataframe_input_adapter_all_four_wrappers_match_numpy_path(
             "produce identical predictions for identical inputs"
         ),
     )
+
+
+@pytest.mark.parametrize("estimator_cls", ALL_ESTIMATORS)
+def test_wrapper_device_parity(synthetic_xy, estimator_cls) -> None:
+    """Verify that moving the estimator to GPU (CUDA/MPS) still permits predicting and sampling.
+
+    If no GPU is available, the test gracefully runs on CPU.
+    """
+    import torch
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+
+    X, y = synthetic_xy
+    est = estimator_cls(epochs=2, batch_size=16, seed=42).fit(X, y)
+
+    # Move to the selected device
+    est.to(device)
+
+    # Predict, interval, sample
+    pred = est.predict(X)
+    assert pred.shape == (X.shape[0],)
+    assert np.all(np.isfinite(pred))
+
+    lo, hi = est.predict_interval(X, confidence=0.9)
+    assert lo.shape == (X.shape[0],)
+    assert hi.shape == (X.shape[0],)
+    assert np.all(np.isfinite(lo))
+    assert np.all(np.isfinite(hi))
+
+    s = est.sample(X, n_samples=10)
+    assert s.shape == (X.shape[0], 10)
+    assert np.all(np.isfinite(s))
+
+
+@pytest.mark.parametrize("estimator_cls", ALL_ESTIMATORS)
+def test_wrapper_dtype_parity(synthetic_xy, estimator_cls) -> None:
+    """Verify that float64 inputs and targets are coerced and fit/predict correctly."""
+    X, y = synthetic_xy
+    X_64 = X.astype(np.float64)
+    y_64 = y.astype(np.float64)
+
+    est = estimator_cls(epochs=2, batch_size=16, seed=42).fit(X_64, y_64)
+    pred = est.predict(X_64)
+    assert pred.shape == (X_64.shape[0],)
+    assert np.all(np.isfinite(pred))
+
+
+@pytest.mark.parametrize("estimator_cls", ALL_ESTIMATORS)
+def test_wrapper_nan_inf_validation(synthetic_xy, estimator_cls) -> None:
+    """Verify that ValueError is raised when features or targets contain NaNs or Infinities."""
+    X, y = synthetic_xy
+
+    # 1. Fit-time validation
+    # NaN in X
+    X_nan = X.copy()
+    X_nan[0, 0] = np.nan
+    est = estimator_cls(epochs=2, batch_size=16, seed=42)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.fit(X_nan, y)
+
+    # Inf in X
+    X_inf = X.copy()
+    X_inf[0, 0] = np.inf
+    est = estimator_cls(epochs=2, batch_size=16, seed=42)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.fit(X_inf, y)
+
+    # NaN in y
+    y_nan = y.copy()
+    y_nan[0] = np.nan
+    est = estimator_cls(epochs=2, batch_size=16, seed=42)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.fit(X, y_nan)
+
+    # 2. Predict-time validation
+    est = estimator_cls(epochs=2, batch_size=16, seed=42).fit(X, y)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.predict(X_nan)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.predict_interval(X_nan)
+    with pytest.raises(ValueError, match="contains NaN or infinity"):
+        est.sample(X_nan)

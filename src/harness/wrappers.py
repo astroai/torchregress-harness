@@ -81,12 +81,6 @@ import torch.nn as nn
 
 from harness.core import set_harness_seed
 from harness.runners import HarnessConfig
-from suites._backbones import (
-    _MLP,
-    _gaussian_nll_predict,
-    _hidden_size,
-    _train_one,
-)
 
 # ---------------------------------------------------------------------------
 # Shared input validation (PROPOSAL #8 — DataFrame input adapters)
@@ -124,6 +118,7 @@ def _coerce_features(
     ValueError
         If ``X`` ends up with ``ndim != 2`` after coercion, or if a
         predict-time DataFrame has column set mismatched with ``feature_names``.
+        Also raised if the input data contains NaN or infinity.
     """
     if isinstance(X, pd.DataFrame):
         # ``pd.api.types.is_numeric_dtype`` per column is the canonical
@@ -158,29 +153,35 @@ def _coerce_features(
                 )
             if col_list != feature_names:
                 values = X[feature_names].to_numpy(dtype=np.float32, copy=False)
-            return values, feature_names
+            ret_cols = feature_names
+        else:
+            ret_cols = col_list
 
-        # Fit-time: record observed column order verbatim
-        return values, col_list
-
-    # Fallback path: numpy ndarray or array-like
-    if isinstance(X, np.ndarray):
-        values = X.astype(np.float32, copy=False)
     else:
-        try:
-            values = np.asarray(X, dtype=np.float32)
-        except (TypeError, ValueError) as exc:
-            raise TypeError(
-                f"X must be a numpy ndarray or pandas DataFrame, got {type(X).__name__}"
-            ) from exc
-    if values.ndim == 1:
-        values = values.reshape(-1, 1)
-    if values.ndim != 2:
-        raise ValueError(f"X must be 1D or 2D, got shape {values.shape}")
-    return values, None
+        # Fallback path: numpy ndarray or array-like
+        if isinstance(X, np.ndarray):
+            values = X.astype(np.float32, copy=False)
+        else:
+            try:
+                values = np.asarray(X, dtype=np.float32)
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    f"X must be a numpy ndarray or pandas DataFrame, got {type(X).__name__}"
+                ) from exc
+        if values.ndim == 1:
+            values = values.reshape(-1, 1)
+        if values.ndim != 2:
+            raise ValueError(f"X must be 1D or 2D, got shape {values.shape}")
+        ret_cols = None
+
+    # Check for NaN / Inf
+    if not np.isfinite(values).all():
+        raise ValueError("Input X contains NaN or infinity.")
+
+    return values, ret_cols
 
 
-def _coerce_target(y, *, expected_len: int | None = None):
+def _coerce_target(y, *, expected_len: int | None = None) -> tuple[np.ndarray, str | None]:
     """Coerce ``y`` to ``(N,)`` float32 + capture the target's name.
 
     Accepts ``np.ndarray``, ``pd.Series`` (1-D with ``name``), or single-column
@@ -196,14 +197,8 @@ def _coerce_target(y, *, expected_len: int | None = None):
         if expected_len is not None and len(y) != expected_len:
             raise ValueError(f"y length {len(y)} != X length {expected_len}")
         values = y.to_numpy(dtype=np.float32).reshape(-1)
-        # ``pd.Series.name`` may be a string label, an integer index, or
-        # ``None``; we only preserve string labels.  Non-string names
-        # (``pd.Series`` keyed by an integer ``Index``) fall back to
-        # ``None`` so the introspection attribute reflects "no usable
-        # string label" rather than a silently-coerced numeric string.
         name = y.name if isinstance(y.name, str) else None
-        return values, name
-    if isinstance(y, pd.DataFrame):
+    elif isinstance(y, pd.DataFrame):
         if y.shape[1] != 1:
             raise ValueError(
                 f"y must be scalar (1-D Series or 1-D ndarray) for the "
@@ -214,17 +209,30 @@ def _coerce_target(y, *, expected_len: int | None = None):
         if expected_len is not None and len(y) != expected_len:
             raise ValueError(f"y length {len(y)} != X length {expected_len}")
         values = y.iloc[:, 0].to_numpy(dtype=np.float32).reshape(-1)
-        return values, str(y.columns[0])
-    if isinstance(y, np.ndarray):
+        name = str(y.columns[0])
+    elif isinstance(y, np.ndarray):
+        if expected_len is not None and len(y) != expected_len:
+            raise ValueError(f"y length {len(y)} != X length {expected_len}")
         values = y.astype(np.float32, copy=False).reshape(-1)
-        return values, None
-    try:
-        values = np.asarray(y, dtype=np.float32).reshape(-1)
-        return values, None
-    except Exception as exc:
-        raise TypeError(
-            f"y must be a numpy ndarray, pandas Series, or array-like, got {type(y).__name__}"
-        ) from exc
+        name = None
+    else:
+        try:
+            values = np.asarray(y, dtype=np.float32).reshape(-1)
+            if expected_len is not None and len(values) != expected_len:
+                raise ValueError(f"y length {len(values)} != X length {expected_len}")
+            name = None
+        except Exception as exc:
+            if isinstance(exc, ValueError) and "length" in str(exc):
+                raise
+            raise TypeError(
+                f"y must be a numpy ndarray, pandas Series, or array-like, got {type(y).__name__}"
+            ) from exc
+
+    # Check for NaN / Inf
+    if not np.isfinite(values).all():
+        raise ValueError("Input y contains NaN or infinity.")
+
+    return values, name
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +347,19 @@ class _HarnessRegressorBase:
       ``loss_params=``).
     """
 
+    def to(self, device: str | torch.device) -> "_HarnessRegressorBase":
+        """Move the model and all submodules/losses to the specified device."""
+        if hasattr(self, "_model") and self._model is not None:
+            self._model.to(device)
+        if hasattr(self, "_loss") and self._loss is not None:
+            self._loss.to(device)
+        if hasattr(self, "_loss_fn") and self._loss_fn is not None:
+            self._loss_fn.to(device)
+        if hasattr(self, "_flow") and self._flow is not None:
+            self._flow.to(device)
+        return self
+
+
     def __init__(
         self,
         *,
@@ -393,6 +414,7 @@ class _HarnessRegressorBase:
         y_arr, target_name = _coerce_target(y, expected_len=len(X_arr))
 
         in_dim = X_arr.shape[1]
+        from suites._backbones import _hidden_size
         hidden = _hidden_size(in_dim)
 
         # Seed BEFORE ``_build_model`` so weight init is deterministic
@@ -484,9 +506,7 @@ class _HarnessRegressorBase:
         y_t: torch.Tensor,
         cfg: HarnessConfig,
     ) -> None:
-        """Default Adam training loop.  Subclasses override when training
-        needs custom loss wiring (Evidential NIG, NormalizingFlow params).
-        """
+        from suites._backbones import _train_one
         loss_fn = self._default_loss_factory()
         _train_one(self._model, loss_fn, X_t, y_t, cfg)
         self._model.eval()
@@ -524,6 +544,7 @@ class GaussianNLLRegressor(_HarnessRegressorBase):
     """
 
     def _build_model(self, in_dim: int, hidden: int) -> None:
+        from suites._backbones import _MLP
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
 
     def _default_loss_factory(self) -> nn.Module:
@@ -532,6 +553,7 @@ class GaussianNLLRegressor(_HarnessRegressorBase):
         return GaussianNLLLoss()
 
     def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
+        from suites._backbones import _gaussian_nll_predict
         mean, std = _gaussian_nll_predict(self._model, X)
         return {"mean": mean, "std": std}
 
@@ -571,6 +593,7 @@ class MDNRegressor(_HarnessRegressorBase):
             n_features=self.n_features,
             covariance_type="diagonal",
         )
+        from suites._backbones import _MLP
         self._model = _MLP(
             in_dim=in_dim,
             hidden=hidden,
@@ -587,7 +610,8 @@ class MDNRegressor(_HarnessRegressorBase):
         so single-row edge cases (``n_test == 1``) don't get collapsed to 1-D.
         """
         assert self._loss_fn is not None
-        X_t = torch.from_numpy(X).float()
+        device = next(self._model.parameters()).device
+        X_t = torch.from_numpy(X).float().to(device)
         n_test = X_t.shape[0]
         with torch.no_grad():
             out = self._model(X_t)
@@ -610,9 +634,9 @@ class MDNRegressor(_HarnessRegressorBase):
             else:
                 samples = samples.reshape(n_test, -1)
         return {
-            "mean": mean.squeeze(-1).numpy(),
-            "std": std.squeeze(-1).numpy(),
-            "samples": samples.numpy(),
+            "mean": mean.squeeze(-1).cpu().numpy(),
+            "std": std.squeeze(-1).cpu().numpy(),
+            "samples": samples.cpu().numpy(),
         }
 
 
@@ -654,6 +678,7 @@ class EvidentialRegressor(_HarnessRegressorBase):
         from torchregress.losses import EvidentialRegressionLoss
 
         self._loss_fn = EvidentialRegressionLoss(coeff_nig=self.coeff_nig)
+        from suites._backbones import _MLP
         # 4 raw outputs (gamma direct, nu/alpha/beta softplus-bounded below).
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=4)
 
@@ -678,19 +703,22 @@ class EvidentialRegressor(_HarnessRegressorBase):
                 params.append(p)
         opt = optim.Adam(params, lr=cfg.lr)
 
-        n = X_t.shape[0]
+        device = next(self._model.parameters()).device
+        X_dev = X_t.to(device)
+        y_dev = y_t.to(device)
+        n = X_dev.shape[0]
         for _ in range(cfg.epochs):
-            perm = torch.randperm(n)
+            perm = torch.randperm(n, device=device)
             for i in range(0, n, cfg.batch_size):
                 idx = perm[i : i + cfg.batch_size]
                 opt.zero_grad(set_to_none=True)
-                raw = self._model(X_t[idx])
+                raw = self._model(X_dev[idx])
                 gamma = raw[:, 0:1]
                 nu = F.softplus(raw[:, 1:2]) + 0.01
                 alpha = F.softplus(raw[:, 2:3]) + 1.01
                 beta = F.softplus(raw[:, 3:4]) + 0.01
                 constrained = torch.cat([gamma, nu, alpha, beta], dim=1)
-                loss = self._loss_fn(constrained, y_t[idx])
+                loss = self._loss_fn(constrained, y_dev[idx])
                 loss.backward()
                 opt.step()
         self._model.eval()
@@ -711,7 +739,8 @@ class EvidentialRegressor(_HarnessRegressorBase):
         import torch.nn.functional as F
 
         assert self._loss_fn is not None
-        X_t = torch.from_numpy(X).float()
+        device = next(self._model.parameters()).device
+        X_t = torch.from_numpy(X).float().to(device)
         n_test = X_t.shape[0]
         with torch.no_grad():
             raw = self._model(X_t)
@@ -720,17 +749,17 @@ class EvidentialRegressor(_HarnessRegressorBase):
             alpha = F.softplus(raw[:, 2:3]) + 1.01
             beta = F.softplus(raw[:, 3:4]) + 0.01
 
-        gamma_np = gamma.numpy().astype(np.float64).reshape(-1)
-        nu_np = nu.numpy().astype(np.float64).reshape(-1)
-        alpha_np = alpha.numpy().astype(np.float64).reshape(-1)
-        beta_np = beta.numpy().astype(np.float64).reshape(-1)
+        gamma_np = gamma.cpu().numpy().astype(np.float64).reshape(-1)
+        nu_np = nu.cpu().numpy().astype(np.float64).reshape(-1)
+        alpha_np = alpha.cpu().numpy().astype(np.float64).reshape(-1)
+        beta_np = beta.cpu().numpy().astype(np.float64).reshape(-1)
 
         # Closed form matches ``_pit_from_student_t`` in metrics.py so MC
         # samples and PIT-CDF agree on the same data-generating process.
-        df_t = torch.as_tensor(2.0 * alpha_np, dtype=torch.float32)
-        loc_t = torch.as_tensor(gamma_np, dtype=torch.float32)
+        df_t = torch.as_tensor(2.0 * alpha_np, dtype=torch.float32, device=device)
+        loc_t = torch.as_tensor(gamma_np, dtype=torch.float32, device=device)
         scale_np = np.sqrt(beta_np * (1.0 + nu_np) / (nu_np * alpha_np))
-        scale_t = torch.as_tensor(scale_np, dtype=torch.float32)
+        scale_t = torch.as_tensor(scale_np, dtype=torch.float32, device=device)
 
         dist = torch.distributions.StudentT(df=df_t, loc=loc_t, scale=scale_t)
         # ``sample((S,))`` returns shape (S, N); .T → (N, S).
@@ -744,7 +773,7 @@ class EvidentialRegressor(_HarnessRegressorBase):
         samples = samples.T  # (N, S) regardless of internal layout
         if samples.ndim == 1:
             samples = samples.reshape(n_test, -1)
-        samples_np = samples.numpy().astype(np.float64)
+        samples_np = samples.cpu().numpy().astype(np.float64)
 
         return {
             "samples": samples_np,
@@ -783,6 +812,7 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
             hidden_features=list(self.NF_HIDDEN),
         )
         self._loss = NormalizingFlowLoss(flow=self._flow)
+        from suites._backbones import _MLP
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
 
     def _fit_impl(
@@ -792,6 +822,7 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
         cfg: HarnessConfig,
     ) -> None:
         """Train backbone MLP + flow's coupling-network weights jointly."""
+        from suites._backbones import _train_one
         _train_one(
             self._model,
             self._loss,
@@ -803,7 +834,8 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
         self._model.eval()
 
     def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
-        X_t = torch.from_numpy(X).float()
+        device = next(self._model.parameters()).device
+        X_t = torch.from_numpy(X).float().to(device)
         n_test = X_t.shape[0]
         with torch.no_grad():
             context = self._model(X_t)
@@ -821,7 +853,132 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
                 samples = samples.T
             else:
                 samples = samples.reshape(n_test, -1)
-        return {"samples": samples.numpy()}
+        return {"samples": samples.cpu().numpy()}
+
+
+class DeepEnsembleRegressor(_HarnessRegressorBase):
+    """Deep Ensemble regressor wrapping torchregress.ensemble.models.DeepEnsemble."""
+
+    def __init__(
+        self,
+        *,
+        ensemble_size: int = 5,
+        epochs: int = 60,
+        batch_size: int = 64,
+        lr: float = 1e-3,
+        seed: int = 42,
+    ) -> None:
+        super().__init__(epochs=epochs, batch_size=batch_size, lr=lr, seed=seed)
+        self.ensemble_size = ensemble_size
+
+    def _build_model(self, in_dim: int, hidden: int) -> None:
+        from torchregress.ensemble.models import DeepEnsemble
+        from suites._backbones import _MLP
+        self._model = DeepEnsemble(
+            base_model=_MLP,
+            ensemble_size=self.ensemble_size,
+            device="cpu",
+            in_dim=in_dim,
+            hidden=hidden,
+            out_dim=1,
+        )
+
+    def _fit_impl(
+        self,
+        X_t: torch.Tensor,
+        y_t: torch.Tensor,
+        cfg: HarnessConfig,
+    ) -> None:
+        device = next(self._model.parameters()).device
+        loss_fn = nn.MSELoss()
+        
+        from torch.utils.data import DataLoader, TensorDataset
+        dataset = TensorDataset(X_t, y_t)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        
+        self._model.fit(
+            train_loader=loader,
+            criterion=loss_fn,
+            epochs=self.epochs,
+            lr=self.lr,
+            verbose=False,
+            device=device,
+        )
+        self._model.eval()
+
+    def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
+        device = next(self._model.parameters()).device
+        X_t = torch.from_numpy(X).float().to(device)
+        with torch.no_grad():
+            res = self._model.predict(X_t)
+            mean = res["mean"].squeeze(-1).cpu().numpy()
+            var = res["variance"].squeeze(-1).cpu().numpy()
+            std = np.sqrt(np.clip(var, 1e-8, None))
+        return {"mean": mean, "std": std}
+
+
+class HeteroscedasticEnsembleRegressor(_HarnessRegressorBase):
+    """Heteroscedastic Ensemble regressor wrapping torchregress.ensemble.models.HeteroscedasticEnsembleModel."""
+
+    def __init__(
+        self,
+        *,
+        ensemble_size: int = 5,
+        beta: float = 0.5,
+        epochs: int = 60,
+        batch_size: int = 64,
+        lr: float = 1e-3,
+        seed: int = 42,
+    ) -> None:
+        super().__init__(epochs=epochs, batch_size=batch_size, lr=lr, seed=seed)
+        self.ensemble_size = ensemble_size
+        self.beta = beta
+
+    def _build_model(self, in_dim: int, hidden: int) -> None:
+        from torchregress.ensemble.models import HeteroscedasticEnsembleModel
+        from suites._backbones import _MLP
+        self._model = HeteroscedasticEnsembleModel(
+            base_model=_MLP,
+            ensemble_size=self.ensemble_size,
+            device="cpu",
+            in_dim=in_dim,
+            hidden=hidden,
+            out_dim=2,
+        )
+
+    def _fit_impl(
+        self,
+        X_t: torch.Tensor,
+        y_t: torch.Tensor,
+        cfg: HarnessConfig,
+    ) -> None:
+        device = next(self._model.parameters()).device
+        from torchregress.losses import BetaNLLLoss
+        loss_fn = BetaNLLLoss(beta=self.beta)
+        
+        from torch.utils.data import DataLoader, TensorDataset
+        dataset = TensorDataset(X_t, y_t)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        
+        self._model.fit(
+            train_loader=loader,
+            criterion=loss_fn,
+            epochs=self.epochs,
+            lr=self.lr,
+            verbose=False,
+            device=device,
+        )
+        self._model.eval()
+
+    def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
+        device = next(self._model.parameters()).device
+        X_t = torch.from_numpy(X).float().to(device)
+        with torch.no_grad():
+            res = self._model.predict(X_t)
+            mean = res["mean"].squeeze(-1).cpu().numpy()
+            var = res["variance"].squeeze(-1).cpu().numpy()
+            std = np.sqrt(np.clip(var, 1e-8, None))
+        return {"mean": mean, "std": std}
 
 
 # ---------------------------------------------------------------------------
@@ -830,8 +987,10 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
 
 
 __all__ = [
+    "DeepEnsembleRegressor",
     "EvidentialRegressor",
     "GaussianNLLRegressor",
+    "HeteroscedasticEnsembleRegressor",
     "MDNRegressor",
     "NormalizingFlowRegressor",
 ]

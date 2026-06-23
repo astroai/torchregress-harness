@@ -159,40 +159,56 @@ class EnsemblesSuite(HarnessRunner):
 
         # --- torchregress deep ensembles ---
         if method in self._TR_METHODS:
-            models: list[nn.Module] = []
+            from harness.wrappers import DeepEnsembleRegressor, HeteroscedasticEnsembleRegressor
 
-            for i in range(_N_ENSEMBLE):
-                # Each member gets a different seed for independent init + shuffle
-                member_seed = config.seed + i * 1000
-                set_harness_seed(member_seed)
+            # Identify active device
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
 
-                X_t = torch.from_numpy(X_train_np).float()
-                y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            if method == "DeepEnsemble_MSE":
+                reg = DeepEnsembleRegressor(
+                    ensemble_size=_N_ENSEMBLE,
+                    epochs=config.epochs,
+                    batch_size=config.batch_size,
+                    lr=config.lr,
+                    seed=config.seed,
+                ).to(device)
+                reg.fit(X_train_np, y_train_np)
+                return {"type": "wrapper", "model": reg}
 
-                if method == "DeepEnsemble_MSE":
-                    model = _MLP(in_dim, hidden, 1)
-                    loss_fn = nn.MSELoss()
-                elif method == "DeepEnsemble_GaussianNLL":
-                    model = _MLP(in_dim, hidden, 2)  # mean, log_variance
-                    loss_fn = BetaNLLLoss(beta=0.5)
-                elif method == "DeepEnsemble_MultiQuantile":
+            elif method == "DeepEnsemble_GaussianNLL":
+                reg = HeteroscedasticEnsembleRegressor(
+                    ensemble_size=_N_ENSEMBLE,
+                    beta=0.5,
+                    epochs=config.epochs,
+                    batch_size=config.batch_size,
+                    lr=config.lr,
+                    seed=config.seed,
+                ).to(device)
+                reg.fit(X_train_np, y_train_np)
+                return {"type": "wrapper", "model": reg}
+
+            elif method == "DeepEnsemble_MultiQuantile":
+                models: list[nn.Module] = []
+                for i in range(_N_ENSEMBLE):
+                    member_seed = config.seed + i * 1000
+                    set_harness_seed(member_seed)
+                    X_t = torch.from_numpy(X_train_np).float()
+                    y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
                     quantiles = [0.1, 0.5, 0.9]
                     model = _MLP(in_dim, hidden, len(quantiles))
                     loss_fn = MultiQuantileLoss(quantiles=quantiles)
-                else:
-                    raise ValueError(f"Unknown method: {method}")
+                    _train_one(model, loss_fn, X_t, y_t, config)
+                    model.eval()
+                    models.append(model)
+                return {"type": "multiquantile", "models": models, "quantiles": [0.1, 0.5, 0.9]}
 
-                _train_one(model, loss_fn, X_t, y_t, config)
-                model.eval()
-                models.append(model)
-
-            model_type = method.removeprefix("DeepEnsemble_").lower()
-            result: dict[str, Any] = {"type": model_type, "models": models}
-
-            if method == "DeepEnsemble_MultiQuantile":
-                result["quantiles"] = [0.1, 0.5, 0.9]
-
-            return result
+            else:
+                raise ValueError(f"Unknown method: {method}")
 
         # --- sklearn ensembles ---
         elif method == "sklearn_VotingRegressor":
@@ -243,27 +259,16 @@ class EnsemblesSuite(HarnessRunner):
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 
-        # --- torchregress: MSE → mean of point predictions ---
-        if model_type == "mse":
-            preds = []
-            for m in model_state["models"]:
-                with torch.no_grad():
-                    p = m(torch.from_numpy(X_test).float()).squeeze(-1).numpy()
-                preds.append(p.reshape(-1))
-            stacked = np.stack(preds, axis=0)  # (n_ensemble, n_test)
-            mean = stacked.mean(axis=0)
-            return {"y_pred": mean}
-
-        # --- torchregress: GaussianNLL → mixture mean & total variance ---
-        elif model_type == "gaussiannll":
-            means = []
-            stds = []
-            for m in model_state["models"]:
-                mu, std = _gaussian_nll_predict(m, X_test)
-                means.append(mu)
-                stds.append(std)
-            mixture_mean, mixture_std = _mixture_gaussian_stats(means, stds)
-            return {"mean": mixture_mean, "std": mixture_std}
+        # --- wrapper ensembles (DeepEnsemble_MSE / DeepEnsemble_GaussianNLL) ---
+        if model_type == "wrapper":
+            reg = model_state["model"]
+            from harness.wrappers import HeteroscedasticEnsembleRegressor
+            if isinstance(reg, HeteroscedasticEnsembleRegressor):
+                diag = reg._predict_diagnostics(X_test)
+                return {"mean": diag["mean"], "std": diag["std"]}
+            else:
+                mean = reg.predict(X_test)
+                return {"y_pred": mean}
 
         # --- torchregress: MultiQuantile → mean of quantiles ---
         elif model_type == "multiquantile":

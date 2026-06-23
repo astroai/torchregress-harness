@@ -11,12 +11,16 @@ from suites._backbones import NF_ENSEMBLE_K_VARIANTS
 # All suites should be importable
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
+from suites.tabular.censored import CensoredSuite
 from suites.tabular.conformal import ConformalSuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
+from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+from suites.tabular.ordinal import OrdinalSuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
+from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.tweedie import TweedieSuite
@@ -35,6 +39,10 @@ ALL_SUITES = [
     DistributionalBinsSuite,
     MultivariateIntervalsSuite,
     PzflowParitySuite,
+    CensoredSuite,
+    EIVSuite,
+    OrdinalSuite,
+    R2CConformalSuite,
 ]
 
 

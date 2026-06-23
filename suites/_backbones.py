@@ -122,17 +122,20 @@ def _train_one(
         params.extend(p for p in loss_params if p.requires_grad)
 
     opt = optim.Adam(params, lr=_lr)
-    n = X.shape[0]
+    device = next(model.parameters()).device
+    X_dev = X.to(device)
+    y_dev = y.to(device)
+    n = X_dev.shape[0]
 
     for _ in range(_epochs):
-        perm = torch.randperm(n)
+        perm = torch.randperm(n, device=device)
         for i in range(0, n, _batch):
             idx = perm[i : i + _batch]
             opt.zero_grad(set_to_none=True)
-            out = model(X[idx])
+            out = model(X_dev[idx])
             if transform_output is not None:
                 out = transform_output(out)
-            loss = loss_fn(out, y[idx])
+            loss = loss_fn(out, y_dev[idx])
             loss.backward()
             opt.step()
 
@@ -182,10 +185,14 @@ def _train_lbfgs(
         line_search_fn="strong_wolfe",
     )
 
+    device = next(model.parameters()).device
+    X_dev = X.to(device)
+    y_dev = y.to(device)
+
     def _closure() -> torch.Tensor:
         opt.zero_grad()
-        out = model(X)
-        loss = loss_fn(out, y)
+        out = model(X_dev)
+        loss = loss_fn(out, y_dev)
         loss.backward()
         return loss
 
@@ -220,10 +227,11 @@ def _gaussian_nll_predict(
     mean : (N,) numpy array
     std  : (N,) numpy array
     """
+    device = next(model.parameters()).device
     with torch.no_grad():
-        out = model(torch.from_numpy(X).float())
-        mean = out[:, 0].numpy().reshape(-1)
-        var = torch.exp(out[:, 1]).clamp_min(1e-8).numpy().reshape(-1)
+        out = model(torch.from_numpy(X).float().to(device))
+        mean = out[:, 0].cpu().numpy().reshape(-1)
+        var = torch.exp(out[:, 1]).clamp_min(1e-8).cpu().numpy().reshape(-1)
     return mean, np.sqrt(var)
 
 
