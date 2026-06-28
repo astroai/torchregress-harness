@@ -25,6 +25,8 @@ from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
+from suites.image.age_regression import AgeRegressionSuite
+from suites.image.depth_estimation import DepthEstimationSuite
 
 ALL_SUITES = [
     ConformalSuite,
@@ -43,6 +45,8 @@ ALL_SUITES = [
     EIVSuite,
     OrdinalSuite,
     R2CConformalSuite,
+    AgeRegressionSuite,
+    DepthEstimationSuite,
 ]
 
 
@@ -390,3 +394,66 @@ def test_pzflow_parity_normflows_nsf_emits_known_bad_row() -> None:
         f"known-bad rows must NOT trigger _is_skipped (would be filtered out of "
         f"the leaderboard); got Notes={nb_row['Notes']!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Image suite smoke tests
+# ---------------------------------------------------------------------------
+
+
+def test_age_regression_smoke_completes() -> None:
+    """AgeRegressionSuite fit/predict/evaluate smoke on synthetic image data.
+
+    Runs a 1-epoch fit for CNN+GaussianNLL (fastest method) and asserts
+    that fit, predict, and evaluate all produce valid outputs.
+    """
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = AgeRegressionSuite()
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=16)
+    splits = load_dataset("synthetic_image_regression", n_samples=60, standardize_targets=True)
+
+    # Smoke-test CNN+GaussianNLL (fastest to train)
+    model_state = suite.fit("CNN+GaussianNLL", splits, cfg)
+    assert model_state["type"] == "gaussian_nll"
+
+    preds = suite.predict("CNN+GaussianNLL", model_state, splits["X_test"], cfg)
+    assert "mean" in preds
+    assert "std" in preds
+    assert "lower" in preds
+    assert len(preds["mean"]) == len(splits["X_test"])
+
+    if "_y_scaler" in splits:
+        preds["_y_scaler"] = splits["_y_scaler"]
+    metrics = suite.evaluate("CNN+GaussianNLL", preds, splits["y_test"], cfg)
+    assert "RMSE" in metrics or "Coverage" in metrics
+
+
+def test_depth_estimation_smoke_completes() -> None:
+    """DepthEstimationSuite fit/predict/evaluate smoke on synthetic depth data.
+
+    Runs a 1-epoch fit for UNet+MSE (fastest method) and asserts
+    dense prediction flattening produces valid metrics.
+    """
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = DepthEstimationSuite()
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=4)
+    splits = load_dataset("synthetic_image_depth", n_samples=30, standardize_targets=True)
+
+    # Smoke-test UNet+MSE (fastest to train)
+    model_state = suite.fit("UNet+MSE", splits, cfg)
+    assert model_state["type"] == "mse"
+
+    preds = suite.predict("UNet+MSE", model_state, splits["X_test"], cfg)
+    assert "y_pred" in preds
+    # Dense predictions should be flattened: (N*H*W,) = (n_test * 64 * 64,)
+    y_test_flat = splits["y_test"].reshape(-1)
+    assert len(preds["y_pred"]) == len(y_test_flat), (
+        f"expected {len(y_test_flat)} flattened predictions, got {len(preds['y_pred'])}"
+    )
+
+    metrics = suite.evaluate("UNet+MSE", preds, splits["y_test"], cfg)
+    assert "RMSE" in metrics

@@ -7,7 +7,9 @@ Every entry returns ``(X_train, X_test, y_train, y_test)`` as numpy arrays.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
@@ -1009,6 +1011,531 @@ def _load_tabred(
 
 
 # ---------------------------------------------------------------------------
+# Image dataset cache helpers
+# ---------------------------------------------------------------------------
+
+
+def _image_cache_dir() -> Path:
+    """Return the harness image dataset cache directory."""
+    cache = Path(os.environ.get(
+        "TORCHREGRESS_HARNESS_CACHE",
+        os.path.expanduser("~/.cache/torchregress-harness"),
+    ))
+    cache.mkdir(parents=True, exist_ok=True)
+    return cache
+
+
+def _download_with_progress(url: str, dest: Path, desc: str = "") -> None:
+    """Download a file from *url* to *dest* with a tqdm progress bar.
+
+    Skips the download if *dest* already exists and has non-zero size.
+    """
+    if dest.exists() and dest.stat().st_size > 0:
+        return
+
+    try:
+        import requests
+    except ImportError:
+        raise ImportError(
+            "requests is required to download image datasets. "
+            "Install with: uv pip install requests"
+        )
+
+    from tqdm import tqdm
+
+    print(f"Downloading {desc or url.split('/')[-1]} …")
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("content-length", 0))
+        with open(dest, "wb") as f, tqdm(
+            total=total, unit="B", unit_scale=True, desc=desc or "download"
+        ) as pbar:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+                pbar.update(len(chunk))
+
+
+# ---------------------------------------------------------------------------
+# Image regression datasets
+# ---------------------------------------------------------------------------
+
+
+def _load_synthetic_image_regression(
+    n_samples: int = 1000,
+    img_size: int = 32,
+    n_channels: int = 1,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic image regression data.
+
+    Each image contains a 2D Gaussian blob whose centre coordinates
+    (cx, cy) determine the scalar regression target.
+
+    Target: y = cx / img_size + 0.5 * cy / img_size + noise
+
+    The image is (n_channels, img_size, img_size).  For multi-channel,
+    all channels contain the same blob (useful for testing 3-channel RGB
+    pipelines without requiring actual colour data).
+    """
+    rng = np.random.default_rng(seed)
+
+    # Random blob parameters
+    cx = rng.uniform(img_size * 0.15, img_size * 0.85, n_samples).astype(np.float32)
+    cy = rng.uniform(img_size * 0.15, img_size * 0.85, n_samples).astype(np.float32)
+    sigma = rng.uniform(2.0, 6.0, n_samples).astype(np.float32)
+    amplitude = rng.uniform(0.6, 1.4, n_samples).astype(np.float32)
+
+    # Build coordinate grid
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+
+    images = np.zeros((n_samples, n_channels, img_size, img_size), dtype=np.float32)
+    for i in range(n_samples):
+        blob = amplitude[i] * np.exp(
+            -((xs - cx[i]) ** 2 + (ys - cy[i]) ** 2) / (2.0 * sigma[i] ** 2)
+        )
+        for c in range(n_channels):
+            images[i, c] = blob
+
+    # Target: normalised centre coordinates + noise
+    y_clean = cx / img_size + 0.5 * cy / img_size
+    y = (y_clean + 0.05 * rng.standard_normal(n_samples)).astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        images, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": n_channels,
+    }
+
+
+def _load_synthetic_image_depth(
+    n_samples: int = 600,
+    img_size: int = 64,
+    n_channels: int = 3,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Generate synthetic depth-estimation data.
+
+    Each input is an RGB image with a simple geometric scene (gradient
+    background + coloured rectangle).  The output is a single-channel
+    depth map (img_size, img_size) where each pixel's value is its
+    distance from a virtual camera.
+
+    Target shape: (N, img_size, img_size) — per-pixel depth values.
+
+    The ground-truth depth is a simple planar ramp plus a rectangular
+    foreground object at a different depth.
+    """
+    rng = np.random.default_rng(seed)
+
+    # Input images: gradient sky + coloured foreground rectangle
+    X = np.zeros((n_samples, n_channels, img_size, img_size), dtype=np.float32)
+    y_depth = np.zeros((n_samples, img_size, img_size), dtype=np.float32)
+
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+
+    for i in range(n_samples):
+        # Background gradient (simulates sky/floor)
+        sky_colour = rng.uniform(0.3, 0.8, 3).astype(np.float32)
+        horizon = rng.integers(int(img_size * 0.3), int(img_size * 0.7))
+        for c in range(n_channels):
+            grad = np.where(
+                ys < horizon,
+                sky_colour[c] * (1.0 - ys / horizon),
+                sky_colour[c] * 0.3,
+            )
+            X[i, c] = grad
+
+        # Foreground rectangle
+        rect_x = rng.integers(img_size // 4, 3 * img_size // 4)
+        rect_y = rng.integers(img_size // 3, 3 * img_size // 4)
+        rect_w = rng.integers(img_size // 6, img_size // 4)
+        rect_h = rng.integers(img_size // 6, img_size // 4)
+        rect_colour = rng.uniform(0.1, 0.9, 3).astype(np.float32)
+        x0, x1 = max(0, rect_x - rect_w // 2), min(img_size, rect_x + rect_w // 2)
+        y0, y1 = max(0, rect_y - rect_h // 2), min(img_size, rect_y + rect_h // 2)
+        for c in range(n_channels):
+            X[i, c, y0:y1, x0:x1] = rect_colour[c]
+
+        # Ground-truth depth: planar ramp + foreground offset
+        base_depth = 0.3 + 0.5 * (ys / img_size).astype(np.float32)
+        depth = base_depth.copy()
+        depth[y0:y1, x0:x1] = (
+            0.15 + 0.15 * rng.standard_normal((y1 - y0, x1 - x0))
+        ).astype(np.float32)
+        y_depth[i] = depth
+
+    X = X.astype(np.float32)
+    y_depth = y_depth.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y_depth, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": n_channels,
+        "_dense_output": True,
+        "_skip_y_standardization": True,  # dense (N, H, W) targets
+    }
+
+
+# ---------------------------------------------------------------------------
+# Real image dataset loaders (NYU Depth v2, IMDB-WIKI)
+# ---------------------------------------------------------------------------
+
+_NYU_DEPTH_URL = (
+    "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/"
+    "nyu_depth_v2_labeled.mat"
+)
+
+_IMDB_CROP_URL = (
+    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
+    "imdb_crop.tar"
+)
+_WIKI_CROP_URL = (
+    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
+    "wiki_crop.tar"
+)
+_IMDB_META_URL = (
+    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
+    "imdb_meta.tar"
+)
+_WIKI_META_URL = (
+    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
+    "wiki_meta.tar"
+)
+
+
+def _load_nyu_depth_v2(
+    n_samples: int = 1449,
+    img_size: int = 128,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Load the NYU Depth v2 labeled dataset.
+
+    Downloads the official ~2.7 GB MATLAB file, caches it locally,
+    extracts RGB images and depth maps, resizes them to ``img_size``,
+    and returns train/test splits.
+
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples to load (max 1449).  1449 by default.
+    img_size : int
+        Target square size for resized images (RGB) and depth maps.
+        Original is 480×640; resize makes training tractable.
+    test_size : float
+        Fraction of data reserved for testing.
+    seed : int
+        Random seed for the train/test split.
+
+    Returns
+    -------
+    splits : dict
+        ``X_train`` (N_train, 3, img_size, img_size) float32 RGB,
+        ``X_test`` (N_test, 3, img_size, img_size) float32 RGB,
+        ``y_train`` (N_train, img_size, img_size) float32 depth in metres,
+        ``y_test`` (N_test, img_size, img_size) float32 depth in metres.
+    """
+    cache_dir = _image_cache_dir()
+    mat_path = cache_dir / "nyu_depth_v2_labeled.mat"
+
+    # Download if needed
+    if not mat_path.exists():
+        _download_with_progress(_NYU_DEPTH_URL, mat_path, desc="NYU Depth v2 (.mat)")
+
+    # Load .mat file
+    try:
+        import h5py
+    except ImportError:
+        try:
+            import scipy.io as sio
+        except ImportError:
+            raise ImportError(
+                "h5py or scipy is required to load NYU Depth v2 (.mat format). "
+                "Install with: uv pip install h5py"
+            )
+        mat = sio.loadmat(str(mat_path))
+        images = mat["images"]  # (H, W, 3, N)  uint8
+        depths = mat["depths"]   # (H, W, N)     float64
+        images = np.transpose(images, (3, 2, 0, 1)).astype(np.float32)  # → (N, 3, H, W)
+        depths = np.transpose(depths, (2, 0, 1)).astype(np.float32)      # → (N, H, W)
+    else:
+        with h5py.File(str(mat_path), "r") as f:
+            images = np.array(f["images"])  # (N, 3, H, W) or (H, W, 3, N)  uint8
+            depths = np.array(f["depths"])   # (N, H, W) or (H, W, N)     float64
+
+        # h5py stores in MATLAB order — find the channel axis (size 3)
+        # and transpose to (N, 3, H, W).
+        if images.ndim == 4:
+            if 3 not in images.shape:
+                raise ValueError(
+                    f"NYUv2: expected a channel axis of size 3, got shape {images.shape}"
+                )
+            chan_axis = int(np.where(np.array(images.shape) == 3)[0][0])
+            if chan_axis != 1:
+                src = list(range(4))
+                dst = src.copy()
+                dst.pop(chan_axis)
+                dst.insert(1, chan_axis)
+                images = np.transpose(images, dst)
+
+        if depths.ndim == 3 and depths.shape[1] < depths.shape[2]:
+            depths = np.transpose(depths, (2, 0, 1))  # (H, W, N) → (N, H, W)
+
+        images = images.astype(np.float32) / 255.0
+        depths = depths.astype(np.float32)
+
+    # Subset
+    if n_samples < len(images):
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(images), n_samples, replace=False)
+        idx.sort()
+        images, depths = images[idx], depths[idx]
+
+    # Resize in parallel via numpy + PIL (torchvision not guaranteed)
+    try:
+        from PIL import Image
+
+        H_out, W_out = img_size, img_size
+        X_resized = np.empty((len(images), 3, H_out, W_out), dtype=np.float32)
+        y_resized = np.empty((len(depths), H_out, W_out), dtype=np.float32)
+
+        for i in range(len(images)):
+            # RGB: (3, H, W) → (H, W, 3)
+            rgb = images[i].transpose(1, 2, 0)
+            rgb_pil = Image.fromarray((rgb * 255).astype(np.uint8))
+            rgb_resized = np.array(rgb_pil.resize((W_out, H_out), Image.BILINEAR),
+                                   dtype=np.float32) / 255.0
+            X_resized[i] = rgb_resized.transpose(2, 0, 1)  # back to (3, H, W)
+
+            # Depth: (H, W)
+            depth_pil = Image.fromarray(depths[i])
+            y_resized[i] = np.array(
+                depth_pil.resize((W_out, H_out), Image.BILINEAR),
+                dtype=np.float32,
+            )
+
+        images = X_resized
+        depths = y_resized
+    except ImportError:
+        # No PIL — keep original resolution
+        pass
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        images, depths, test_size=test_size, random_state=seed,
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_dense_output": True,
+        "_skip_y_standardization": True,  # dense (N, H, W) — preserve metres
+    }
+
+
+def _load_imdb_wiki(
+    n_samples: int = 20000,
+    img_size: int = 128,
+    test_size: float = 0.2,
+    min_face_score: float = 2.0,
+    min_age: int = 0,
+    max_age: int = 100,
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    """Load the IMDB-WIKI face age dataset.
+
+    Downloads cropped face images (~8 GB total) and metadata from ETH Zurich,
+    computes ages from date-of-birth and photo-taken year, filters by face
+    score and age range, resizes to ``img_size``, and returns train/test splits.
+
+    Parameters
+    ----------
+    n_samples : int
+        Maximum number of samples to load.  Default 20 000.
+    img_size : int
+        Target square size for resized face images.
+    test_size : float
+        Fraction of data reserved for testing.
+    min_face_score : float
+        Minimum face detection score (higher = better quality crops).
+        IMDB-WIKI computed scores; ≥ 2.0 filters obvious false positives.
+    min_age, max_age : int
+        Valid age range in years.  Ages outside this are dropped.
+    seed : int
+        Random seed for the train/test split.
+
+    Returns
+    -------
+    splits : dict
+        ``X_train`` (N_train, 3, img_size, img_size) float32 face images,
+        ``X_test`` (N_test, 3, img_size, img_size) float32 face images,
+        ``y_train`` (N_train,) float32 ages in years,
+        ``y_test`` (N_test,) float32 ages in years.
+    """
+    from PIL import Image
+
+    cache_dir = _image_cache_dir()
+
+    # -- Step 1: download crop tars and meta tars (if not cached) ------------
+    sources = [
+        ("imdb_crop.tar", _IMDB_CROP_URL),
+        ("wiki_crop.tar", _WIKI_CROP_URL),
+        ("imdb_meta.tar", _IMDB_META_URL),
+        ("wiki_meta.tar", _WIKI_META_URL),
+    ]
+    for fname, url in sources:
+        dest = cache_dir / fname
+        if not dest.exists():
+            _download_with_progress(url, dest, desc=fname)
+
+    # -- Step 2: extract tars (one-time, cached) ----------------------------
+    import tarfile
+
+    crop_dir = cache_dir / "imdb_wiki_crop"
+    meta_dir = cache_dir / "imdb_wiki_meta"
+
+    for fname in ["imdb_crop.tar", "wiki_crop.tar"]:
+        tar_path = cache_dir / fname
+        if not (crop_dir / fname.replace(".tar", "")).is_dir():
+            print(f"Extracting {fname} …")
+            with tarfile.open(tar_path) as tf:
+                tf.extractall(path=crop_dir, filter="data")
+
+    for fname in ["imdb_meta.tar", "wiki_meta.tar"]:
+        tar_path = cache_dir / fname
+        if not (meta_dir / fname.replace(".tar", "")).is_dir():
+            print(f"Extracting {fname} …")
+            with tarfile.open(tar_path) as tf:
+                tf.extractall(path=meta_dir, filter="data")
+
+    # -- Step 3: parse metadata and compute ages -----------------------------
+    try:
+        import scipy.io as sio
+    except ImportError:
+        raise ImportError(
+            "scipy is required to load IMDB-WIKI metadata (.mat format). "
+            "Install with: uv pip install scipy"
+        )
+
+    all_images = []
+    all_ages = []
+
+    for subset in ["imdb", "wiki"]:
+        mat_path = meta_dir / subset / f"{subset}.mat"
+        if not mat_path.exists():
+            mat_path = meta_dir / f"{subset}_meta" / subset / f"{subset}.mat"
+        if not mat_path.exists():
+            # Try glob
+            candidates = sorted(meta_dir.rglob(f"{subset}.mat"))
+            if candidates:
+                mat_path = candidates[0]
+            else:
+                print(f"Warning: metadata not found for {subset}, skipping.")
+                continue
+
+        meta = sio.loadmat(str(mat_path))[subset][0, 0]
+
+        # Fields: dob (serial date number), photo_taken (year),
+        #         full_path (relative), face_score, face_location, gender, …
+        dobs = meta["dob"][0]        # MATLAB serial date numbers
+        years = meta["photo_taken"][0].astype(np.int32)  # year photo was taken
+        paths = meta["full_path"][0]
+        scores = meta["face_score"][0] if "face_score" in meta.dtype.names else None
+
+        # Compute age: photo_taken_year - birth_year.
+        # MATLAB serial date numbers → proper calendar year via datetime.
+        from datetime import datetime, timedelta
+
+        birth_years = np.empty(len(dobs), dtype=np.int32)
+        for j, dob in enumerate(dobs):
+            birth_date = datetime(1, 1, 1) + timedelta(days=int(dob) - 1)
+            birth_years[j] = birth_date.year
+        ages = years - birth_years
+
+        crop_subdir = crop_dir / f"{subset}_crop"
+
+        for i in range(len(paths)):
+            if len(all_images) >= n_samples:
+                break
+
+            age = ages[i]
+            if age < min_age or age > max_age:
+                continue
+            if scores is not None and scores[i] < min_face_score:
+                continue
+
+            img_path = crop_subdir / str(
+                paths[i][0] if isinstance(paths[i], np.ndarray) else paths[i]
+            )
+            if not img_path.is_file():
+                # Try alternate path construction
+                path_str = str(
+                    paths[i][0] if isinstance(paths[i], np.ndarray) else paths[i]
+                )
+                fname_only = Path(path_str).name
+                alt = crop_subdir / fname_only
+                if alt.is_file():
+                    img_path = alt
+                else:
+                    continue
+
+            try:
+                img = Image.open(img_path).convert("RGB")
+                img = img.resize((img_size, img_size), Image.BILINEAR)
+                arr = np.array(img, dtype=np.float32) / 255.0  # (H, W, 3)
+                all_images.append(arr.transpose(2, 0, 1))       # → (3, H, W)
+                all_ages.append(float(age))
+            except Exception:
+                continue
+
+        if len(all_images) >= n_samples:
+            break
+
+    if len(all_images) == 0:
+        raise RuntimeError(
+            "IMDB-WIKI: no valid face images found after filtering. "
+            "Check the dataset was downloaded correctly to "
+            f"{cache_dir} and min_face_score={min_face_score} "
+            "is not too strict."
+        )
+
+    X = np.stack(all_images, axis=0).astype(np.float32)
+    y = np.array(all_ages, dtype=np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed,
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -1087,7 +1614,10 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="synthetic",
         n_features=6,
         n_samples=2000,
-        description="Synthetic ordinal regression (5 classes from quantile-binned continuous target)",
+        description=(
+            "Synthetic ordinal regression "
+            "(5 classes from quantile-binned continuous target)"
+        ),
         loader=_registry_loader(_load_synthetic_ordinal),
     ),
     "synthetic_eiv": DatasetInfo(
@@ -1127,7 +1657,10 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="synthetic",
         n_features=6,
         n_samples=2000,
-        description="Linear EIV with extreme input noise (σx=2.0) — maximum stress test for EIV methods.",
+        description=(
+            "Linear EIV with extreme input noise (σx=2.0) "
+            "— maximum stress test for EIV methods."
+        ),
         loader=_registry_loader(_load_synthetic_eiv, sigma_x=2.0),
     ),
     "synthetic_eiv_nonlinear_veryhighnoise": DatasetInfo(
@@ -1343,6 +1876,56 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             n_features=103,
             n_samples=10000,
         ),
+    ),
+    # --- Image regression datasets ---
+    "synthetic_image_regression": DatasetInfo(
+        name="synthetic_image_regression",
+        category="image",
+        n_features=-1,  # image data — feature count is img_size²
+        n_samples=1000,
+        description=(
+            "Synthetic image regression: 32×32 grayscale images with a "
+            "Gaussian blob whose centre coordinates determine the scalar target."
+        ),
+        loader=_registry_loader(_load_synthetic_image_regression),
+    ),
+    "synthetic_image_depth": DatasetInfo(
+        name="synthetic_image_depth",
+        category="image",
+        n_features=-1,  # image data
+        n_samples=600,
+        description=(
+            "Synthetic depth estimation: 64×64 RGB images with simple "
+            "geometric scenes.  Target is a per-pixel depth map."
+        ),
+        loader=_registry_loader(_load_synthetic_image_depth),
+    ),
+    # --- Real image datasets ---
+    "nyu_depth_v2": DatasetInfo(
+        name="nyu_depth_v2",
+        category="image",
+        n_features=-1,  # image data — 3×img_size×img_size
+        n_samples=1449,
+        description=(
+            "NYU Depth V2 labeled subset: 1449 RGB-D indoor scenes "
+            "(480×640). Resized to img_size×img_size. "
+            "X=(N,3,H,W) images, y=(N,H,W) depth maps in metres. "
+            "Auto-downloads from official source (~2.7 GB)."
+        ),
+        loader=_registry_loader(_load_nyu_depth_v2),
+    ),
+    "imdb_wiki": DatasetInfo(
+        name="imdb_wiki",
+        category="image",
+        n_features=-1,  # image data — 3×img_size×img_size
+        n_samples=523051,
+        description=(
+            "IMDB-WIKI face age dataset: ~523K celebrity face images "
+            "with age labels. X=(N,3,H,W) cropped faces, y=(N,) ages "
+            "in years. Auto-downloads from ETH Zurich (~8 GB). "
+            "Default filters: face_score ≥ 2.0, ages 0–100."
+        ),
+        loader=_registry_loader(_load_imdb_wiki),
     ),
 }
 
