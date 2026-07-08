@@ -25,7 +25,7 @@ import torch.nn as nn
 
 from torchregress.losses import (
     FunctionalEIVLoss,
-    InputNoiseMarginalizationLoss,
+    InputNoiseAugmentationLoss,
     WeightedMSELoss,
 )
 
@@ -79,7 +79,7 @@ def _hidden_size(in_dim: int) -> int:
 def train_input_noise_mc(
     X: torch.Tensor, y: torch.Tensor, sigma_x: float, epochs: int = 100, lr: float = 1e-3
 ) -> nn.Module:
-    """Train an MLP with InputNoiseMarginalizationLoss + WeightedMSE."""
+    """Train an MLP with InputNoiseAugmentationLoss + WeightedMSE."""
     d = X.shape[1]
     hidden = _hidden_size(d)
     model = nn.Sequential(
@@ -88,7 +88,7 @@ def train_input_noise_mc(
         nn.Linear(hidden, 1),
     )
 
-    loss_fn = InputNoiseMarginalizationLoss(
+    loss_fn = InputNoiseAugmentationLoss(
         model=model, base_loss=WeightedMSELoss(),
         sigma_x=sigma_x, n_samples=20,
     )

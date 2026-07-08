@@ -872,9 +872,9 @@ class DeepEnsembleRegressor(_HarnessRegressorBase):
         self.ensemble_size = ensemble_size
 
     def _build_model(self, in_dim: int, hidden: int) -> None:
-        from torchregress.ensemble.models import DeepEnsemble
+        from torchregress.ensemble.base import BaseEnsembleModel
         from suites._backbones import _MLP
-        self._model = DeepEnsemble(
+        self._model = BaseEnsembleModel(
             base_model=_MLP,
             ensemble_size=self.ensemble_size,
             device="cpu",

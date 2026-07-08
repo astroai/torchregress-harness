@@ -41,7 +41,7 @@ from torchregress.losses import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,
     GaussianNLLLoss,
-    InputNoiseMarginalizationLoss,
+    InputNoiseAugmentationLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
     WeightedMSELoss,
@@ -389,7 +389,7 @@ class EIVSuite(HarnessRunner):
             # More principled than EnsembleEIV — proper MC marginalisation over
             # input noise with configurable base loss.
             model = _MLP(in_dim, hidden, out_dim)
-            loss_fn = InputNoiseMarginalizationLoss(
+            loss_fn = InputNoiseAugmentationLoss(
                 model=model, base_loss=WeightedMSELoss(),
                 sigma_x=sigma_x, n_samples=20,
             )
@@ -547,7 +547,7 @@ class EIVSuite(HarnessRunner):
             # Probabilistic EIV: GaussianNLL wrapped in input-noise MC.
             # Model outputs (mean, logvar); perturbations average the NLL.
             model = _MLP(in_dim, hidden, out_dim=2)
-            loss_fn = InputNoiseMarginalizationLoss(
+            loss_fn = InputNoiseAugmentationLoss(
                 model=model, base_loss=GaussianNLLLoss(),
                 sigma_x=sigma_x, n_samples=20,
             )
