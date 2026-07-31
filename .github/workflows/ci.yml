@@ -21,7 +21,7 @@ jobs:
       - name: Checkout path dependency siblings
         uses: actions/checkout@v4
         with:
-          repository: sfabbro/torchregress
+          repository: astroai/torchregress
           path: .torchregress
           token: ${{ secrets.PAT_FOR_PRIVATE_REPOS || github.token }}
 
