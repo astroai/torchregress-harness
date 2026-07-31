@@ -19,14 +19,12 @@ from .metrics import compute_all_metrics
 
 def _inverse_transform_y(y: np.ndarray, y_scaler: Any) -> np.ndarray:
     """Inverse-transform standardised targets back to original scale."""
-    return (
-        y_scaler.inverse_transform(y.reshape(-1, 1))
-        .ravel().astype(np.float64)
-    )
+    return y_scaler.inverse_transform(y.reshape(-1, 1)).ravel().astype(np.float64)
 
 
 def _inverse_transform_predictions(
-    predictions: dict[str, np.ndarray], y_scaler: Any,
+    predictions: dict[str, np.ndarray],
+    y_scaler: Any,
 ) -> dict[str, np.ndarray]:
     """Inverse-transform predictions back to original target scale.
 
@@ -222,7 +220,8 @@ class HarnessRunner(ABC):
             )
 
         scenario_dataset_key, scenario_splits = self._resolve_scenario(
-            scenario_name, standardize_targets=standardize_targets,
+            scenario_name,
+            standardize_targets=standardize_targets,
         )
 
         effective_dataset = dataset_name if dataset_name else scenario_dataset_key
@@ -240,7 +239,9 @@ class HarnessRunner(ABC):
 
     @staticmethod
     def _resolve_scenario(
-        scenario_name: str, *, standardize_targets: bool = True,
+        scenario_name: str,
+        *,
+        standardize_targets: bool = True,
     ) -> tuple[str, dict[str, np.ndarray]]:
         """Resolve a canonical scenario into (dataset_key, loaded_splits_with_metadata).
 
@@ -323,7 +324,9 @@ class HarnessRunner(ABC):
 
         # --- Resolve canonical scenario (reusable helper for sub-suites) ---
         dataset_name, splits = self._prepare_scenario_run(
-            scenario_name, dataset_name, splits,
+            scenario_name,
+            dataset_name,
+            splits,
             standardize_targets=cfg.standardize_targets,
         )
 
@@ -343,7 +346,7 @@ class HarnessRunner(ABC):
             # Tiny subset for CI smoke checks
             n = min(100, len(X_train))
             X_train, y_train = X_train[:n], y_train[:n]
-            X_test, y_test = X_test[:min(50, len(X_test))], y_test[:min(50, len(y_test))]
+            X_test, y_test = X_test[: min(50, len(X_test))], y_test[: min(50, len(y_test))]
 
         rows: list[dict[str, Any]] = []
 

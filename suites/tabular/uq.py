@@ -60,7 +60,9 @@ _MC_SAMPLES = 20  # number of stochastic forward passes
 
 
 def _mc_predict(
-    model: _MLP, X: torch.Tensor, n_samples: int = _MC_SAMPLES,
+    model: _MLP,
+    X: torch.Tensor,
+    n_samples: int = _MC_SAMPLES,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Run n_samples stochastic forward passes, return empirical mean & std.
 
@@ -113,7 +115,9 @@ class UQSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "UQ methods: GaussianNLL / MC-dropout / DeepEnsemble_K10 vs sklearn GP & quantile GBR"
+        return (
+            "UQ methods: GaussianNLL / MC-dropout / DeepEnsemble_K10 vs sklearn GP & quantile GBR"
+        )
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -172,7 +176,10 @@ class UQSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -279,8 +286,11 @@ class UQSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def predict(
-        self, method: str, model_state: dict[str, Any],
-        X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model_state: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 

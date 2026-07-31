@@ -40,13 +40,13 @@ import matplotlib  # noqa: E402 — path bootstrap above must precede 3rd-party 
 matplotlib.use("Agg")  # non-interactive backend for headless runs
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
+from suites._backbones import _carve_calibration_split  # noqa: E402
+from suites.tabular.distributional_bins import DistributionalBinsSuite  # noqa: E402
 
 from harness.core import set_harness_seed  # noqa: E402
 from harness.datasets import load_dataset  # noqa: E402
 from harness.metrics import compute_pit_values, pit_uniformity_tests  # noqa: E402
 from harness.runners import HarnessConfig  # noqa: E402
-from suites._backbones import _carve_calibration_split  # noqa: E402
-from suites.tabular.distributional_bins import DistributionalBinsSuite  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config — must match PARITY_REPORT.md headline run (60 epochs, seed=42).

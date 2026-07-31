@@ -22,13 +22,11 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-
 from torchregress.losses import (
     FunctionalEIVLoss,
     InputNoiseAugmentationLoss,
     WeightedMSELoss,
 )
-
 
 # ── data generator ────────────────────────────────────────────────────
 
@@ -83,14 +81,18 @@ def train_input_noise_mc(
     d = X.shape[1]
     hidden = _hidden_size(d)
     model = nn.Sequential(
-        nn.Linear(d, hidden), nn.ReLU(),
-        nn.Linear(hidden, hidden), nn.ReLU(),
+        nn.Linear(d, hidden),
+        nn.ReLU(),
+        nn.Linear(hidden, hidden),
+        nn.ReLU(),
         nn.Linear(hidden, 1),
     )
 
     loss_fn = InputNoiseAugmentationLoss(
-        model=model, base_loss=WeightedMSELoss(),
-        sigma_x=sigma_x, n_samples=20,
+        model=model,
+        base_loss=WeightedMSELoss(),
+        sigma_x=sigma_x,
+        n_samples=20,
     )
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -109,15 +111,21 @@ def train_input_noise_mc(
 
 
 def train_functional_eiv(
-    X: torch.Tensor, y: torch.Tensor, sigma_x: float, sigma_y: float = 0.1,
-    epochs: int = 100, lr: float = 1e-3,
+    X: torch.Tensor,
+    y: torch.Tensor,
+    sigma_x: float,
+    sigma_y: float = 0.1,
+    epochs: int = 100,
+    lr: float = 1e-3,
 ) -> nn.Module:
     """Train an MLP with FunctionalEIVLoss (analytical, gradient-based)."""
     d = X.shape[1]
     hidden = _hidden_size(d)
     model = nn.Sequential(
-        nn.Linear(d, hidden), nn.ReLU(),
-        nn.Linear(hidden, hidden), nn.ReLU(),
+        nn.Linear(d, hidden),
+        nn.ReLU(),
+        nn.Linear(hidden, hidden),
+        nn.ReLU(),
         nn.Linear(hidden, 1),
     )
 
@@ -189,7 +197,9 @@ def main() -> None:
     )
     parser.add_argument("--sigma_x", type=float, default=0.5, help="Input noise std (default: 0.5)")
     parser.add_argument("--epochs", type=int, default=100, help="Training epochs (default: 100)")
-    parser.add_argument("--n_runs", type=int, default=3, help="Number of independent runs (default: 3)")
+    parser.add_argument(
+        "--n_runs", type=int, default=3, help="Number of independent runs (default: 3)"
+    )
     args = parser.parse_args()
 
     sigma_x = args.sigma_x
@@ -199,7 +209,7 @@ def main() -> None:
     print("=" * 75)
     print("  SplitCP Coverage Diagnostic — Nonlinear EIV, σx={:.1f}".format(sigma_x))
     print("=" * 75)
-    print(f"  Data: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
+    print("  Data: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
     print(f"  σx={sigma_x}, σy=0.1, n_runs={n_runs}")
     print()
 
@@ -212,9 +222,7 @@ def main() -> None:
         np.random.seed(run)
         torch.manual_seed(run)
 
-        data = generate_nonlinear_eiv_data(
-            n_samples=3000, sigma_x=sigma_x, seed=run
-        )
+        data = generate_nonlinear_eiv_data(n_samples=3000, sigma_x=sigma_x, seed=run)
 
         X_train = data["X_train"]
         y_train = data["y_train"]
@@ -227,30 +235,30 @@ def main() -> None:
         y_t = torch.from_numpy(y_train).float()
 
         # ── InputNoiseMC ─────────────────────────────────────────
-        model_mc = train_input_noise_mc(
-            X_t, y_t, sigma_x=sigma_x, epochs=n_epochs
-        )
+        model_mc = train_input_noise_mc(X_t, y_t, sigma_x=sigma_x, epochs=n_epochs)
         r_mc = evaluate_conformal(model_mc, X_cal, y_cal, X_test, y_test)
         coverage_input_noise.append(r_mc["coverage"])
         width_input_noise.append(r_mc["interval_width"])
 
         # ── FunctionalEIV ────────────────────────────────────────
-        model_feiv = train_functional_eiv(
-            X_t, y_t, sigma_x=sigma_x, epochs=n_epochs
-        )
+        model_feiv = train_functional_eiv(X_t, y_t, sigma_x=sigma_x, epochs=n_epochs)
         r_feiv = evaluate_conformal(model_feiv, X_cal, y_cal, X_test, y_test)
         coverage_func_eiv.append(r_feiv["coverage"])
         width_func_eiv.append(r_feiv["interval_width"])
 
-        print(f"  Run {run + 1}:  CP@InputNoiseMC  coverage={r_mc['coverage']:.4f}  width={r_mc['interval_width']:.4f}")
-        print(f"         CP@FunctionalEIV  coverage={r_feiv['coverage']:.4f}  width={r_feiv['interval_width']:.4f}")
+        print(
+            f"  Run {run + 1}:  CP@InputNoiseMC  coverage={r_mc['coverage']:.4f}  width={r_mc['interval_width']:.4f}"
+        )
+        print(
+            f"         CP@FunctionalEIV  coverage={r_feiv['coverage']:.4f}  width={r_feiv['interval_width']:.4f}"
+        )
 
     print()
     print("-" * 75)
     print("  AGGREGATE SUMMARY ({n} runs)".format(n=n_runs))
     print("-" * 75)
     print(f"  {'Method':<28} {'Coverage':>12} {'Width':>12}")
-    print(f"  {'─'*28} {'─'*12} {'─'*12}")
+    print(f"  {'─' * 28} {'─' * 12} {'─' * 12}")
 
     mean_cov_mc = float(np.mean(coverage_input_noise))
     std_cov_mc = float(np.std(coverage_input_noise))
@@ -260,7 +268,9 @@ def main() -> None:
     mean_cov_feiv = float(np.mean(coverage_func_eiv))
     std_cov_feiv = float(np.std(coverage_func_eiv))
     mean_width_feiv = float(np.mean(width_func_eiv))
-    print(f"  SplitCP+FunctionalEIV     {mean_cov_feiv:8.4f}±{std_cov_feiv:.4f}  {mean_width_feiv:8.4f}")
+    print(
+        f"  SplitCP+FunctionalEIV     {mean_cov_feiv:8.4f}±{std_cov_feiv:.4f}  {mean_width_feiv:8.4f}"
+    )
 
     print()
     print("-" * 75)
@@ -276,26 +286,36 @@ def main() -> None:
         print(f"  ✅ SplitCP+InputNoiseMC: {mean_cov_mc:.3f} ≈ nominal {nominal} — coverage OK")
     elif mean_cov_mc < nominal - tol:
         under = (nominal - mean_cov_mc) * 100
-        print(f"  ❌ SplitCP+InputNoiseMC UNDERCOVERS: {mean_cov_mc:.3f} vs nominal {nominal} ({under:.1f}% gap)")
+        print(
+            f"  ❌ SplitCP+InputNoiseMC UNDERCOVERS: {mean_cov_mc:.3f} vs nominal {nominal} ({under:.1f}% gap)"
+        )
     else:
         over = (mean_cov_mc - nominal) * 100
-        print(f"  ⚠️  SplitCP+InputNoiseMC OVERCOVERS: {mean_cov_mc:.3f} vs nominal {nominal} ({over:.1f}% excess)")
+        print(
+            f"  ⚠️  SplitCP+InputNoiseMC OVERCOVERS: {mean_cov_mc:.3f} vs nominal {nominal} ({over:.1f}% excess)"
+        )
 
     if feiv_ok:
         print(f"  ✅ SplitCP+FunctionalEIV: {mean_cov_feiv:.3f} ≈ nominal {nominal} — coverage OK")
     elif mean_cov_feiv < nominal - tol:
         under = (nominal - mean_cov_feiv) * 100
-        print(f"  ❌ SplitCP+FunctionalEIV UNDERCOVERS: {mean_cov_feiv:.3f} vs nominal {nominal} ({under:.1f}% gap)")
+        print(
+            f"  ❌ SplitCP+FunctionalEIV UNDERCOVERS: {mean_cov_feiv:.3f} vs nominal {nominal} ({under:.1f}% gap)"
+        )
     else:
         over = (mean_cov_feiv - nominal) * 100
-        print(f"  ⚠️  SplitCP+FunctionalEIV OVERCOVERS: {mean_cov_feiv:.3f} vs nominal {nominal} ({over:.1f}% excess)")
+        print(
+            f"  ⚠️  SplitCP+FunctionalEIV OVERCOVERS: {mean_cov_feiv:.3f} vs nominal {nominal} ({over:.1f}% excess)"
+        )
 
     # Compare widths
     width_diff_pct = (mean_width_mc - mean_width_feiv) / mean_width_feiv * 100
     if width_diff_pct > 0:
         print(f"  InputNoiseMC intervals are {width_diff_pct:.1f}% WIDER than FunctionalEIV")
     else:
-        print(f"  InputNoiseMC intervals are {abs(width_diff_pct):.1f}% NARROWER than FunctionalEIV")
+        print(
+            f"  InputNoiseMC intervals are {abs(width_diff_pct):.1f}% NARROWER than FunctionalEIV"
+        )
 
 
 if __name__ == "__main__":

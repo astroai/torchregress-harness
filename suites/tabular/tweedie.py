@@ -95,7 +95,10 @@ class TweedieSuite(HarnessRunner):
         return "torchregress"
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -167,7 +170,11 @@ class TweedieSuite(HarnessRunner):
         raise ValueError(f"Unknown method: {method}")
 
     def predict(
-        self, method: str, model: dict[str, Any], X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         if model["type"] == "torch":
             m = model["model"]

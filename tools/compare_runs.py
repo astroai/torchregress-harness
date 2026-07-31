@@ -22,8 +22,14 @@ def main() -> None:
     parser.add_argument("baseline", type=Path, help="Baseline harness JSON")
     parser.add_argument("current", type=Path, help="Current harness JSON")
     parser.add_argument("--metric", type=str, default="RMSE", help="Metric to compare")
-    parser.add_argument("--diff-threshold", type=float, default=0.05, help="Relative diff threshold to flag")
-    parser.add_argument("--fail-on-regression", action="store_true", help="Exit non-zero when changed rows are found")
+    parser.add_argument(
+        "--diff-threshold", type=float, default=0.05, help="Relative diff threshold to flag"
+    )
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="Exit non-zero when changed rows are found",
+    )
     args = parser.parse_args()
 
     baseline = load_run(args.baseline)

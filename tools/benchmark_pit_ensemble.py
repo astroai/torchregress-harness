@@ -55,9 +55,7 @@ def _run_harness(
     """Invoke ``tools/run_all.py`` as a subprocess and return the JSON path."""
     output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
-        "uv",
-        "run",
-        "python",
+        sys.executable,
         str(_REPO_ROOT / "tools" / "run_all.py"),
         f"--suites={suites}",
         f"--datasets={datasets}",

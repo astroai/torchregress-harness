@@ -17,9 +17,8 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-
 from torchregress.algorithms import RegressionCalibration
-from torchregress.losses import FunctionalEIVLoss, WeightedMSELoss
+from torchregress.losses import FunctionalEIVLoss
 
 # ── synthetic data generator ──────────────────────────────────────────
 
@@ -135,9 +134,7 @@ def train_eiv(
 # ── metrics ───────────────────────────────────────────────────────────
 
 
-def eval_rmse(
-    beta: np.ndarray, intercept: float, X: np.ndarray, y: np.ndarray
-) -> float:
+def eval_rmse(beta: np.ndarray, intercept: float, X: np.ndarray, y: np.ndarray) -> float:
     """RMSE of linear model β, intercept on (X, y)."""
     pred = X @ beta + intercept
     return float(np.sqrt(np.mean((pred - y.ravel()) ** 2)))
@@ -154,7 +151,9 @@ def beta_distance(beta: np.ndarray, beta_ref: np.ndarray) -> float:
 def main() -> None:
     parser = argparse.ArgumentParser(description="TLS_Init+FunctionalEIV β-drift diagnostic")
     parser.add_argument("--sigma_x", type=float, default=0.5, help="Input noise std (default: 0.5)")
-    parser.add_argument("--sigma_y", type=float, default=0.1, help="Target noise std (default: 0.1)")
+    parser.add_argument(
+        "--sigma_y", type=float, default=0.1, help="Target noise std (default: 0.1)"
+    )
     parser.add_argument("--epochs", type=int, default=200, help="Training epochs (default: 200)")
     parser.add_argument("--d", type=int, default=3, help="Feature dimension (default: 3)")
     args = parser.parse_args()
@@ -186,8 +185,12 @@ def main() -> None:
     print(f"  n_train={len(X_train_np)}, d={d}, σx={sigma_x}, σy={sigma_y}, epochs={n_epochs}")
     print(f"  True β:       {np.array2string(beta_true, precision=4)}")
     print(f"  True intercept: {intercept_true:.4f}")
-    print(f"  TLS β:        {np.array2string(beta_tls, precision=4)} (dist to true: {beta_distance(beta_tls, beta_true):.6f})")
-    print(f"  OLS β:        {np.array2string(beta_ols, precision=4)} (dist to true: {beta_distance(beta_ols, beta_true):.6f})")
+    print(
+        f"  TLS β:        {np.array2string(beta_tls, precision=4)} (dist to true: {beta_distance(beta_tls, beta_true):.6f})"
+    )
+    print(
+        f"  OLS β:        {np.array2string(beta_ols, precision=4)} (dist to true: {beta_distance(beta_ols, beta_true):.6f})"
+    )
     print()
 
     X_t = torch.from_numpy(X_train_np).float()
@@ -211,11 +214,15 @@ def main() -> None:
     rc = RegressionCalibration(sigma_u=sigma_x)
     X_cal_train = rc.fit_transform(X_t)
     model_rc = nn.Linear(d, 1)
-    loss_fn_rc = FunctionalEIVLoss(
-        model=model_rc, sigma_x=sigma_x * 0.3, sigma_y=sigma_y
-    )
+    loss_fn_rc = FunctionalEIVLoss(model=model_rc, sigma_x=sigma_x * 0.3, sigma_y=sigma_y)
     hist_rc = train_eiv(
-        model_rc, loss_fn_rc, X_cal_train, y_t, epochs=n_epochs, lr=1e-3, track_beta_every=track_every
+        model_rc,
+        loss_fn_rc,
+        X_cal_train,
+        y_t,
+        epochs=n_epochs,
+        lr=1e-3,
+        track_beta_every=track_every,
     )
     beta_rc_feiv = hist_rc[-1]["beta"]
     intercept_rc_feiv = hist_rc[-1]["intercept"]
@@ -240,7 +247,7 @@ def main() -> None:
     print("  FINAL RESULTS (after training)")
     print("-" * 75)
     print(f"  {'Method':<32} {'β dist to true':>14} {'β dist to TLS':>14} {'RMSE_clean':>12}")
-    print(f"  {'─'*32} {'─'*14} {'─'*14} {'─'*12}")
+    print(f"  {'─' * 32} {'─' * 14} {'─' * 14} {'─' * 12}")
 
     methods = [
         ("TLS (no training)", beta_tls, intercept_tls),
@@ -261,7 +268,9 @@ def main() -> None:
     print("-" * 75)
     print("  β TRAJECTORY (TLS_Init+FunctionalEIV)")
     print("-" * 75)
-    print(f"  {'Epoch':>6} {'Loss':>10} {'β dist to TLS':>14} {'β dist to True':>14} {'RMSE_clean':>12}")
+    print(
+        f"  {'Epoch':>6} {'Loss':>10} {'β dist to TLS':>14} {'β dist to True':>14} {'RMSE_clean':>12}"
+    )
     for h in history:
         d_tls = beta_distance(h["beta"], beta_tls)
         d_true = beta_distance(h["beta"], beta_true)
@@ -288,9 +297,7 @@ def main() -> None:
 
     d_to_tls = beta_distance(beta_tls_init, beta_tls)
     d_to_ols = beta_distance(beta_tls_init, beta_ols)
-    attraction = (
-        "closer to TLS" if d_to_tls < d_to_ols else "closer to OLS (attenuation direction)"
-    )
+    attraction = "closer to TLS" if d_to_tls < d_to_ols else "closer to OLS (attenuation direction)"
 
     print(f"  Initial β distance to TLS:   {initial_drift:.6f}")
     print(f"  Final β distance to TLS:     {drift:.6f}")
@@ -332,7 +339,7 @@ def main() -> None:
     if tls_init_improvement > 0:
         print(f"  TLS_Init+FuncEIV improves RMSE_clean by {tls_init_improvement:.1f}% over MSE")
     else:
-        print(f"  TLS_Init+FuncEIV DEGRADES RMSE_clean vs MSE (the drift is harmful)")
+        print("  TLS_Init+FuncEIV DEGRADES RMSE_clean vs MSE (the drift is harmful)")
 
 
 if __name__ == "__main__":

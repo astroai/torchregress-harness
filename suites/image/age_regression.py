@@ -198,7 +198,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
             model = self._build_cnn(in_channels=in_channels, out_dim=context_dim, base_filters=32)
             loss_fn = NormalizingFlowLoss(flow=flow)
             _train_image_model(
-                model, loss_fn, train_loader, config,
+                model,
+                loss_fn,
+                train_loader,
+                config,
                 loss_params=list(flow.parameters()),
             )
             return {"type": "nflow", "model": model, "flow": loss_fn}
@@ -247,7 +250,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
             )
             loss_fn = NormalizingFlowLoss(flow=flow)
             _train_image_model(
-                resnet, loss_fn, train_loader, config,
+                resnet,
+                loss_fn,
+                train_loader,
+                config,
                 loss_params=list(flow.parameters()),
             )
             return {"type": "nflow", "model": resnet, "flow": loss_fn}
@@ -268,13 +274,19 @@ class AgeRegressionSuite(ImageHarnessRunner):
             from sklearn.ensemble import RandomForestRegressor
 
             est = RandomForestRegressor(
-                n_estimators=100, max_depth=10, random_state=config.seed, n_jobs=-1,
+                n_estimators=100,
+                max_depth=10,
+                random_state=config.seed,
+                n_jobs=-1,
             )
         elif method == "sklearn_GBR":
             from sklearn.ensemble import GradientBoostingRegressor
 
             est = GradientBoostingRegressor(
-                n_estimators=100, max_depth=4, learning_rate=0.1, random_state=config.seed,
+                n_estimators=100,
+                max_depth=4,
+                learning_rate=0.1,
+                random_state=config.seed,
             )
         else:
             raise ValueError(f"Unknown sklearn method: {method}")

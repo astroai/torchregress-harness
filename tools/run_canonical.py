@@ -35,6 +35,9 @@ _repo_root = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, _repo_root)
 sys.path.insert(0, str(Path(_repo_root) / "src"))
 
+from tools._suite_registry import ALL_SUITES
+from tools._validate import validate_suites, validate_torchregress
+
 from harness import (
     CANONICAL_SCENARIOS,
     CanonicalScenario,
@@ -44,8 +47,6 @@ from harness import (
     write_harness_json,
 )
 from harness.runners import HarnessRunner
-from tools._suite_registry import ALL_SUITES
-from tools._validate import validate_suites, validate_torchregress
 
 # ---------------------------------------------------------------------------
 # Discovery
@@ -322,10 +323,11 @@ def main() -> None:
             all_rows.extend(rows)
 
             for row in rows:
-                status = "✓" if any(
-                    row.get(k) is not None
-                    for k in ("RMSE", "MAE", "Coverage", "Width")
-                ) else "✗"
+                status = (
+                    "✓"
+                    if any(row.get(k) is not None for k in ("RMSE", "MAE", "Coverage", "Width"))
+                    else "✗"
+                )
                 print(f"  {status} {row['Method']}")
         except NotImplementedError:
             print(f"  Suite {suite.name!r} not yet implemented — skipping")
@@ -376,16 +378,10 @@ def main() -> None:
         print(f"Wrote scenario report:  {out_report}")
 
     # Print summary
-    ok = sum(
-        1 for r in all_rows
-        if any(r.get(k) is not None for k in ("RMSE", "MAE", "Coverage"))
-    )
+    ok = sum(1 for r in all_rows if any(r.get(k) is not None for k in ("RMSE", "MAE", "Coverage")))
     skipped = sum(1 for r in all_rows if r.get("Notes", "").startswith("skipped"))
     failed = sum(1 for r in all_rows if r.get("Notes", "").startswith("failed"))
-    print(
-        f"\nDone. {ok} ok, {skipped} skipped, {failed} failed "
-        f"across {len(suite_names)} suites."
-    )
+    print(f"\nDone. {ok} ok, {skipped} skipped, {failed} failed across {len(suite_names)} suites.")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ and ``run_canonical.py`` don't need to duplicate the import list.
 
 from __future__ import annotations
 
-from harness.runners import HarnessRunner
 from suites.image.age_regression import AgeRegressionSuite
 from suites.image.depth_estimation import DepthEstimationSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
@@ -25,6 +24,8 @@ from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
+
+from harness.runners import HarnessRunner
 
 ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "conformal": ConformalSuite,

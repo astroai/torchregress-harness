@@ -80,7 +80,7 @@ test = [
 ]
 dev = [
     "ruff",
-    "mypy",
+    "ty",
 ]
 all = [
     "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,causal,test,dev]",
@@ -104,18 +104,16 @@ filterwarnings = [
     "ignore::UserWarning",
 ]
 
-[tool.uv.sources]
-torchregress = { path = "../torchregress" }
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+src = ["src"]
 extend-exclude = [
     ".git",
     ".mypy_cache",
     ".tox",
     ".venv",
-    ".uv-cache",
+    ".pixi",
     ".pytest_cache",
     ".ruff_cache",
     "build",
@@ -123,15 +121,38 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "W", "I"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"suites/*" = ["E501"]
-"tools/*" = ["E501"]
+"suites/*" = ["E501", "F401", "E402", "E741", "F841"]
+"tools/*" = ["E501", "E402", "E741", "F841"]
 "tools/run_all.py" = ["E402"]
 "tools/run_canonical.py" = ["E402"]
-"tests/*" = ["E501"]
+"tests/*" = ["E501", "E402", "W293"]
+"src/harness/*" = ["E501"]
+
+[tool.ty.environment]
+python = ".pixi/envs/default"
+python-version = "3.13"
+
+[tool.ty.terminal]
+error-on-warning = false
+
+[tool.ty.rules]
+invalid-argument-type = "warn"
+invalid-return-type = "warn"
+missing-argument = "warn"
+invalid-assignment = "warn"
+unresolved-attribute = "warn"
+unresolved-import = "warn"
+invalid-method-override = "warn"
+call-top-callable = "warn"
+call-non-callable = "warn"
+not-iterable = "warn"
+not-subscriptable = "warn"
+redundant-cast = "ignore"
+unused-type-ignore-comment = "ignore"
 
 [tool.coverage.run]
 branch = false

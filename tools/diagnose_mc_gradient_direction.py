@@ -33,7 +33,6 @@ if str(_TORCHREGRESS_SRC) not in sys.path:
 
 from torchregress.losses import FunctionalEIVLoss
 
-
 # ── data generator ────────────────────────────────────────────────────
 
 
@@ -46,9 +45,7 @@ def generate_nonlinear_eiv_data(
     rng = np.random.default_rng(seed)
     n_features = 6
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
-    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(
-        np.float32
-    )
+    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
     y = (
         np.sin(2.0 * np.pi * X_true[:, 0])
         + 0.5 * np.cos(4.0 * np.pi * X_true[:, 1])
@@ -162,8 +159,11 @@ def compute_mc_gradient(
     """Compute MC loss gradient w.r.t. all parameters."""
     zero_grad_all(model)
     loss_fn = FunctionalEIVLoss(
-        model=model, sigma_x=sigma_x, sigma_y=sigma_y,
-        monte_carlo=True, n_samples=20,
+        model=model,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+        monte_carlo=True,
+        n_samples=20,
     )
     loss = loss_fn(x_noisy, y)
     loss.backward()
@@ -181,7 +181,9 @@ def compute_analytical_gradient(
     """Compute analytical FunctionalEIV gradient."""
     zero_grad_all(model)
     loss_fn = FunctionalEIVLoss(
-        model=model, sigma_x=sigma_x, sigma_y=sigma_y,
+        model=model,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
         monte_carlo=False,
     )
     loss = loss_fn(x_noisy, y)
@@ -207,9 +209,7 @@ def compute_mse_gradient(
 def copy_model(model: nn.Module) -> nn.Module:
     """Deep copy model weights."""
     clone = make_mlp(6, 32, 1)
-    clone.load_state_dict(
-        {k: v.clone().detach() for k, v in model.state_dict().items()}
-    )
+    clone.load_state_dict({k: v.clone().detach() for k, v in model.state_dict().items()})
     clone.to(next(model.parameters()).device)
     return clone
 
@@ -247,7 +247,10 @@ def main() -> None:
     all_deltas: list[float] = []
     all_rmse_mse: list[float] = []
     all_grad_norms: dict[str, list[float]] = {
-        "MC": [], "Analytical": [], "CleanMSE": [], "NoisyMSE": [],
+        "MC": [],
+        "Analytical": [],
+        "CleanMSE": [],
+        "NoisyMSE": [],
     }
 
     for run_idx in range(args.n_runs):
@@ -256,7 +259,10 @@ def main() -> None:
         np.random.seed(seed)
 
         data = generate_nonlinear_eiv_data(
-            n_samples=2000, sigma_x=sigma_x, sigma_y=sigma_y, seed=seed,
+            n_samples=2000,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            seed=seed,
         )
         in_dim = 6
         X_noisy_t = torch.from_numpy(data["X_train"]).float()
@@ -293,16 +299,28 @@ def main() -> None:
         y_batch = y_t[idx_batch]
 
         g_mc, loss_mc = compute_mc_gradient(
-            model, x_batch_noisy, y_batch, sigma_x, sigma_y,
+            model,
+            x_batch_noisy,
+            y_batch,
+            sigma_x,
+            sigma_y,
         )
         g_anal, loss_anal = compute_analytical_gradient(
-            model, x_batch_noisy, y_batch, sigma_x, sigma_y,
+            model,
+            x_batch_noisy,
+            y_batch,
+            sigma_x,
+            sigma_y,
         )
         g_clean, loss_clean = compute_mse_gradient(
-            model, x_batch_clean, y_batch,
+            model,
+            x_batch_clean,
+            y_batch,
         )
         g_noisy, loss_noisy = compute_mse_gradient(
-            model, x_batch_noisy, y_batch,
+            model,
+            x_batch_noisy,
+            y_batch,
         )
 
         # ── Cosine similarities ───────────────────────────
@@ -324,8 +342,11 @@ def main() -> None:
 
         # One MC step
         loss_fn = FunctionalEIVLoss(
-            model=model_test, sigma_x=sigma_x, sigma_y=sigma_y,
-            monte_carlo=True, n_samples=20,
+            model=model_test,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            monte_carlo=True,
+            n_samples=20,
         )
         opt_test.zero_grad()
         l = loss_fn(x_batch_noisy, y_batch)
@@ -340,7 +361,7 @@ def main() -> None:
     print(f"  MSE baseline RMSE_clean: {np.mean(all_rmse_mse):.4f} ± {np.std(all_rmse_mse):.4f}")
     print()
     print(f"  {'Gradient Pair':<28} {'CosSim(mean)':>12} {'±std':>8}  {'Interpretation'}")
-    print(f"  {'─'*28} {'─'*12} {'─'*8}  {'─'*30}")
+    print(f"  {'─' * 28} {'─' * 12} {'─' * 8}  {'─' * 30}")
 
     for key, label in [
         ("MC_vs_CleanMSE", "MC vs CLEAN MSE (truth)"),
@@ -369,7 +390,7 @@ def main() -> None:
     # ── Gradient norms ────────────────────────────────────────────
     print()
     print(f"  {'Gradient Source':<22} {'Norm(mean)':>12} {'±std':>8}")
-    print(f"  {'─'*22} {'─'*12} {'─'*8}")
+    print(f"  {'─' * 22} {'─' * 12} {'─' * 8}")
     for key, label in [
         ("MC", "MC loss (noisy X)"),
         ("Analytical", "Analytical FEIV (noisy X)"),
@@ -381,13 +402,15 @@ def main() -> None:
 
     # ── One-step degradation ───────────────────────────────────────
     print()
-    print(f"  One MC step at MSE optimum: ΔRMSE_clean = {np.mean(all_deltas):+.4f} ± {np.std(all_deltas):.4f}")
+    print(
+        f"  One MC step at MSE optimum: ΔRMSE_clean = {np.mean(all_deltas):+.4f} ± {np.std(all_deltas):.4f}"
+    )
     if np.mean(all_deltas) > 0.05:
-        print(f"  → SINGLE MC STEP DESTROYS the MSE solution — the gradient pushes away")
+        print("  → SINGLE MC STEP DESTROYS the MSE solution — the gradient pushes away")
     elif np.mean(all_deltas) > 0.01:
-        print(f"  → MC step mildly degrades MSE solution")
+        print("  → MC step mildly degrades MSE solution")
     else:
-        print(f"  → MC step has negligible immediate effect")
+        print("  → MC step has negligible immediate effect")
 
     # ── Verdict ────────────────────────────────────────────────────
     print()
@@ -402,32 +425,40 @@ def main() -> None:
 
     if mc_vs_clean < 0:
         print(f"  ❌ MC gradient is OPPOSED to clean MSE gradient (cos={mc_vs_clean:.3f})")
-        print(f"     → Following MC gradient moves AWAY from the true optimum")
+        print("     → Following MC gradient moves AWAY from the true optimum")
     elif mc_vs_clean < 0.3:
-        print(f"  ⚠️  MC gradient is nearly ORTHOGONAL to clean MSE gradient (cos={mc_vs_clean:.3f})")
-        print(f"     → MC gradient doesn't help; it explores irrelevant directions")
+        print(
+            f"  ⚠️  MC gradient is nearly ORTHOGONAL to clean MSE gradient (cos={mc_vs_clean:.3f})"
+        )
+        print("     → MC gradient doesn't help; it explores irrelevant directions")
     else:
         print(f"  ✅ MC gradient is ALIGNED with clean MSE gradient (cos={mc_vs_clean:.3f})")
 
     if anal_vs_clean > mc_vs_clean + 0.2:
-        print(f"  ✅ Analytical FEIV is MUCH better aligned with truth ({anal_vs_clean:.3f} vs {mc_vs_clean:.3f})")
+        print(
+            f"  ✅ Analytical FEIV is MUCH better aligned with truth ({anal_vs_clean:.3f} vs {mc_vs_clean:.3f})"
+        )
     elif anal_vs_clean > mc_vs_clean + 0.05:
-        print(f"  → Analytical FEIV is slightly better aligned ({anal_vs_clean:.3f} vs {mc_vs_clean:.3f})")
+        print(
+            f"  → Analytical FEIV is slightly better aligned ({anal_vs_clean:.3f} vs {mc_vs_clean:.3f})"
+        )
     else:
-        print(f"  → MC and Analytical have similar alignment to truth")
+        print("  → MC and Analytical have similar alignment to truth")
 
     if one_step > 0.02:
         print(f"  ❌ Single MC step degrades RMSE_clean by {one_step:.4f}")
-        print(f"     → Even ONE MC gradient step at the MSE optimum is harmful")
+        print("     → Even ONE MC gradient step at the MSE optimum is harmful")
 
     mc_norm = np.mean(all_grad_norms["MC"])
     clean_norm = np.mean(all_grad_norms["CleanMSE"])
     noisy_norm = np.mean(all_grad_norms["NoisyMSE"])
-    print(f"  Gradient norms: MC={mc_norm:.2f}  CleanMSE={clean_norm:.2f}  NoisyMSE={noisy_norm:.2f}")
+    print(
+        f"  Gradient norms: MC={mc_norm:.2f}  CleanMSE={clean_norm:.2f}  NoisyMSE={noisy_norm:.2f}"
+    )
     ratio = mc_norm / clean_norm if clean_norm > 0 else 0
     if ratio > 5:
         print(f"  ⚠️  MC gradient norm is {ratio:.1f}× larger than clean MSE gradient —")
-        print(f"     the MC loss is much steeper/louder than the true loss")
+        print("     the MC loss is much steeper/louder than the true loss")
 
 
 if __name__ == "__main__":

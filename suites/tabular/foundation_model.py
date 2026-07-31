@@ -68,10 +68,7 @@ class FoundationModelSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return (
-            "Foundation model regression: torchregress (GaussianNLL, MDN) "
-            "vs TabPFN vs TabICL"
-        )
+        return "Foundation model regression: torchregress (GaussianNLL, MDN) vs TabPFN vs TabICL"
 
     @property
     def supported_datasets(self) -> list[str]:

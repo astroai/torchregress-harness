@@ -19,6 +19,7 @@ def validate_torchregress() -> tuple[bool, list[str]]:
     # 1. Core import
     try:
         import torchregress  # noqa: F401
+
         msgs.append("  ✓ torchregress imported")
     except ImportError as exc:
         ok = False
@@ -90,10 +91,10 @@ def validate_nf_architecture() -> tuple[bool, list[str]]:
     try:
         import numpy as np
         import torch.nn as nn
-
-        from harness.runners import HarnessConfig
         from suites.tabular.distributional_bins import DistributionalBinsSuite
         from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+
+        from harness.runners import HarnessConfig
 
         cfg = HarnessConfig(epochs=0)
 
@@ -145,10 +146,7 @@ def validate_nf_architecture() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 NF architecture smoketest failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 NF architecture smoketest failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -202,10 +200,7 @@ def validate_nf_architecture_negative() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 NF architecture negative test failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 NF architecture negative test failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -232,10 +227,11 @@ def validate_sls_coverage() -> tuple[bool, list[str]]:
     try:
         import time
 
+        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+
         from harness.core import set_harness_seed
         from harness.datasets import load_dataset
         from harness.runners import HarnessConfig
-        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 
         set_harness_seed(42)
         splits = load_dataset(
@@ -275,10 +271,7 @@ def validate_sls_coverage() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 SLS coverage smoketest failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 SLS coverage smoketest failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -322,9 +315,7 @@ def validate_sls_architecture() -> tuple[bool, list[str]]:
 
         threshold = 25_000
         if param_count > threshold:
-            msgs.append(
-                f"  \u2713 SLS architecture ok (params: {param_count:,} > {threshold:,})"
-            )
+            msgs.append(f"  \u2713 SLS architecture ok (params: {param_count:,} > {threshold:,})")
         else:
             ok = False
             msgs.append(
@@ -335,10 +326,7 @@ def validate_sls_architecture() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 SLS architecture smoketest failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 SLS architecture smoketest failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -384,10 +372,7 @@ def validate_sls_architecture_negative() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 SLS architecture negative test failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 SLS architecture negative test failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -413,10 +398,11 @@ def validate_gaussiannll_coverage() -> tuple[bool, list[str]]:
     try:
         import time
 
+        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+
         from harness.core import set_harness_seed
         from harness.datasets import load_dataset
         from harness.runners import HarnessConfig
-        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 
         set_harness_seed(42)
         splits = load_dataset(
@@ -453,10 +439,7 @@ def validate_gaussiannll_coverage() -> tuple[bool, list[str]]:
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  \u2717 GaussianNLL coverage smoketest failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  \u2717 GaussianNLL coverage smoketest failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
 
@@ -481,10 +464,11 @@ def validate_multivariate_gaussian_coverage() -> tuple[bool, list[str]]:
     try:
         import time
 
+        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+
         from harness.core import set_harness_seed
         from harness.datasets import load_dataset
         from harness.runners import HarnessConfig
-        from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 
         set_harness_seed(42)
         splits = load_dataset(
@@ -525,14 +509,10 @@ def validate_multivariate_gaussian_coverage() -> tuple[bool, list[str]]:
     except Exception as exc:
         ok = False
         msgs.append(
-            f"  \u2717 MultivariateGaussian coverage smoketest failed: "
-            f"{type(exc).__name__}: {exc}"
+            f"  \u2717 MultivariateGaussian coverage smoketest failed: {type(exc).__name__}: {exc}"
         )
 
     return ok, msgs
-
-
-
 
 
 def validate_multivariate_gaussian_coverage_negative() -> tuple[bool, list[str]]:
@@ -598,12 +578,10 @@ def validate_multivariate_gaussian_coverage_negative() -> tuple[bool, list[str]]
 
     except Exception as exc:
         ok = False
-        msgs.append(
-            f"  ✗ MultivariateGaussian negative test failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        msgs.append(f"  ✗ MultivariateGaussian negative test failed: {type(exc).__name__}: {exc}")
 
     return ok, msgs
+
 
 def validate_suites(all_suites: dict) -> tuple[bool, list[str]]:
     """Check that all registered suites can be instantiated and queried.
@@ -621,10 +599,7 @@ def validate_suites(all_suites: dict) -> tuple[bool, list[str]]:
             suite = cls()
             methods = suite.methods()
             datasets = suite.supported_datasets
-            msgs.append(
-                f"  ✓ {name}: {len(methods)} methods, "
-                f"{len(datasets)} datasets"
-            )
+            msgs.append(f"  ✓ {name}: {len(methods)} methods, {len(datasets)} datasets")
         except Exception as exc:
             ok = False
             msgs.append(f"  ✗ {name}: {type(exc).__name__}: {exc}")

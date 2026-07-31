@@ -38,7 +38,6 @@ if str(_TORCHREGRESS_SRC) not in sys.path:
 
 from torchregress.losses import FunctionalEIVLoss, WeightedMSELoss  # noqa: E402
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Data generators
 # ═══════════════════════════════════════════════════════════════════════
@@ -53,9 +52,7 @@ def generate_nonlinear_eiv_data(
     rng = np.random.default_rng(seed)
     n_features = 6
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
-    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(
-        np.float32
-    )
+    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
     y = (
         np.sin(2.0 * np.pi * X_true[:, 0])
         + 0.5 * np.cos(4.0 * np.pi * X_true[:, 1])
@@ -89,9 +86,7 @@ def generate_linear_eiv_data(
     beta = rng.uniform(-1.0, 1.0, (n_features, 1)).astype(np.float32)
 
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
-    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(
-        np.float32
-    )
+    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
     y_clean = X_true @ beta
     y = (y_clean + sigma_y * rng.standard_normal((n_samples, 1)).astype(np.float32)).astype(
         np.float32
@@ -201,9 +196,7 @@ def _batch_loss_mse(model: nn.Module, Xb: torch.Tensor, yb: torch.Tensor) -> tor
     return ((model(Xb) - yb) ** 2).mean()
 
 
-def _batch_loss_mc(
-    loss_fn: FunctionalEIVLoss, Xb: torch.Tensor, yb: torch.Tensor
-) -> torch.Tensor:
+def _batch_loss_mc(loss_fn: FunctionalEIVLoss, Xb: torch.Tensor, yb: torch.Tensor) -> torch.Tensor:
     return loss_fn(Xb, yb)
 
 
@@ -302,12 +295,18 @@ def train_with_loss(
         loss_fn = WeightedMSELoss()
     elif loss_type == "feiv":
         loss_fn = FunctionalEIVLoss(
-            model=model, sigma_x=sigma_x, sigma_y=sigma_y, monte_carlo=False,
+            model=model,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            monte_carlo=False,
         )
     elif loss_type == "mc":
         loss_fn = FunctionalEIVLoss(
-            model=model, sigma_x=sigma_x, sigma_y=sigma_y,
-            monte_carlo=True, n_samples=20,
+            model=model,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            monte_carlo=True,
+            n_samples=20,
         )
     elif loss_type == "hybrid":
         loss_fn = None  # We'll call hybrid_loss directly
@@ -327,7 +326,12 @@ def train_with_loss(
 
             if loss_type == "hybrid":
                 loss = hybrid_loss(
-                    X[idx], y[idx], model, sigma_x, sigma_y, n_samples=20,
+                    X[idx],
+                    y[idx],
+                    model,
+                    sigma_x,
+                    sigma_y,
+                    n_samples=20,
                 )
             elif loss_type in ("feiv", "mc"):
                 loss = loss_fn(X[idx], y[idx])
@@ -349,20 +353,20 @@ def train_with_loss(
                     torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()).item()
                 )
                 pred_range = float(pred_clean.max().item() - pred_clean.min().item())
-            history.append({
-                "epoch": epoch,
-                "rmse_clean": rmse,
-                "pred_range": pred_range,
-            })
+            history.append(
+                {
+                    "epoch": epoch,
+                    "rmse_clean": rmse,
+                    "pred_range": pred_range,
+                }
+            )
             model.train()
 
     # Final eval
     model.eval()
     with torch.no_grad():
         pred_clean = model(X_test_true).squeeze(-1)
-        rmse_final = float(
-            torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()).item()
-        )
+        rmse_final = float(torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()).item())
         pred_range = float(pred_clean.max().item() - pred_clean.min().item())
 
     return {
@@ -410,8 +414,14 @@ def train_baseline(
             monte_carlo=False,
         )
         _train_loop(
-            model, opt, X, y, total_epochs, batch_size,
-            mc_loss_fn=loss_fn, lr=lr,
+            model,
+            opt,
+            X,
+            y,
+            total_epochs,
+            batch_size,
+            mc_loss_fn=loss_fn,
+            lr=lr,
         )
     elif label == "FuncEIV_MC":
         loss_fn = FunctionalEIVLoss(
@@ -422,8 +432,14 @@ def train_baseline(
             n_samples=20,
         )
         _train_loop(
-            model, opt, X, y, total_epochs, batch_size,
-            mc_loss_fn=loss_fn, lr=lr,
+            model,
+            opt,
+            X,
+            y,
+            total_epochs,
+            batch_size,
+            mc_loss_fn=loss_fn,
+            lr=lr,
         )
     else:
         raise ValueError(f"Unknown baseline: {label}")
@@ -465,16 +481,27 @@ def train_with_warmup(
     # Phase 1: MSE warmup — delegate to train_with_loss with shared optimizer
     if warmup_epochs > 0:
         mse_result = train_with_loss(
-            model, X, y, X_test_true, y_test_true,
-            loss_type="mse", sigma_x=sigma_x, sigma_y=sigma_y,
-            epochs=warmup_epochs, lr=lr, batch_size=batch_size, opt=opt,
+            model,
+            X,
+            y,
+            X_test_true,
+            y_test_true,
+            loss_type="mse",
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            epochs=warmup_epochs,
+            lr=lr,
+            batch_size=batch_size,
+            opt=opt,
         )
         history.extend(mse_result["history"])
-        history.append({
-            "epoch": warmup_epochs,
-            "rmse_clean": mse_result["rmse_clean"],
-            "phase": "warmup_end",
-        })
+        history.append(
+            {
+                "epoch": warmup_epochs,
+                "rmse_clean": mse_result["rmse_clean"],
+                "phase": "warmup_end",
+            }
+        )
 
     # Phase 2: Hybrid training — continues with same optimizer
     model.train()
@@ -484,7 +511,12 @@ def train_with_warmup(
             idx = perm[i : i + batch_size]
             opt.zero_grad(set_to_none=True)
             loss = hybrid_loss(
-                X[idx], y[idx], model, sigma_x, sigma_y, n_samples=20,
+                X[idx],
+                y[idx],
+                model,
+                sigma_x,
+                sigma_y,
+                n_samples=20,
             )
             loss.backward()
             opt.step()
@@ -493,9 +525,7 @@ def train_with_warmup(
     model.eval()
     with torch.no_grad():
         pred_clean = model(X_test_true).squeeze(-1)
-        rmse_final = float(
-            torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()).item()
-        )
+        rmse_final = float(torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()).item())
         pred_range = float(pred_clean.max().item() - pred_clean.min().item())
     history.append({"epoch": total_epochs, "rmse_clean": rmse_final, "phase": "hybrid_end"})
 
@@ -536,16 +566,26 @@ def train_warmup_mc(
     # Phase 1: MSE warmup — delegate to train_baseline with shared optimizer
     if warmup_epochs > 0:
         mse_result = train_baseline(
-            model, X, y, X_test_true, y_test_true,
-            label="MSE", sigma_x=sigma_x, total_epochs=warmup_epochs,
-            lr=lr, batch_size=batch_size, opt=opt,
+            model,
+            X,
+            y,
+            X_test_true,
+            y_test_true,
+            label="MSE",
+            sigma_x=sigma_x,
+            total_epochs=warmup_epochs,
+            lr=lr,
+            batch_size=batch_size,
+            opt=opt,
         )
-        history.append({
-            "epoch": warmup_epochs,
-            "phase": "warmup_end",
-            "rmse_clean": mse_result["rmse_clean"],
-            "pred_range": mse_result["pred_range"],
-        })
+        history.append(
+            {
+                "epoch": warmup_epochs,
+                "phase": "warmup_end",
+                "rmse_clean": mse_result["rmse_clean"],
+                "pred_range": mse_result["pred_range"],
+            }
+        )
 
     # Phase 2: FunctionalEIV_MC
     if reset_optimizer:
@@ -559,19 +599,19 @@ def train_warmup_mc(
         n_samples=n_mc_samples,
     )
 
-    _train_loop(
-        model, opt, X, y, mc_epochs, batch_size, mc_loss_fn=mc_loss
-    )
+    _train_loop(model, opt, X, y, mc_epochs, batch_size, mc_loss_fn=mc_loss)
 
     # Evaluate after MC phase
     rmse = eval_rmse_clean(model, X_test_true, y_test_true)
     p_range = eval_pred_range(model, X)
-    history.append({
-        "epoch": total_epochs,
-        "phase": "mc_end",
-        "rmse_clean": rmse,
-        "pred_range": p_range,
-    })
+    history.append(
+        {
+            "epoch": total_epochs,
+            "phase": "mc_end",
+            "rmse_clean": rmse,
+            "pred_range": p_range,
+        }
+    )
 
     return {
         "warmup_epochs": warmup_epochs,

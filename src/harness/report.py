@@ -64,9 +64,7 @@ def render_markdown(run: dict[str, Any]) -> str:
         return "\n".join(lines)
 
     # Group by suite, then dataset
-    grouped: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    grouped: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     for row in rows:
         suite = str(row.get("Suite", "?"))
         dataset = str(row.get("Dataset", "?"))

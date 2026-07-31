@@ -53,6 +53,7 @@ from suites._backbones import (
 
 try:
     from torchcp.regression.score.r2ccp import R2CCP, R2ccpLoss, build_regression_model
+
     _TORCHCP_R2C_AVAILABLE = True
 except ImportError:
     _TORCHCP_R2C_AVAILABLE = False
@@ -230,12 +231,12 @@ class R2CConformalSuite(HarnessRunner):
                 "bin probabilities."
             ),
             "R2C+CORAL": (
-                f"MLP backbone + CORALHead(shared-weight, monotonic biases) "
+                "MLP backbone + CORALHead(shared-weight, monotonic biases) "
                 "+ CORALLoss → R2CConformal.  Rank-consistent ordinal "
                 "architecture with R2C conformal on top."
             ),
             "torchcp_R2C": (
-                f"torchcp R2CCP score + R2ccpLoss + SplitPredictor.  "
+                "torchcp R2CCP score + R2ccpLoss + SplitPredictor.  "
                 "Uses torchcp's build_regression_model and ordinal-aware "
                 "binned loss per Guha et al. (2024)."
             ),
@@ -351,6 +352,7 @@ class R2CConformalSuite(HarnessRunner):
 
             # Build model using torchcp's factory
             model = build_regression_model(model_name="NonLinearNet")
+
             # Override input dimension (torchcp default might differ)
             # The model's first layer needs to match in_dim
             # Build a wrapped model with correct input dim
@@ -637,9 +639,7 @@ class R2CConformalSuite(HarnessRunner):
         if splits is None:
             from harness.datasets import load_dataset
 
-            splits = load_dataset(
-                dataset_name, standardize_targets=cfg.standardize_targets
-            )
+            splits = load_dataset(dataset_name, standardize_targets=cfg.standardize_targets)
 
         # Carve calibration split
         augmented_splits = _carve_calibration_split(

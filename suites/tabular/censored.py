@@ -22,10 +22,6 @@ import numpy as np
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
-
-from harness.core import set_harness_seed
-from harness.runners import HarnessConfig, HarnessRunner
-from suites._backbones import _MLP, _hidden_size, _train_one
 from torchregress.losses import (
     AFTLoss,
     CensoredGaussianNLLLoss,
@@ -33,10 +29,15 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 
+from harness.core import set_harness_seed
+from harness.runners import HarnessConfig, HarnessRunner
+from suites._backbones import _MLP, _hidden_size, _train_one
+
 # Optional external censored regression packages
 try:
     import pandas as pd
     from lifelines import LogNormalAFTFitter
+
     _LIFELINES_AVAILABLE = True
 except ImportError:
     _LIFELINES_AVAILABLE = False
@@ -200,7 +201,12 @@ class CensoredSuite(HarnessRunner):
             df["event"] = event.ravel()
             aft = LogNormalAFTFitter()
             aft.fit(df, duration_col="duration", event_col="event")
-            return {"type": "lifelines", "model": aft, "feature_cols": feature_cols, "y_shift": y_shift}
+            return {
+                "type": "lifelines",
+                "model": aft,
+                "feature_cols": feature_cols,
+                "y_shift": y_shift,
+            }
 
         raise ValueError(f"Unknown method: {method}")
 
@@ -278,15 +284,10 @@ class CensoredSuite(HarnessRunner):
         notes: dict[str, str] = {
             "MSE": "MLP + WeightedMSELoss — plain baseline (ignores censoring)",
             "CensoredGaussianNLL": (
-                "MLP + CensoredGaussianNLLLoss — censored Gaussian NLL with "
-                "right-censoring support"
+                "MLP + CensoredGaussianNLLLoss — censored Gaussian NLL with right-censoring support"
             ),
-            "CensoredQuantile": (
-                "MLP + CensoredQuantileLoss (τ=0.5) — censored median regression"
-            ),
-            "AFT": (
-                "MLP + AFTLoss — log-normal accelerated failure time model"
-            ),
+            "CensoredQuantile": ("MLP + CensoredQuantileLoss (τ=0.5) — censored median regression"),
+            "AFT": ("MLP + AFTLoss — log-normal accelerated failure time model"),
             "lifelines_LogNormalAFT": (
                 "lifelines.LogNormalAFTFitter — log-normal AFT (parametric, external)"
             ),

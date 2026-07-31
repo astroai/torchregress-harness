@@ -40,7 +40,6 @@ if str(_TORCHREGRESS_SRC) not in sys.path:
 
 from torchregress.algorithms.rc import RegressionCalibration
 
-
 # ── data generator (mirrors _load_synthetic_eiv in harness/datasets.py) ────────
 
 
@@ -53,9 +52,7 @@ def generate_linear_eiv_data(
 ) -> dict[str, np.ndarray]:
     rng = np.random.default_rng(seed)
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
-    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(
-        np.float32
-    )
+    X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
     y = (
         0.8 * X_true[:, 0]
         - 0.6 * X_true[:, 1]
@@ -200,19 +197,19 @@ def main() -> None:
     results = []
     for run_idx in range(args.n_runs):
         seed = 123 + run_idx * 7
-        data = generate_linear_eiv_data(
-            sigma_x=args.sigma_x, seed=seed, n_samples=2000
-        )
+        data = generate_linear_eiv_data(sigma_x=args.sigma_x, seed=seed, n_samples=2000)
         r = run_one(data, epochs=args.epochs, lr=args.lr, seed=seed)
         results.append(r)
 
     # ── Aggregate results ────────────────────────────────────
-    print(f"  {'Run':<6} {'Best(epoch)':<15} {'RMSE@30':<12} {'RMSE@60':<12} {'RMSE@120':<12} {'RMSE@200':<12}")
-    print(f"  {'─'*6} {'─'*15} {'─'*12} {'─'*12} {'─'*12} {'─'*12}")
+    print(
+        f"  {'Run':<6} {'Best(epoch)':<15} {'RMSE@30':<12} {'RMSE@60':<12} {'RMSE@120':<12} {'RMSE@200':<12}"
+    )
+    print(f"  {'─' * 6} {'─' * 15} {'─' * 12} {'─' * 12} {'─' * 12} {'─' * 12}")
     for i, r in enumerate(results):
         best_str = f"{r['best_rmse_clean']:.4f}@{r['best_epoch']}"
         print(
-            f"  {i+1:<6} {best_str:<15} {r['rmse30'] or 0:.4f}       "
+            f"  {i + 1:<6} {best_str:<15} {r['rmse30'] or 0:.4f}       "
             f"  {r['rmse60'] or 0:.4f}       "
             f"  {r['rmse120'] or 0:.4f}       "
             f"  {r['rmse200']:.4f}"
@@ -258,7 +255,7 @@ def main() -> None:
     h = results[0]["history"]
     # Show every 10 epochs
     print(f"  {'Epoch':>6} {'Train Loss':>12} {'RMSE_clean':>12}")
-    print(f"  {'─'*6} {'─'*12} {'─'*12}")
+    print(f"  {'─' * 6} {'─' * 12} {'─' * 12}")
     for pt in h:
         if pt["epoch"] % 10 == 0 or pt["epoch"] < 10 or pt["epoch"] in (29, 59, 119, 199):
             marker = ""
@@ -268,9 +265,7 @@ def main() -> None:
                 marker = "  ← 60-epoch benchmark"
             elif pt["epoch"] == results[0]["best_epoch"]:
                 marker = "  ← BEST"
-            print(
-                f"  {pt['epoch']:6d} {pt['train_loss']:12.6f} {pt['rmse_clean']:12.4f}{marker}"
-            )
+            print(f"  {pt['epoch']:6d} {pt['train_loss']:12.6f} {pt['rmse_clean']:12.4f}{marker}")
 
     # ── Verdict ──────────────────────────────────────────────
     print()
@@ -289,7 +284,9 @@ def main() -> None:
     mid_train = h[min(60, len(h) - 1)]["train_loss"]
     early_train = h[min(30, len(h) - 1)]["train_loss"]
 
-    print(f"  Train loss:  epoch 30={early_train:.6f}  →  epoch 60={mid_train:.6f}  →  final={last_train:.6f}")
+    print(
+        f"  Train loss:  epoch 30={early_train:.6f}  →  epoch 60={mid_train:.6f}  →  final={last_train:.6f}"
+    )
     print(f"  RMSE_clean:  epoch 30={mean30:.4f}  →  epoch 60={mean60:.4f}  →  final={mean200:.4f}")
     print(f"  Best RMSE_clean: {mean_best:.4f} at epoch ≈ {mean_best_ep:.0f}")
 
@@ -303,8 +300,10 @@ def main() -> None:
             f"({early_train:.6f}→{last_train:.6f}) but RMSE_clean rises "
             f"({mean30:.4f}→{mean200:.4f}, +{deg_30_200:.0f}%)"
         )
-        print(f"  → Early stopping at epoch ≈ {mean_best_ep:.0f} would recover "
-              f"RMSE_clean ≈ {mean_best:.4f}")
+        print(
+            f"  → Early stopping at epoch ≈ {mean_best_ep:.0f} would recover "
+            f"RMSE_clean ≈ {mean_best:.4f}"
+        )
     elif abs(mean60 - mean30) < 0.02:
         print(
             f"  ✅ NO OVERFITTING: RMSE_clean stable "
@@ -319,8 +318,10 @@ def main() -> None:
         if mean_best_ep < 60:
             print(f"  → Early stopping around epoch {mean_best_ep:.0f} recommended")
         else:
-            print(f"  → Best epoch ({mean_best_ep:.0f}) is after 60 — degradation may "
-                  f"not be monotonic")
+            print(
+                f"  → Best epoch ({mean_best_ep:.0f}) is after 60 — degradation may "
+                f"not be monotonic"
+            )
     else:
         print(
             f"  ⚠️  AMBIGUOUS: Degradation from 30→60 epochs ({deg_30_60:.1f}%) but "
@@ -354,7 +355,9 @@ def main() -> None:
     X_cal = rc0.transform(X_t).numpy()
     var_cal = float(np.var(X_cal))
     print(f"  Var(X_obs):               {var_orig:.4f}")
-    print(f"  Var(X_cal):               {var_cal:.4f} ({var_cal/var_orig*100:.1f}% of original)")
+    print(
+        f"  Var(X_cal):               {var_cal:.4f} ({var_cal / var_orig * 100:.1f}% of original)"
+    )
 
 
 if __name__ == "__main__":

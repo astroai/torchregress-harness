@@ -70,8 +70,9 @@ def test_distributional_bins_emits_pit_diagnostics() -> None:
     in the suite's list) and confirms that NF + NF_Ensemble_K5 + MDN
     rows carry the four calibration diagnostics.
     """
-    from harness.runners import HarnessConfig
     from suites.tabular.distributional_bins import DistributionalBinsSuite
+
+    from harness.runners import HarnessConfig
 
     suite = DistributionalBinsSuite()
     cfg = HarnessConfig(seed=42, epochs=3, smoke=True)

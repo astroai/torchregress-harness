@@ -3,6 +3,7 @@
 Adds the repo root to sys.path so that `suites` and `harness` packages
 are importable from any working directory.
 """
+
 import sys
 from pathlib import Path
 

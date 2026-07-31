@@ -54,7 +54,9 @@ class BayesianLinearSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Bayesian linear regression: torchregress vs sklearn BayesianRidge (parity) vs BoTorch"
+        return (
+            "Bayesian linear regression: torchregress vs sklearn BayesianRidge (parity) vs BoTorch"
+        )
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -71,9 +73,9 @@ class BayesianLinearSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         methods = [
-            "BLR_Linear",           # torchregress — parity against sklearn
-            "sklearn_BayesianRidge", # sklearn — ground truth
-            "BayesianLinearHead",    # torchregress — RBF kernel
+            "BLR_Linear",  # torchregress — parity against sklearn
+            "sklearn_BayesianRidge",  # sklearn — ground truth
+            "BayesianLinearHead",  # torchregress — RBF kernel
         ]
         if _BOTORCH_AVAILABLE:
             methods.append("BoTorch_SingleTaskGP")
@@ -91,7 +93,10 @@ class BayesianLinearSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -120,8 +125,8 @@ class BayesianLinearSuite(HarnessRunner):
                 sk_br = BayesianRidge(fit_intercept=True)
                 sk_br.fit(X, y)
                 # sklearn: alpha_ = noise precision (1/σ²), lambda_ = weight precision (τ)
-                prior_prec = float(sk_br.lambda_)       # weight precision
-                noise_var = 1.0 / float(sk_br.alpha_)   # noise variance = 1/noise_precision
+                prior_prec = float(sk_br.lambda_)  # weight precision
+                noise_var = 1.0 / float(sk_br.alpha_)  # noise variance = 1/noise_precision
                 rbf = None
                 auto = False
                 # Center data (same as sklearn internals)
@@ -187,7 +192,11 @@ class BayesianLinearSuite(HarnessRunner):
         raise ValueError(f"Unknown method: {method}")
 
     def predict(
-        self, method: str, model: dict[str, Any], X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         if method in ("BLR_Linear", "BayesianLinearHead"):
             head = model["head"]

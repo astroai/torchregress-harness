@@ -5,8 +5,9 @@ Each test imports a suite class and verifies it is properly structured
 """
 
 import pytest
-
 from suites._backbones import NF_ENSEMBLE_K_VARIANTS
+from suites.image.age_regression import AgeRegressionSuite
+from suites.image.depth_estimation import DepthEstimationSuite
 
 # All suites should be importable
 from suites.tabular.bayesian_linear import BayesianLinearSuite
@@ -25,8 +26,6 @@ from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
-from suites.image.age_regression import AgeRegressionSuite
-from suites.image.depth_estimation import DepthEstimationSuite
 
 ALL_SUITES = [
     ConformalSuite,
@@ -297,9 +296,10 @@ def test_split_cp_carve_then_fit_smoke_completes() -> None:
     distributor returns ``"split_cp"`` rather than crashing with KeyError or
     silently training on misshaped data.
     """
+    from suites._backbones import _carve_calibration_split
+
     from harness.datasets import load_dataset
     from harness.runners import HarnessConfig
-    from suites._backbones import _carve_calibration_split
 
     suite = DistributionalBinsSuite()
     cfg = HarnessConfig(

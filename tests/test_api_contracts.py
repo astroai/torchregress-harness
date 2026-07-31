@@ -7,17 +7,17 @@ implement consistent signatures and methods.
 from __future__ import annotations
 
 import inspect
+
 import pytest
 import torch
-import torch.nn as nn
-
 import torchregress.losses as losses
+
 from harness.wrappers import (
     DeepEnsembleRegressor,
+    EvidentialRegressor,
     GaussianNLLRegressor,
     HeteroscedasticEnsembleRegressor,
     MDNRegressor,
-    EvidentialRegressor,
     NormalizingFlowRegressor,
 )
 
@@ -40,9 +40,13 @@ def test_wrapper_api_contract(wrapper_cls) -> None:
     """Verify that all wrapper classes implement the full unified API contract."""
     # Check method existence
     for method_name in WRAPPER_METHODS:
-        assert hasattr(wrapper_cls, method_name), f"{wrapper_cls.__name__} is missing required method {method_name}"
+        assert hasattr(wrapper_cls, method_name), (
+            f"{wrapper_cls.__name__} is missing required method {method_name}"
+        )
         method = getattr(wrapper_cls, method_name)
-        assert inspect.isfunction(method) or inspect.ismethod(method), f"{wrapper_cls.__name__}.{method_name} is not callable"
+        assert inspect.isfunction(method) or inspect.ismethod(method), (
+            f"{wrapper_cls.__name__}.{method_name} is not callable"
+        )
 
     # Verify signature parameters
     # fit(self, X, y)
@@ -56,20 +60,28 @@ def test_wrapper_api_contract(wrapper_cls) -> None:
 
     # predict_interval(self, X, confidence)
     interval_sig = inspect.signature(wrapper_cls.predict_interval)
-    assert "X" in interval_sig.parameters, f"{wrapper_cls.__name__}.predict_interval missing X parameter"
-    assert "confidence" in interval_sig.parameters, f"{wrapper_cls.__name__}.predict_interval missing confidence parameter"
+    assert "X" in interval_sig.parameters, (
+        f"{wrapper_cls.__name__}.predict_interval missing X parameter"
+    )
+    assert "confidence" in interval_sig.parameters, (
+        f"{wrapper_cls.__name__}.predict_interval missing confidence parameter"
+    )
     # Ensure default confidence is 0.9
-    assert interval_sig.parameters["confidence"].default == 0.9, f"{wrapper_cls.__name__}.predict_interval default confidence must be 0.9"
+    assert interval_sig.parameters["confidence"].default == 0.9, (
+        f"{wrapper_cls.__name__}.predict_interval default confidence must be 0.9"
+    )
 
     # sample(self, X, n_samples)
     sample_sig = inspect.signature(wrapper_cls.sample)
     assert "X" in sample_sig.parameters, f"{wrapper_cls.__name__}.sample missing X parameter"
-    assert "n_samples" in sample_sig.parameters, f"{wrapper_cls.__name__}.sample missing n_samples parameter"
+    assert "n_samples" in sample_sig.parameters, (
+        f"{wrapper_cls.__name__}.sample missing n_samples parameter"
+    )
 
 
 def test_distribution_loss_subclasses_contract() -> None:
     """Document and check the interface parity of all torchregress DistributionLoss subclasses.
-    
+
     This test verifies that all registered distribution losses inherit from the base
     DistributionLoss class and tracks which interface methods are implemented.
     """
@@ -91,7 +103,7 @@ def test_distribution_loss_subclasses_contract() -> None:
     # - forward (or log_prob / calculate_nll)
     # - sample
     # - predict_interval (or quantile / cdf)
-    
+
     # We define a checklist of expected methods and log which ones are missing.
     # To keep the harness CI green while the upstream library changes are pending,
     # we assert the subclass contract matches a known current state.
@@ -115,27 +127,30 @@ def test_distribution_loss_subclasses_contract() -> None:
         assert nf_methods["sample"], "NormalizingFlowLoss must implement sample()"
         assert nf_methods["quantile"], "NormalizingFlowLoss must implement quantile()"
         assert nf_methods["cdf"], "NormalizingFlowLoss must implement cdf()"
-        
+
     # - MixtureDensityLoss (must have sample, predict_interval)
     if "MixtureDensityLoss" in known_methods:
         mdn_methods = known_methods["MixtureDensityLoss"]
         assert mdn_methods["sample"], "MixtureDensityLoss must implement sample()"
-        assert mdn_methods["predict_interval"], "MixtureDensityLoss must implement predict_interval()"
+        assert mdn_methods["predict_interval"], (
+            "MixtureDensityLoss must implement predict_interval()"
+        )
 
     # - EvidentialRegressionLoss (must have predict_interval)
     if "EvidentialRegressionLoss" in known_methods:
         ev_methods = known_methods["EvidentialRegressionLoss"]
-        assert ev_methods["predict_interval"], "EvidentialRegressionLoss must implement predict_interval()"
+        assert ev_methods["predict_interval"], (
+            "EvidentialRegressionLoss must implement predict_interval()"
+        )
 
 
 @pytest.mark.parametrize(
-    "device_name",
-    ["cpu", "mps"] if torch.backends.mps.is_available() else ["cpu"]
+    "device_name", ["cpu", "mps"] if torch.backends.mps.is_available() else ["cpu"]
 )
 def test_distribution_losses_behavioral(device_name: str) -> None:
     """Verify that all DistributionLoss subclasses execute properly on different devices."""
     device = torch.device(device_name)
-    
+
     # 1. Discover all subclasses
     dist_losses = []
     for name in dir(losses):
@@ -153,10 +168,10 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
     # 2. Test each subclass
     for loss_cls in dist_losses:
         cls_name = loss_cls.__name__
-        
+
         batch_size = 4
         n_features = 1
-        
+
         # Setup inputs based on class name
         if cls_name == "MixtureDensityLoss":
             loss = loss_cls(n_components=3, n_features=n_features)
@@ -170,7 +185,7 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
             except ImportError:
                 pytest.skip("zuko not installed")
                 return
-            
+
             flow = zuko.flows.NSF(features=n_features, context=2)
             flow.context = 2
             loss = loss_cls(flow=flow)
@@ -203,7 +218,12 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
             y_pred = torch.cat([gamma, nu, alpha, beta], dim=-1)
             target = torch.randn(batch_size, n_features, device=device)
             kwargs = {}
-        elif cls_name in ("GaussianNLLLoss", "BetaNLLLoss", "FaithfulGaussianLoss", "GaussianCRPSLoss"):
+        elif cls_name in (
+            "GaussianNLLLoss",
+            "BetaNLLLoss",
+            "FaithfulGaussianLoss",
+            "GaussianCRPSLoss",
+        ):
             loss = loss_cls()
             y_pred = torch.randn(batch_size, 2 * n_features, device=device)
             target = torch.randn(batch_size, n_features, device=device)
@@ -225,7 +245,7 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
         assert isinstance(out_loss, torch.Tensor)
         assert out_loss.device.type == device.type
         assert out_loss.dtype == torch.float32
-        
+
         # Test sample
         if hasattr(loss, "sample"):
             samples = loss.sample(y_pred, n_samples=5)
@@ -235,7 +255,7 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
                 assert list(samples.shape) == [5, batch_size, n_features]
             else:
                 assert list(samples.shape) == [batch_size, 5, n_features]
-                
+
             # Test sample with n_samples = 1
             samples_1 = loss.sample(y_pred, n_samples=1)
             assert isinstance(samples_1, torch.Tensor)
@@ -254,7 +274,7 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
             assert upper.device.type == device.type
             assert list(lower.shape) == [batch_size, n_features]
             assert list(upper.shape) == [batch_size, n_features]
-            
+
         # Test quantile
         if hasattr(loss, "quantile"):
             q = loss.quantile(y_pred, levels=[0.1, 0.5, 0.9])
@@ -290,7 +310,7 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
             assert isinstance(s_preds, torch.Tensor)
             assert s_preds.device.type == device.type
             assert list(s_preds.shape) == [5, batch_size, n_features]
-            
+
         elif cls_name == "MixtureDensityLoss":
             # predict_mean_std
             m_mean, m_std = loss.predict_mean_std(y_pred)
@@ -298,4 +318,3 @@ def test_distribution_losses_behavioral(device_name: str) -> None:
                 assert isinstance(t, torch.Tensor)
                 assert t.device.type == device.type
                 assert list(t.shape) == [batch_size, n_features]
-

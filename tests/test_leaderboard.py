@@ -310,9 +310,7 @@ def test_cli_smoke_run_produces_artifact(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [
-            "uv",
-            "run",
-            "python",
+            sys.executable,
             "tools/leaderboard_regression.py",
             "--datasets",
             "diabetes",

@@ -565,6 +565,7 @@ def test_wrapper_device_parity(synthetic_xy, estimator_cls) -> None:
     If no GPU is available, the test gracefully runs on CPU.
     """
     import torch
+
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda"

@@ -18,7 +18,6 @@ import argparse
 
 import numpy as np
 import torch
-
 from diagnostic_utils import (
     generate_linear_eiv_data,
     generate_nonlinear_eiv_data,
@@ -26,7 +25,6 @@ from diagnostic_utils import (
     train_with_loss,
     train_with_warmup,
 )
-
 
 # ── main ──────────────────────────────────────────────────────────────
 
@@ -40,14 +38,17 @@ def main() -> None:
     parser.add_argument("--n_runs", type=int, default=3)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument(
-        "--linear", action="store_true",
+        "--linear",
+        action="store_true",
         help="Use linear data (y = X·β) instead of nonlinear",
     )
     parser.add_argument(
-        "--warmup_epochs", type=int, default=None,
+        "--warmup_epochs",
+        type=int,
+        default=None,
         help="MSE warmup epochs before hybrid training (e.g. 20 from "
-             "HarnessConfig.warmup_epochs). When provided, runs only the "
-             "hybrid loss with MSE pre-training instead of all four losses.",
+        "HarnessConfig.warmup_epochs). When provided, runs only the "
+        "hybrid loss with MSE pre-training instead of all four losses.",
     )
     args = parser.parse_args()
 
@@ -64,14 +65,12 @@ def main() -> None:
     gen_fn = generate_linear_eiv_data if args.linear else generate_nonlinear_eiv_data
 
     print("=" * 78)
-    print(
-        f"  Hybrid EIV Diagnostic — Jacobian Variance + MC Mean  ({data_type} data)"
-    )
+    print(f"  Hybrid EIV Diagnostic — Jacobian Variance + MC Mean  ({data_type} data)")
     print(f"  σx={sigma_x}, σy={sigma_y}, epochs={args.epochs}, n_runs={args.n_runs}")
     if args.linear:
-        print(f"  Linear model: y = X·β + ε  (β ~ U(-1,1))")
+        print("  Linear model: y = X·β + ε  (β ~ U(-1,1))")
     else:
-        print(f"  Nonlinear: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
+        print("  Nonlinear: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
     if use_warmup:
         hybrid_eps = args.epochs - warmup
         print(f"  Warmup: {warmup} epochs MSE → {hybrid_eps} epochs hybrid")
@@ -90,7 +89,10 @@ def main() -> None:
         torch.manual_seed(seed)
         np.random.seed(seed)
         data = gen_fn(
-            n_samples=2000, sigma_x=sigma_x, sigma_y=sigma_y, seed=seed,
+            n_samples=2000,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            seed=seed,
         )
         in_dim = data["X_train"].shape[1]
         X_t = torch.from_numpy(data["X_train"]).float()
@@ -102,9 +104,16 @@ def main() -> None:
         if use_warmup:
             m_mse = make_mlp(in_dim)
             r_mse = train_with_loss(
-                m_mse, X_t, y_t, X_clean_t, y_clean_t,
-                loss_type="mse", sigma_x=sigma_x, sigma_y=sigma_y,
-                epochs=args.epochs, lr=args.lr,
+                m_mse,
+                X_t,
+                y_t,
+                X_clean_t,
+                y_clean_t,
+                loss_type="mse",
+                sigma_x=sigma_x,
+                sigma_y=sigma_y,
+                epochs=args.epochs,
+                lr=args.lr,
             )
             all_results["mse"].append(r_mse)
 
@@ -112,25 +121,37 @@ def main() -> None:
             if lt == "hybrid_warmup":
                 # MSE warmup → hybrid training
                 r = train_with_warmup(
-                    make_mlp(in_dim), X_t, y_t, X_clean_t, y_clean_t,
+                    make_mlp(in_dim),
+                    X_t,
+                    y_t,
+                    X_clean_t,
+                    y_clean_t,
                     warmup_epochs=warmup,
                     hybrid_epochs=args.epochs - warmup,
-                    sigma_x=sigma_x, sigma_y=sigma_y,
+                    sigma_x=sigma_x,
+                    sigma_y=sigma_y,
                     lr=args.lr,
                 )
                 all_results[lt].append(r)
             else:
                 m = make_mlp(in_dim)
                 r = train_with_loss(
-                    m, X_t, y_t, X_clean_t, y_clean_t,
-                    loss_type=lt, sigma_x=sigma_x, sigma_y=sigma_y,
-                    epochs=args.epochs, lr=args.lr,
+                    m,
+                    X_t,
+                    y_t,
+                    X_clean_t,
+                    y_clean_t,
+                    loss_type=lt,
+                    sigma_x=sigma_x,
+                    sigma_y=sigma_y,
+                    epochs=args.epochs,
+                    lr=args.lr,
                 )
                 all_results[lt].append(r)
 
     # ── Results table ───────────────────────────────────────
     print(f"  {'Method':<18} {'RMSE_clean':>12} {'±std':>8} {'pred_range':>10} {'vs_MSE':>8}")
-    print(f"  {'─'*18} {'─'*12} {'─'*8} {'─'*10} {'─'*8}")
+    print(f"  {'─' * 18} {'─' * 12} {'─' * 8} {'─' * 10} {'─' * 8}")
 
     mse_mean = np.mean([r["rmse_clean"] for r in all_results["mse"]])
 
@@ -207,15 +228,13 @@ def main() -> None:
         print("-" * 78)
 
         histories = {lt: all_results[lt][0]["history"] for lt in loss_types}
-        all_epochs = sorted(set(
-            h["epoch"] for hl in histories.values() for h in hl
-        ))
+        all_epochs = sorted(set(h["epoch"] for hl in histories.values() for h in hl))
 
         header = f"  {'Epoch':>6}"
         for lt in loss_types:
             header += f" {labels[lt]:>18}"
         print(header)
-        print(f"  {'─'*6}" + "".join(f" {'─'*18}" for _ in loss_types))
+        print(f"  {'─' * 6}" + "".join(f" {'─' * 18}" for _ in loss_types))
 
         for e in all_epochs:
             line = f"  {e:6d}"
@@ -238,26 +257,32 @@ def main() -> None:
         if warmup_mean < mse_mean * 0.98:
             print(f"  ✅ HYBRID+warmup_{warmup} beats MSE ({mse_mean:.4f} → {warmup_mean:.4f})")
         elif warmup_mean < mse_mean:
-            print(f"  → HYBRID+warmup_{warmup} slightly better than MSE ({mse_mean:.4f} → {warmup_mean:.4f})")
+            print(
+                f"  → HYBRID+warmup_{warmup} slightly better than MSE ({mse_mean:.4f} → {warmup_mean:.4f})"
+            )
         else:
-            print(f"  ❌ HYBRID+warmup_{warmup} worse than MSE ({mse_mean:.4f} → {warmup_mean:.4f})")
-        print(f"  Run full comparison (without --warmup_epochs) to compare vs pure MC/analytical")
+            print(
+                f"  ❌ HYBRID+warmup_{warmup} worse than MSE ({mse_mean:.4f} → {warmup_mean:.4f})"
+            )
+        print("  Run full comparison (without --warmup_epochs) to compare vs pure MC/analytical")
     else:
         if hybrid_vs_mc < -20:
             print(f"  ✅ HYBRID STRONGLY RESCUES MC: {abs(hybrid_vs_mc):.0f}% better than pure MC")
-            print(f"     Jacobian variance stabilises the MC path on nonlinear data")
+            print("     Jacobian variance stabilises the MC path on nonlinear data")
         elif hybrid_vs_mc < -5:
             print(f"  ⚠️  HYBRID MODERATELY IMPROVES MC: {abs(hybrid_vs_mc):.0f}% better")
-            print(f"     Jacobian variance helps but doesn't fully fix the MC path")
+            print("     Jacobian variance helps but doesn't fully fix the MC path")
         elif abs(hybrid_vs_mc) < 5:
-            print(f"  → HYBRID ≈ PURE MC: Jacobian variance doesn't change MC outcome")
+            print("  → HYBRID ≈ PURE MC: Jacobian variance doesn't change MC outcome")
         else:
-            print(f"  ❌ HYBRID WORSE than MC: Jacobian variance hurts MC path")
+            print("  ❌ HYBRID WORSE than MC: Jacobian variance hurts MC path")
 
         if np.mean(hybrid_vals) < mse_mean * 0.98:
             print(f"  ✅ HYBRID beats MSE ({mse_mean:.4f} → {np.mean(hybrid_vals):.4f})")
         elif np.mean(hybrid_vals) < mse_mean:
-            print(f"  → HYBRID slightly better than MSE ({mse_mean:.4f} → {np.mean(hybrid_vals):.4f})")
+            print(
+                f"  → HYBRID slightly better than MSE ({mse_mean:.4f} → {np.mean(hybrid_vals):.4f})"
+            )
         else:
             print(f"  → HYBRID worse than MSE ({mse_mean:.4f} → {np.mean(hybrid_vals):.4f})")
 

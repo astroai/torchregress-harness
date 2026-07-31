@@ -18,7 +18,7 @@ _TOOLS = Path(__file__).resolve().parents[1] / "tools"
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
-from diagnostic_utils import make_mlp, train_with_loss, train_baseline
+from diagnostic_utils import make_mlp, train_baseline, train_with_loss
 
 # Smoke-test that imports resolve correctly
 assert callable(make_mlp)
@@ -41,7 +41,9 @@ def test_imports_resolve() -> None:
 
 
 def _make_synthetic_data(
-    n_samples: int = 200, n_features: int = 4, seed: int = 42,
+    n_samples: int = 200,
+    n_features: int = 4,
+    seed: int = 42,
 ) -> dict[str, torch.Tensor]:
     """Tiny synthetic dataset for fast unit tests."""
     rng = torch.Generator().manual_seed(seed)
@@ -66,9 +68,17 @@ def test_train_with_loss_mse_no_opt_parameter() -> None:
     data = _make_synthetic_data()
     model = make_mlp(in_dim=4, hidden=16)
     result = train_with_loss(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1, epochs=5, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=5,
+        lr=1e-2,
+        batch_size=32,
     )
     assert result["loss_type"] == "mse"
     assert isinstance(result["rmse_clean"], float)
@@ -93,9 +103,17 @@ def test_train_with_loss_external_opt_momentum_carries() -> None:
     }
 
     result = train_with_loss(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1, epochs=5, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=5,
+        lr=1e-2,
+        batch_size=32,
         opt=opt,
     )
 
@@ -104,9 +122,7 @@ def test_train_with_loss_external_opt_momentum_carries() -> None:
         before = state_before[name]
         assert p in opt.state, f"Parameter {name} not in optimizer state"
         after_step = opt.state[p].get("step", 0)
-        assert after_step > before["step"], (
-            f"Optimizer step count didn't increase for {name}"
-        )
+        assert after_step > before["step"], f"Optimizer step count didn't increase for {name}"
         after_exp_avg = opt.state[p].get("exp_avg", None)
         assert after_exp_avg is not None, f"exp_avg not set for {name}"
         if before["exp_avg"] is not None:
@@ -124,11 +140,18 @@ def test_train_with_loss_external_opt_respects_lr() -> None:
     opt = Adam(model.parameters(), lr=0.123)
     # The `lr` argument to train_with_loss should be ignored when opt is provided
     train_with_loss(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1, epochs=2,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=2,
         lr=0.999,  # This should be ignored — external opt has LR=0.123
-        batch_size=32, opt=opt,
+        batch_size=32,
+        opt=opt,
     )
     # Verify the optimizer's LR was not changed to 0.999
     for pg in opt.param_groups:
@@ -143,10 +166,17 @@ def test_train_with_loss_all_loss_types_no_opt() -> None:
     for loss_type in ("mse", "feiv", "mc", "hybrid"):
         model = make_mlp(in_dim=4, hidden=16)
         result = train_with_loss(
-            model, data["X_train"], data["y_train"],
-            data["X_test_true"], data["y_test"],
-            loss_type=loss_type, sigma_x=sigma_x, sigma_y=0.1,
-            epochs=3, lr=1e-2, batch_size=32,
+            model,
+            data["X_train"],
+            data["y_train"],
+            data["X_test_true"],
+            data["y_test"],
+            loss_type=loss_type,
+            sigma_x=sigma_x,
+            sigma_y=0.1,
+            epochs=3,
+            lr=1e-2,
+            batch_size=32,
         )
         assert result["loss_type"] == loss_type
         assert isinstance(result["rmse_clean"], float)
@@ -158,9 +188,17 @@ def test_train_with_loss_zero_epochs_still_evaluates() -> None:
     data = _make_synthetic_data()
     model = make_mlp(in_dim=4, hidden=16)
     result = train_with_loss(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1, epochs=0, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=0,
+        lr=1e-2,
+        batch_size=32,
     )
     assert isinstance(result["rmse_clean"], float)
     assert not np.isnan(result["rmse_clean"])
@@ -172,9 +210,17 @@ def test_train_with_loss_external_opt_zero_epochs_no_error() -> None:
     model = make_mlp(in_dim=4, hidden=16)
     opt = Adam(model.parameters(), lr=1e-2)
     result = train_with_loss(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1, epochs=0, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=0,
+        lr=1e-2,
+        batch_size=32,
         opt=opt,
     )
     assert isinstance(result["rmse_clean"], float)
@@ -197,10 +243,18 @@ def test_train_with_loss_mismatched_opt_silently_ignored() -> None:
     # This is a misuse pattern — train_with_loss doesn't guard against it.
     # We just verify it doesn't crash with an unexpected exception type.
     result = train_with_loss(
-        model_a, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        loss_type="mse", sigma_x=0.5, sigma_y=0.1,
-        epochs=1, lr=1e-2, batch_size=32, opt=opt_b,
+        model_a,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        loss_type="mse",
+        sigma_x=0.5,
+        sigma_y=0.1,
+        epochs=1,
+        lr=1e-2,
+        batch_size=32,
+        opt=opt_b,
     )
     # The result should still be structurally valid even if training
     # was a no-op (optimizer stepped wrong model's params)
@@ -216,9 +270,16 @@ def test_train_baseline_mse_no_opt_parameter() -> None:
     data = _make_synthetic_data()
     model = make_mlp(in_dim=4, hidden=16)
     result = train_baseline(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        label="MSE", sigma_x=0.5, total_epochs=5, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        label="MSE",
+        sigma_x=0.5,
+        total_epochs=5,
+        lr=1e-2,
+        batch_size=32,
     )
     assert result["label"] == "MSE"
     assert isinstance(result["rmse_clean"], float)
@@ -238,9 +299,16 @@ def test_train_baseline_external_opt_momentum_carries() -> None:
     }
 
     result = train_baseline(
-        model, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        label="MSE", sigma_x=0.5, total_epochs=5, lr=1e-2, batch_size=32,
+        model,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        label="MSE",
+        sigma_x=0.5,
+        total_epochs=5,
+        lr=1e-2,
+        batch_size=32,
         opt=opt,
     )
 
@@ -263,9 +331,16 @@ def test_train_baseline_external_opt_and_no_opt_produce_similar_results() -> Non
     torch.manual_seed(42)
     model_a = make_mlp(in_dim=4, hidden=16)
     result_a = train_baseline(
-        model_a, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        label="MSE", sigma_x=0.5, total_epochs=10, lr=1e-2, batch_size=32,
+        model_a,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        label="MSE",
+        sigma_x=0.5,
+        total_epochs=10,
+        lr=1e-2,
+        batch_size=32,
     )
 
     # Run 2: external optimizer (same seed)
@@ -273,9 +348,16 @@ def test_train_baseline_external_opt_and_no_opt_produce_similar_results() -> Non
     model_b = make_mlp(in_dim=4, hidden=16)
     opt = Adam(model_b.parameters(), lr=1e-2)
     result_b = train_baseline(
-        model_b, data["X_train"], data["y_train"],
-        data["X_test_true"], data["y_test"],
-        label="MSE", sigma_x=0.5, total_epochs=10, lr=1e-2, batch_size=32,
+        model_b,
+        data["X_train"],
+        data["y_train"],
+        data["X_test_true"],
+        data["y_test"],
+        label="MSE",
+        sigma_x=0.5,
+        total_epochs=10,
+        lr=1e-2,
+        batch_size=32,
         opt=opt,
     )
 

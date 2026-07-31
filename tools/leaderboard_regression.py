@@ -76,8 +76,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from harness.runners import HarnessConfig  # noqa: E402
 from tools._suite_registry import ALL_SUITES  # noqa: E402
+
+from harness.runners import HarnessConfig  # noqa: E402
 
 # Keys that are row metadata, not performance metrics.  Mirrors the
 # ``_NON_METRIC_KEYS`` set in ``src/harness/core.py`` (re-declared locally

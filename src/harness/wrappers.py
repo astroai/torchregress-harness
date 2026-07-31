@@ -359,7 +359,6 @@ class _HarnessRegressorBase:
             self._flow.to(device)
         return self
 
-
     def __init__(
         self,
         *,
@@ -415,6 +414,7 @@ class _HarnessRegressorBase:
 
         in_dim = X_arr.shape[1]
         from suites._backbones import _hidden_size
+
         hidden = _hidden_size(in_dim)
 
         # Seed BEFORE ``_build_model`` so weight init is deterministic
@@ -507,6 +507,7 @@ class _HarnessRegressorBase:
         cfg: HarnessConfig,
     ) -> None:
         from suites._backbones import _train_one
+
         loss_fn = self._default_loss_factory()
         _train_one(self._model, loss_fn, X_t, y_t, cfg)
         self._model.eval()
@@ -545,6 +546,7 @@ class GaussianNLLRegressor(_HarnessRegressorBase):
 
     def _build_model(self, in_dim: int, hidden: int) -> None:
         from suites._backbones import _MLP
+
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
 
     def _default_loss_factory(self) -> nn.Module:
@@ -554,6 +556,7 @@ class GaussianNLLRegressor(_HarnessRegressorBase):
 
     def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
         from suites._backbones import _gaussian_nll_predict
+
         mean, std = _gaussian_nll_predict(self._model, X)
         return {"mean": mean, "std": std}
 
@@ -594,6 +597,7 @@ class MDNRegressor(_HarnessRegressorBase):
             covariance_type="diagonal",
         )
         from suites._backbones import _MLP
+
         self._model = _MLP(
             in_dim=in_dim,
             hidden=hidden,
@@ -679,6 +683,7 @@ class EvidentialRegressor(_HarnessRegressorBase):
 
         self._loss_fn = EvidentialRegressionLoss(coeff_nig=self.coeff_nig)
         from suites._backbones import _MLP
+
         # 4 raw outputs (gamma direct, nu/alpha/beta softplus-bounded below).
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=4)
 
@@ -813,6 +818,7 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
         )
         self._loss = NormalizingFlowLoss(flow=self._flow)
         from suites._backbones import _MLP
+
         self._model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
 
     def _fit_impl(
@@ -823,6 +829,7 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
     ) -> None:
         """Train backbone MLP + flow's coupling-network weights jointly."""
         from suites._backbones import _train_one
+
         _train_one(
             self._model,
             self._loss,
@@ -872,8 +879,9 @@ class DeepEnsembleRegressor(_HarnessRegressorBase):
         self.ensemble_size = ensemble_size
 
     def _build_model(self, in_dim: int, hidden: int) -> None:
-        from torchregress.ensemble.base import BaseEnsembleModel
         from suites._backbones import _MLP
+        from torchregress.ensemble.base import BaseEnsembleModel
+
         self._model = BaseEnsembleModel(
             base_model=_MLP,
             ensemble_size=self.ensemble_size,
@@ -891,11 +899,12 @@ class DeepEnsembleRegressor(_HarnessRegressorBase):
     ) -> None:
         device = next(self._model.parameters()).device
         loss_fn = nn.MSELoss()
-        
+
         from torch.utils.data import DataLoader, TensorDataset
+
         dataset = TensorDataset(X_t, y_t)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-        
+
         self._model.fit(
             train_loader=loader,
             criterion=loss_fn,
@@ -935,8 +944,9 @@ class HeteroscedasticEnsembleRegressor(_HarnessRegressorBase):
         self.beta = beta
 
     def _build_model(self, in_dim: int, hidden: int) -> None:
-        from torchregress.ensemble.models import HeteroscedasticEnsembleModel
         from suites._backbones import _MLP
+        from torchregress.ensemble.models import HeteroscedasticEnsembleModel
+
         self._model = HeteroscedasticEnsembleModel(
             base_model=_MLP,
             ensemble_size=self.ensemble_size,
@@ -954,12 +964,14 @@ class HeteroscedasticEnsembleRegressor(_HarnessRegressorBase):
     ) -> None:
         device = next(self._model.parameters()).device
         from torchregress.losses import BetaNLLLoss
+
         loss_fn = BetaNLLLoss(beta=self.beta)
-        
+
         from torch.utils.data import DataLoader, TensorDataset
+
         dataset = TensorDataset(X_t, y_t)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-        
+
         self._model.fit(
             train_loader=loader,
             criterion=loss_fn,

@@ -75,17 +75,29 @@ except ImportError:
 _TORCHREGRESS_LOSSES: dict[str, tuple] = {
     "MSE": (lambda: WeightedMSELoss(reduction="mean"), "outlier-sensitive baseline"),
     "MAE": (lambda: WeightedL1Loss(reduction="mean"), "L1 absolute error baseline"),
-    "Huber": (lambda: WeightedHuberLoss(delta=1.0, reduction="mean"), "balanced robustness default"),
+    "Huber": (
+        lambda: WeightedHuberLoss(delta=1.0, reduction="mean"),
+        "balanced robustness default",
+    ),
     "Cauchy": (lambda: CauchyLoss(c=0.5, reduction="mean"), "very robust, non-convex"),
-    "Barron": (lambda: BarronLoss(alpha=1.0, scale=1.0, reduction="mean"), "general Barron family α=1"),
+    "Barron": (
+        lambda: BarronLoss(alpha=1.0, scale=1.0, reduction="mean"),
+        "general Barron family α=1",
+    ),
     "AdaptiveRobust": (
         lambda: AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0, reduction="mean"),
         "learns α dynamically",
     ),
     "LogCosh": (lambda: LogCoshLoss(scale=1.0, reduction="mean"), "smooth log(cosh) approximation"),
     "Charbonnier": (lambda: CharbonnierLoss(eps=1e-3, reduction="mean"), "smooth L1 alternative"),
-    "Tukey": (lambda: TukeyBiweightLoss(c=4.685, reduction="mean"), "redescending, ignores far outliers"),
-    "PseudoHuber": (lambda: PseudoHuberLoss(delta=1.0, reduction="mean"), "smooth Huber approximation"),
+    "Tukey": (
+        lambda: TukeyBiweightLoss(c=4.685, reduction="mean"),
+        "redescending, ignores far outliers",
+    ),
+    "PseudoHuber": (
+        lambda: PseudoHuberLoss(delta=1.0, reduction="mean"),
+        "smooth Huber approximation",
+    ),
 }
 
 
@@ -130,10 +142,14 @@ class RobustRegressionSuite(HarnessRunner):
         linear_methods = [f"{name}_Linear" for name in _TORCHREGRESS_LOSSES]
         # MLP + Adam variants (original)
         mlp_methods = list(_TORCHREGRESS_LOSSES.keys())
-        methods = linear_methods + mlp_methods + [
-            "Quantile_Linear",          # torchregress: _Linear + MultiQuantileLoss via LBFGS
-            "sklearn_QuantileRegressor", # sklearn: QuantileRegressor via LP
-        ]
+        methods = (
+            linear_methods
+            + mlp_methods
+            + [
+                "Quantile_Linear",  # torchregress: _Linear + MultiQuantileLoss via LBFGS
+                "sklearn_QuantileRegressor",  # sklearn: QuantileRegressor via LP
+            ]
+        )
         if _STATSMODELS_AVAILABLE:
             methods.append("statsmodels_RLM")
         if _LIGHTGBM_AVAILABLE:
@@ -178,7 +194,10 @@ class RobustRegressionSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -278,7 +297,11 @@ class RobustRegressionSuite(HarnessRunner):
         raise ValueError(f"Unknown method: {method}")
 
     def predict(
-        self, method: str, model_state: dict[str, Any], X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model_state: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 

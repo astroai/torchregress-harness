@@ -30,13 +30,15 @@ from typing import Any
 
 import numpy as np
 import torch
-
-from harness.core import set_harness_seed
-from harness.runners import HarnessConfig, HarnessRunner
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
-
-from suites._backbones import _MLP, _Linear, _hidden_size, _train_one, _carve_calibration_split
+from torchregress.algorithms import (
+    SIMEX,
+    LatentNN,
+    NoiseAwareRegressor,
+    RegressionCalibration,
+    WarmupMCTrainer,
+)
 from torchregress.losses import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,
@@ -47,25 +49,23 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 from torchregress.losses.eiv import NoisyInputPredictor
-from torchregress.algorithms import (
-    LatentNN,
-    NoiseAwareRegressor,
-    RegressionCalibration,
-    SIMEX,
-    WarmupMCTrainer,
-)
+
+from harness.core import set_harness_seed
+from harness.runners import HarnessConfig, HarnessRunner
+from suites._backbones import _MLP, _carve_calibration_split, _hidden_size, _Linear, _train_one
 
 # --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
 try:
-    from scipy.odr import ODR as _ODR, Model as _ODRModel, RealData
+    from scipy.odr import ODR as _ODR
+    from scipy.odr import Model as _ODRModel
+    from scipy.odr import RealData
 
     # Verify it actually works with sx/sy parameters (it may be broken
     # in the deprecation window, e.g. scipy >= 1.17 on macOS).
     _x_test = np.random.randn(10, 3).astype(np.float64)
     _y_test = np.random.randn(10).astype(np.float64)
     _model_test = _ODRModel(lambda beta, x: beta[0] + x @ beta[1:])
-    _odr_test = _ODR(RealData(_x_test, _y_test, sx=0.2, sy=0.1),
-                     _model_test, beta0=np.zeros(4))
+    _odr_test = _ODR(RealData(_x_test, _y_test, sx=0.2, sy=0.1), _model_test, beta0=np.zeros(4))
     _odr_test.run()
     HAS_SCIPY_ODR = True
 except Exception:
@@ -116,6 +116,7 @@ def _train_eiv(
 
 
 # --- Shared prediction helper (noisy and clean X paths) ---
+
 
 def _eiv_predict(
     method: str,
@@ -208,15 +209,31 @@ class EIVSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        return ["MSE", "FunctionalEIV", "FunctionalEIV_MC", "StructuralEIV", "ODR",
-                "EnsembleEIV", "InputNoiseMC", "MSE_NoisyPredict", "LatentNN",
-                "NoiseAware", "SIMEX", "RC", "TLS", "SciPyODR",
-                # --- Composability / distributional / conformal ---
-                "GaussianNLL+InputNoiseMC", "RC+GaussianNLL",
-                "RC+FunctionalEIV", "TLS_Init+FunctionalEIV",
-                "MSE_WarmupMC",
-                "SplitCP+FunctionalEIV", "SplitCP+InputNoiseMC",
-                "SplitCP+MSE_WarmupMC"]
+        return [
+            "MSE",
+            "FunctionalEIV",
+            "FunctionalEIV_MC",
+            "StructuralEIV",
+            "ODR",
+            "EnsembleEIV",
+            "InputNoiseMC",
+            "MSE_NoisyPredict",
+            "LatentNN",
+            "NoiseAware",
+            "SIMEX",
+            "RC",
+            "TLS",
+            "SciPyODR",
+            # --- Composability / distributional / conformal ---
+            "GaussianNLL+InputNoiseMC",
+            "RC+GaussianNLL",
+            "RC+FunctionalEIV",
+            "TLS_Init+FunctionalEIV",
+            "MSE_WarmupMC",
+            "SplitCP+FunctionalEIV",
+            "SplitCP+InputNoiseMC",
+            "SplitCP+MSE_WarmupMC",
+        ]
 
     def library_name(self, method: str) -> str:
         if method.startswith("SplitCP+"):
@@ -245,8 +262,10 @@ class EIVSuite(HarnessRunner):
         cfg = config or HarnessConfig()
         if splits is None:
             from harness.datasets import load_dataset
+
             splits = load_dataset(
-                dataset_name, standardize_targets=cfg.standardize_targets,
+                dataset_name,
+                standardize_targets=cfg.standardize_targets,
             )
 
         rows: list[dict[str, Any]] = []
@@ -264,26 +283,33 @@ class EIVSuite(HarnessRunner):
                     preds["_y_scaler"] = splits["_y_scaler"]
                 metrics = self.evaluate(method, preds, splits["y_test"], cfg)
                 eval_s = time.perf_counter() - t0
-                rows.append({
-                    "Method": f"{self.name}/{method}",
-                    "Library": self.library_name(method),
-                    "Dataset": dataset_name,
-                    "Suite": self.name,
-                    "train_s": train_s,
-                    "eval_s": eval_s,
-                    "Notes": self.method_notes(method),
-                    **metrics,
-                })
+                rows.append(
+                    {
+                        "Method": f"{self.name}/{method}",
+                        "Library": self.library_name(method),
+                        "Dataset": dataset_name,
+                        "Suite": self.name,
+                        "train_s": train_s,
+                        "eval_s": eval_s,
+                        "Notes": self.method_notes(method),
+                        **metrics,
+                    }
+                )
             except Exception as exc:
-                rows.append({
-                    "Method": f"{self.name}/{method}",
-                    "Library": self.library_name(method),
-                    "Dataset": dataset_name,
-                    "Suite": self.name,
-                    "RMSE": None, "MAE": None, "R2": None,
-                    "train_s": None, "eval_s": None,
-                    "Notes": f"skipped: {exc}",
-                })
+                rows.append(
+                    {
+                        "Method": f"{self.name}/{method}",
+                        "Library": self.library_name(method),
+                        "Dataset": dataset_name,
+                        "Suite": self.name,
+                        "RMSE": None,
+                        "MAE": None,
+                        "R2": None,
+                        "train_s": None,
+                        "eval_s": None,
+                        "Notes": f"skipped: {exc}",
+                    }
+                )
         return rows
 
     # ------------------------------------------------------------------
@@ -342,8 +368,11 @@ class EIVSuite(HarnessRunner):
             # Same loss function as analytical EIV but without the Jacobian path.
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = FunctionalEIVLoss(
-                model=model, sigma_x=sigma_x, sigma_y=sigma_y,
-                monte_carlo=True, n_samples=20,
+                model=model,
+                sigma_x=sigma_x,
+                sigma_y=sigma_y,
+                monte_carlo=True,
+                n_samples=20,
             )
             _train_eiv(model, loss_fn, X, y, config)
             result = {"type": "torch", "model": model}
@@ -390,8 +419,10 @@ class EIVSuite(HarnessRunner):
             # input noise with configurable base loss.
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = InputNoiseAugmentationLoss(
-                model=model, base_loss=WeightedMSELoss(),
-                sigma_x=sigma_x, n_samples=20,
+                model=model,
+                base_loss=WeightedMSELoss(),
+                sigma_x=sigma_x,
+                n_samples=20,
             )
             _train_eiv(model, loss_fn, X, y, config)
             result = {"type": "torch", "model": model}
@@ -436,7 +467,8 @@ class EIVSuite(HarnessRunner):
             # encoder learns to downweight low-SNR inputs via a learned gate.
             # forward(x, sigma_x) — wrapper bakes sigma_x for _train_one compat.
             nar = NoiseAwareRegressor(
-                in_dim, out_dim,
+                in_dim,
+                out_dim,
                 encoder_hidden_dim=hidden,
                 backbone_hidden_dims=(hidden, hidden),
             )
@@ -446,6 +478,7 @@ class EIVSuite(HarnessRunner):
                 def __init__(self, nar):
                     super().__init__()
                     self.nar = nar
+
                 def forward(self, x):
                     return self.nar(x, sigma_x)
 
@@ -548,8 +581,10 @@ class EIVSuite(HarnessRunner):
             # Model outputs (mean, logvar); perturbations average the NLL.
             model = _MLP(in_dim, hidden, out_dim=2)
             loss_fn = InputNoiseAugmentationLoss(
-                model=model, base_loss=GaussianNLLLoss(),
-                sigma_x=sigma_x, n_samples=20,
+                model=model,
+                base_loss=GaussianNLLLoss(),
+                sigma_x=sigma_x,
+                n_samples=20,
             )
             _train_eiv(model, loss_fn, X, y, config)
             return {"type": "gaussian_mc", "model": model, "sigma_x": sigma_x}
@@ -561,8 +596,7 @@ class EIVSuite(HarnessRunner):
             X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
             model = _MLP(in_dim, hidden, out_dim=2)
             _train_one(model, GaussianNLLLoss(), X_cal_train, y, config)
-            return {"type": "rc_gaussian", "model": model,
-                    "X_cal_test": X_cal_test}
+            return {"type": "rc_gaussian", "model": model, "X_cal_test": X_cal_test}
 
         elif method == "RC+FunctionalEIV":
             # Algorithmic chaining: does FunctionalEIV help if inputs are
@@ -574,7 +608,9 @@ class EIVSuite(HarnessRunner):
             # Small residual sigma_x after RC
             residual_sigma = sigma_x * 0.3
             loss_fn = FunctionalEIVLoss(
-                model=model, sigma_x=residual_sigma, sigma_y=sigma_y,
+                model=model,
+                sigma_x=residual_sigma,
+                sigma_y=sigma_y,
             )
             _train_eiv(model, loss_fn, X_cal_train, y, config)
             result = {"type": "rc", "model": model, "X_cal_test": X_cal_test}
@@ -633,7 +669,10 @@ class EIVSuite(HarnessRunner):
             # Carves a 25% calibration split from training data.
             sub_method = method.split("+", 1)[1]
             aug_splits = _carve_calibration_split(
-                splits, cal_frac=0.25, seed=config.seed, smoke=False,
+                splits,
+                cal_frac=0.25,
+                seed=config.seed,
+                smoke=False,
                 suite_name="eiv",
             )
             for k in ("sigma_x", "sigma_y", "X_test_true", "_y_scaler"):
@@ -684,7 +723,11 @@ class EIVSuite(HarnessRunner):
             X_test_true = model_state.get("_X_test_true")
             if X_test_true is not None:
                 result["y_pred_clean"] = _eiv_predict(
-                    sub_method, model_state, m, X_test_true, noisy=False,
+                    sub_method,
+                    model_state,
+                    m,
+                    X_test_true,
+                    noisy=False,
                 )
             return result
 
@@ -702,8 +745,10 @@ class EIVSuite(HarnessRunner):
                     vars_ = torch.exp(logvars)
                     mean_final = means.mean(dim=0)
                     var_final = (vars_ + means**2).mean(dim=0) - mean_final**2
-                return (mean_final.squeeze(-1).numpy(),
-                        torch.sqrt(var_final.clamp_min(1e-8)).squeeze(-1).numpy())
+                return (
+                    mean_final.squeeze(-1).numpy(),
+                    torch.sqrt(var_final.clamp_min(1e-8)).squeeze(-1).numpy(),
+                )
 
             mean_np, std_np = _moment_match(X_test)
             result["mean"] = mean_np
@@ -742,7 +787,11 @@ class EIVSuite(HarnessRunner):
         X_test_true = model_state.get("_X_test_true")
         if X_test_true is not None:
             result["y_pred_clean"] = _eiv_predict(
-                method, model_state, m, X_test_true, noisy=False,
+                method,
+                model_state,
+                m,
+                X_test_true,
+                noisy=False,
             )
 
         return result
@@ -759,8 +808,8 @@ class EIVSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, float]:
         del method, config
-        from harness.runners import _inverse_transform_predictions, _inverse_transform_y
         from harness.metrics import compute_all_metrics
+        from harness.runners import _inverse_transform_predictions, _inverse_transform_y
 
         y_scaler = predictions.get("_y_scaler")
         if y_scaler is not None:
@@ -769,7 +818,8 @@ class EIVSuite(HarnessRunner):
             # Also inverse-transform clean predictions if present
             if "y_pred_clean" in predictions:
                 predictions["y_pred_clean"] = _inverse_transform_y(
-                    predictions.pop("y_pred_clean"), y_scaler,
+                    predictions.pop("y_pred_clean"),
+                    y_scaler,
                 )
 
         # compute_all_metrics handles y_pred, mean/std, lower/upper, samples
@@ -780,14 +830,10 @@ class EIVSuite(HarnessRunner):
         if "y_pred_clean" in predictions:
             y_pred_clean = np.asarray(predictions["y_pred_clean"]).reshape(-1)
             y_true_np = np.asarray(y_test).reshape(-1)
-            result["RMSE_clean"] = float(
-                np.sqrt(np.mean((y_pred_clean - y_true_np) ** 2))
-            )
+            result["RMSE_clean"] = float(np.sqrt(np.mean((y_pred_clean - y_true_np) ** 2)))
             ss_res = float(np.sum((y_true_np - y_pred_clean) ** 2))
             ss_tot = float(np.sum((y_true_np - y_true_np.mean()) ** 2))
-            result["R2_clean"] = (
-                float(1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else float("nan")
-            )
+            result["R2_clean"] = float(1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else float("nan")
 
         return result
 
@@ -804,15 +850,9 @@ class EIVSuite(HarnessRunner):
             "FunctionalEIV_MC": (
                 "MLP + FunctionalEIVLoss(monte_carlo=True) — MC sample covariance, no Jacobian"
             ),
-            "StructuralEIV": (
-                "MLP + StructuralEIVLoss — full cross-covariance structural model"
-            ),
-            "ODR": (
-                "MLP + OrthogonalDistanceRegressionLoss — iterative latent-x optimisation"
-            ),
-            "EnsembleEIV": (
-                "MLP + EnsembleEIVLoss — Monte-Carlo input perturbation averaging"
-            ),
+            "StructuralEIV": ("MLP + StructuralEIVLoss — full cross-covariance structural model"),
+            "ODR": ("MLP + OrthogonalDistanceRegressionLoss — iterative latent-x optimisation"),
+            "EnsembleEIV": ("MLP + EnsembleEIVLoss — Monte-Carlo input perturbation averaging"),
             "TLS": (
                 "Total Least Squares via SVD — minimises orthogonal distances (self-contained, numpy-only)"
             ),
@@ -838,42 +878,44 @@ class EIVSuite(HarnessRunner):
                 "RegressionCalibration — pre-processing input calibration via reliability matrix"
             ),
         }
-        notes.update({
-            "GaussianNLL+InputNoiseMC": (
-                "MLP(mean+logvar) + InputNoiseMC→GaussianNLL — MC perturbation "
-                "of probabilistic model; test-time moment-matching"
-            ),
-            "RC+GaussianNLL": (
-                "RC pre-processing + GaussianNLL on calibrated inputs — "
-                "pipeline approach to probabilistic EIV"
-            ),
-            "RC+FunctionalEIV": (
-                "RC pre-processing + FunctionalEIVLoss on calibrated inputs — "
-                "algorithmic chaining: does EIV loss help after RC?"
-            ),
-            "TLS_Init+FunctionalEIV": (
-                "Linear model initialised to TLS solution → FunctionalEIV "
-                "fine-tune — ⚠️ INVESTIGATED: TLS β is NOT preserved; "
-                "β drifts completely to OLS/MSE within ~50 epochs. "
-                "Prefer RC+FunctionalEIV instead."
-            ),
-            "MSE_WarmupMC": (
-                "MSE pre-training (config.warmup_epochs, default 20) → FunctionalEIV_MC — "
-                "warmup avoids early-phase MC gradient noise; designed for "
-                "linear data where MC is competitive"
-            ),
-            "SplitCP+FunctionalEIV": (
-                "FunctionalEIV + split-conformal intervals (90% q_quantile "
-                "on 25% held-out calibration residuals)"
-            ),
-            "SplitCP+InputNoiseMC": (
-                "InputNoiseMC + split-conformal intervals (90% q_quantile "
-                "on 25% held-out calibration residuals)"
-            ),
-            "SplitCP+MSE_WarmupMC": (
-                "MSE_WarmupMC + split-conformal intervals (90% q_quantile "
-                "on 25% held-out calibration residuals) — tests whether "
-                "warmup improves conformal interval efficiency on linear data"
-            ),
-        })
+        notes.update(
+            {
+                "GaussianNLL+InputNoiseMC": (
+                    "MLP(mean+logvar) + InputNoiseMC→GaussianNLL — MC perturbation "
+                    "of probabilistic model; test-time moment-matching"
+                ),
+                "RC+GaussianNLL": (
+                    "RC pre-processing + GaussianNLL on calibrated inputs — "
+                    "pipeline approach to probabilistic EIV"
+                ),
+                "RC+FunctionalEIV": (
+                    "RC pre-processing + FunctionalEIVLoss on calibrated inputs — "
+                    "algorithmic chaining: does EIV loss help after RC?"
+                ),
+                "TLS_Init+FunctionalEIV": (
+                    "Linear model initialised to TLS solution → FunctionalEIV "
+                    "fine-tune — ⚠️ INVESTIGATED: TLS β is NOT preserved; "
+                    "β drifts completely to OLS/MSE within ~50 epochs. "
+                    "Prefer RC+FunctionalEIV instead."
+                ),
+                "MSE_WarmupMC": (
+                    "MSE pre-training (config.warmup_epochs, default 20) → FunctionalEIV_MC — "
+                    "warmup avoids early-phase MC gradient noise; designed for "
+                    "linear data where MC is competitive"
+                ),
+                "SplitCP+FunctionalEIV": (
+                    "FunctionalEIV + split-conformal intervals (90% q_quantile "
+                    "on 25% held-out calibration residuals)"
+                ),
+                "SplitCP+InputNoiseMC": (
+                    "InputNoiseMC + split-conformal intervals (90% q_quantile "
+                    "on 25% held-out calibration residuals)"
+                ),
+                "SplitCP+MSE_WarmupMC": (
+                    "MSE_WarmupMC + split-conformal intervals (90% q_quantile "
+                    "on 25% held-out calibration residuals) — tests whether "
+                    "warmup improves conformal interval efficiency on linear data"
+                ),
+            }
+        )
         return notes.get(method, "")

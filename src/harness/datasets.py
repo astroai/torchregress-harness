@@ -69,7 +69,9 @@ def _load_california_housing(
 
 
 def _load_diabetes(
-    n_samples: int = 442, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 442,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Load sklearn Diabetes dataset."""
     from sklearn.datasets import load_diabetes
@@ -149,7 +151,10 @@ def _load_openml_year(
 
 
 def _load_synthetic_heteroscedastic(
-    n_samples: int = 2000, n_features: int = 8, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic heteroscedastic data."""
     rng = np.random.default_rng(seed)
@@ -162,21 +167,25 @@ def _load_synthetic_heteroscedastic(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
     }
 
 
 def _load_synthetic_outliers(
-    n_samples: int = 2000, n_features: int = 8,
-    outlier_fraction: float = 0.15, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    outlier_fraction: float = 0.15,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic data with outliers."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
     y = (
-        2.0 * X[:, 0] - 1.5 * X[:, 1] + 0.5 * X[:, 2] ** 2
-        + 0.3 * rng.standard_normal(n_samples)
+        2.0 * X[:, 0] - 1.5 * X[:, 1] + 0.5 * X[:, 2] ** 2 + 0.3 * rng.standard_normal(n_samples)
     ).astype(np.float32)
 
     n_outliers = int(n_samples * outlier_fraction)
@@ -187,14 +196,20 @@ def _load_synthetic_outliers(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
     }
 
 
 def _load_synthetic_tweedie(
-    n_samples: int = 2000, n_features: int = 6,
-    p_power: float = 1.5, phi: float = 0.6, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 6,
+    p_power: float = 1.5,
+    phi: float = 0.6,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic compound Poisson-Gamma (Tweedie) data."""
     rng = np.random.default_rng(seed)
@@ -215,22 +230,26 @@ def _load_synthetic_tweedie(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_skip_y_standardization": True,  # preserve zero-inflated Tweedie distribution
     }
 
 
 def _load_synthetic_censored(
-    n_samples: int = 2000, n_features: int = 8,
-    censoring_rate: float = 0.3, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    censoring_rate: float = 0.3,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic data with censored targets."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
     y_true = (
-        1.0 * X[:, 0] - 0.8 * X[:, 1] + 0.3 * X[:, 2]
-        + 0.2 * rng.standard_normal(n_samples)
+        1.0 * X[:, 0] - 0.8 * X[:, 1] + 0.3 * X[:, 2] + 0.2 * rng.standard_normal(n_samples)
     ).astype(np.float32)
 
     # Right-censor: observed = min(true, threshold)
@@ -245,16 +264,21 @@ def _load_synthetic_censored(
         X, censoring_codes, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
-        "censoring_train": codes_train, "censoring_test": codes_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "censoring_train": codes_train,
+        "censoring_test": codes_test,
         "_skip_y_standardization": True,  # preserve censoring threshold semantics
     }
 
 
 def _load_synthetic_multivariate(
-    n_samples: int = 2000, n_features: int = 8,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic data with 3 correlated output dimensions.
 
@@ -263,12 +287,18 @@ def _load_synthetic_multivariate(
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
 
-    y0 = (0.7 * X[:, 0] - 0.5 * X[:, 1] + 0.3 * np.sin(1.6 * X[:, 2])
-          + 0.15 * rng.standard_normal(n_samples)).astype(np.float32)
-    y1 = (0.5 * y0 + 0.4 * X[:, 3] - 0.3 * X[:, 4]
-          + 0.2 * rng.standard_normal(n_samples)).astype(np.float32)
-    y2 = (-0.3 * y0 + 0.4 * y1 + 0.6 * X[:, 5] - 0.2 * X[:, 6]
-          + 0.25 * rng.standard_normal(n_samples)).astype(np.float32)
+    y0 = (
+        0.7 * X[:, 0]
+        - 0.5 * X[:, 1]
+        + 0.3 * np.sin(1.6 * X[:, 2])
+        + 0.15 * rng.standard_normal(n_samples)
+    ).astype(np.float32)
+    y1 = (0.5 * y0 + 0.4 * X[:, 3] - 0.3 * X[:, 4] + 0.2 * rng.standard_normal(n_samples)).astype(
+        np.float32
+    )
+    y2 = (
+        -0.3 * y0 + 0.4 * y1 + 0.6 * X[:, 5] - 0.2 * X[:, 6] + 0.25 * rng.standard_normal(n_samples)
+    ).astype(np.float32)
 
     y = np.column_stack([y0, y1, y2]).astype(np.float32)
 
@@ -276,16 +306,20 @@ def _load_synthetic_multivariate(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_multi_output": True,
         "_skip_y_standardization": True,  # preserve (N, D) shape for multi-output
     }
 
 
 def _load_synthetic_mv_gaussian(
-    n_samples: int = 2000, n_features: int = 8,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic 3D targets from a purely multivariate Gaussian.
 
@@ -304,11 +338,14 @@ def _load_synthetic_mv_gaussian(
     mu = np.column_stack([mu0, mu1, mu2])
 
     # Fixed covariance with correlations
-    cov = np.array([
-        [1.0,  0.6, -0.3],
-        [0.6,  0.8,  0.2],
-        [-0.3, 0.2,  1.2],
-    ], dtype=np.float32)
+    cov = np.array(
+        [
+            [1.0, 0.6, -0.3],
+            [0.6, 0.8, 0.2],
+            [-0.3, 0.2, 1.2],
+        ],
+        dtype=np.float32,
+    )
     L = np.linalg.cholesky(cov)
 
     y = (mu + rng.standard_normal((n_samples, 3)) @ L.T).astype(np.float32)
@@ -317,16 +354,20 @@ def _load_synthetic_mv_gaussian(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_multi_output": True,
         "_skip_y_standardization": True,
     }
 
 
 def _load_synthetic_mv_nongaussian(
-    n_samples: int = 2000, n_features: int = 8,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic 3D targets with non-Gaussian conditional distributions.
 
@@ -366,15 +407,20 @@ def _load_synthetic_mv_nongaussian(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_multi_output": True,
         "_skip_y_standardization": True,
     }
 
+
 def _load_synthetic_mv_bimodal(
-    n_samples: int = 2000, n_features: int = 8,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 8,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic 3D targets from a mixture of two multivariate Gaussians.
 
@@ -402,16 +448,22 @@ def _load_synthetic_mv_bimodal(
     mu_b = mu_base + offset[np.newaxis, :]
 
     # Different covariance per component
-    cov_a = np.array([
-        [1.0,  0.3,  0.0],
-        [0.3,  0.6,  0.0],
-        [0.0,  0.0,  0.8],
-    ], dtype=np.float32)
-    cov_b = np.array([
-        [0.5, -0.2,  0.1],
-        [-0.2,  0.7,  0.0],
-        [0.1,  0.0,  0.6],
-    ], dtype=np.float32)
+    cov_a = np.array(
+        [
+            [1.0, 0.3, 0.0],
+            [0.3, 0.6, 0.0],
+            [0.0, 0.0, 0.8],
+        ],
+        dtype=np.float32,
+    )
+    cov_b = np.array(
+        [
+            [0.5, -0.2, 0.1],
+            [-0.2, 0.7, 0.0],
+            [0.1, 0.0, 0.6],
+        ],
+        dtype=np.float32,
+    )
 
     L_a = np.linalg.cholesky(cov_a)
     L_b = np.linalg.cholesky(cov_b)
@@ -430,8 +482,10 @@ def _load_synthetic_mv_bimodal(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_multi_output": True,
         "_skip_y_standardization": True,
     }
@@ -443,8 +497,10 @@ def _load_synthetic_mv_bimodal(
 
 
 def _load_synthetic_cond_gaussian(
-    n_samples: int = 2000, n_features: int = 5,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 5,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate 1D target with Gaussian conditional distribution.
 
@@ -465,15 +521,19 @@ def _load_synthetic_cond_gaussian(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "_y_true_sigma": sigma,  # for computing theoretical NLL lower bound
     }
 
 
 def _load_synthetic_cond_nongaussian(
-    n_samples: int = 2000, n_features: int = 5,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 5,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate 1D target with non-Gaussian conditional distribution.
 
@@ -508,21 +568,29 @@ def _load_synthetic_cond_nongaussian(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
     }
 
 
 def _load_synthetic_eiv(
-    n_samples: int = 2000, n_features: int = 6,
-    sigma_x: float = 0.2, sigma_y: float = 0.1, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 6,
+    sigma_x: float = 0.2,
+    sigma_y: float = 0.1,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic data with errors-in-variables (noisy inputs)."""
     rng = np.random.default_rng(seed)
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
     X_obs = (X_true + sigma_x * rng.standard_normal((n_samples, n_features))).astype(np.float32)
     y = (
-        0.8 * X_true[:, 0] - 0.6 * X_true[:, 1] + 0.4 * X_true[:, 2]
+        0.8 * X_true[:, 0]
+        - 0.6 * X_true[:, 1]
+        + 0.4 * X_true[:, 2]
         + sigma_y * rng.standard_normal(n_samples)
     ).astype(np.float32)
 
@@ -533,17 +601,24 @@ def _load_synthetic_eiv(
         X_true, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train_obs, "X_test": X_test_obs,
-        "y_train": y_train, "y_test": y_test,
-        "X_train_true": X_train_true, "X_test_true": X_test_true,
+        "X_train": X_train_obs,
+        "X_test": X_test_obs,
+        "y_train": y_train,
+        "y_test": y_test,
+        "X_train_true": X_train_true,
+        "X_test_true": X_test_true,
         "sigma_x": sigma_x,
         "sigma_y": sigma_y,
     }
 
 
 def _load_synthetic_eiv_nonlinear(
-    n_samples: int = 2000, n_features: int = 6,
-    sigma_x: float = 0.5, sigma_y: float = 0.1, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 6,
+    sigma_x: float = 0.5,
+    sigma_y: float = 0.1,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate synthetic EIV data with nonlinear ground truth.
 
@@ -570,9 +645,12 @@ def _load_synthetic_eiv_nonlinear(
         X_true, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train_obs, "X_test": X_test_obs,
-        "y_train": y_train, "y_test": y_test,
-        "X_train_true": X_train_true, "X_test_true": X_test_true,
+        "X_train": X_train_obs,
+        "X_test": X_test_obs,
+        "y_train": y_train,
+        "y_test": y_test,
+        "X_train_true": X_train_true,
+        "X_test_true": X_test_true,
         "sigma_x": sigma_x,
         "sigma_y": sigma_y,
     }
@@ -584,7 +662,9 @@ def _load_synthetic_eiv_nonlinear(
 
 
 def _load_insurance_claims(
-    n_samples: int = 20000, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Load the French Motor Insurance Claims dataset (OpenML ID 41214).
 
@@ -612,8 +692,7 @@ def _load_insurance_claims(
 
         # Identify categorical columns (object-typed in pandas)
         categorical_cols = [
-            c for c in feature_cols
-            if data[c].dtype == object or data[c].dtype.name == "category"
+            c for c in feature_cols if data[c].dtype == object or data[c].dtype.name == "category"
         ]
         numerical_cols = [c for c in feature_cols if c not in categorical_cols]
 
@@ -673,7 +752,9 @@ def _load_insurance_claims(
 
 
 def _load_house_sales(
-    n_samples: int = 20000, test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Load the King County House Sales dataset (OpenML ``house_sales``).
 
@@ -698,8 +779,7 @@ def _load_house_sales(
                 break
         if target_col is None:
             raise KeyError(
-                "house_sales target column not found — "
-                "falling back to California Housing"
+                "house_sales target column not found — falling back to California Housing"
             )
 
         numeric_df = df.select_dtypes(include=[np.number])
@@ -731,9 +811,12 @@ def _load_house_sales(
 
 
 def _load_make_regression_synthetic(
-    n_samples: int = 5000, n_features: int = 10,
-    n_informative: int = 6, noise: float = 15.0,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 5000,
+    n_features: int = 10,
+    n_informative: int = 6,
+    noise: float = 15.0,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate data via sklearn's ``make_regression``.
 
@@ -790,7 +873,9 @@ def _load_synthetic_ordinal(
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
     # True continuous target
     y_cts = (
-        0.8 * X[:, 0] - 0.6 * X[:, 1] + 0.4 * X[:, 2]
+        0.8 * X[:, 0]
+        - 0.6 * X[:, 1]
+        + 0.4 * X[:, 2]
         + 0.3 * rng.standard_normal(n_samples).astype(np.float32)
     )
     # Discretise into ordinal classes using quantile thresholds
@@ -811,8 +896,10 @@ def _load_synthetic_ordinal(
 
 
 def _load_synthetic_sinusoidal(
-    n_samples: int = 2000, n_features: int = 4,
-    test_size: float = 0.3, seed: int = 42,
+    n_samples: int = 2000,
+    n_features: int = 4,
+    test_size: float = 0.3,
+    seed: int = 42,
 ) -> dict[str, np.ndarray]:
     """Generate sinusoidal test-function data with homoscedastic Gaussian noise.
 
@@ -839,8 +926,10 @@ def _load_synthetic_sinusoidal(
         X, y, test_size=test_size, random_state=seed
     )
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
     }
 
 
@@ -897,8 +986,7 @@ CANONICAL_SCENARIOS: dict[str, CanonicalScenario] = {
         dataset_key="house_sales",
         source_url="https://crepes.readthedocs.io/en/latest/",
         description=(
-            "crepes quick-start: RandomForestRegressor with "
-            "DifficultyEstimator on house_sales."
+            "crepes quick-start: RandomForestRegressor with DifficultyEstimator on house_sales."
         ),
         loader_kwargs={"n_samples": 20000, "test_size": 0.3},
         alpha=0.1,
@@ -910,8 +998,7 @@ CANONICAL_SCENARIOS: dict[str, CanonicalScenario] = {
         dataset_key="insurance_claims",
         source_url="https://scikit-learn.org/stable/auto_examples/linear_model/plot_tweedie_regression_insurance_claims.html",
         description=(
-            "sklearn TweedieRegressor example: French Motor Insurance "
-            "Claims with p=1.5 log-link."
+            "sklearn TweedieRegressor example: French Motor Insurance Claims with p=1.5 log-link."
         ),
         loader_kwargs={"n_samples": 20000, "test_size": 0.3},
     ),
@@ -985,7 +1072,7 @@ def _load_tabred(
         X = rng.standard_normal((n_rows, n_features)).astype(np.float64)
         # First 4 features are informative (if they exist); rest are noise
         feat_idx = [0, 1, 2, min(3, n_features - 1)] if n_features >= 4 else list(range(n_features))
-        coefs = [0.6, -0.4, 0.3, 0.2][:len(feat_idx)]
+        coefs = [0.6, -0.4, 0.3, 0.2][: len(feat_idx)]
         y = sum(c * X[:, i] for c, i in zip(coefs, feat_idx))
         y = (y + 0.1 * rng.standard_normal(n_rows)).astype(np.float64)
 
@@ -1017,10 +1104,12 @@ def _load_tabred(
 
 def _image_cache_dir() -> Path:
     """Return the harness image dataset cache directory."""
-    cache = Path(os.environ.get(
-        "TORCHREGRESS_HARNESS_CACHE",
-        os.path.expanduser("~/.cache/torchregress-harness"),
-    ))
+    cache = Path(
+        os.environ.get(
+            "TORCHREGRESS_HARNESS_CACHE",
+            os.path.expanduser("~/.cache/torchregress-harness"),
+        )
+    )
     cache.mkdir(parents=True, exist_ok=True)
     return cache
 
@@ -1037,8 +1126,7 @@ def _download_with_progress(url: str, dest: Path, desc: str = "") -> None:
         import requests
     except ImportError:
         raise ImportError(
-            "requests is required to download image datasets. "
-            "Install with: uv pip install requests"
+            "requests is required to download image datasets. Install with: uv pip install requests"
         )
 
     from tqdm import tqdm
@@ -1047,9 +1135,10 @@ def _download_with_progress(url: str, dest: Path, desc: str = "") -> None:
     with requests.get(url, stream=True, timeout=60) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
-        with open(dest, "wb") as f, tqdm(
-            total=total, unit="B", unit_scale=True, desc=desc or "download"
-        ) as pbar:
+        with (
+            open(dest, "wb") as f,
+            tqdm(total=total, unit="B", unit_scale=True, desc=desc or "download") as pbar,
+        ):
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
                 pbar.update(len(chunk))
@@ -1168,9 +1257,9 @@ def _load_synthetic_image_depth(
         # Ground-truth depth: planar ramp + foreground offset
         base_depth = 0.3 + 0.5 * (ys / img_size).astype(np.float32)
         depth = base_depth.copy()
-        depth[y0:y1, x0:x1] = (
-            0.15 + 0.15 * rng.standard_normal((y1 - y0, x1 - x0))
-        ).astype(np.float32)
+        depth[y0:y1, x0:x1] = (0.15 + 0.15 * rng.standard_normal((y1 - y0, x1 - x0))).astype(
+            np.float32
+        )
         y_depth[i] = depth
 
     X = X.astype(np.float32)
@@ -1196,27 +1285,12 @@ def _load_synthetic_image_depth(
 # Real image dataset loaders (NYU Depth v2, IMDB-WIKI)
 # ---------------------------------------------------------------------------
 
-_NYU_DEPTH_URL = (
-    "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/"
-    "nyu_depth_v2_labeled.mat"
-)
+_NYU_DEPTH_URL = "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat"
 
-_IMDB_CROP_URL = (
-    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
-    "imdb_crop.tar"
-)
-_WIKI_CROP_URL = (
-    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
-    "wiki_crop.tar"
-)
-_IMDB_META_URL = (
-    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
-    "imdb_meta.tar"
-)
-_WIKI_META_URL = (
-    "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/"
-    "wiki_meta.tar"
-)
+_IMDB_CROP_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/imdb_crop.tar"
+_WIKI_CROP_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/wiki_crop.tar"
+_IMDB_META_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/imdb_meta.tar"
+_WIKI_META_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/wiki_meta.tar"
 
 
 def _load_nyu_depth_v2(
@@ -1271,13 +1345,13 @@ def _load_nyu_depth_v2(
             )
         mat = sio.loadmat(str(mat_path))
         images = mat["images"]  # (H, W, 3, N)  uint8
-        depths = mat["depths"]   # (H, W, N)     float64
+        depths = mat["depths"]  # (H, W, N)     float64
         images = np.transpose(images, (3, 2, 0, 1)).astype(np.float32)  # → (N, 3, H, W)
-        depths = np.transpose(depths, (2, 0, 1)).astype(np.float32)      # → (N, H, W)
+        depths = np.transpose(depths, (2, 0, 1)).astype(np.float32)  # → (N, H, W)
     else:
         with h5py.File(str(mat_path), "r") as f:
             images = np.array(f["images"])  # (N, 3, H, W) or (H, W, 3, N)  uint8
-            depths = np.array(f["depths"])   # (N, H, W) or (H, W, N)     float64
+            depths = np.array(f["depths"])  # (N, H, W) or (H, W, N)     float64
 
         # h5py stores in MATLAB order — find the channel axis (size 3)
         # and transpose to (N, 3, H, W).
@@ -1319,8 +1393,9 @@ def _load_nyu_depth_v2(
             # RGB: (3, H, W) → (H, W, 3)
             rgb = images[i].transpose(1, 2, 0)
             rgb_pil = Image.fromarray((rgb * 255).astype(np.uint8))
-            rgb_resized = np.array(rgb_pil.resize((W_out, H_out), Image.BILINEAR),
-                                   dtype=np.float32) / 255.0
+            rgb_resized = (
+                np.array(rgb_pil.resize((W_out, H_out), Image.BILINEAR), dtype=np.float32) / 255.0
+            )
             X_resized[i] = rgb_resized.transpose(2, 0, 1)  # back to (3, H, W)
 
             # Depth: (H, W)
@@ -1337,7 +1412,10 @@ def _load_nyu_depth_v2(
         pass
 
     X_train, X_test, y_train, y_test = train_test_split(
-        images, depths, test_size=test_size, random_state=seed,
+        images,
+        depths,
+        test_size=test_size,
+        random_state=seed,
     )
     return {
         "X_train": X_train,
@@ -1456,7 +1534,7 @@ def _load_imdb_wiki(
 
         # Fields: dob (serial date number), photo_taken (year),
         #         full_path (relative), face_score, face_location, gender, …
-        dobs = meta["dob"][0]        # MATLAB serial date numbers
+        dobs = meta["dob"][0]  # MATLAB serial date numbers
         years = meta["photo_taken"][0].astype(np.int32)  # year photo was taken
         paths = meta["full_path"][0]
         scores = meta["face_score"][0] if "face_score" in meta.dtype.names else None
@@ -1488,9 +1566,7 @@ def _load_imdb_wiki(
             )
             if not img_path.is_file():
                 # Try alternate path construction
-                path_str = str(
-                    paths[i][0] if isinstance(paths[i], np.ndarray) else paths[i]
-                )
+                path_str = str(paths[i][0] if isinstance(paths[i], np.ndarray) else paths[i])
                 fname_only = Path(path_str).name
                 alt = crop_subdir / fname_only
                 if alt.is_file():
@@ -1502,7 +1578,7 @@ def _load_imdb_wiki(
                 img = Image.open(img_path).convert("RGB")
                 img = img.resize((img_size, img_size), Image.BILINEAR)
                 arr = np.array(img, dtype=np.float32) / 255.0  # (H, W, 3)
-                all_images.append(arr.transpose(2, 0, 1))       # → (3, H, W)
+                all_images.append(arr.transpose(2, 0, 1))  # → (3, H, W)
                 all_ages.append(float(age))
             except Exception:
                 continue
@@ -1522,7 +1598,10 @@ def _load_imdb_wiki(
     y = np.array(all_ages, dtype=np.float32)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=seed,
+        X,
+        y,
+        test_size=test_size,
+        random_state=seed,
     )
     return {
         "X_train": X_train,
@@ -1541,12 +1620,15 @@ def _load_imdb_wiki(
 
 
 def _registry_loader(
-    fn: Callable[..., dict[str, np.ndarray]], **defaults: Any,
+    fn: Callable[..., dict[str, np.ndarray]],
+    **defaults: Any,
 ) -> Callable[..., dict[str, np.ndarray]]:
     """Wrap a loader so extra kwargs can override defaults."""
+
     def _loader(**kwargs: Any) -> dict[str, np.ndarray]:
         merged = {**defaults, **{k: v for k, v in kwargs.items() if v is not None}}
         return fn(**merged)
+
     return _loader
 
 
@@ -1615,8 +1697,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_features=6,
         n_samples=2000,
         description=(
-            "Synthetic ordinal regression "
-            "(5 classes from quantile-binned continuous target)"
+            "Synthetic ordinal regression (5 classes from quantile-binned continuous target)"
         ),
         loader=_registry_loader(_load_synthetic_ordinal),
     ),
@@ -1658,8 +1739,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_features=6,
         n_samples=2000,
         description=(
-            "Linear EIV with extreme input noise (σx=2.0) "
-            "— maximum stress test for EIV methods."
+            "Linear EIV with extreme input noise (σx=2.0) — maximum stress test for EIV methods."
         ),
         loader=_registry_loader(_load_synthetic_eiv, sigma_x=2.0),
     ),
@@ -1677,8 +1757,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_features=8,
         n_samples=2000,
         description=(
-            "Synthetic 3D correlated targets: "
-            "y0, y1=0.5*y0+f1(X), y2=-0.3*y0+0.4*y1+f2(X)."
+            "Synthetic 3D correlated targets: y0, y1=0.5*y0+f1(X), y2=-0.3*y0+0.4*y1+f2(X)."
         ),
         loader=_registry_loader(_load_synthetic_multivariate),
     ),
@@ -1953,9 +2032,7 @@ def load_dataset(name: str, **kwargs: Any) -> dict[str, np.ndarray]:
         as numpy arrays (y arrays are standardised unless opt-out).
     """
     if name not in DATASET_REGISTRY:
-        raise KeyError(
-            f"Unknown dataset: {name!r}. Available: {sorted(DATASET_REGISTRY.keys())}"
-        )
+        raise KeyError(f"Unknown dataset: {name!r}. Available: {sorted(DATASET_REGISTRY.keys())}")
     # Pop harness-level kwargs before passing through to the dataset loader
     standardize = bool(kwargs.pop("standardize_targets", True))
     splits = DATASET_REGISTRY[name].loader(**kwargs)
@@ -1966,12 +2043,10 @@ def load_dataset(name: str, **kwargs: Any) -> dict[str, np.ndarray]:
         y_scaler = StandardScaler()
         y_scaler.fit(splits["y_train"].reshape(-1, 1))
         splits["y_train"] = (
-            y_scaler.transform(splits["y_train"].reshape(-1, 1))
-            .ravel().astype(np.float32)
+            y_scaler.transform(splits["y_train"].reshape(-1, 1)).ravel().astype(np.float32)
         )
         splits["y_test"] = (
-            y_scaler.transform(splits["y_test"].reshape(-1, 1))
-            .ravel().astype(np.float32)
+            y_scaler.transform(splits["y_test"].reshape(-1, 1)).ravel().astype(np.float32)
         )
         splits["_y_scaler"] = y_scaler
 

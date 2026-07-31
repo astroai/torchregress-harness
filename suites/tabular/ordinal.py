@@ -21,11 +21,7 @@ from typing import Any
 
 import numpy as np
 import torch
-
-from harness.core import set_harness_seed
-from harness.runners import HarnessConfig, HarnessRunner
 import torch.nn as nn
-from suites._backbones import _MLP, _hidden_size, _train_one
 from torchregress.losses import (
     CORALLoss,
     CumulativeLinkLoss,
@@ -33,9 +29,14 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 
+from harness.core import set_harness_seed
+from harness.runners import HarnessConfig, HarnessRunner
+from suites._backbones import _MLP, _hidden_size, _train_one
+
 # Optional external ordinal regression packages
 try:
     from coral_pytorch.losses import corn_loss
+
     _CORAL_PYTORCH_AVAILABLE = True
 except ImportError:
     _CORAL_PYTORCH_AVAILABLE = False
@@ -43,12 +44,14 @@ except ImportError:
 try:
     import statsmodels.api as sm
     from statsmodels.miscmodels.ordinal_model import OrderedModel
+
     _STATSMODELS_AVAILABLE = True
 except ImportError:
     _STATSMODELS_AVAILABLE = False
 
 try:
     import mord
+
     _MORD_AVAILABLE = True
 except ImportError:
     _MORD_AVAILABLE = False
@@ -173,6 +176,7 @@ class OrdinalSuite(HarnessRunner):
             # shared weight vector w with K-1 monotonic biases
             # b₁ ≥ b₂ ≥ ... ≥ b_{K-1} for rank-consistent predictions.
             from torchregress.utils.ordinal import CORALHead
+
             backbone = _MLP(in_dim, _ordinal_hidden, out_dim=_ordinal_hidden)
             head = CORALHead(in_features=_ordinal_hidden, num_classes=n_classes)
             model = nn.Sequential(backbone, head)
@@ -192,8 +196,8 @@ class OrdinalSuite(HarnessRunner):
 
         elif method == "statsmodels_OrderedModel":
             # OrderedModel needs no intercept — it estimates cutpoints
-            ord_model = OrderedModel(y_train_np, X_train_np, distr='logit')
-            result = ord_model.fit(method='bfgs', disp=False, maxiter=200)
+            ord_model = OrderedModel(y_train_np, X_train_np, distr="logit")
+            result = ord_model.fit(method="bfgs", disp=False, maxiter=200)
             return {"type": "statsmodels", "model": result, "n_classes": n_classes}
 
         raise ValueError(f"Unknown method: {method}")
@@ -224,11 +228,17 @@ class OrdinalSuite(HarnessRunner):
                     # CumulativeLink / CORAL / CORN: K-1 logits
                     if method == "CORAL":
                         from torchregress.utils.ordinal import ordinal_predict
-                        y_pred = ordinal_predict(
-                            logits, encoding="cumulative_logits", strategy="threshold"
-                        ).long().numpy()
+
+                        y_pred = (
+                            ordinal_predict(
+                                logits, encoding="cumulative_logits", strategy="threshold"
+                            )
+                            .long()
+                            .numpy()
+                        )
                     elif method == "CORN":
                         from coral_pytorch.dataset import corn_label_from_logits
+
                         y_pred = corn_label_from_logits(logits).long().numpy()
                     else:
                         probs = torch.sigmoid(logits)

@@ -330,9 +330,7 @@ class ImageHarnessRunner(HarnessRunner):
         X_train = splits["X_train"]
         if X_train.ndim == 4:  # (N, C, H, W)
             return int(X_train.shape[1]), int(X_train.shape[2]), int(X_train.shape[3])
-        raise ValueError(
-            f"Expected 4D image array (N, C, H, W), got shape {X_train.shape}"
-        )
+        raise ValueError(f"Expected 4D image array (N, C, H, W), got shape {X_train.shape}")
 
     @staticmethod
     def _make_train_loader(

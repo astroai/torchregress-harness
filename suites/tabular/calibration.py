@@ -118,7 +118,10 @@ class CalibrationSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         """Fit base model + calibrator.
 
@@ -162,9 +165,7 @@ class CalibrationSuite(HarnessRunner):
             calibrator.fit(cal_mean, y_cal.unsqueeze(1))
 
         elif method == "PITCalibrator":
-            pit_cal = PITCalibrator.pit_from_gaussian(
-                cal_mean, cal_std, y_cal.unsqueeze(1)
-            )
+            pit_cal = PITCalibrator.pit_from_gaussian(cal_mean, cal_std, y_cal.unsqueeze(1))
             calibrator = PITCalibrator()
             calibrator.fit(pit_cal)
 
@@ -185,7 +186,11 @@ class CalibrationSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def predict(
-        self, method: str, model_state: dict[str, Any], X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model_state: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         base_model = model_state["base_model"]
         calibrator = model_state["calibrator"]
@@ -248,7 +253,9 @@ class CalibrationSuite(HarnessRunner):
 
         # --- Resolve canonical scenario (reusable helper) ---
         dataset_name, splits = self._prepare_scenario_run(
-            scenario_name, dataset_name, splits,
+            scenario_name,
+            dataset_name,
+            splits,
             standardize_targets=cfg.standardize_targets,
         )
 
@@ -295,13 +302,19 @@ class CalibrationSuite(HarnessRunner):
             try:
                 t0 = perf_counter()
                 calibrator = self._fit_calibrator(
-                    method, base_model, X_cal, y_cal,
+                    method,
+                    base_model,
+                    X_cal,
+                    y_cal,
                 )
                 fit_time = perf_counter() - t0
 
                 t0 = perf_counter()
                 predictions = self._predict_calibrated(
-                    method, base_model, calibrator, X_test,
+                    method,
+                    base_model,
+                    calibrator,
+                    X_test,
                 )
                 pred_time = perf_counter() - t0
 
@@ -423,9 +436,9 @@ class CalibrationSuite(HarnessRunner):
                 calibrated_std = np.sqrt(calibrated_var.clip(1e-8))
 
         elif method == "IsotonicMeanCalibrator":
-            calibrated_mean = calibrator.transform(
-                torch.from_numpy(mean).float()
-            ).numpy().reshape(-1)
+            calibrated_mean = (
+                calibrator.transform(torch.from_numpy(mean).float()).numpy().reshape(-1)
+            )
             calibrated_std = std
 
         elif method == "sklearn_IsotonicRegression":

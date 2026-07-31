@@ -49,15 +49,13 @@ from sklearn.svm import SVR
 # ---------------------------------------------------------------------------
 # Torchregress losses
 # ---------------------------------------------------------------------------
-from torchregress.losses import BetaNLLLoss, MultiQuantileLoss
+from torchregress.losses import MultiQuantileLoss
 
 from harness.core import set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import (
     _MLP,
-    _gaussian_nll_predict,
     _hidden_size,
-    _mixture_gaussian_stats,
     _train_one,
 )
 
@@ -148,7 +146,10 @@ class EnsemblesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -212,12 +213,14 @@ class EnsemblesSuite(HarnessRunner):
 
         # --- sklearn ensembles ---
         elif method == "sklearn_VotingRegressor":
-            est = VotingRegressor([
-                ("lr", LinearRegression()),
-                ("rf", RandomForestRegressor(n_estimators=50, random_state=config.seed)),
-                ("svr", SVR()),
-                ("knn", KNeighborsRegressor(n_neighbors=5)),
-            ])
+            est = VotingRegressor(
+                [
+                    ("lr", LinearRegression()),
+                    ("rf", RandomForestRegressor(n_estimators=50, random_state=config.seed)),
+                    ("svr", SVR()),
+                    ("knn", KNeighborsRegressor(n_neighbors=5)),
+                ]
+            )
             est.fit(X_train_np, y_train_np)
             return {"type": "sklearn", "model": est}
 
@@ -254,8 +257,11 @@ class EnsemblesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def predict(
-        self, method: str, model_state: dict[str, Any],
-        X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model_state: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 
@@ -263,6 +269,7 @@ class EnsemblesSuite(HarnessRunner):
         if model_type == "wrapper":
             reg = model_state["model"]
             from harness.wrappers import HeteroscedasticEnsembleRegressor
+
             if isinstance(reg, HeteroscedasticEnsembleRegressor):
                 diag = reg._predict_diagnostics(X_test)
                 return {"mean": diag["mean"], "std": diag["std"]}

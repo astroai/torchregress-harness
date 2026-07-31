@@ -98,31 +98,45 @@ _SKLEARN_REGRESSORS: dict[str, tuple] = {
     ),
     "sklearn_RandomForest": (
         lambda seed: RandomForestRegressor(
-            n_estimators=100, max_depth=10, random_state=seed, n_jobs=-1,
+            n_estimators=100,
+            max_depth=10,
+            random_state=seed,
+            n_jobs=-1,
         ),
         "bagged trees (100 estimators)",
     ),
     "sklearn_ExtraTrees": (
         lambda seed: ExtraTreesRegressor(
-            n_estimators=100, max_depth=10, random_state=seed, n_jobs=-1,
+            n_estimators=100,
+            max_depth=10,
+            random_state=seed,
+            n_jobs=-1,
         ),
         "extremely randomized trees (100 estimators)",
     ),
     "sklearn_GradientBoosting": (
         lambda seed: GradientBoostingRegressor(
-            n_estimators=100, max_depth=4, learning_rate=0.1, random_state=seed,
+            n_estimators=100,
+            max_depth=4,
+            learning_rate=0.1,
+            random_state=seed,
         ),
         "classic gradient boosting (100 estimators)",
     ),
     "sklearn_HistGradientBoosting": (
         lambda seed: HistGradientBoostingRegressor(
-            max_iter=100, max_depth=6, learning_rate=0.1, random_state=seed,
+            max_iter=100,
+            max_depth=6,
+            learning_rate=0.1,
+            random_state=seed,
         ),
         "histogram-based gradient boosting (100 iterations)",
     ),
     "sklearn_AdaBoost": (
         lambda seed: AdaBoostRegressor(
-            n_estimators=50, learning_rate=0.5, random_state=seed,
+            n_estimators=50,
+            learning_rate=0.5,
+            random_state=seed,
         ),
         "AdaBoost on shallow decision stubs",
     ),
@@ -225,7 +239,10 @@ class SklearnBaselinesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def fit(
-        self, method: str, splits: dict[str, np.ndarray], config: HarnessConfig,
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
@@ -353,8 +370,11 @@ class SklearnBaselinesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def predict(
-        self, method: str, model_state: dict[str, Any],
-        X_test: np.ndarray, config: HarnessConfig,
+        self,
+        method: str,
+        model_state: dict[str, Any],
+        X_test: np.ndarray,
+        config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 
@@ -397,9 +417,13 @@ class SklearnBaselinesSuite(HarnessRunner):
 
             # Un-scale SVR predictions
             if "y_scaler" in model_state:
-                y_pred = model_state["y_scaler"].inverse_transform(
-                    y_pred.reshape(-1, 1),
-                ).ravel()
+                y_pred = (
+                    model_state["y_scaler"]
+                    .inverse_transform(
+                        y_pred.reshape(-1, 1),
+                    )
+                    .ravel()
+                )
 
             return {"y_pred": y_pred}
 

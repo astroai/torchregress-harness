@@ -13,9 +13,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 import torch.nn as nn
-
 from torchregress.losses import FunctionalEIVLoss, WeightedMSELoss
-
 
 # ── data generator ────────────────────────────────────────────────────
 
@@ -53,8 +51,10 @@ def generate_nonlinear_eiv_data(
 
 def make_mlp(in_dim: int, hidden: int = 32, out_dim: int = 1) -> nn.Module:
     return nn.Sequential(
-        nn.Linear(in_dim, hidden), nn.ReLU(),
-        nn.Linear(hidden, hidden), nn.ReLU(),
+        nn.Linear(in_dim, hidden),
+        nn.ReLU(),
+        nn.Linear(hidden, hidden),
+        nn.ReLU(),
         nn.Linear(hidden, out_dim),
     )
 
@@ -99,23 +99,23 @@ def train_and_diagnose(
             with torch.no_grad():
                 pred_train = model(X).squeeze(-1)
                 pred_clean = model(X_test_true).squeeze(-1)
-                rmse_clean = float(
-                    torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean())
-                )
+                rmse_clean = float(torch.sqrt(((pred_clean - y_test_true.squeeze(-1)) ** 2).mean()))
                 # Weight norms
                 w_norms = []
                 for p in model.parameters():
                     if p.dim() >= 2:
                         w_norms.append(float(p.norm().item()))
 
-            history.append({
-                "epoch": epoch,
-                "loss": float(np.mean(epoch_losses)),
-                "rmse_clean": rmse_clean,
-                "weight_norm_L1": w_norms[0] if w_norms else 0,
-                "weight_norm_L2": w_norms[1] if len(w_norms) > 1 else 0,
-                "weight_norm_L3": w_norms[2] if len(w_norms) > 2 else 0,
-            })
+            history.append(
+                {
+                    "epoch": epoch,
+                    "loss": float(np.mean(epoch_losses)),
+                    "rmse_clean": rmse_clean,
+                    "weight_norm_L1": w_norms[0] if w_norms else 0,
+                    "weight_norm_L2": w_norms[1] if len(w_norms) > 1 else 0,
+                    "weight_norm_L3": w_norms[2] if len(w_norms) > 2 else 0,
+                }
+            )
             model.train()
 
     # Final evaluation
@@ -161,8 +161,15 @@ def main() -> None:
     model_mse = make_mlp(in_dim)
     loss_mse = WeightedMSELoss()
     r = train_and_diagnose(
-        model_mse, loss_mse, X_t, y_t, X_test_true_t, y_test_true_t,
-        epochs=100, lr=1e-3, label="MSE",
+        model_mse,
+        loss_mse,
+        X_t,
+        y_t,
+        X_test_true_t,
+        y_test_true_t,
+        epochs=100,
+        lr=1e-3,
+        label="MSE",
     )
     results.append(r)
 
@@ -170,11 +177,21 @@ def main() -> None:
     print("Training FunctionalEIV (analytical)...")
     model_feiv = make_mlp(in_dim)
     loss_feiv = FunctionalEIVLoss(
-        model=model_feiv, sigma_x=sigma_x, sigma_y=sigma_y, monte_carlo=False,
+        model=model_feiv,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+        monte_carlo=False,
     )
     r = train_and_diagnose(
-        model_feiv, loss_feiv, X_t, y_t, X_test_true_t, y_test_true_t,
-        epochs=100, lr=1e-3, label="FunctionalEIV",
+        model_feiv,
+        loss_feiv,
+        X_t,
+        y_t,
+        X_test_true_t,
+        y_test_true_t,
+        epochs=100,
+        lr=1e-3,
+        label="FunctionalEIV",
     )
     results.append(r)
 
@@ -182,12 +199,22 @@ def main() -> None:
     print("Training FunctionalEIV_MC (n_samples=20)...")
     model_mc20 = make_mlp(in_dim)
     loss_mc20 = FunctionalEIVLoss(
-        model=model_mc20, sigma_x=sigma_x, sigma_y=sigma_y,
-        monte_carlo=True, n_samples=20,
+        model=model_mc20,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+        monte_carlo=True,
+        n_samples=20,
     )
     r = train_and_diagnose(
-        model_mc20, loss_mc20, X_t, y_t, X_test_true_t, y_test_true_t,
-        epochs=100, lr=1e-3, label="FuncEIV_MC_n20",
+        model_mc20,
+        loss_mc20,
+        X_t,
+        y_t,
+        X_test_true_t,
+        y_test_true_t,
+        epochs=100,
+        lr=1e-3,
+        label="FuncEIV_MC_n20",
     )
     results.append(r)
 
@@ -195,29 +222,51 @@ def main() -> None:
     print("Training FunctionalEIV_MC (n_samples=200)...")
     model_mc200 = make_mlp(in_dim)
     loss_mc200 = FunctionalEIVLoss(
-        model=model_mc200, sigma_x=sigma_x, sigma_y=sigma_y,
-        monte_carlo=True, n_samples=200,
+        model=model_mc200,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+        monte_carlo=True,
+        n_samples=200,
     )
     r = train_and_diagnose(
-        model_mc200, loss_mc200, X_t, y_t, X_test_true_t, y_test_true_t,
-        epochs=100, lr=1e-3, label="FuncEIV_MC_n200",
+        model_mc200,
+        loss_mc200,
+        X_t,
+        y_t,
+        X_test_true_t,
+        y_test_true_t,
+        epochs=100,
+        lr=1e-3,
+        label="FuncEIV_MC_n200",
     )
     results.append(r)
 
     # ── Method 5: FunctionalEIV_MC n_samples=200, GELU activations ──
     print("Training FunctionalEIV_MC (GELU, n_samples=200)...")
     model_gelu = nn.Sequential(
-        nn.Linear(in_dim, 32), nn.GELU(),
-        nn.Linear(32, 32), nn.GELU(),
+        nn.Linear(in_dim, 32),
+        nn.GELU(),
+        nn.Linear(32, 32),
+        nn.GELU(),
         nn.Linear(32, 1),
     )
     loss_gelu = FunctionalEIVLoss(
-        model=model_gelu, sigma_x=sigma_x, sigma_y=sigma_y,
-        monte_carlo=True, n_samples=200,
+        model=model_gelu,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+        monte_carlo=True,
+        n_samples=200,
     )
     r = train_and_diagnose(
-        model_gelu, loss_gelu, X_t, y_t, X_test_true_t, y_test_true_t,
-        epochs=100, lr=1e-3, label="FuncEIV_MC_GELU_n200",
+        model_gelu,
+        loss_gelu,
+        X_t,
+        y_t,
+        X_test_true_t,
+        y_test_true_t,
+        epochs=100,
+        lr=1e-3,
+        label="FuncEIV_MC_GELU_n200",
     )
     results.append(r)
 
@@ -226,13 +275,17 @@ def main() -> None:
     print("=" * 75)
     print("  FunctionalEIV_MC Nonlinear Failure Diagnostic")
     print("=" * 75)
-    print(f"  Data: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
-    print(f"  σx=0.5, σy=0.1, n_train=1000, epochs=100")
+    print("  Data: y = sin(2π·x₀) + 0.5·cos(4π·x₁) + 0.3·tanh(2·x₂) + ε")
+    print("  σx=0.5, σy=0.1, n_train=1000, epochs=100")
     print()
-    print(f"  {'Method':<28} {'RMSE_clean':>12} {'RMSE_noisy':>12} {'pred_std':>10} {'pred_range':>10}")
-    print(f"  {'─'*28} {'─'*12} {'─'*12} {'─'*10} {'─'*10}")
+    print(
+        f"  {'Method':<28} {'RMSE_clean':>12} {'RMSE_noisy':>12} {'pred_std':>10} {'pred_range':>10}"
+    )
+    print(f"  {'─' * 28} {'─' * 12} {'─' * 12} {'─' * 10} {'─' * 10}")
     for r in results:
-        print(f"  {r['label']:<28} {r['rmse_clean']:12.4f} {r['rmse_noisy']:12.4f} {r['pred_std']:10.4f} {r['pred_range']:10.4f}")
+        print(
+            f"  {r['label']:<28} {r['rmse_clean']:12.4f} {r['rmse_noisy']:12.4f} {r['pred_std']:10.4f} {r['pred_range']:10.4f}"
+        )
 
     # Check for collapsed predictions
     print()
@@ -242,13 +295,19 @@ def main() -> None:
     for r in results:
         collapse = r["pred_range"] < 0.1 or r["pred_std"] < 0.05
         if collapse:
-            print(f"  ❌ {r['label']}: COLLAPSED — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}")
+            print(
+                f"  ❌ {r['label']}: COLLAPSED — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}"
+            )
         else:
             normal = r["pred_range"] > 1.0
             if normal:
-                print(f"  ✅ {r['label']}: Normal — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}")
+                print(
+                    f"  ✅ {r['label']}: Normal — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}"
+                )
             else:
-                print(f"  ⚠️  {r['label']}: Low-variance — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}")
+                print(
+                    f"  ⚠️  {r['label']}: Low-variance — pred_range={r['pred_range']:.4f}, pred_std={r['pred_std']:.4f}"
+                )
 
     # Compare n_samples effect
     mc20 = results[2]
@@ -264,16 +323,16 @@ def main() -> None:
     print(f"  MC n=200 RMSE_clean:                 {mc200['rmse_clean']:.4f}")
     print(f"  MC GELU n=200 RMSE_clean:            {gelu['rmse_clean']:.4f}")
 
-    if mc200['rmse_clean'] < mc20['rmse_clean'] * 0.8:
+    if mc200["rmse_clean"] < mc20["rmse_clean"] * 0.8:
         print("  → More MC samples SIGNIFICANTLY help — noise in variance estimates is the issue")
-    elif mc200['rmse_clean'] < mc20['rmse_clean'] * 0.95:
+    elif mc200["rmse_clean"] < mc20["rmse_clean"] * 0.95:
         print("  → More MC samples slightly help — some benefit from reduced variance noise")
     else:
         print("  → More MC samples don't help — the issue is deeper than sample count")
 
-    if gelu['rmse_clean'] < mc200['rmse_clean'] * 0.9:
+    if gelu["rmse_clean"] < mc200["rmse_clean"] * 0.9:
         print("  → GELU activations SIGNIFICANTLY help — ReLU threshold crossing is the issue")
-    elif gelu['rmse_clean'] < mc200['rmse_clean'] * 0.98:
+    elif gelu["rmse_clean"] < mc200["rmse_clean"] * 0.98:
         print("  → GELU activations slightly help — some benefit from smooth activations")
     else:
         print("  → GELU activations don't help — the issue is not ReLU-specific")
@@ -291,7 +350,9 @@ def main() -> None:
         w_mc20 = mc20["history"][i].get("weight_norm_L1", 0)
         w_mc200 = mc200["history"][i].get("weight_norm_L1", 0)
         w_gelu = gelu["history"][i].get("weight_norm_L1", 0)
-        print(f"  {e:6d} {w_mse:10.4f} {w_feiv:10.4f} {w_mc20:10.4f} {w_mc200:10.4f} {w_gelu:10.4f}")
+        print(
+            f"  {e:6d} {w_mse:10.4f} {w_feiv:10.4f} {w_mc20:10.4f} {w_mc200:10.4f} {w_gelu:10.4f}"
+        )
 
     # Final RMSE_clean trajectory
     print()
@@ -301,7 +362,9 @@ def main() -> None:
     print(f"  {'Epoch':>6} {'MSE':>10} {'FuncEIV':>10} {'MC_n20':>10} {'MC_n200':>10} {'GELU':>10}")
     for i in range(len(mse["history"])):
         e = mse["history"][i]["epoch"]
-        print(f"  {e:6d} {mse['history'][i]['rmse_clean']:10.4f} {feiv['history'][i]['rmse_clean']:10.4f} {mc20['history'][i]['rmse_clean']:10.4f} {mc200['history'][i]['rmse_clean']:10.4f} {gelu['history'][i]['rmse_clean']:10.4f}")
+        print(
+            f"  {e:6d} {mse['history'][i]['rmse_clean']:10.4f} {feiv['history'][i]['rmse_clean']:10.4f} {mc20['history'][i]['rmse_clean']:10.4f} {mc200['history'][i]['rmse_clean']:10.4f} {gelu['history'][i]['rmse_clean']:10.4f}"
+        )
 
 
 if __name__ == "__main__":

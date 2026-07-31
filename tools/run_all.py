@@ -27,14 +27,6 @@ _repo_root = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, _repo_root)
 sys.path.insert(0, str(Path(_repo_root) / "src"))
 
-from harness import (
-    HarnessConfig,
-    print_comparison_summary,
-    print_fairness_notes,
-    write_harness_json,
-)
-from harness.datasets import load_dataset
-from harness.runners import HarnessRunner
 from tools._suite_registry import ALL_SUITES
 from tools._validate import (
     validate_gaussiannll_coverage,
@@ -45,6 +37,15 @@ from tools._validate import (
     validate_suites,
     validate_torchregress,
 )
+
+from harness import (
+    HarnessConfig,
+    print_comparison_summary,
+    print_fairness_notes,
+    write_harness_json,
+)
+from harness.datasets import load_dataset
+from harness.runners import HarnessRunner
 
 
 def main() -> None:
@@ -106,7 +107,6 @@ def main() -> None:
 
     # --- Validation mode ---
     if args.validate:
-
         print("=== torchregress validation ===")
         tr_ok, tr_msgs = validate_torchregress()
         for m in tr_msgs:
@@ -152,7 +152,15 @@ def main() -> None:
             print(m)
         print()
 
-        if not tr_ok or not suite_ok or not nf_ok or not sls_ok or not sls_arch_ok or not gnll_ok or not mvg_ok:
+        if (
+            not tr_ok
+            or not suite_ok
+            or not nf_ok
+            or not sls_ok
+            or not sls_arch_ok
+            or not gnll_ok
+            or not mvg_ok
+        ):
             print("Validation FAILED — fix the issues above before running benchmarks.")
             sys.exit(1)
         print("Validation PASSED — all checks green.\n")
@@ -187,7 +195,11 @@ def main() -> None:
             print(f"\n=== Suite: {suite.name} · Dataset: {dataset_name} ===")
             try:
                 try:
-                    split = load_dataset(dataset_name, n_samples=200 if args.smoke else None, standardize_targets=config.standardize_targets)
+                    split = load_dataset(
+                        dataset_name,
+                        n_samples=200 if args.smoke else None,
+                        standardize_targets=config.standardize_targets,
+                    )
                 except KeyError:
                     print(f"  Dataset {dataset_name!r} not found — skipping")
                     continue
@@ -198,9 +210,8 @@ def main() -> None:
                 for row in rows:
                     # Any non-structural key with a non-None value = has results
                     has_result = any(
-                        v is not None and k not in (
-                            "Method", "Library", "Dataset", "Suite", "Notes"
-                        )
+                        v is not None
+                        and k not in ("Method", "Library", "Dataset", "Suite", "Notes")
                         for k, v in row.items()
                     )
                     status = "✓" if has_result else "✗"

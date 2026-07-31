@@ -11,96 +11,33 @@ This file provides guidance to coding agents (Claude, Gemini, Codex) when workin
 | Repo | Scope |
 |------|-------|
 | **torchregress** | Library (losses, conformal, ensembles, metrics) |
-| **torchregress-research** | NeurIPS manuscripts + SAGE/SPT benchmarks (**not here**) |
 | **torchregress-harness** (this repo) | torchregress vs MAPIE, LightGBM, TabPFN, BoTorch, … |
+
+Local/CI expect `../torchregress` as an editable, unpinned path dependency (via pixi).
 
 ## Development Commands
 
-This project uses [uv](https://github.com/astral-sh/uv) as the package manager.
+This project uses [pixi](https://pixi.sh). `pyproject.toml` is package metadata for pip consumers.
 
 ### Setup
 ```bash
-uv pip install -e ".[all]"
+pixi install
 ```
 
-### Testing
+### Testing / quality
 ```bash
-uv run pytest
-uv run pytest tests/test_core.py -v
-```
-
-### Code Quality
-```bash
-uv run ruff check src/harness tests tools suites
-uv run ruff format --check src/harness tests tools suites
+pixi run test
+pixi run lint
+pixi run typecheck
+pixi run ci
 ```
 
 ### Run Harness
 ```bash
-# Smoke check (tiny data, fast)
-uv run python tools/run_all.py --smoke --output results/latest/harness_smoke.json
-
-# Specific suite + dataset
-uv run python tools/run_all.py --suites conformal --datasets diabetes
-
-# Full run
-uv run python tools/run_all.py --output results/latest/harness_full.json
-
-# Render report
-uv run python tools/render_report.py results/latest/harness_smoke.json
+pixi run python tools/run_all.py --smoke --output results/latest/harness_smoke.json
+pixi run python tools/run_all.py --suites conformal --datasets diabetes
+pixi run python tools/render_report.py results/latest/harness_smoke.json
 ```
 
-## Architecture
-
-### Harness Core (`src/harness/`)
-
-| Module | Purpose |
-|---|---|
-| `core.py` | Seeding, timing, summary printing, JSON artifact writing |
-| `metrics.py` | Unified metric computation (point, interval, distribution, calibration) |
-| `datasets.py` | Dataset registry with real tabular + synthetic + image datasets |
-| `runners.py` | `HarnessRunner` ABC + `HarnessConfig` dataclass |
-| `report.py` | JSON → Markdown rendering |
-
-### Suite Protocol
-
-Every suite inherits from `HarnessRunner` and implements:
-
-```python
-class MySuite(HarnessRunner):
-    @property
-    def name(self) -> str: ...
-    @property
-    def description(self) -> str: ...
-    @property
-    def supported_datasets(self) -> list[str]: ...
-    def methods(self) -> list[str]: ...
-    def fit(self, method, splits, config) -> Any: ...
-    def predict(self, method, model, X_test, config) -> dict[str, np.ndarray]: ...
-```
-
-The `run()` method is already implemented and orchestrates fit/predict/evaluate.
-
-### Adding a New Suite
-
-1. Create `suites/tabular/my_suite.py` with a `HarnessRunner` subclass
-2. Implement `fit()`, `predict()`, `methods()`, and properties
-3. Register it in `suites/tabular/__init__.py`
-4. Add it to `ALL_SUITES` in `tools/run_all.py`
-5. Add smoke tests in `tests/test_suite_smoke.py`
-
-### Dataset Registry
-
-All datasets live in `DATASET_REGISTRY` in `datasets.py`. Each entry has a `loader` callable that returns `{X_train, X_test, y_train, y_test}` as numpy arrays. Use `load_dataset(name)` to fetch data.
-
-To add a dataset:
-1. Write a `_load_my_dataset()` function
-2. Add a `DatasetInfo` entry to `DATASET_REGISTRY`
-
-## Key Design Rules
-
-- **torchregress is a pip dependency** — suites call torchregress APIs directly; no vendoring
-- **External software is optional** — use `try/except ImportError` guards; emit `None` metrics + skip note when unavailable
-- **Suites must be reproducible** — use `set_harness_seed()`; declare seed/budget policies
-- **Every run produces valid JSON** — no partial artifacts; rows with skipped methods are emitted with null metrics
-- **Stubs before implementation** — placeholder suites raise `NotImplementedError` until Phase 2/3
+### Optional extras
+Use `pip install -e ".[conformal]"` (etc.) for benchmark libraries not in the default pixi env. See `OPTIONAL_DEPS.md`.

@@ -178,7 +178,10 @@ class DepthEstimationSuite(ImageHarnessRunner):
             from sklearn.ensemble import RandomForestRegressor
 
             est = RandomForestRegressor(
-                n_estimators=100, max_depth=10, random_state=config.seed, n_jobs=-1,
+                n_estimators=100,
+                max_depth=10,
+                random_state=config.seed,
+                n_jobs=-1,
             )
         else:
             raise ValueError(f"Unknown sklearn method: {method}")
@@ -273,7 +276,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
     ) -> dict[str, np.ndarray]:
         """UNet+MSE: point prediction only (no uncertainty)."""
         device = next(model.parameters()).device
-        loader = _image_to_dataloader(X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False)
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
 
         preds = []
         with torch.no_grad():
@@ -293,7 +298,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
     ) -> dict[str, np.ndarray]:
         """UNet+GaussianNLL: per-pixel mean ± z*std, flattened."""
         device = next(model.parameters()).device
-        loader = _image_to_dataloader(X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False)
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
 
         means, stds = [], []
         with torch.no_grad():
@@ -324,7 +331,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
         import torch.nn.functional as F
 
         device = next(model.parameters()).device
-        loader = _image_to_dataloader(X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False)
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
 
         gammas, nus, alphas, betas = [], [], [], []
         with torch.no_grad():

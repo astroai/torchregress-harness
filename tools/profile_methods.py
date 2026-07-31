@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-import os
 import resource
 import sys
 import time
@@ -24,12 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.wrappers import (
-    GaussianNLLRegressor,
-    MDNRegressor,
-    EvidentialRegressor,
-    NormalizingFlowRegressor,
     DeepEnsembleRegressor,
+    EvidentialRegressor,
+    GaussianNLLRegressor,
     HeteroscedasticEnsembleRegressor,
+    MDNRegressor,
+    NormalizingFlowRegressor,
 )
 
 
@@ -67,7 +66,7 @@ def profile_wrapper(
 
     # CPU/Device memory baseline
     cpu_start = get_peak_cpu_memory_mb()
-    
+
     device_start = 0.0
     if device.type == "cuda":
         torch.cuda.empty_cache()
@@ -118,9 +117,20 @@ def profile_wrapper(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Profile torchregress wrapper performance.")
     parser.add_argument("--output", type=Path, help="Path to write the profile JSON output")
-    parser.add_argument("--compare", type=Path, help="Path to reference baseline profile JSON for regression check")
-    parser.add_argument("--threshold", type=float, default=0.15, help="Regression threshold ratio (default: 0.15 for 15%)")
-    parser.add_argument("--fail-on-regression", action="store_true", help="Exit non-zero if regression exceeds threshold")
+    parser.add_argument(
+        "--compare", type=Path, help="Path to reference baseline profile JSON for regression check"
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.15,
+        help="Regression threshold ratio (default: 0.15 for 15%)",
+    )
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="Exit non-zero if regression exceeds threshold",
+    )
     args = parser.parse_args()
 
     # Set active device
@@ -160,8 +170,10 @@ def main() -> None:
         try:
             current_profile["profiles"][name] = profile_wrapper(wrapper_cls, X, y, device)
             p = current_profile["profiles"][name]
-            print(f"  Fit: {p['fit_time_s']:.3f}s | Predict: {p['predict_time_s']:.3f}s | "
-                  f"Sample: {p['sample_time_s']:.3f}s | Peak Device Mem: {p['peak_device_memory_mb']:.1f}MB")
+            print(
+                f"  Fit: {p['fit_time_s']:.3f}s | Predict: {p['predict_time_s']:.3f}s | "
+                f"Sample: {p['sample_time_s']:.3f}s | Peak Device Mem: {p['peak_device_memory_mb']:.1f}MB"
+            )
         except Exception as e:
             print(f"  Failed to profile {name}: {e}")
 
@@ -187,25 +199,34 @@ def main() -> None:
 
         regression_detected = False
         threshold = args.threshold
-        metrics_to_check = ["fit_time_s", "predict_time_s", "predict_interval_time_s", "sample_time_s"]
+        metrics_to_check = [
+            "fit_time_s",
+            "predict_time_s",
+            "predict_interval_time_s",
+            "sample_time_s",
+        ]
 
         for name, current_p in current_profile["profiles"].items():
             if name not in baseline["profiles"]:
                 print(f"  Method {name} not found in baseline profile. Skipping check.")
                 continue
-            
+
             baseline_p = baseline["profiles"][name]
             for metric in metrics_to_check:
                 curr_val = current_p.get(metric, 0.0)
                 base_val = baseline_p.get(metric, 0.0)
-                
+
                 if base_val > 0.0:
                     ratio = (curr_val - base_val) / base_val
                     if ratio > threshold:
-                        print(f"  [REGRESSION] {name}.{metric}: {base_val:.4f}s -> {curr_val:.4f}s (+{ratio:.1%}, threshold is +{threshold:.1%})")
+                        print(
+                            f"  [REGRESSION] {name}.{metric}: {base_val:.4f}s -> {curr_val:.4f}s (+{ratio:.1%}, threshold is +{threshold:.1%})"
+                        )
                         regression_detected = True
                     else:
-                        print(f"  [OK] {name}.{metric}: {base_val:.4f}s -> {curr_val:.4f}s ({ratio:+.1%})")
+                        print(
+                            f"  [OK] {name}.{metric}: {base_val:.4f}s -> {curr_val:.4f}s ({ratio:+.1%})"
+                        )
 
         print("-" * 80)
         if regression_detected:
