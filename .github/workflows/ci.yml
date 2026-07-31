@@ -23,7 +23,7 @@ jobs:
         with:
           repository: astroai/torchregress
           path: .torchregress
-          token: ${{ github.token }}
+          token: ${{ secrets.PAT_FOR_PRIVATE_REPOS }}
 
       - name: Move siblings to parent directory
         run: mv .torchregress ../torchregress
