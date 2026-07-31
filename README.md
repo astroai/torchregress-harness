@@ -11,6 +11,18 @@ Compares every torchregress regression method against external software on known
 
 ## Quick Start
 
+### With Pixi
+
+```bash
+# Install environment via Pixi
+pixi install
+
+# Run test suite via Pixi
+pixi run test
+```
+
+### With uv / pip
+
 ```bash
 # Install with core dependencies
 uv pip install -e ".[all]"

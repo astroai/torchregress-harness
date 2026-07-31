@@ -1,0 +1,31 @@
+[workspace]
+name = "torchregress-harness"
+version = "0.1.0"
+description = "Benchmarking harness for torchregress against external regression libraries on known tabular and image datasets."
+authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = ">=3.12,<3.16"
+pytorch = ">=2.0"
+numpy = ">=1.24"
+scipy = ">=1.10"
+scikit-learn = "*"
+pandas = "*"
+matplotlib = "*"
+tqdm = "*"
+pytest = "*"
+pytest-cov = "*"
+pyyaml = "*"
+zuko = "*"
+torchmetrics = "*"
+polars = "*"
+pyarrow = "*"
+
+[tasks]
+test = "pytest"
+
+[pypi-dependencies]
+torchregress = { path = "../torchregress", editable = true }
+torchregress-harness = { path = ".", editable = true }

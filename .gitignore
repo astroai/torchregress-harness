@@ -56,3 +56,5 @@ results/archive/
 # Model outputs
 *.pt
 *.pth
+
+.pixi/
