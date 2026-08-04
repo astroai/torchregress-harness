@@ -30,8 +30,10 @@ library on its own canonical terms.
 MAPIE integration
 -----------------
 ``MAPIE_*`` rows call the **real** ``mapie.regression`` API
-(``SplitConformalRegressor`` / ``ConformalizedQuantileRegressor``,
-``fit -> conformalize -> predict_interval``) — no manual reimplementation.
+(``SplitConformalRegressor`` / ``ConformalizedQuantileRegressor`` with
+``fit -> conformalize -> predict_interval``, and git-main
+``CrossConformalizedQuantileRegressor`` with its one-shot
+``fit_conformalize``) — no manual reimplementation.
 The installed version (and git commit for pip git installs) is recorded in
 each row's ``LibraryVersion`` field; see ``EXTERNAL_PINS.md`` for the pinned
 upstream commit used for paper comparisons.
@@ -65,6 +67,16 @@ try:
     _MAPIE_AVAILABLE = True
 except ImportError:
     _MAPIE_AVAILABLE = False
+
+# ``CrossConformalizedQuantileRegressor`` is a git-main addition (post-1.4.1,
+# included in the EXTERNAL_PINS.md pin); gate the row on its availability so
+# the suite still runs against older MAPIE builds.
+try:
+    from mapie.regression import CrossConformalizedQuantileRegressor  # noqa: F401
+
+    _MAPIE_CROSS_CQR_AVAILABLE = True
+except (ImportError, AttributeError):
+    _MAPIE_CROSS_CQR_AVAILABLE = False
 
 try:
     from torchcp.regression.predictor import SplitPredictor as _SplitPredictor
@@ -158,6 +170,46 @@ def _mapie_intervals_to_bounds(intervals: np.ndarray) -> tuple[np.ndarray, np.nd
     if arr.ndim != 2 or arr.shape[1] != 2:
         raise RuntimeError(f"Unexpected MAPIE interval shape: {np.asarray(intervals).shape}")
     return arr[:, 0].reshape(-1), arr[:, 1].reshape(-1)
+
+
+def _mapie_coverage_and_width(
+    lo: np.ndarray,
+    hi: np.ndarray,
+    y_true: np.ndarray,
+) -> tuple[float, float] | None:
+    """MAPIE's canonical coverage/width for whichever ``mapie.metrics`` API is installed.
+
+    MAPIE git main moved the regression metrics into ``mapie.metrics.regression``
+    and changed both signatures to take the ``(n_samples, 2[, n_levels])``
+    interval array (``regression_coverage_score(y_true, intervals)`` /
+    ``regression_mean_width_score(intervals)``).  Older 1.4.x builds expose the
+    same names at the top-level ``mapie.metrics`` with ``(y_true, lo, hi)`` /
+    ``(lo, hi)`` signatures.  Returns ``None`` when neither is importable so the
+    harness's standard interval metrics still stand alone.
+    """
+    intervals = np.stack([np.asarray(lo), np.asarray(hi)], axis=1)[:, :, None]
+    try:  # git-main API (pinned in EXTERNAL_PINS.md)
+        from mapie.metrics.regression import (
+            regression_coverage_score,
+            regression_mean_width_score,
+        )
+
+        cov = float(np.asarray(regression_coverage_score(y_true, intervals)).reshape(-1)[0])
+        w = float(np.asarray(regression_mean_width_score(intervals)).reshape(-1)[0])
+        return cov, w
+    except (ImportError, TypeError, IndexError):
+        pass
+    try:  # legacy v1.4.x API
+        from mapie.metrics import (
+            regression_coverage_score,
+            regression_mean_width_score,
+        )
+
+        cov = float(regression_coverage_score(y_true, lo, hi))
+        w = float(regression_mean_width_score(lo, hi))
+        return cov, w
+    except (ImportError, TypeError):
+        return None
 
 
 def _mapie_version() -> str:
@@ -309,6 +361,42 @@ def _mapie_cqr_intervals(
     cqr.fit(_as_float64(splits["X_train"]), _as_float64(splits["y_train"]).reshape(-1))
     cqr.conformalize(_as_float64(splits["X_cal"]), _as_float64(splits["y_cal"]).reshape(-1))
     _, intervals = cqr.predict_interval(_as_float64(splits["X_test"]))
+    return _mapie_intervals_to_bounds(intervals)
+
+
+def _mapie_cross_cqr_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """MAPIE cross-conformal CQR intervals via the real library (git main).
+
+    Uses ``mapie.regression.CrossConformalizedQuantileRegressor`` with an
+    sklearn ``GradientBoostingRegressor(loss='quantile')`` base estimator.
+    Cross-conformalized CQR fits the quantile models on K-fold cross-validation
+    folds and conformalizes on the out-of-fold predictions (Romano et al., 2019
+    cross-conformal variant) — no separate calibration split is required, so
+    the whole training set participates in both fitting and calibration.
+
+    Requires the MAPIE git-main build (post-1.4.1) pinned in ``EXTERNAL_PINS.md``.
+    """
+    from mapie.regression import CrossConformalizedQuantileRegressor
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    est = GradientBoostingRegressor(loss="quantile", random_state=seed)
+    ccqr = CrossConformalizedQuantileRegressor(
+        estimator=est,
+        confidence_level=1.0 - alpha,
+        cv=5,
+        random_state=seed,
+        n_jobs=-1,
+    )
+    ccqr.fit_conformalize(
+        _as_float64(splits["X_train"]),
+        _as_float64(splits["y_train"]).reshape(-1),
+    )
+    _, intervals = ccqr.predict_interval(_as_float64(splits["X_test"]))
     return _mapie_intervals_to_bounds(intervals)
 
 
@@ -538,6 +626,8 @@ class ConformalSuite(HarnessRunner):
             methods.append("Split+TabICL")
         if _MAPIE_AVAILABLE:
             methods.extend(["MAPIE_Split+Linear", "MAPIE_Split+MLP", "MAPIE_CQR+GBR"])
+            if _MAPIE_CROSS_CQR_AVAILABLE:
+                methods.append("MAPIE_CrossCQR+GBR")
             if _TABICL_AVAILABLE:
                 methods.append("MAPIE_Split+TabICL")
         if _CREPES_AVAILABLE:
@@ -579,6 +669,7 @@ class ConformalSuite(HarnessRunner):
             "MAPIE_Split+Linear": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn LinearRegression — MAPIE canonical",
             "MAPIE_Split+MLP": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn MLPRegressor (matched 3-layer ReLU)",
             "MAPIE_CQR+GBR": "real mapie.regression.ConformalizedQuantileRegressor on sklearn GradientBoostingRegressor(loss='quantile') — MAPIE canonical CQR",
+            "MAPIE_CrossCQR+GBR": "real mapie.regression.CrossConformalizedQuantileRegressor (K-fold cross-conformal CQR, Romano et al. 2019) on sklearn GradientBoostingRegressor(loss='quantile') — no calibration split (CV out-of-fold scores); requires MAPIE git main",
             "crepes_Split+Linear": "sklearn LinearRegression + crepes.ConformalRegressor",
             "crepes_CQR+GBR": "sklearn GradientBoostingRegressor + crepes ConformalRegressor",
             "torchcp_Split+Linear": (
@@ -744,6 +835,8 @@ class ConformalSuite(HarnessRunner):
                 lo, hi = _mapie_split_mlp_intervals(splits, alpha=alpha, seed=seed)
             elif external_method == "MAPIE_CQR+GBR":
                 lo, hi = _mapie_cqr_intervals(splits, alpha=alpha, seed=seed)
+            elif external_method == "MAPIE_CrossCQR+GBR":
+                lo, hi = _mapie_cross_cqr_intervals(splits, alpha=alpha, seed=seed)
             elif external_method == "crepes_Split+Linear":
                 lo, hi = _crepes_split_intervals(splits, alpha=alpha)
             elif external_method == "crepes_CQR+GBR":
@@ -793,16 +886,9 @@ class ConformalSuite(HarnessRunner):
 
         # For MAPIE methods, also compute MAPIE's canonical metrics
         if method.startswith("MAPIE_"):
-            try:
-                from mapie.metrics import (
-                    regression_coverage_score,
-                    regression_mean_width_score,
-                )
-
-                metrics["MAPIE_Coverage"] = float(regression_coverage_score(y_true, lo, hi))
-                metrics["MAPIE_Width"] = float(regression_mean_width_score(lo, hi))
-            except ImportError:
-                pass  # MAPIE not installed — harness metrics suffice
+            cw = _mapie_coverage_and_width(lo, hi, y_true)
+            if cw is not None:
+                metrics["MAPIE_Coverage"], metrics["MAPIE_Width"] = cw
 
         return metrics
 

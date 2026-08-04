@@ -479,7 +479,9 @@ def test_conformal_mapie_methods_call_real_library() -> None:
     """
     from suites.tabular.conformal import (
         _MAPIE_AVAILABLE,
+        _MAPIE_CROSS_CQR_AVAILABLE,
         _mapie_cqr_intervals,
+        _mapie_cross_cqr_intervals,
         _mapie_split_intervals,
         _mapie_split_mlp_intervals,
         _mapie_version,
@@ -505,7 +507,11 @@ def test_conformal_mapie_methods_call_real_library() -> None:
     alpha = 0.1
     n_test = len(X_te)
 
-    for helper in (_mapie_split_intervals, _mapie_split_mlp_intervals, _mapie_cqr_intervals):
+    helpers = [_mapie_split_intervals, _mapie_split_mlp_intervals, _mapie_cqr_intervals]
+    if _MAPIE_CROSS_CQR_AVAILABLE:
+        helpers.append(_mapie_cross_cqr_intervals)
+
+    for helper in helpers:
         lo, hi = helper(splits, alpha=alpha, seed=42)
         lo = np.asarray(lo).reshape(-1)
         hi = np.asarray(hi).reshape(-1)
