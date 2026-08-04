@@ -3382,7 +3382,7 @@ packages:
   - matplotlib
   - scipy
   - tqdm
-  - mapie ; extra == 'conformal'
+  - mapie>=1.4.1 ; extra == 'conformal'
   - crepes ; extra == 'conformal'
   - torchcp ; extra == 'conformal'
   - botorch ; extra == 'bayesian'
@@ -3395,7 +3395,7 @@ packages:
   - econml ; extra == 'causal'
   - dowhy ; extra == 'causal'
   - torchvision ; extra == 'image'
-  - torch-uncertainty ; extra == 'image'
+  - torch-uncertainty>=0.13.0 ; extra == 'image'
   - lightning ; extra == 'image'
   - timm ; extra == 'image'
   - requests ; extra == 'image'
