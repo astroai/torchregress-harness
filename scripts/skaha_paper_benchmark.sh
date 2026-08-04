@@ -34,6 +34,13 @@
 #   torch-uncertainty 94e511a737  (tag v0.13.0 / main HEAD)
 set -euo pipefail
 
+# Skaha containers run as a non-root user without write access to the
+# system pixi/uv caches -- redirect every cache to $HOME (or /arc).
+export PIXI_HOME="${PIXI_HOME:-$HOME/.pixi}"
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+export PIXI_CACHE_DIR="${PIXI_CACHE_DIR:-$HOME/.cache/pixi}"
+
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
 MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
 TU_PIN="${TU_PIN:-94e511a737}"
