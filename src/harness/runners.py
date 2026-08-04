@@ -181,6 +181,16 @@ class HarnessRunner(ABC):
         """Return the library name for a method. Default: ``"torchregress"``."""
         return "torchregress"
 
+    def library_version(self, method: str) -> str:
+        """Return the version of the method's library, for artifact provenance.
+
+        Defaults to ``""``.  Suites that call external software (MAPIE,
+        torch-uncertainty, …) override this to report the installed version
+        (and git commit when pip-installed from git) so result rows are
+        self-describing — see ``EXTERNAL_PINS.md``.
+        """
+        return ""
+
     def method_notes(self, method: str) -> str:
         """Return notes for a method. Default: empty."""
         return ""
@@ -374,6 +384,7 @@ class HarnessRunner(ABC):
                 row: dict[str, Any] = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     **metrics,
@@ -387,6 +398,7 @@ class HarnessRunner(ABC):
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     "RMSE": None,
@@ -401,6 +413,7 @@ class HarnessRunner(ABC):
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     "RMSE": None,

@@ -58,3 +58,7 @@ results/archive/
 *.pth
 
 .pixi/
+
+# Lightning checkpoints (torch-uncertainty image suite)
+checkpoints/
+*.ckpt

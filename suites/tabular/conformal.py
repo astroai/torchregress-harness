@@ -26,6 +26,15 @@ MAPIE methods are evaluated using MAPIE's own ``regression_coverage_score``
 and ``regression_mean_width_score`` (from ``mapie.metrics``) alongside the
 harness's standard interval metrics.  This ensures we measure the external
 library on its own canonical terms.
+
+MAPIE integration
+-----------------
+``MAPIE_*`` rows call the **real** ``mapie.regression`` API
+(``SplitConformalRegressor`` / ``ConformalizedQuantileRegressor``,
+``fit -> conformalize -> predict_interval``) — no manual reimplementation.
+The installed version (and git commit for pip git installs) is recorded in
+each row's ``LibraryVersion`` field; see ``EXTERNAL_PINS.md`` for the pinned
+upstream commit used for paper comparisons.
 """
 
 from __future__ import annotations
@@ -36,7 +45,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from harness.core import set_harness_seed
+from harness.core import pip_git_commit, set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
 
 # ---------------------------------------------------------------------------
@@ -126,30 +135,117 @@ def _torch_cqr_intervals(
 # ---------------------------------------------------------------------------
 
 
+def _as_float64(arr: np.ndarray) -> np.ndarray:
+    """Upcast a harness split array to float64 for MAPIE.
+
+    MAPIE's conformity-score consistency check uses an ``eps`` of 1e-8 and
+    trips on float32 rounding (~1.5e-8) when the base regressor fits the
+    calibration split nearly exactly.  sklearn estimators convert to float64
+    internally anyway, so upcasting at the MAPIE boundary is lossless.
+    """
+    return np.asarray(arr, dtype=np.float64)
+
+
+def _mapie_intervals_to_bounds(intervals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Normalise MAPIE ``predict_interval`` output to (lower, upper) 1-D arrays.
+
+    MAPIE v1 returns intervals of shape ``(n_samples, 2, n_confidence_levels)``;
+    with a single float ``confidence_level`` the last axis has length 1.
+    """
+    arr = np.asarray(intervals, dtype=float)
+    if arr.ndim == 3 and arr.shape[-1] == 1:
+        arr = arr[:, :, 0]
+    if arr.ndim != 2 or arr.shape[1] != 2:
+        raise RuntimeError(f"Unexpected MAPIE interval shape: {np.asarray(intervals).shape}")
+    return arr[:, 0].reshape(-1), arr[:, 1].reshape(-1)
+
+
+def _mapie_version() -> str:
+    """Installed MAPIE version, annotated with the git commit when pip-installed from git.
+
+    e.g. ``"1.4.1"`` for a PyPI wheel or ``"1.5.0 (git 6478f16c9a)"`` for a
+    ``pip install git+https://github.com/scikit-learn-contrib/MAPIE.git`` install.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        ver = version("mapie")
+    except PackageNotFoundError:
+        return "unknown"
+    commit = pip_git_commit("mapie")
+    return f"{ver} (git {commit})" if commit else ver
+
+
+def _require_mapie_version() -> None:
+    """Raise a clear ``ImportError`` when MAPIE is missing or predates the v1 API (< 1.4.1)."""
+    import re
+
+    try:
+        import mapie
+    except ImportError as exc:
+        raise ImportError(
+            "mapie not installed — install with: "
+            "pip install 'git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a' "
+            "(see EXTERNAL_PINS.md)"
+        ) from exc
+    raw = getattr(mapie, "__version__", None)
+    if raw is None:
+        return
+    m = re.match(r"\s*v?(\d+)\.(\d+)", raw)
+    if m is None:
+        raise ImportError(
+            f"cannot parse mapie version {raw!r} — cannot verify the >= 1.4.1 "
+            "v1-API requirement.  Install from git main per EXTERNAL_PINS.md."
+        )
+    if (int(m.group(1)), int(m.group(2))) < (1, 4):
+        raise ImportError(
+            f"mapie {raw} predates the v1 API (needs >= 1.4.1 for "
+            "SplitConformalRegressor / ConformalizedQuantileRegressor). "
+            "Install from git main per EXTERNAL_PINS.md."
+        )
+
+
+def _mapie_split_conformal(
+    estimator: Any,
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Shared ``SplitConformalRegressor`` fit -> conformalize -> predict_interval flow."""
+    from mapie.regression import SplitConformalRegressor
+
+    scr = SplitConformalRegressor(
+        estimator=estimator,
+        confidence_level=1.0 - alpha,
+        conformity_score="absolute",
+        prefit=False,
+    )
+    scr.fit(_as_float64(splits["X_train"]), _as_float64(splits["y_train"]).reshape(-1))
+    scr.conformalize(_as_float64(splits["X_cal"]), _as_float64(splits["y_cal"]).reshape(-1))
+    _, intervals = scr.predict_interval(_as_float64(splits["X_test"]))
+    return _mapie_intervals_to_bounds(intervals)
+
+
 def _mapie_split_intervals(
     splits: dict[str, np.ndarray],
     *,
     alpha: float,
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE split-conformal intervals via sklearn LR + residual calibration.
+    """MAPIE split-conformal intervals via the real library (v1 API).
 
-    Uses sklearn's LinearRegression plus manual absolute-residual calibration —
-    the exact same algorithm as MAPIE's ``SplitConformalRegressor(conformity_score='absolute')``.
-    We implement it manually here to avoid MAPIE v1.4's numerical precision bug
-    in ``conformalize()`` with ``prefit=True`` estimators.
+    Uses ``mapie.regression.SplitConformalRegressor`` with an sklearn
+    ``LinearRegression`` point estimator and the canonical MAPIE flow
+    ``fit -> conformalize -> predict_interval`` from the MAPIE tutorial
+    (https://mapie.readthedocs.io/en/latest/examples_regression/1-tutorial.html).
+
+    Requires MAPIE >= 1.4.1 (v1 API); the latest git main is recommended —
+    see ``EXTERNAL_PINS.md`` for the pinned commit.
     """
+    _require_mapie_version()
     from sklearn.linear_model import LinearRegression
 
-    lr = LinearRegression()
-    lr.fit(splits["X_train"], splits["y_train"])
-    pred_cal = lr.predict(splits["X_cal"]).reshape(-1)
-    pred_test = lr.predict(splits["X_test"]).reshape(-1)
-
-    residuals = np.abs(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal)
-    q = float(np.quantile(residuals, 1.0 - alpha))
-
-    return pred_test - q, pred_test + q
+    return _mapie_split_conformal(LinearRegression(), splits, alpha=alpha)
 
 
 def _mapie_split_mlp_intervals(
@@ -158,18 +254,18 @@ def _mapie_split_mlp_intervals(
     alpha: float,
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE-style split-conformal with sklearn MLPRegressor + residual calibration.
+    """MAPIE split-conformal with an sklearn MLPRegressor point estimator.
 
-    Trains an MLPRegressor with the same 3-layer ReLU architecture as torchregress's
-    ``_MLP``, then applies the same absolute-residual calibration as
-    ``_mapie_split_intervals``. This tests whether torchregress's
-    ``ConformalLoss(split)`` joint training produces different intervals than
-    the standard post-hoc approach.
+    Uses the real ``mapie.regression.SplitConformalRegressor`` with an
+    MLPRegressor sharing the same 3-layer ReLU architecture heuristic as
+    torchregress's ``_MLP`` (hidden = max(16, min(in_dim*4, 64))).  This tests
+    whether torchregress's ``ConformalLoss(split)`` joint training produces
+    different intervals than the standard post-hoc MAPIE approach.
     """
+    _require_mapie_version()
     from sklearn.neural_network import MLPRegressor
 
     in_dim = splits["X_train"].shape[1]
-    # Match torchregress _hidden_size heuristic: max(16, min(in_dim*4, 64))
     hidden = max(16, min(in_dim * 4, 64))
 
     est = MLPRegressor(
@@ -184,15 +280,7 @@ def _mapie_split_mlp_intervals(
         random_state=seed,
         early_stopping=False,
     )
-    est.fit(splits["X_train"], splits["y_train"])
-
-    pred_cal = est.predict(splits["X_cal"]).reshape(-1)
-    pred_test = est.predict(splits["X_test"]).reshape(-1)
-
-    residuals = np.abs(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal)
-    q = float(np.quantile(residuals, 1.0 - alpha))
-
-    return pred_test - q, pred_test + q
+    return _mapie_split_conformal(est, splits, alpha=alpha)
 
 
 def _mapie_cqr_intervals(
@@ -201,29 +289,27 @@ def _mapie_cqr_intervals(
     alpha: float,
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE CQR intervals via GBR quantile estimators + manual calibration.
+    """MAPIE CQR intervals via the real library (v1 API).
 
-    Uses sklearn's GradientBoostingRegressor(loss='quantile') for lower/upper
-    bounds, then calibrates with the CQR conformity score — the same algorithm
-    as MAPIE's ``ConformalizedQuantileRegressor``.
+    Uses ``mapie.regression.ConformalizedQuantileRegressor`` with an sklearn
+    ``GradientBoostingRegressor(loss='quantile')`` base estimator (a documented
+    quantile-capable choice).  MAPIE fits the lower/upper/median quantile models
+    and conformalizes the CQR score on the calibration split (Romano et al., 2019).
     """
+    _require_mapie_version()
+    from mapie.regression import ConformalizedQuantileRegressor
     from sklearn.ensemble import GradientBoostingRegressor
 
-    lo = GradientBoostingRegressor(loss="quantile", alpha=alpha / 2, random_state=seed)
-    hi = GradientBoostingRegressor(loss="quantile", alpha=1.0 - alpha / 2, random_state=seed)
-    lo.fit(splits["X_train"], splits["y_train"])
-    hi.fit(splits["X_train"], splits["y_train"])
-
-    q_lo_cal = lo.predict(splits["X_cal"])
-    q_hi_cal = hi.predict(splits["X_cal"])
-    q_lo_test = lo.predict(splits["X_test"])
-    q_hi_test = hi.predict(splits["X_test"])
-
-    y_cal = np.asarray(splits["y_cal"]).reshape(-1)
-    score = np.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
-    q = float(np.quantile(score, 1.0 - alpha))
-
-    return q_lo_test - q, q_hi_test + q
+    est = GradientBoostingRegressor(loss="quantile", random_state=seed)
+    cqr = ConformalizedQuantileRegressor(
+        estimator=est,
+        confidence_level=1.0 - alpha,
+        prefit=False,
+    )
+    cqr.fit(_as_float64(splits["X_train"]), _as_float64(splits["y_train"]).reshape(-1))
+    cqr.conformalize(_as_float64(splits["X_cal"]), _as_float64(splits["y_cal"]).reshape(-1))
+    _, intervals = cqr.predict_interval(_as_float64(splits["X_test"]))
+    return _mapie_intervals_to_bounds(intervals)
 
 
 def _crepes_split_intervals(
@@ -473,15 +559,26 @@ class ConformalSuite(HarnessRunner):
             return "torchcp"
         return "torchregress"
 
+    def library_version(self, method: str) -> str:
+        """Version of the external library backing a method row.
+
+        MAPIE rows self-report the installed version (plus git commit when
+        pip-installed from git) so artifacts record the exact upstream code
+        they were compared against — see ``EXTERNAL_PINS.md``.
+        """
+        if method.startswith("MAPIE"):
+            return _mapie_version()
+        return ""
+
     def method_notes(self, method: str) -> str:
         notes_map: dict[str, str] = {
             "Split+MLP": "point MLP + MSE → post-hoc residual calibration (ConformalLoss(split) ≡ MSE by design)",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
             "Split+Linear": "single linear layer + ConformalLoss(split); matched-capacity baseline",
             "Split+Linear(post-hoc)": "single linear layer + MSE → post-hoc residual calibration; parity with MAPIE/crepes/torchcp",
-            "MAPIE_Split+Linear": "sklearn LinearRegression + absolute-residual split conformal (MAPIE canonical)",
-            "MAPIE_Split+MLP": "sklearn MLPRegressor (matched 3-layer ReLU) + absolute-residual split conformal",
-            "MAPIE_CQR+GBR": "sklearn GradientBoostingRegressor + CQR score calibration (MAPIE canonical)",
+            "MAPIE_Split+Linear": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn LinearRegression — MAPIE canonical",
+            "MAPIE_Split+MLP": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn MLPRegressor (matched 3-layer ReLU)",
+            "MAPIE_CQR+GBR": "real mapie.regression.ConformalizedQuantileRegressor on sklearn GradientBoostingRegressor(loss='quantile') — MAPIE canonical CQR",
             "crepes_Split+Linear": "sklearn LinearRegression + crepes.ConformalRegressor",
             "crepes_CQR+GBR": "sklearn GradientBoostingRegressor + crepes ConformalRegressor",
             "torchcp_Split+Linear": (
@@ -782,6 +879,7 @@ class ConformalSuite(HarnessRunner):
                 row: dict[str, Any] = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     **metrics,
@@ -795,6 +893,7 @@ class ConformalSuite(HarnessRunner):
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     "Coverage": None,
@@ -810,6 +909,7 @@ class ConformalSuite(HarnessRunner):
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
+                    "LibraryVersion": self.library_version(method),
                     "Dataset": dataset_name,
                     "Suite": self.name,
                     "Coverage": None,

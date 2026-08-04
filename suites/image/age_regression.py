@@ -29,7 +29,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from harness.core import set_harness_seed
+from harness.core import pip_git_commit, set_harness_seed
 from harness.runners import HarnessConfig
 
 from ._base import (
@@ -51,6 +51,69 @@ try:
     _TORCH_UNCERTAINTY_AVAILABLE = True
 except ImportError:
     _TORCH_UNCERTAINTY_AVAILABLE = False
+
+# torch-uncertainty >= 0.13 (v0.13.0, 2026-07-22) reworked the regression
+# routine's loss/metric contracts (breaking change): the routine now calls
+# ``loss(distribution, targets)`` with a torch ``Distribution`` and a
+# probabilistic model must return a dict of distribution parameters.  Older
+# versions (v0.12.x) are NOT supported by this suite.  Pin from git — see
+# ``EXTERNAL_PINS.md`` for the exact commit.
+_TORCH_UNCERTAINTY_MIN_VERSION: tuple[int, int] = (0, 13)
+
+
+def _require_torch_uncertainty_version() -> None:
+    """Raise a clear ``ImportError`` when torch-uncertainty is missing or < 0.13."""
+    import re
+
+    try:
+        import torch_uncertainty
+
+        raw = getattr(torch_uncertainty, "__version__", None)
+    except ImportError as exc:
+        raise ImportError(
+            "torch-uncertainty not installed — install with: "
+            "pip install lightning 'torch-uncertainty>=0.13' "
+            "(latest git pin: see EXTERNAL_PINS.md)"
+        ) from exc
+    if raw is None:
+        return
+    # Parse the leading major.minor (robust to "v" prefixes and PEP 440
+    # suffixes such as "0.13.0.dev0" / "0.13.0+git...").  Unparseable
+    # versions fail loudly rather than silently skipping the guard.
+    m = re.match(r"\s*v?(\d+)\.(\d+)", raw)
+    if m is None:
+        raise ImportError(
+            f"cannot parse torch-uncertainty version {raw!r} — cannot verify the "
+            f">= {'.'.join(map(str, _TORCH_UNCERTAINTY_MIN_VERSION))}.0 requirement. "
+            "Install from git main per EXTERNAL_PINS.md."
+        )
+    parts = (int(m.group(1)), int(m.group(2)))
+    if parts < _TORCH_UNCERTAINTY_MIN_VERSION:
+        raise ImportError(
+            f"torch-uncertainty {raw} is too old for the image regression suite "
+            f"(needs >= {'.'.join(map(str, _TORCH_UNCERTAINTY_MIN_VERSION))}.0 for the reworked "
+            "DistributionNLLLoss / distribution-parameter API).  Install from git main: "
+            "pip install 'git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737'"
+        )
+
+
+def _torch_uncertainty_version() -> str:
+    """Installed torch-uncertainty version, annotated with the git commit if a pip git install."""
+    try:
+        import torch_uncertainty
+
+        ver = getattr(torch_uncertainty, "__version__", "")
+    except ImportError:
+        return ""
+    if not ver:
+        try:
+            from importlib.metadata import version as _md_version
+
+            ver = _md_version("torch-uncertainty")
+        except Exception:
+            return "unknown"
+    commit = pip_git_commit("torch-uncertainty")
+    return f"{ver} (git {commit})" if commit else ver
 
 # ---------------------------------------------------------------------------
 # Suite
@@ -111,6 +174,12 @@ class AgeRegressionSuite(ImageHarnessRunner):
             return "torch-uncertainty"
         return "torchregress"
 
+    def library_version(self, method: str) -> str:
+        """Version of the external library backing a method row (torch-uncertainty)."""
+        if method == "torch_uncertainty":
+            return _torch_uncertainty_version()
+        return ""
+
     def method_notes(self, method: str) -> str:
         notes = {
             "CNN+GaussianNLL": "4-layer CNN backbone + diagonal Gaussian NLL loss",
@@ -121,7 +190,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "ResNet+NormalizingFlow": "ResNet18 context + zuko NSF normalizing flow",
             "sklearn_RF": "RandomForestRegressor on flattened pixels (100 trees) — point prediction only",
             "sklearn_GBR": "GradientBoostingRegressor on flattened pixels — point prediction only",
-            "torch_uncertainty": "torch-uncertainty RegressionRoutine with distributional output",
+            "torch_uncertainty": "torch-uncertainty RegressionRoutine (>=0.13) with distributional output — git pin in EXTERNAL_PINS.md",
         }
         return notes.get(method, "")
 
@@ -301,19 +370,21 @@ class AgeRegressionSuite(ImageHarnessRunner):
         splits: dict[str, np.ndarray],
         config: HarnessConfig,
     ) -> dict[str, Any]:
-        """Fit a torch-uncertainty RegressionRoutine (v0.12.x API)."""
+        """Fit a torch-uncertainty RegressionRoutine (v0.13.x API, git main)."""
+        _require_torch_uncertainty_version()
         try:
             import lightning as pl
+            from torch_uncertainty.losses import DistributionNLLLoss
             from torch_uncertainty.routines.regression import RegressionRoutine
         except ImportError as exc:
             raise ImportError(
                 "torch-uncertainty or lightning not installed — install with: "
-                "uv pip install torch-uncertainty lightning"
+                "pip install lightning 'torch-uncertainty>=0.13'"
             ) from exc
 
-        # torch-uncertainty v0.12 expects the model to return (loc, scale)
-        # for dist_family="normal".  Our CNN outputs (B, 2) with
-        # [:, 0] = mean, [:, 1] = log-variance.
+        # v0.13 expects a probabilistic model to return a dict of distribution
+        # parameters for dist_family="normal" — i.e. {"loc": mean, "scale": std}.
+        # Our CNN outputs (B, 2) with [:, 0] = mean, [:, 1] = log-variance.
         class _TUWrapper(nn.Module):
             def __init__(self, backbone: nn.Module) -> None:
                 super().__init__()
@@ -327,12 +398,14 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
         wrapped = _TUWrapper(self._build_cnn(in_channels=in_channels, out_dim=2))
 
+        # v0.13's routine calls ``loss(dist, targets)`` with a torch Distribution,
+        # so the loss must be torch-uncertainty's DistributionNLLLoss — a plain
+        # ``nn.GaussianNLLLoss`` would receive a Distribution object and fail.
         # optim_recipe must call .parameters() on the model it receives.
-        # v0.12.x also requires an explicit loss module.
         routine = RegressionRoutine(
             model=wrapped,
             output_dim=1,
-            loss=nn.GaussianNLLLoss(),
+            loss=DistributionNLLLoss(),
             dist_family="normal",
             optim_recipe=lambda m: torch.optim.Adam(m.parameters(), lr=config.lr),
         )
@@ -587,8 +660,22 @@ class AgeRegressionSuite(ImageHarnessRunner):
     ) -> dict[str, np.ndarray]:
         """torch-uncertainty: extract mean/std from Lightning routine."""
         import lightning as pl
+        from torch.utils.data import DataLoader, Dataset
 
-        loader = _image_to_dataloader(X_test, y=None, batch_size=32, shuffle=False)
+        # Lightning's default predict_step calls ``self(batch)`` with the raw
+        # batch, so the loader must yield bare input tensors (no label tuples)
+        # for the routine's forward() to receive a tensor.
+        class _InputsOnly(Dataset):
+            def __init__(self, arr: np.ndarray) -> None:
+                self.data = torch.from_numpy(arr).float()
+
+            def __len__(self) -> int:
+                return len(self.data)
+
+            def __getitem__(self, idx: int) -> torch.Tensor:
+                return self.data[idx]
+
+        loader = DataLoader(_InputsOnly(X_test), batch_size=32, shuffle=False)
         trainer = pl.Trainer(
             accelerator="cpu",
             logger=False,
@@ -597,14 +684,24 @@ class AgeRegressionSuite(ImageHarnessRunner):
         )
         preds = trainer.predict(routine, dataloaders=loader)
 
-        # torch-uncertainty predict output varies by routine version —
-        # typically returns dict with 'mean' and 'std' or tensor
-        means, stds = [], []
+        # v0.13's default predict path returns the routine's forward() output —
+        # for a probabilistic normal routine that is a dict of distribution
+        # parameters, e.g. {"loc": Tensor(N,), "scale": Tensor(N,)}.  (Older
+        # dict keys 'mean'/'std' and raw tensors are accepted as fallbacks.)
+        means: list[np.ndarray] = []
+        stds: list[np.ndarray] = []
         for p in preds:
             if isinstance(p, dict):
-                means.append(p.get("mean", p.get("pred")).cpu().numpy().reshape(-1))
-                if "std" in p:
-                    stds.append(p["std"].cpu().numpy().reshape(-1))
+                loc = p.get("loc", p.get("mean"))
+                scale = p.get("scale", p.get("std"))
+                if loc is None:
+                    raise RuntimeError(
+                        "torch-uncertainty predict dict has no 'loc'/'mean' key; "
+                        f"got keys={sorted(p)}"
+                    )
+                means.append(np.asarray(loc.detach().cpu()).reshape(-1))
+                if scale is not None:
+                    stds.append(np.maximum(np.asarray(scale.detach().cpu()).reshape(-1), 0.0))
             elif isinstance(p, torch.Tensor):
                 arr = p.cpu().numpy()
                 if arr.ndim == 2 and arr.shape[1] >= 2:

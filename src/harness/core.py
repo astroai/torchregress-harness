@@ -23,6 +23,7 @@ _NON_METRIC_KEYS: frozenset[str] = frozenset(
     {
         "Method",
         "Library",
+        "LibraryVersion",
         "Dataset",
         "Suite",
         "Notes",
@@ -47,6 +48,31 @@ def timed_call(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, 
     result = fn(*args, **kwargs)
     elapsed = perf_counter() - start
     return result, elapsed
+
+
+def pip_git_commit(dist_name: str) -> str | None:
+    """Return the git commit recorded by pip for ``dist_name`` when installed from git.
+
+    pip writes ``direct_url.json`` into the package's ``.dist-info`` directory
+    for VCS installs (``pip install git+https://...@<sha>``); PyPI wheels have
+    no such file and this returns ``None``.
+
+    Used to self-report the exact upstream commit a benchmark row was run
+    against (MAPIE / torch-uncertainty) so external-library comparisons are
+    reproducible from the artifacts alone.
+    """
+    try:
+        from importlib.metadata import distribution
+
+        raw = distribution(dist_name).read_text("direct_url.json")
+        if not raw:
+            return None
+        import json
+
+        vcs = json.loads(raw).get("vcs_info") or {}
+        return vcs.get("commit_id")
+    except Exception:
+        return None
 
 
 def compute_point_metrics(

@@ -40,8 +40,13 @@ dependencies = [
 "Bug Tracker" = "https://github.com/sfabbro/torchregress-harness/issues"
 
 [project.optional-dependencies]
+# External-library comparison pins: the harness must be benchmarked against
+# the LATEST GIT versions of mapie / torch-uncertainty for paper-grade
+# comparisons.  Exact commit SHAs + install commands: see EXTERNAL_PINS.md.
+# The floors below only guard against known-API breaks (v1 mapie API,
+# torch-uncertainty >= 0.13 regression-routine rework).
 conformal = [
-    "mapie",
+    "mapie>=1.4.1",
     "crepes",
     "torchcp",
 ]
@@ -66,7 +71,7 @@ causal = [
 ]
 image = [
     "torchvision",
-    "torch-uncertainty",
+    "torch-uncertainty>=0.13.0",
     "lightning",
     "timm",
     "requests",

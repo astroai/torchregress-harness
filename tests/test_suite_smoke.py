@@ -4,6 +4,7 @@ Each test imports a suite class and verifies it is properly structured
 (methods, supported_datasets, name, description).
 """
 
+import numpy as np
 import pytest
 from suites._backbones import NF_ENSEMBLE_K_VARIANTS
 from suites.image.age_regression import AgeRegressionSuite
@@ -457,3 +458,127 @@ def test_depth_estimation_smoke_completes() -> None:
 
     metrics = suite.evaluate("UNet+MSE", preds, splits["y_test"], cfg)
     assert "RMSE" in metrics
+
+
+# ---------------------------------------------------------------------------
+# External-library integration: MAPIE rows must call the REAL mapie library
+# (v1 API, fit -> conformalize -> predict_interval) — not a manual sklearn
+# reimplementation — and self-report the installed version (git commit when
+# pip-installed from git) in the row's LibraryVersion field.
+# ---------------------------------------------------------------------------
+
+
+def test_conformal_mapie_methods_call_real_library() -> None:
+    """MAPIE conformal helpers must run the real mapie.regression v1 API.
+
+    Regression target: the old ``MAPIE_*`` rows were manual sklearn
+    reimplementations that never imported ``mapie.regression`` (a stale
+    workaround for a MAPIE 1.4.x numerical-precision bug).  Paper-grade
+    comparisons must exercise the actual library.  Skipped when mapie is
+    not installed.
+    """
+    from suites.tabular.conformal import (
+        _MAPIE_AVAILABLE,
+        _mapie_cqr_intervals,
+        _mapie_split_intervals,
+        _mapie_split_mlp_intervals,
+        _mapie_version,
+    )
+
+    if not _MAPIE_AVAILABLE:
+        pytest.skip("mapie not installed — install per EXTERNAL_PINS.md")
+
+    from sklearn.datasets import make_regression
+    from sklearn.model_selection import train_test_split
+
+    X, y = make_regression(n_samples=160, n_features=4, noise=2.0, random_state=0)
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0)
+    X_tr, X_cal, y_tr, y_cal = train_test_split(X_tr, y_tr, test_size=0.3, random_state=0)
+    splits = {
+        "X_train": X_tr,
+        "y_train": y_tr,
+        "X_cal": X_cal,
+        "y_cal": y_cal,
+        "X_test": X_te,
+        "y_test": y_te,
+    }
+    alpha = 0.1
+    n_test = len(X_te)
+
+    for helper in (_mapie_split_intervals, _mapie_split_mlp_intervals, _mapie_cqr_intervals):
+        lo, hi = helper(splits, alpha=alpha, seed=42)
+        lo = np.asarray(lo).reshape(-1)
+        hi = np.asarray(hi).reshape(-1)
+        assert lo.shape == (n_test,), f"{helper.__name__}: lo shape {lo.shape}"
+        assert hi.shape == (n_test,), f"{helper.__name__}: hi shape {hi.shape}"
+        assert np.all(lo <= hi), f"{helper.__name__}: intervals inverted"
+
+    # Version self-report must be non-empty and library-flavoured.
+    ver = _mapie_version()
+    assert ver and ver != "unknown"
+    assert "mapie" in ver.lower() or "1." in ver or "git" in ver.lower()
+
+
+def test_conformal_mapie_rows_report_library_version() -> None:
+    """MAPIE rows must carry a LibraryVersion field (suite hook)."""
+    from suites.tabular.conformal import (
+        _MAPIE_AVAILABLE,
+        ConformalSuite,
+    )
+
+    if not _MAPIE_AVAILABLE:
+        pytest.skip("mapie not installed — install per EXTERNAL_PINS.md")
+
+    suite = ConformalSuite()
+    mapie_methods = [m for m in suite.methods() if m.startswith("MAPIE")]
+    assert mapie_methods, "MAPIE methods must be registered when mapie is installed"
+    for method in suite.methods():
+        if method.startswith("MAPIE"):
+            assert suite.library_version(method), (
+                f"MAPIE method {method} must self-report its library version"
+            )
+        else:
+            assert suite.library_version(method) == ""
+
+
+def test_torch_uncertainty_version_guard_rejects_v012() -> None:
+    """The image suite must refuse torch-uncertainty < 0.13 (reworked API).
+
+    v0.13 changed the regression routine's loss contract (loss(dist, targets))
+    and the probabilistic model output (dict of distribution parameters); the
+    suite is written against that API.  Simulates an old install by stubbing
+    ``sys.modules["torch_uncertainty"]`` with ``__version__ = "0.12.1"``.
+    """
+    import sys
+    from types import SimpleNamespace
+
+    from suites.image.age_regression import _require_torch_uncertainty_version
+
+    old = sys.modules.get("torch_uncertainty")
+    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.12.1")
+    try:
+        with pytest.raises(ImportError, match="too old"):
+            _require_torch_uncertainty_version()
+    finally:
+        if old is not None:
+            sys.modules["torch_uncertainty"] = old
+        else:
+            sys.modules.pop("torch_uncertainty", None)
+
+
+def test_torch_uncertainty_version_guard_accepts_v013() -> None:
+    """torch-uncertainty 0.13.x passes the version guard."""
+    import sys
+    from types import SimpleNamespace
+
+    from suites.image.age_regression import _require_torch_uncertainty_version
+
+    old = sys.modules.get("torch_uncertainty")
+    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.13.0")
+    try:
+        _require_torch_uncertainty_version()  # must not raise
+    finally:
+        if old is not None:
+            sys.modules["torch_uncertainty"] = old
+        else:
+            sys.modules.pop("torch_uncertainty", None)
