@@ -133,6 +133,10 @@ if [ "${SKIP_PIXI_INSTALL:-}" != "1" ]; then
   log "pixi install (locked env; may take several minutes)"
   pixi install
 fi
+# The openworker image ships a read-only system venv on PATH; make sure the
+# pixi env owns pip/setuptools so `pixi run pip` installs into the writable
+# pixi env, not /opt/openworker/venv.
+pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
 
 # --- 3. Pinned external libraries (EXTERNAL_PINS.md) --------------------------
 log "installing MAPIE git pin"
