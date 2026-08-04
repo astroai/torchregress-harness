@@ -18,29 +18,48 @@
 # the tools themselves (WARNING: unknown suite / skipped) -- the run still
 # completes and reports what ran.
 #
-# Usage (from the container, after cloning the harness repo):
+# The script is RESUMMABLE: existing clones / pixi env / artifacts are reused,
+# so a session that dies can be relaunched and it continues where it stopped.
+#
+# Usage (from the container):
 #   bash scripts/skaha_paper_benchmark.sh [RUN_ID]
 #
 # Optional env:
 #   RUN_ID       unique run suffix (default: YYYYMMDD_HHMMSS)
-#   OUT_ROOT     results root (default: $HOME/parity_runs)
-#   SKIP_PIXI_INSTALL=1  reuse a prebuilt pixi env (container rebuilds only)
+#   OUT_ROOT     results root (default: persistent /arc when writable)
+#   SKIP_PIXI_INSTALL=1  reuse a prebuilt pixi env
 #
 # Pins (keep in sync with EXTERNAL_PINS.md):
-#   MAPIE          6478f16c9a   (branch master)
-#   torch-uncertainty 94e511a737 (tag v0.13.0 / main HEAD)
+#   MAPIE           6478f16c9a    (branch master)
+#   torch-uncertainty 94e511a737  (tag v0.13.0 / main HEAD)
 set -euo pipefail
 
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
-OUT_ROOT="${OUT_ROOT:-$HOME/parity_runs}"
-OUT_DIR="$OUT_ROOT/$RUN_ID"
 MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
 TU_PIN="${TU_PIN:-94e511a737}"
 
+# --- persistent root ---------------------------------------------------------
+pick_root() {
+  for cand in /arc/projects/ots/torchregress-harness /arc/home/sfabbro/torchregress-harness; do
+    if mkdir -p "$cand/.wtest" 2>/dev/null; then
+      rmdir "$cand/.wtest" 2>/dev/null || true
+      echo "$cand"
+      return 0
+    fi
+  done
+  echo "$HOME"
+}
+ARC_ROOT="$(pick_root)"
+SRC="$ARC_ROOT/src"
+OUT_ROOT="${OUT_ROOT:-$ARC_ROOT/runs}"
+OUT_DIR="$OUT_ROOT/$RUN_ID"
+
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
-mkdir -p "$OUT_DIR"
-log "RUN_ID=$RUN_ID  OUT_DIR=$OUT_DIR"
+mkdir -p "$OUT_DIR" "$SRC"
+log "RUN_ID=$RUN_ID"
+log "ARC_ROOT=$ARC_ROOT"
+log "OUT_DIR=$OUT_DIR"
 log "pins: mapie@$MAPIE_PIN torch-uncertainty@$TU_PIN"
 
 # --- 0. Baseline tools -------------------------------------------------------
@@ -52,8 +71,6 @@ for tool in git curl bash; do
 done
 
 # --- 1. Clone repos as siblings (pixi path dep expects ../torchregress) ------
-SRC="$HOME/src"
-mkdir -p "$SRC"
 if [ ! -d "$SRC/torchregress/.git" ]; then
   log "cloning astroai/torchregress"
   git clone --depth 1 https://github.com/astroai/torchregress.git "$SRC/torchregress"
@@ -61,6 +78,10 @@ fi
 if [ ! -d "$SRC/torchregress-harness/.git" ]; then
   log "cloning astroai/torchregress-harness"
   git clone --depth 1 https://github.com/astroai/torchregress-harness.git "$SRC/torchregress-harness"
+else
+  log "harness clone exists; refreshing"
+  git -C "$SRC/torchregress-harness" fetch --depth 1 origin main 2>/dev/null \
+    && git -C "$SRC/torchregress-harness" reset --hard origin/main 2>/dev/null || true
 fi
 cd "$SRC/torchregress-harness"
 HARNESS_SHA=$(git rev-parse HEAD)
@@ -131,9 +152,10 @@ run_bench pixi run python tools/leaderboard_regression.py \
   --output "$OUT_DIR/leaderboard_results.json" --markdown "$OUT_DIR/leaderboard_results.md"
 run_bench pixi run python tools/benchmark_pit_ensemble.py \
   --epochs 60 --output "$OUT_DIR/pit_ensemble.json"
-run_bench pixi run python tools/run_all.py --suites conformal,age_regression \
-  --datasets california_housing,synthetic_image_regression \
-  --output "$OUT_DIR/run_all_external.json"
+run_bench pixi run python tools/run_all.py --suites conformal \
+  --datasets california_housing --output "$OUT_DIR/run_all_conformal.json"
+run_bench pixi run python tools/run_all.py --suites age_regression \
+  --datasets synthetic_image_regression --output "$OUT_DIR/run_all_image.json"
 
 # --- 6. Summary ---------------------------------------------------------------
 log "===== ARTIFACTS ====="
@@ -167,13 +189,5 @@ for path in sorted(glob.glob(os.path.join(root, "*.json"))):
               f"libver={r.get('LibraryVersion')} | cov={r.get('Coverage')} | "
               f"w={r.get('Width')} | notes={(r.get('Notes') or '')[:60]}")
 PY
-
-if command -v vcp >/dev/null 2>&1; then
-  VOS="vos:sfabbro/torchregress-harness/runs/$RUN_ID"
-  log "pushing results to VOS: $VOS"
-  vcp --target "$VOS" "$OUT_DIR" && log "PUSHED to $VOS" || log "WARN: vcp push failed"
-else
-  log "vcp not present in image; artifacts remain in $OUT_DIR"
-fi
 
 log "===== DONE $RUN_ID ====="
