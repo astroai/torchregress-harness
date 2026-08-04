@@ -197,7 +197,7 @@ def _mapie_coverage_and_width(
         cov = float(np.asarray(regression_coverage_score(y_true, intervals)).reshape(-1)[0])
         w = float(np.asarray(regression_mean_width_score(intervals)).reshape(-1)[0])
         return cov, w
-    except (ImportError, TypeError, IndexError):
+    except (ImportError, TypeError):
         pass
     try:  # legacy v1.4.x API
         from mapie.metrics import (
@@ -381,6 +381,7 @@ def _mapie_cross_cqr_intervals(
 
     Requires the MAPIE git-main build (post-1.4.1) pinned in ``EXTERNAL_PINS.md``.
     """
+    _require_mapie_version()
     from mapie.regression import CrossConformalizedQuantileRegressor
     from sklearn.ensemble import GradientBoostingRegressor
 
@@ -392,10 +393,16 @@ def _mapie_cross_cqr_intervals(
         random_state=seed,
         n_jobs=-1,
     )
-    ccqr.fit_conformalize(
-        _as_float64(splits["X_train"]),
-        _as_float64(splits["y_train"]).reshape(-1),
+    # Cross-conformal needs no separate calibration split: fit + conformalize
+    # in one shot on the FULL training data (train + the harness's calibration
+    # carve) via K-fold CV out-of-fold scores — every sample contributes to both
+    # fitting and calibration (Romano et al., 2019).  This uses the same total
+    # data as the split-CQR rows, just allocated differently.
+    X_all = np.vstack([_as_float64(splits["X_train"]), _as_float64(splits["X_cal"])])
+    y_all = np.concatenate(
+        [_as_float64(splits["y_train"]).reshape(-1), _as_float64(splits["y_cal"]).reshape(-1)]
     )
+    ccqr.fit_conformalize(X_all, y_all)
     _, intervals = ccqr.predict_interval(_as_float64(splits["X_test"]))
     return _mapie_intervals_to_bounds(intervals)
 
@@ -669,7 +676,7 @@ class ConformalSuite(HarnessRunner):
             "MAPIE_Split+Linear": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn LinearRegression — MAPIE canonical",
             "MAPIE_Split+MLP": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn MLPRegressor (matched 3-layer ReLU)",
             "MAPIE_CQR+GBR": "real mapie.regression.ConformalizedQuantileRegressor on sklearn GradientBoostingRegressor(loss='quantile') — MAPIE canonical CQR",
-            "MAPIE_CrossCQR+GBR": "real mapie.regression.CrossConformalizedQuantileRegressor (K-fold cross-conformal CQR, Romano et al. 2019) on sklearn GradientBoostingRegressor(loss='quantile') — no calibration split (CV out-of-fold scores); requires MAPIE git main",
+            "MAPIE_CrossCQR+GBR": "real mapie.regression.CrossConformalizedQuantileRegressor (K-fold cross-conformal CQR, Romano et al. 2019) on sklearn GradientBoostingRegressor(loss='quantile') — no calibration split: CV out-of-fold scores over the full train+cal data; requires MAPIE git main",
             "crepes_Split+Linear": "sklearn LinearRegression + crepes.ConformalRegressor",
             "crepes_CQR+GBR": "sklearn GradientBoostingRegressor + crepes ConformalRegressor",
             "torchcp_Split+Linear": (

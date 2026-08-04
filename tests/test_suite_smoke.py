@@ -519,6 +519,19 @@ def test_conformal_mapie_methods_call_real_library() -> None:
         assert hi.shape == (n_test,), f"{helper.__name__}: hi shape {hi.shape}"
         assert np.all(lo <= hi), f"{helper.__name__}: intervals inverted"
 
+    # MAPIE's canonical coverage/width must populate (regression guard for the
+    # silent-swallow bug: git main moved these to mapie.metrics.regression with
+    # interval-array signatures, which the old top-level import masked).
+    from suites.tabular.conformal import _mapie_coverage_and_width
+
+    lo0, hi0 = helpers[0](splits, alpha=alpha, seed=42)
+    cw = _mapie_coverage_and_width(
+        np.asarray(lo0).reshape(-1),
+        np.asarray(hi0).reshape(-1),
+        y_te,
+    )
+    assert cw is not None and len(cw) == 2, "MAPIE canonical coverage/width must be computed"
+
     # Version self-report must be non-empty and library-flavoured.
     ver = _mapie_version()
     assert ver and ver != "unknown"
