@@ -137,6 +137,13 @@ fi
 # pixi env owns pip/setuptools so `pixi run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
 pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
+# torch must pair with torchvision from the SAME source.  The conda-forge
+# torch in the pixi env is ABI-incompatible with a PyPI torchvision wheel
+# (torchvision::nms does not exist).  Install torchvision from conda-forge and
+# drop any pip-installed one so pip does not reinstall its own wheel during
+# the extras step.
+pixi run pip uninstall -y torchvision >/dev/null 2>&1 || true
+pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
 
 # --- 3. Pinned external libraries (EXTERNAL_PINS.md) --------------------------
 log "installing MAPIE git pin"
@@ -165,6 +172,13 @@ for pkg in ("mapie", "torch-uncertainty", "torch", "lightning", "torchregress",
         print(f"{pkg}\tUNAVAILABLE")
 PY
 cat "$OUT_DIR/versions.txt"
+
+# --- 4b. Pre-flight import check (fail fast instead of 7 failing steps) ------
+if ! pixi run python -c "import torch, torchvision, torchregress, harness, mapie"; then
+  log "FATAL: pre-flight import check failed (torch/torchvision ABI mismatch?) -- aborting"
+  exit 1
+fi
+log "pre-flight imports OK"
 
 # --- 5. Benchmarks ------------------------------------------------------------
 run_bench() {
