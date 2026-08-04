@@ -71,17 +71,36 @@ for tool in git curl bash; do
 done
 
 # --- 1. Clone repos as siblings (pixi path dep expects ../torchregress) ------
+# Both astroai repos are PRIVATE: use GH_TOKEN when provided (e.g. from the
+# Skaha session env).  Origins are scrubbed to the clean https URL afterwards
+# so the token never persists on disk.
+GH_BASE="https://github.com"
+if [ -n "${GH_TOKEN:-}" ]; then
+  GH_BASE="https://x-access-token:${GH_TOKEN}@github.com"
+fi
+clone_repo() { # <repo> <dest>
+  git clone --depth 1 "$GH_BASE/$1" "$2"
+  git -C "$2" remote set-url origin "https://github.com/$1"
+}
+refresh_repo() { # <dest> <repo>
+  if [ -n "${GH_TOKEN:-}" ]; then
+    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 origin main
+  else
+    git -C "$1" fetch --depth 1 origin main
+  fi
+  git -C "$1" reset --hard origin/main
+}
+
 if [ ! -d "$SRC/torchregress/.git" ]; then
   log "cloning astroai/torchregress"
-  git clone --depth 1 https://github.com/astroai/torchregress.git "$SRC/torchregress"
+  clone_repo astroai/torchregress "$SRC/torchregress"
 fi
 if [ ! -d "$SRC/torchregress-harness/.git" ]; then
   log "cloning astroai/torchregress-harness"
-  git clone --depth 1 https://github.com/astroai/torchregress-harness.git "$SRC/torchregress-harness"
+  clone_repo astroai/torchregress-harness "$SRC/torchregress-harness"
 else
   log "harness clone exists; refreshing"
-  git -C "$SRC/torchregress-harness" fetch --depth 1 origin main 2>/dev/null \
-    && git -C "$SRC/torchregress-harness" reset --hard origin/main 2>/dev/null || true
+  refresh_repo "$SRC/torchregress-harness" astroai/torchregress-harness 2>/dev/null || true
 fi
 cd "$SRC/torchregress-harness"
 HARNESS_SHA=$(git rev-parse HEAD)
