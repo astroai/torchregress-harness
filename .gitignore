@@ -62,3 +62,4 @@ results/archive/
 # Lightning checkpoints (torch-uncertainty image suite)
 checkpoints/
 *.ckpt
+.sessions/
