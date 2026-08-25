@@ -527,7 +527,8 @@ class EIVSuite(HarnessRunner):
             # inputs via E[X|W] = mu_w + reliability @ (W - mu_w), then trains
             # an MLP on the calibrated inputs.
             rc = RegressionCalibration(sigma_u=sigma_x)
-            X_cal_train = rc.fit_transform(X)
+            rc.fit(X)
+            X_cal_train = rc.transform(X)
             X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
             model = _MLP(in_dim, hidden, out_dim)
             _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
@@ -594,7 +595,8 @@ class EIVSuite(HarnessRunner):
         elif method == "RC+GaussianNLL":
             # Pipeline: calibrate inputs via RC, then fit probabilistic model.
             rc = RegressionCalibration(sigma_u=sigma_x)
-            X_cal_train = rc.fit_transform(X)
+            rc.fit(X)
+            X_cal_train = rc.transform(X)
             X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
             model = _MLP(in_dim, hidden, out_dim=2)
             _train_one(model, GaussianNLLLoss(), X_cal_train, y, config)
@@ -604,7 +606,8 @@ class EIVSuite(HarnessRunner):
             # Algorithmic chaining: does FunctionalEIV help if inputs are
             # already RC-debiased?
             rc = RegressionCalibration(sigma_u=sigma_x)
-            X_cal_train = rc.fit_transform(X)
+            rc.fit(X)
+            X_cal_train = rc.transform(X)
             X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
             model = _MLP(in_dim, hidden, out_dim)
             # Small residual sigma_x after RC

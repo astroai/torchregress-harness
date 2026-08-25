@@ -387,7 +387,7 @@ def _crepes_split_predict(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Predict-half for ``crepes_Split+Linear``."""
     pred_test = state["point"].predict(X_test).reshape(-1)
-    intervals = state["cr"].predict_int(pred_test, significance=alpha)
+    intervals = state["cr"].predict_int(pred_test, confidence=1.0 - alpha)
     return np.asarray(intervals[:, 0]), np.asarray(intervals[:, 1])
 
 
@@ -417,7 +417,7 @@ def _crepes_cqr_predict(
     """Predict-half for ``crepes_CQR+GBR``."""
     q_lo_test = state["lo"].predict(X_test)
     q_hi_test = state["hi"].predict(X_test)
-    _, intervals = state["cr"].predict_int(np.zeros(1), significance=alpha)
+    _, intervals = state["cr"].predict_int(np.zeros(1), confidence=1.0 - alpha)
     q = float(intervals[0, 1])
     return q_lo_test - q, q_hi_test + q
 
@@ -521,7 +521,7 @@ def _crepes_tabicl_predict(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Predict-half for ``crepes_Split+TabICL``."""
     pred_test = state["est"].predict(X_test).reshape(-1)
-    intervals = state["cr"].predict_int(pred_test, significance=alpha)
+    intervals = state["cr"].predict_int(pred_test, confidence=1.0 - alpha)
     return np.asarray(intervals[:, 0]), np.asarray(intervals[:, 1])
 
 
