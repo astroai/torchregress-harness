@@ -291,6 +291,7 @@ class EIVSuite(HarnessRunner):
                         "Suite": self.name,
                         "train_s": train_s,
                         "eval_s": eval_s,
+                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                         "Notes": self.method_notes(method),
                         **metrics,
                     }
@@ -307,6 +308,7 @@ class EIVSuite(HarnessRunner):
                         "R2": None,
                         "train_s": None,
                         "eval_s": None,
+                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                         "Notes": f"skipped: {exc}",
                     }
                 )

@@ -332,6 +332,7 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": self.method_notes(method),
                 }
 
@@ -346,10 +347,11 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError) as exc:
+            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -360,6 +362,7 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

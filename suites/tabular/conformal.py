@@ -46,6 +46,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
+from torchregress.losses.conformal import finite_sample_quantile
 
 from harness.core import pip_git_commit, set_harness_seed
 from harness.runners import HarnessConfig, HarnessRunner
@@ -119,7 +120,7 @@ def _torch_split_intervals(
         pred_cal = model(X_cal).squeeze(-1)
         pred_test = model(X_test).squeeze(-1)
     residuals = (y_cal - pred_cal).abs()
-    q = torch.quantile(residuals, 1.0 - alpha).item()
+    q = finite_sample_quantile(residuals, alpha).item()
     return (pred_test - q).numpy(), (pred_test + q).numpy()
 
 
@@ -138,7 +139,7 @@ def _torch_cqr_intervals(
     q_lo_cal, q_hi_cal = pred_cal[:, 0], pred_cal[:, 1]
     q_lo_test, q_hi_test = pred_test[:, 0], pred_test[:, 1]
     score = torch.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
-    q = torch.quantile(score, 1.0 - alpha).item()
+    q = finite_sample_quantile(score, alpha).item()
     return (q_lo_test - q).numpy(), (q_hi_test + q).numpy()
 
 
@@ -257,13 +258,17 @@ def _require_mapie_version() -> None:
         )
 
 
-def _mapie_split_conformal(
-    estimator: Any,
+def _mapie_fit(
     splits: dict[str, np.ndarray],
+    estimator: Any,
     *,
     alpha: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Shared ``SplitConformalRegressor`` fit -> conformalize -> predict_interval flow."""
+) -> Any:
+    """Fit-half: ``fit -> conformalize`` a MAPIE v1 ``SplitConformalRegressor``.
+
+    Returns the fitted/conformalized predictor; interval construction happens
+    in :func:`_mapie_predict` so the runner's fit/eval timing is truthful.
+    """
     from mapie.regression import SplitConformalRegressor
 
     scr = SplitConformalRegressor(
@@ -274,47 +279,32 @@ def _mapie_split_conformal(
     )
     scr.fit(_as_float64(splits["X_train"]), _as_float64(splits["y_train"]).reshape(-1))
     scr.conformalize(_as_float64(splits["X_cal"]), _as_float64(splits["y_cal"]).reshape(-1))
-    _, intervals = scr.predict_interval(_as_float64(splits["X_test"]))
+    return scr
+
+
+def _mapie_predict(pred_obj: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half: interval prediction from a fitted MAPIE v1 predictor."""
+    _, intervals = pred_obj.predict_interval(_as_float64(X_test))
     return _mapie_intervals_to_bounds(intervals)
 
 
-def _mapie_split_intervals(
+def _mapie_split_linear_fit(
     splits: dict[str, np.ndarray],
     *,
     alpha: float,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE split-conformal intervals via the real library (v1 API).
-
-    Uses ``mapie.regression.SplitConformalRegressor`` with an sklearn
-    ``LinearRegression`` point estimator and the canonical MAPIE flow
-    ``fit -> conformalize -> predict_interval`` from the MAPIE tutorial
-    (https://mapie.readthedocs.io/en/latest/examples_regression/1-tutorial.html).
-
-    Requires MAPIE >= 1.4.1 (v1 API); the latest git main is recommended —
-    see ``EXTERNAL_PINS.md`` for the pinned commit.
-    """
-    _require_mapie_version()
+) -> Any:
+    """Fit-half for ``MAPIE_Split+Linear`` (sklearn LinearRegression base)."""
     from sklearn.linear_model import LinearRegression
 
-    return _mapie_split_conformal(LinearRegression(), splits, alpha=alpha)
+    return _mapie_fit(splits, LinearRegression(), alpha=alpha)
 
 
-def _mapie_split_mlp_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE split-conformal with an sklearn MLPRegressor point estimator.
+def _mapie_split_mlp_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> Any:
+    """Fit-half for ``MAPIE_Split+MLP`` (sklearn MLPRegressor base).
 
-    Uses the real ``mapie.regression.SplitConformalRegressor`` with an
-    MLPRegressor sharing the same 3-layer ReLU architecture heuristic as
-    torchregress's ``_MLP`` (hidden = max(16, min(in_dim*4, 64))).  This tests
-    whether torchregress's ``ConformalLoss(split)`` joint training produces
-    different intervals than the standard post-hoc MAPIE approach.
+    Uses the same 3-layer ReLU architecture heuristic as torchregress's
+    ``_MLP`` (hidden = max(16, min(in_dim*4, 64))).
     """
-    _require_mapie_version()
     from sklearn.neural_network import MLPRegressor
 
     in_dim = splits["X_train"].shape[1]
@@ -332,23 +322,11 @@ def _mapie_split_mlp_intervals(
         random_state=seed,
         early_stopping=False,
     )
-    return _mapie_split_conformal(est, splits, alpha=alpha)
+    return _mapie_fit(splits, est, alpha=alpha)
 
 
-def _mapie_cqr_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE CQR intervals via the real library (v1 API).
-
-    Uses ``mapie.regression.ConformalizedQuantileRegressor`` with an sklearn
-    ``GradientBoostingRegressor(loss='quantile')`` base estimator (a documented
-    quantile-capable choice).  MAPIE fits the lower/upper/median quantile models
-    and conformalizes the CQR score on the calibration split (Romano et al., 2019).
-    """
-    _require_mapie_version()
+def _mapie_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> Any:
+    """Fit-half for ``MAPIE_CQR+GBR``: fit + conformalize the real CQR."""
     from mapie.regression import ConformalizedQuantileRegressor
     from sklearn.ensemble import GradientBoostingRegressor
 
@@ -360,28 +338,16 @@ def _mapie_cqr_intervals(
     )
     cqr.fit(_as_float64(splits["X_train"]), _as_float64(splits["y_train"]).reshape(-1))
     cqr.conformalize(_as_float64(splits["X_cal"]), _as_float64(splits["y_cal"]).reshape(-1))
-    _, intervals = cqr.predict_interval(_as_float64(splits["X_test"]))
-    return _mapie_intervals_to_bounds(intervals)
+    return cqr
 
 
-def _mapie_cross_cqr_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """MAPIE cross-conformal CQR intervals via the real library (git main).
+def _mapie_cross_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> Any:
+    """Fit-half for ``MAPIE_CrossCQR+GBR`` (git-main cross-conformal CQR).
 
-    Uses ``mapie.regression.CrossConformalizedQuantileRegressor`` with an
-    sklearn ``GradientBoostingRegressor(loss='quantile')`` base estimator.
-    Cross-conformalized CQR fits the quantile models on K-fold cross-validation
-    folds and conformalizes on the out-of-fold predictions (Romano et al., 2019
-    cross-conformal variant) — no separate calibration split is required, so
-    the whole training set participates in both fitting and calibration.
-
-    Requires the MAPIE git-main build (post-1.4.1) pinned in ``EXTERNAL_PINS.md``.
+    Cross-conformal needs no separate calibration split: one-shot
+    ``fit_conformalize`` on the FULL training data via K-fold out-of-fold
+    scores (Romano et al., 2019).
     """
-    _require_mapie_version()
     from mapie.regression import CrossConformalizedQuantileRegressor
     from sklearn.ensemble import GradientBoostingRegressor
 
@@ -393,42 +359,40 @@ def _mapie_cross_cqr_intervals(
         random_state=seed,
         n_jobs=-1,
     )
-    # Cross-conformal needs no separate calibration split: fit + conformalize
-    # in one shot on the FULL training data (train + the harness's calibration
-    # carve) via K-fold CV out-of-fold scores — every sample contributes to both
-    # fitting and calibration (Romano et al., 2019).  This uses the same total
-    # data as the split-CQR rows, just allocated differently.
     X_all = np.vstack([_as_float64(splits["X_train"]), _as_float64(splits["X_cal"])])
     y_all = np.concatenate(
         [_as_float64(splits["y_train"]).reshape(-1), _as_float64(splits["y_cal"]).reshape(-1)]
     )
     ccqr.fit_conformalize(X_all, y_all)
-    _, intervals = ccqr.predict_interval(_as_float64(splits["X_test"]))
-    return _mapie_intervals_to_bounds(intervals)
+    return ccqr
 
 
-def _crepes_split_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-) -> tuple[np.ndarray, np.ndarray]:
+def _crepes_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[str, Any]:
+    """Fit-half for ``crepes_Split+Linear``: point model + crepes calibration."""
+    del alpha
     from sklearn.linear_model import LinearRegression
 
     point = LinearRegression().fit(splits["X_train"], splits["y_train"])
     pred_cal = point.predict(splits["X_cal"])
-    pred_test = point.predict(splits["X_test"])
     cr = ConformalRegressor()
     cr.fit(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal.reshape(-1))
-    intervals = cr.predict_int(pred_test.reshape(-1), significance=alpha)
+    return {"point": point, "cr": cr}
+
+
+def _crepes_split_predict(
+    state: dict[str, Any],
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``crepes_Split+Linear``."""
+    pred_test = state["point"].predict(X_test).reshape(-1)
+    intervals = state["cr"].predict_int(pred_test, significance=alpha)
     return np.asarray(intervals[:, 0]), np.asarray(intervals[:, 1])
 
 
-def _crepes_cqr_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
+def _crepes_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> dict[str, Any]:
+    """Fit-half for ``crepes_CQR+GBR``: quantile GBRs + crepes score calibration."""
     from sklearn.ensemble import GradientBoostingRegressor
 
     lo = GradientBoostingRegressor(loss="quantile", alpha=alpha / 2, random_state=seed)
@@ -437,37 +401,33 @@ def _crepes_cqr_intervals(
     hi.fit(splits["X_train"], splits["y_train"])
     q_lo_cal = lo.predict(splits["X_cal"])
     q_hi_cal = hi.predict(splits["X_cal"])
-    q_lo_test = lo.predict(splits["X_test"])
-    q_hi_test = hi.predict(splits["X_test"])
     y_cal = np.asarray(splits["y_cal"]).reshape(-1)
     score = np.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
     cr = ConformalRegressor()
     cr.fit(score)
-    _, intervals = cr.predict_int(np.zeros(1), significance=alpha)
+    return {"lo": lo, "hi": hi, "cr": cr}
+
+
+def _crepes_cqr_predict(
+    state: dict[str, Any],
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``crepes_CQR+GBR``."""
+    q_lo_test = state["lo"].predict(X_test)
+    q_hi_test = state["hi"].predict(X_test)
+    _, intervals = state["cr"].predict_int(np.zeros(1), significance=alpha)
     q = float(intervals[0, 1])
     return q_lo_test - q, q_hi_test + q
 
 
-def _torchcp_split_intervals(
-    splits: dict[str, np.ndarray],
-    *,
-    alpha: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Split-conformal prediction intervals via torchcp 1.x ``SplitPredictor``.
+def _torchcp_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> Any:
+    """Fit-half for ``torchcp_Split+Linear``: adapter + calibration.
 
-    torchcp 1.x's ``SplitPredictor`` requires a torch ``nn.Module`` and a torch
-    ``DataLoader`` for calibration (the 0.x ``SplitCP`` accepted raw numpy and
-    a sklearn estimator directly).  To preserve apples-to-apples parity with
-    ``MAPIE_Split+Linear`` and ``crepes_Split+Linear`` (both of which use a
-    sklearn ``LinearRegression`` point estimator), we wrap the fitted sklearn
-    estimator in a tiny ``nn.Module`` that implements ``forward()`` by
-    delegating to the underlying ``.predict()``.
-
-    Parameters
-    ----------
-    splits : dict[str, np.ndarray]
-        Must carry ``X_train``, ``X_cal``, ``X_test``, ``y_train``, ``y_cal``.    alpha : float
-            Miscoverage level (e.g. ``0.1`` for 90% intervals).
+    WRAP-07: no fake device-marker Parameter — the ``SplitPredictor`` is
+    constructed with an explicit ``device`` so it never probes model
+    parameters to locate the device.
     """
     from sklearn.linear_model import LinearRegression
     from torch.utils.data import DataLoader, TensorDataset
@@ -481,15 +441,6 @@ def _torchcp_split_intervals(
         def __init__(self, est: Any) -> None:
             super().__init__()
             self.est = est
-            # torchcp 1.x calls ``next(model.parameters()).device`` via
-            # ``get_device(model)`` (torchcp/utils/common.py) to auto-locate
-            # the model's device.  sklearn estimators expose no ``nn.Parameter``,
-            # so register a tiny no-op parameter purely for the device probe.
-            # It is never updated, never used in forward(), and trains on CPU.
-            self.register_parameter(
-                "_device_marker",
-                torch.nn.Parameter(torch.zeros(1), requires_grad=False),
-            )
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             arr = x.detach().cpu().numpy()
@@ -508,24 +459,211 @@ def _torchcp_split_intervals(
     )
     # ABS = plain absolute-residual score `|y - f(x)|` — approximately
     # equivalent to MAPIE's ``SplitConformalRegressor(conformity_score='absolute')``
-    # and to crepes' ``ConformalRegressor().fit(y_cal - pred_cal)``.  Plain ABS
-    # preserves apples-to-apples parity across the three library rows in this
-    # suite (``NorABS`` would invoke a normalizing-flow sigma, breaking parity).
-    cp = _SplitPredictor(_ABS(), model=model, alpha=alpha)
+    # and to crepes' ``ConformalRegressor().fit(y_cal - pred_cal)``.
+    cp = _SplitPredictor(_ABS(), model=model, alpha=alpha, device="cpu")
     cp.calibrate(cal_loader)
+    return cp
 
-    # --- predict; 1.x returns a (N, 1, 2) tensor (last-axis = lower/upper);
-    #         alpha is NOT a predict() kwarg ---
-    X_test_t = torch.from_numpy(np.asarray(splits["X_test"])).float()
+
+def _torchcp_split_predict(cp: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``torchcp_Split+Linear``; returns a (N, 1, 2)-style tensor."""
+    X_test_t = torch.from_numpy(np.asarray(X_test)).float()
     out = cp.predict(X_test_t)
     arr = out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
     if arr.ndim == 3 and arr.shape[-2:] == (1, 2):
         arr = arr.squeeze(axis=1)
     if arr.ndim == 2 and arr.shape[-1] == 2:
-        lo, hi = arr[:, 0].reshape(-1), arr[:, 1].reshape(-1)
-    else:
-        raise RuntimeError(f"torchcp SplitPredictor unexpected output shape: {arr.shape}")
-    return lo, hi
+        return arr[:, 0].reshape(-1), arr[:, 1].reshape(-1)
+    raise RuntimeError(f"torchcp SplitPredictor unexpected output shape: {arr.shape}")
+
+
+def _tabicl_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[str, Any]:
+    """Fit-half for TabICL split rows: backbone fit + conformal calibration."""
+    from tabicl import TabICLRegressor
+
+    est = TabICLRegressor(device="cpu")
+    est.fit(splits["X_train"], splits["y_train"])
+
+    pred_cal = est.predict(splits["X_cal"]).reshape(-1)
+    residuals = np.abs(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal)
+    q = finite_sample_quantile(torch.as_tensor(residuals), alpha).item()
+    return {"est": est, "q": q}
+
+
+def _tabicl_split_predict(
+    state: dict[str, Any],
+    X_test: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for TabICL split rows."""
+    pred_test = state["est"].predict(X_test).reshape(-1)
+    return pred_test - state["q"], pred_test + state["q"]
+
+
+def _crepes_tabicl_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[str, Any]:
+    """Fit-half for ``crepes_Split+TabICL``: TabICL backbone + crepes calibrator."""
+    del alpha
+    from tabicl import TabICLRegressor
+
+    est = TabICLRegressor(device="cpu")
+    est.fit(splits["X_train"], splits["y_train"])
+
+    pred_cal = est.predict(splits["X_cal"]).reshape(-1)
+    cr = ConformalRegressor()
+    cr.fit(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal.reshape(-1))
+    return {"est": est, "cr": cr}
+
+
+def _crepes_tabicl_predict(
+    state: dict[str, Any],
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``crepes_Split+TabICL``."""
+    pred_test = state["est"].predict(X_test).reshape(-1)
+    intervals = state["cr"].predict_int(pred_test, significance=alpha)
+    return np.asarray(intervals[:, 0]), np.asarray(intervals[:, 1])
+
+
+# ---------------------------------------------------------------------------
+# External fit/predict dispatch
+# ---------------------------------------------------------------------------
+
+
+def _external_fit(
+    method: str,
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> Any:
+    """Fit-half dispatch for external conformal builders.
+
+    All expensive work (estimator fitting, conformalization/calibration)
+    happens here and the returned fitted object is carried through the suite
+    state under the ``"predictor"`` key, so runner ``train_s`` vs ``eval_s``
+    timings are truthful (HN-WRAP-01 companion refactor).
+    """
+    if method == "MAPIE_Split+Linear":
+        return _mapie_split_linear_fit(splits, alpha=alpha)
+    if method == "MAPIE_Split+MLP":
+        return _mapie_split_mlp_fit(splits, alpha=alpha, seed=seed)
+    if method == "MAPIE_CQR+GBR":
+        return _mapie_cqr_fit(splits, alpha=alpha, seed=seed)
+    if method == "MAPIE_CrossCQR+GBR":
+        return _mapie_cross_cqr_fit(splits, alpha=alpha, seed=seed)
+    if method == "crepes_Split+Linear":
+        return _crepes_split_fit(splits, alpha=alpha)
+    if method == "crepes_CQR+GBR":
+        return _crepes_cqr_fit(splits, alpha=alpha, seed=seed)
+    if method == "torchcp_Split+Linear":
+        return _torchcp_split_fit(splits, alpha=alpha)
+    if method in ("Split+TabICL", "MAPIE_Split+TabICL"):
+        return _tabicl_split_fit(splits, alpha=alpha)
+    if method == "crepes_Split+TabICL":
+        return _crepes_tabicl_fit(splits, alpha=alpha)
+    raise ValueError(f"Unknown external method: {method}")
+
+
+def _external_predict(
+    method: str,
+    predictor: Any,
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half dispatch for external conformal builders (inference only)."""
+    if method.startswith("MAPIE") and not method.endswith("TabICL"):
+        return _mapie_predict(predictor, X_test)
+    if method == "crepes_Split+Linear":
+        return _crepes_split_predict(predictor, X_test, alpha=alpha)
+    if method == "crepes_CQR+GBR":
+        return _crepes_cqr_predict(predictor, X_test, alpha=alpha)
+    if method == "torchcp_Split+Linear":
+        return _torchcp_split_predict(predictor, X_test)
+    if method in ("Split+TabICL", "MAPIE_Split+TabICL"):
+        return _tabicl_split_predict(predictor, X_test)
+    if method == "crepes_Split+TabICL":
+        return _crepes_tabicl_predict(predictor, X_test, alpha=alpha)
+    raise ValueError(f"Unknown external method: {method}")
+
+
+# ---------------------------------------------------------------------------
+# One-shot compositions (backward-compatible helpers)
+# ---------------------------------------------------------------------------
+
+
+def _mapie_split_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """MAPIE split-conformal + LinearRegression, one-shot (fit half + predict half)."""
+    del seed
+    return _mapie_predict(_mapie_split_linear_fit(splits, alpha=alpha), splits["X_test"])
+
+
+def _mapie_split_mlp_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """MAPIE split-conformal + MLPRegressor, one-shot (fit half + predict half)."""
+    pred_obj = _mapie_split_mlp_fit(splits, alpha=alpha, seed=seed)
+    return _mapie_predict(pred_obj, splits["X_test"])
+
+
+def _mapie_cqr_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """MAPIE CQR + GradientBoostingRegressor, one-shot (fit half + predict half)."""
+    pred_obj = _mapie_cqr_fit(splits, alpha=alpha, seed=seed)
+    return _mapie_predict(pred_obj, splits["X_test"])
+
+
+def _mapie_cross_cqr_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """MAPIE cross-conformal CQR, one-shot (fit half + predict half)."""
+    pred_obj = _mapie_cross_cqr_fit(splits, alpha=alpha, seed=seed)
+    return _mapie_predict(pred_obj, splits["X_test"])
+
+
+def _crepes_split_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """crepes split-conformal + LinearRegression, one-shot (fit half + predict half)."""
+    return _crepes_split_predict(_crepes_split_fit(splits, alpha=alpha), splits["X_test"], alpha=alpha)
+
+
+def _crepes_cqr_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """crepes CQR + GradientBoostingRegressor, one-shot (fit half + predict half)."""
+    state = _crepes_cqr_fit(splits, alpha=alpha, seed=seed)
+    return _crepes_cqr_predict(state, splits["X_test"], alpha=alpha)
+
+
+def _torchcp_split_intervals(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """torchcp split-conformal + LinearRegression, one-shot (fit half + predict half)."""
+    return _torchcp_split_predict(_torchcp_split_fit(splits, alpha=alpha), splits["X_test"])
 
 
 def _tabicl_split_intervals(
@@ -534,24 +672,9 @@ def _tabicl_split_intervals(
     alpha: float,
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """TabICL in-context learner + absolute-residual split conformal.
-
-    TabICL is a pre-trained tabular foundation model that provides point
-    predictions via in-context learning (no per-dataset training).  We wrap
-    it with the standard split-conformal calibration.
-    """
-    from tabicl import TabICLRegressor
-
-    est = TabICLRegressor(device="cpu")
-    est.fit(splits["X_train"], splits["y_train"])
-
-    pred_cal = est.predict(splits["X_cal"]).reshape(-1)
-    pred_test = est.predict(splits["X_test"]).reshape(-1)
-
-    residuals = np.abs(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal)
-    q = float(np.quantile(residuals, 1.0 - alpha))
-
-    return pred_test - q, pred_test + q
+    """TabICL + absolute-residual split conformal, one-shot (fit half + predict half)."""
+    del seed
+    return _tabicl_split_predict(_tabicl_split_fit(splits, alpha=alpha), splits["X_test"])
 
 
 def _crepes_split_tabicl_intervals(
@@ -559,19 +682,9 @@ def _crepes_split_tabicl_intervals(
     *,
     alpha: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """TabICL point predictions + crepes.ConformalRegressor calibration."""
-    from tabicl import TabICLRegressor
-
-    est = TabICLRegressor(device="cpu")
-    est.fit(splits["X_train"], splits["y_train"])
-
-    pred_cal = est.predict(splits["X_cal"]).reshape(-1)
-    pred_test = est.predict(splits["X_test"]).reshape(-1)
-
-    cr = ConformalRegressor()
-    cr.fit(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal.reshape(-1))
-    intervals = cr.predict_int(pred_test.reshape(-1), significance=alpha)
-    return np.asarray(intervals[:, 0]), np.asarray(intervals[:, 1])
+    """TabICL + crepes, one-shot (fit half + predict half)."""
+    state = _crepes_tabicl_fit(splits, alpha=alpha)
+    return _crepes_tabicl_predict(state, splits["X_test"], alpha=alpha)
 
 
 # ---------------------------------------------------------------------------
@@ -776,19 +889,21 @@ class ConformalSuite(HarnessRunner):
                 "alpha": alpha,
             }
 
-        # --- External: store the splits dict so predict() can use native APIs ---
+        # --- External: run the fit-half here and carry the fitted predictor ---
+        # (conformalization/calibration) through the state dict, so predict()
+        # performs only inference and runner train_s/eval_s timings are truthful.
         elif (
             method.startswith("MAPIE_")
             or method.startswith("crepes_")
             or method.startswith("torchcp_")
             or "TabICL" in method
         ):
+            predictor = _external_fit(method, splits, alpha=alpha, seed=config.seed)
             return {
                 "type": "external",
                 "method": method,
-                "splits": splits,
+                "predictor": predictor,
                 "alpha": alpha,
-                "seed": config.seed,
             }
 
         raise ValueError(f"Unknown method: {method}")
@@ -830,34 +945,12 @@ class ConformalSuite(HarnessRunner):
             lo, hi = _torch_cqr_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
 
-        # --- External ---
+        # --- External: predict-half only; all fitting happened in fit() ---
         elif model_type == "external":
             external_method = model_state["method"]
-            splits = model_state["splits"]
-            seed = model_state["seed"]
+            predictor = model_state["predictor"]
 
-            if external_method == "MAPIE_Split+Linear":
-                lo, hi = _mapie_split_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "MAPIE_Split+MLP":
-                lo, hi = _mapie_split_mlp_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "MAPIE_CQR+GBR":
-                lo, hi = _mapie_cqr_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "MAPIE_CrossCQR+GBR":
-                lo, hi = _mapie_cross_cqr_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "crepes_Split+Linear":
-                lo, hi = _crepes_split_intervals(splits, alpha=alpha)
-            elif external_method == "crepes_CQR+GBR":
-                lo, hi = _crepes_cqr_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "torchcp_Split+Linear":
-                lo, hi = _torchcp_split_intervals(splits, alpha=alpha)
-            elif external_method == "Split+TabICL":
-                lo, hi = _tabicl_split_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "MAPIE_Split+TabICL":
-                lo, hi = _tabicl_split_intervals(splits, alpha=alpha, seed=seed)
-            elif external_method == "crepes_Split+TabICL":
-                lo, hi = _crepes_split_tabicl_intervals(splits, alpha=alpha)
-            else:
-                raise ValueError(f"Unknown external method: {external_method}")
+            lo, hi = _external_predict(external_method, predictor, X_test, alpha=alpha)
 
             return {"lower": lo, "upper": hi}
 
@@ -979,6 +1072,7 @@ class ConformalSuite(HarnessRunner):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": self.method_notes(method),
                 }
 
@@ -995,10 +1089,11 @@ class ConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError) as exc:
+            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -1011,6 +1106,7 @@ class ConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

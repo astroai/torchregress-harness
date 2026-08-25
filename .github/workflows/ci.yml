@@ -15,20 +15,27 @@ jobs:
     env:
       OMP_NUM_THREADS: 1
       MKL_NUM_THREADS: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@v4.2.2 (commit-SHA pinned)
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Checkout path dependency siblings
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: astroai/torchregress
           path: .torchregress
+          # PAT scope requirement: `contents:read` on astroai/torchregress ONLY.
           token: ${{ secrets.PAT_FOR_PRIVATE_REPOS }}
 
       - name: Move siblings to parent directory
         run: mv .torchregress ../torchregress
 
-      - uses: prefix-dev/setup-pixi@v0.8.3
+      # prefix-dev/setup-pixi@v0.8.3 (commit-SHA pinned)
+      - uses: prefix-dev/setup-pixi@92815284c57faa15cd896c4d5cfb2d59f32dc43d
         with:
           pixi-version: v0.73.0
 
@@ -40,3 +47,66 @@ jobs:
 
       - name: Test
         run: pixi run test
+
+  extras-smoke:
+    runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        extra: [conformal, boosting]
+    steps:
+      # actions/checkout@v4.2.2 (commit-SHA pinned)
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout path dependency siblings
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: astroai/torchregress
+          path: .torchregress
+          # PAT scope requirement: `contents:read` on astroai/torchregress ONLY.
+          token: ${{ secrets.PAT_FOR_PRIVATE_REPOS }}
+
+      - name: Move siblings to parent directory
+        run: mv .torchregress ../torchregress
+
+      # actions/setup-python@v5.6.0 (commit-SHA pinned)
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.13"
+
+      - name: Install CPU torch first (avoid CUDA wheels)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install package with extra (${{ matrix.extra }})
+        run: pip install -e ".[${{ matrix.extra }}]" -e "../torchregress[flows]"
+
+      # ------------------------------------------------------------------
+      # Deliberately NOT CI'd (too heavy / flaky for CI runners):
+      # bayesian (botorch/gpytorch), foundation (tabpfn/tabicl downloads),
+      # image (torch-uncertainty/lightning + dataset downloads).
+      # ------------------------------------------------------------------
+      - name: Smoke — conformal suite (MAPIE reference)
+        if: matrix.extra == 'conformal'
+        run: |
+          python tools/run_canonical.py --scenario mapie_reference --smoke \
+            --no-report --output results/ci/conformal_smoke.json
+
+      - name: Smoke — robust regression suite (LightGBM/XGBoost)
+        if: matrix.extra == 'boosting'
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "src")
+          sys.path.insert(0, ".")
+          from harness import HarnessConfig
+          from suites.tabular.robust_regression import RobustRegressionSuite
+
+          rows = RobustRegressionSuite().run(
+              "synthetic_outliers", HarnessConfig(smoke=True)
+          )
+          assert rows, "robust regression smoke produced no rows"
+          assert all(r["RMSE"] is not None for r in rows), rows
+          print(f"robust_regression smoke OK: {len(rows)} methods")
+          PY

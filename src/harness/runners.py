@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from .core import set_harness_seed
+from .datasets import SplitsDict
 from .metrics import compute_all_metrics
 
 
@@ -122,7 +123,7 @@ class HarnessRunner(ABC):
     def fit(
         self,
         method: str,
-        splits: dict[str, np.ndarray],
+        splits: SplitsDict,
         config: HarnessConfig,
     ) -> Any:
         """Fit a model for the given method.
@@ -203,10 +204,10 @@ class HarnessRunner(ABC):
         self,
         scenario_name: str | None,
         dataset_name: str,
-        splits: dict[str, np.ndarray] | None,
+        splits: SplitsDict | None,
         *,
         standardize_targets: bool = True,
-    ) -> tuple[str, dict[str, np.ndarray] | None]:
+    ) -> tuple[str, SplitsDict | None]:
         """Validate, resolve, and merge a canonical scenario.
 
         Called at the top of ``run()``.  If ``scenario_name`` is not None,
@@ -236,14 +237,22 @@ class HarnessRunner(ABC):
 
         effective_dataset = dataset_name if dataset_name else scenario_dataset_key
 
+        effective_splits: SplitsDict
         if splits is None:
             effective_splits = scenario_splits
         else:
             # User provided their own splits — still merge scenario metadata
-            effective_splits = dict(splits)
-            for key in ("_scenario", "_source_url", "_alpha", "_calibration_fraction"):
-                if key in scenario_splits:
-                    effective_splits[key] = scenario_splits[key]
+            effective_splits = {
+                **splits,
+                "_scenario": scenario_splits["_scenario"],
+                "_source_url": scenario_splits["_source_url"],
+            }
+            if "_alpha" in scenario_splits:
+                effective_splits["_alpha"] = scenario_splits["_alpha"]
+            if "_calibration_fraction" in scenario_splits:
+                effective_splits["_calibration_fraction"] = scenario_splits[
+                    "_calibration_fraction"
+                ]
 
         return effective_dataset, effective_splits
 
@@ -252,7 +261,7 @@ class HarnessRunner(ABC):
         scenario_name: str,
         *,
         standardize_targets: bool = True,
-    ) -> tuple[str, dict[str, np.ndarray]]:
+    ) -> tuple[str, SplitsDict]:
         """Resolve a canonical scenario into (dataset_key, loaded_splits_with_metadata).
 
         Looks up ``scenario_name`` in ``CANONICAL_SCENARIOS``, loads the
@@ -307,7 +316,7 @@ class HarnessRunner(ABC):
         self,
         dataset_name: str = "",
         config: HarnessConfig | None = None,
-        splits: dict[str, np.ndarray] | None = None,
+        splits: SplitsDict | None = None,
         *,
         scenario_name: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -371,7 +380,7 @@ class HarnessRunner(ABC):
 
                 # Predict
                 t0 = perf_counter()
-                predictions = self.predict(method, model, X_test, cfg)
+                predictions: dict[str, Any] = self.predict(method, model, X_test, cfg)
                 pred_time = perf_counter() - t0
 
                 # Attach y-scaler so evaluate() can inverse-transform
@@ -391,6 +400,7 @@ class HarnessRunner(ABC):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Notes": self.method_notes(method),
                 }
 
@@ -406,6 +416,7 @@ class HarnessRunner(ABC):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
@@ -421,6 +432,7 @@ class HarnessRunner(ABC):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

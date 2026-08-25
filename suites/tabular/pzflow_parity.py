@@ -400,6 +400,7 @@ class PzflowParitySuite(HarnessRunner):
                         "NLL": None,
                         "train_s": None,
                         "eval_s": None,
+                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                         "Notes": (f"known-bad: {method} {self.name} #{self._KNOWN_BAD[method]}"),
                     }
                 )
@@ -449,10 +450,11 @@ class PzflowParitySuite(HarnessRunner):
                     "NLL": nll,
                     "train_s": fit_time,
                     "eval_s": pred_time,
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": self.method_notes(method),
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError) as exc:
+            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -464,6 +466,7 @@ class PzflowParitySuite(HarnessRunner):
                     "NLL": None,
                     "train_s": None,
                     "eval_s": None,
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

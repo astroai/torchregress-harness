@@ -10,11 +10,57 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+
+
+class SplitArrays(TypedDict):
+    """The four canonical arrays every dataset loader returns."""
+
+    X_train: np.ndarray
+    X_test: np.ndarray
+    y_train: np.ndarray
+    y_test: np.ndarray
+
+
+class SplitMetadata(TypedDict, total=False):
+    """Optional auxiliary arrays and piggybacked loader/scenario metadata.
+
+    Loaders and :func:`load_dataset` attach metadata using leading-underscore
+    keys (e.g. ``_synthetic_fallback``); consumers read them with ``dict.get``.
+    """
+
+    X_train_true: np.ndarray
+    X_test_true: np.ndarray
+    _y_true_sigma: float
+    censoring_train: np.ndarray
+    censoring_test: np.ndarray
+    exposure_train: np.ndarray
+    exposure_test: np.ndarray
+    sigma_x: float
+    sigma_y: float
+    n_classes: int
+    _multi_output: bool
+    _skip_y_standardization: bool
+    _synthetic_fallback: bool
+    _fallback_reason: str
+    _image_data: bool
+    _image_size: int
+    _n_channels: int
+    _scenario: str
+    _source_url: str
+    _alpha: float
+    _calibration_fraction: float
+    _dense_output: bool
+    _y_scaler: StandardScaler
+
+
+class SplitsDict(SplitArrays, SplitMetadata):
+    """Full splits dict: the four canonical arrays plus optional extras."""
+
 
 # ---------------------------------------------------------------------------
 # Dataset descriptor
@@ -30,7 +76,7 @@ class DatasetInfo:
     n_features: int
     n_samples: int
     description: str
-    loader: Callable[..., dict[str, np.ndarray]]
+    loader: Callable[..., "SplitsDict"]
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +86,7 @@ class DatasetInfo:
 
 def _load_california_housing(
     n_samples: int = 5000, test_size: float = 0.3, seed: int = 42
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load California Housing dataset."""
     from sklearn.datasets import fetch_california_housing
 
@@ -72,7 +118,7 @@ def _load_diabetes(
     n_samples: int = 442,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load sklearn Diabetes dataset."""
     from sklearn.datasets import load_diabetes
 
@@ -105,11 +151,12 @@ def _load_openml_year(
     test_size: float = 0.3,
     seed: int = 42,
     cache_path: str | None = None,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load OpenML YearPredictionMSD dataset.
 
     Falls back to synthetic data if OpenML fetch fails.
     """
+    splits: SplitMetadata = {}
     try:
         from sklearn.datasets import fetch_openml
 
@@ -119,10 +166,13 @@ def _load_openml_year(
         X = df.drop(columns=[target_col]).values.astype(np.float64)
         y = df[target_col].values.astype(np.float64)
     except Exception:
-        # Fallback: synthetic data with similar dimensions
+        # Fallback: synthetic data with similar dimensions (DATA-01/02:
+        # provenance flags let result rows disclose non-real data).
         rng = np.random.default_rng(seed)
         X = rng.standard_normal((515345, 90)).astype(np.float64)
         y = 0.7 * X[:, 0] - 0.5 * X[:, 1] + rng.normal(0, 0.3, 515345).astype(np.float64)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "OpenML YearPredictionMSD fetch failed"
 
     if n_samples < len(X):
         rng = np.random.default_rng(seed)
@@ -138,6 +188,7 @@ def _load_openml_year(
     X_test = scaler.transform(X_test)
 
     return {
+        **splits,
         "X_train": X_train.astype(np.float32),
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
@@ -155,7 +206,7 @@ def _load_synthetic_heteroscedastic(
     n_features: int = 8,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic heteroscedastic data."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
@@ -180,7 +231,7 @@ def _load_synthetic_outliers(
     outlier_fraction: float = 0.15,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic data with outliers."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
@@ -210,7 +261,7 @@ def _load_synthetic_tweedie(
     phi: float = 0.6,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic compound Poisson-Gamma (Tweedie) data."""
     rng = np.random.default_rng(seed)
     X = rng.uniform(-1.5, 1.5, size=(n_samples, n_features)).astype(np.float32)
@@ -244,7 +295,7 @@ def _load_synthetic_censored(
     censoring_rate: float = 0.3,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic data with censored targets."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features)).astype(np.float32)
@@ -279,7 +330,7 @@ def _load_synthetic_multivariate(
     n_features: int = 8,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic data with 3 correlated output dimensions.
 
     Targets are correlated: y1 depends on y0, y2 depends on both y0 and y1.
@@ -320,7 +371,7 @@ def _load_synthetic_mv_gaussian(
     n_features: int = 8,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic 3D targets from a purely multivariate Gaussian.
 
     y | X ~ N(μ(X), Σ) where Σ is a fixed covariance matrix with
@@ -368,7 +419,7 @@ def _load_synthetic_mv_nongaussian(
     n_features: int = 8,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic 3D targets with non-Gaussian conditional distributions.
 
     y0: μ₀(X) + t₃(ν=4) noise  — heavy-tailed
@@ -421,7 +472,7 @@ def _load_synthetic_mv_bimodal(
     n_features: int = 8,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic 3D targets from a mixture of two multivariate Gaussians.
 
     y | X ~ 0.5·N(μ₁(X), Σ₁) + 0.5·N(μ₂(X), Σ₂)
@@ -501,7 +552,7 @@ def _load_synthetic_cond_gaussian(
     n_features: int = 5,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate 1D target with Gaussian conditional distribution.
 
     y | X ~ N(μ(X), σ²)  where μ(X) = X·β and σ = 0.3.
@@ -534,7 +585,7 @@ def _load_synthetic_cond_nongaussian(
     n_features: int = 5,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate 1D target with non-Gaussian conditional distribution.
 
     y | X = μ(X) + ε  where ε are i.i.d. draws from a 3-component
@@ -582,7 +633,7 @@ def _load_synthetic_eiv(
     sigma_y: float = 0.1,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic data with errors-in-variables (noisy inputs)."""
     rng = np.random.default_rng(seed)
     X_true = rng.standard_normal((n_samples, n_features)).astype(np.float32)
@@ -619,7 +670,7 @@ def _load_synthetic_eiv_nonlinear(
     sigma_y: float = 0.1,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic EIV data with nonlinear ground truth.
 
     The true relationship is sinusoidal — a linear model (TLS / OLS)
@@ -665,7 +716,7 @@ def _load_insurance_claims(
     n_samples: int = 20000,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load the French Motor Insurance Claims dataset (OpenML ID 41214).
 
     This is the canonical sklearn Tweedie regression dataset — used in
@@ -675,6 +726,7 @@ def _load_insurance_claims(
     Canonical source:
     https://scikit-learn.org/stable/auto_examples/linear_model/plot_tweedie_regression_insurance_claims.html
     """
+    splits: SplitMetadata = {}
     try:
         from sklearn.datasets import fetch_openml
         from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -728,6 +780,8 @@ def _load_insurance_claims(
                 scale = 0.8 * 0.5 * mu[i] ** 0.5
                 y[i] = float(rng.gamma(2.0, scale, size=n_events).sum())
         exposure = np.ones_like(y)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "OpenML French Motor Claims fetch failed"
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=seed
@@ -741,6 +795,7 @@ def _load_insurance_claims(
     X_test = scaler.transform(X_test)
 
     return {
+        **splits,
         "X_train": X_train.astype(np.float32),
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
@@ -755,7 +810,7 @@ def _load_house_sales(
     n_samples: int = 20000,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load the King County House Sales dataset (OpenML ``house_sales``).
 
     This is the canonical crepes conformal prediction example dataset.
@@ -786,8 +841,12 @@ def _load_house_sales(
         X = numeric_df.drop(columns=[target_col]).values.astype(np.float64)
         y = numeric_df[target_col].values.astype(np.float64)
     except Exception:
-        # Fallback: California Housing
-        return _load_california_housing(n_samples=n_samples, test_size=test_size, seed=seed)
+        # Fallback: California Housing substitute (flagged so result rows
+        # disclose that the canonical crepes dataset was unavailable).
+        splits = _load_california_housing(n_samples=n_samples, test_size=test_size, seed=seed)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "OpenML house_sales unavailable; substituted California Housing"
+        return splits
 
     if n_samples < len(X):
         rng = np.random.default_rng(seed)
@@ -817,7 +876,7 @@ def _load_make_regression_synthetic(
     noise: float = 15.0,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate data via sklearn's ``make_regression``.
 
     This is the canonical sklearn synthetic regression benchmark — used
@@ -859,7 +918,7 @@ def _load_synthetic_ordinal(
     *,
     test_size: float = 0.2,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Synthetic ordinal regression data.
 
     Generates continuous targets as a linear combination of features
@@ -900,7 +959,7 @@ def _load_synthetic_sinusoidal(
     n_features: int = 4,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate sinusoidal test-function data with homoscedastic Gaussian noise.
 
     Target:  y = sin(2π⋅x₀) + 0.3⋅cos(4π⋅x₁) + 0.2⋅tanh(3⋅x₂) + ε
@@ -1051,23 +1110,30 @@ def _load_tabred(
     n_samples: int = 50000,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generic TabReD loader: try local data, fall back to synthetic."""
-    try:
-        from pathlib import Path
+    import pandas as pd
 
-        csv_path = Path(data_dir) / f"{dataset_id}.csv"
-        if csv_path.exists():
-            import pandas as pd
+    csv_path = Path(data_dir) / f"{dataset_id}.csv"
+    splits: SplitMetadata = {}
 
+    # Existence check stays OUTSIDE the parse handler: a missing CSV is an
+    # expected fallback trigger, not a parsing failure to swallow (DATA-02).
+    if csv_path.exists():
+        try:
             df = pd.read_csv(csv_path)
             target_col = df.columns[-1]
             X = df.drop(columns=[target_col]).values.astype(np.float64)
             y = df[target_col].values.astype(np.float64)
-        else:
-            raise FileNotFoundError(f"{csv_path} not found — falling back to synthetic")
-    except Exception:
+        except (pd.errors.ParserError, OSError):
+            X = None  # unreadable local file — fall back to synthetic below
+    else:
+        X = None
+
+    if X is None:
         # Fallback: synthetic data with TabReD dimensions
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = f"TabReD {dataset_id} CSV missing or unreadable"
         rng = np.random.default_rng(seed)
         X = rng.standard_normal((n_rows, n_features)).astype(np.float64)
         # First 4 features are informative (if they exist); rest are noise
@@ -1090,6 +1156,7 @@ def _load_tabred(
     X_test = scaler.transform(X_test)
 
     return {
+        **splits,
         "X_train": X_train.astype(np.float32),
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
@@ -1123,7 +1190,7 @@ def _download_with_progress(url: str, dest: Path, desc: str = "") -> None:
         return
 
     try:
-        import requests
+        import requests  # ty: ignore[unresolved-import]  # optional dep, imported lazily with a friendly ImportError
     except ImportError:
         raise ImportError(
             "requests is required to download image datasets. Install with: uv pip install requests"
@@ -1155,7 +1222,7 @@ def _load_synthetic_image_regression(
     n_channels: int = 1,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic image regression data.
 
     Each image contains a 2D Gaussian blob whose centre coordinates
@@ -1210,7 +1277,7 @@ def _load_synthetic_image_depth(
     n_channels: int = 3,
     test_size: float = 0.3,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Generate synthetic depth-estimation data.
 
     Each input is an RGB image with a simple geometric scene (gradient
@@ -1298,7 +1365,7 @@ def _load_nyu_depth_v2(
     img_size: int = 128,
     test_size: float = 0.2,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load the NYU Depth v2 labeled dataset.
 
     Downloads the official ~2.7 GB MATLAB file, caches it locally,
@@ -1334,7 +1401,7 @@ def _load_nyu_depth_v2(
 
     # Load .mat file
     try:
-        import h5py
+        import h5py  # ty: ignore[unresolved-import]  # optional dep, imported lazily with a friendly ImportError
     except ImportError:
         try:
             import scipy.io as sio
@@ -1394,14 +1461,14 @@ def _load_nyu_depth_v2(
             rgb = images[i].transpose(1, 2, 0)
             rgb_pil = Image.fromarray((rgb * 255).astype(np.uint8))
             rgb_resized = (
-                np.array(rgb_pil.resize((W_out, H_out), Image.BILINEAR), dtype=np.float32) / 255.0
+                np.array(rgb_pil.resize((W_out, H_out), Image.Resampling.BILINEAR), dtype=np.float32) / 255.0
             )
             X_resized[i] = rgb_resized.transpose(2, 0, 1)  # back to (3, H, W)
 
             # Depth: (H, W)
             depth_pil = Image.fromarray(depths[i])
             y_resized[i] = np.array(
-                depth_pil.resize((W_out, H_out), Image.BILINEAR),
+                depth_pil.resize((W_out, H_out), Image.Resampling.BILINEAR),
                 dtype=np.float32,
             )
 
@@ -1438,7 +1505,7 @@ def _load_imdb_wiki(
     min_age: int = 0,
     max_age: int = 100,
     seed: int = 42,
-) -> dict[str, np.ndarray]:
+) -> SplitsDict:
     """Load the IMDB-WIKI face age dataset.
 
     Downloads cropped face images (~8 GB total) and metadata from ETH Zurich,
@@ -1576,7 +1643,7 @@ def _load_imdb_wiki(
 
             try:
                 img = Image.open(img_path).convert("RGB")
-                img = img.resize((img_size, img_size), Image.BILINEAR)
+                img = img.resize((img_size, img_size), Image.Resampling.BILINEAR)
                 arr = np.array(img, dtype=np.float32) / 255.0  # (H, W, 3)
                 all_images.append(arr.transpose(2, 0, 1))  # → (3, H, W)
                 all_ages.append(float(age))
@@ -1620,12 +1687,12 @@ def _load_imdb_wiki(
 
 
 def _registry_loader(
-    fn: Callable[..., dict[str, np.ndarray]],
+    fn: Callable[..., SplitsDict],
     **defaults: Any,
-) -> Callable[..., dict[str, np.ndarray]]:
+) -> Callable[..., SplitsDict]:
     """Wrap a loader so extra kwargs can override defaults."""
 
-    def _loader(**kwargs: Any) -> dict[str, np.ndarray]:
+    def _loader(**kwargs: Any) -> SplitsDict:
         merged = {**defaults, **{k: v for k, v in kwargs.items() if v is not None}}
         return fn(**merged)
 
@@ -2009,7 +2076,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
 }
 
 
-def load_dataset(name: str, **kwargs: Any) -> dict[str, np.ndarray]:
+def load_dataset(name: str, **kwargs: Any) -> SplitsDict:
     """Load a dataset by name from the registry.
 
     Targets (y) are automatically standardised (zero-mean, unit-variance)

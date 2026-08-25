@@ -300,13 +300,13 @@ def install_loss_protocol_augments() -> None:
 
     if MixtureDensityLoss is not None:
         if not getattr(MixtureDensityLoss, _PATCH_SENTINEL, False):
-            MixtureDensityLoss.log_prob = _mixturedensity_log_prob  # type: ignore[attr-defined]
+            MixtureDensityLoss.log_prob = _mixturedensity_log_prob  # ty: ignore[unresolved-attribute]  # protocol patch adds log_prob to the external class dynamically
             setattr(MixtureDensityLoss, _PATCH_SENTINEL, True)
             _LOGGER.debug("[harness.loss_augments] installed log_prob on MixtureDensityLoss")
 
     if NormalizingFlowLoss is not None:
         if not getattr(NormalizingFlowLoss, _PATCH_SENTINEL, False):
-            NormalizingFlowLoss.predict_interval = (  # type: ignore[attr-defined]
+            NormalizingFlowLoss.predict_interval = (  # ty: ignore[unresolved-attribute]  # protocol patch adds predict_interval to the external class dynamically
                 _normalizingflow_predict_interval
             )
             setattr(NormalizingFlowLoss, _PATCH_SENTINEL, True)

@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 from sklearn.linear_model import QuantileRegressor
+from sklearn.model_selection import train_test_split
 
 # ---------------------------------------------------------------------------
 # Torchregress robust losses — all hard dependencies (from torchregress)
@@ -269,7 +270,14 @@ class RobustRegressionSuite(HarnessRunner):
 
         # --- LightGBM ---
         elif method == "LightGBM":
-            train_data = lgb.Dataset(X_train_np, label=y_train_np)
+            # WRAP-03: carve an 80/20 train/valid split so early stopping
+            # has a held-out signal; ``num_iteration=booster.best_iteration``
+            # at predict time is now meaningful.
+            X_tr, X_val, y_tr, y_val = train_test_split(
+                X_train_np, y_train_np, test_size=0.2, random_state=config.seed
+            )
+            train_data = lgb.Dataset(X_tr, label=y_tr)
+            valid_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
             params = {
                 "objective": "regression_l1",
                 "metric": "l1",
@@ -278,11 +286,21 @@ class RobustRegressionSuite(HarnessRunner):
                 "num_leaves": 31,
                 "learning_rate": 0.05,
             }
-            booster = lgb.train(params, train_data, num_boost_round=100)
+            booster = lgb.train(
+                params,
+                train_data,
+                num_boost_round=100,
+                valid_sets=[valid_data],
+                callbacks=[lgb.early_stopping(20, verbose=False)],
+            )
             return {"type": "lgbm", "model": booster}
 
         # --- XGBoost ---
         elif method == "XGBoost":
+            # WRAP-03 sibling: same 80/20 split + early stopping contract.
+            X_tr, X_val, y_tr, y_val = train_test_split(
+                X_train_np, y_train_np, test_size=0.2, random_state=config.seed
+            )
             params = {
                 "objective": "reg:pseudohubererror",
                 "eval_metric": "mae",
@@ -291,7 +309,13 @@ class RobustRegressionSuite(HarnessRunner):
                 "max_depth": 6,
                 "learning_rate": 0.05,
             }
-            booster = xgb.train(params, xgb.DMatrix(X_train_np, y_train_np), num_boost_round=100)
+            booster = xgb.train(
+                params,
+                xgb.DMatrix(X_tr, y_tr),
+                num_boost_round=100,
+                eval_set=[(xgb.DMatrix(X_val, y_val), "valid")],
+                early_stopping_rounds=20,
+            )
             return {"type": "xgb", "model": booster}
 
         raise ValueError(f"Unknown method: {method}")

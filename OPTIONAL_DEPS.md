@@ -27,7 +27,7 @@ pixi run test
 pip install -e ".[all]"
 ```
 
-This pulls in **conformal + bayesian + tweedie + foundation + boosting + causal + test + dev**.
+This pulls in **conformal + bayesian + tweedie + foundation + boosting + image + test + dev**.
 
 ### Install just one option group
 
@@ -38,7 +38,6 @@ This pulls in **conformal + bayesian + tweedie + foundation + boosting + causal 
 | Tweedie   | `pip install -e ".[tweedie]"`  | `scikit-lego` |
 | Foundation| `pip install -e ".[foundation]"` | `tabpfn`, `tabicl` |
 | Boosting  | `pip install -e ".[boosting]"`   | `lightgbm`, `xgboost` |
-| Causal    | `pip install -e ".[causal]"`     | `econml`, `dowhy` |
 | Image     | `pip install -e ".[image]"`      | `torchvision`, `torch-uncertainty>=0.13.0` (git pin in `EXTERNAL_PINS.md`), `lightning`, `timm`, … |
 | Test      | `pip install -e ".[test]"`       | `pytest`, `pytest-cov`, `PyYAML` |
 | Dev       | `pip install -e ".[dev]"`        | `ruff`, `ty` |
@@ -67,7 +66,6 @@ pip install -e ".[conformal,bayesian,foundation]"
 | `tweedie` | scikit-lego Tweedie |
 | `foundation` | TabPFN, TabICL |
 | `boosting` | LightGBM, XGBoost robust regression |
-| `causal` | EconML / DoWhy causal suites |
 | `image` | torchvision / lightning / timm image suites; torch-uncertainty `torch_uncertainty` row (>=0.13) |
 
 Skipped rows in harness JSON usually mean the optional library is missing — install the matching extra and re-run.

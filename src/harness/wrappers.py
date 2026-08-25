@@ -74,6 +74,8 @@ hardcoded-0.9 bug.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import torch
@@ -347,6 +349,18 @@ class _HarnessRegressorBase:
       ``loss_params=``).
     """
 
+    # Torch submodules populated by subclass ``_build_model``/``__init__``
+    # implementations.  Declared ``Any`` deliberately: each subclass binds a
+    # different concrete model type (MLP, ensemble wrappers, normalizing
+    # flows), and the shared helpers treat them as opaque ``nn.Module``-like
+    # objects.  ``_build_model`` runs in ``fit()`` before any of these are
+    # dereferenced.
+
+    _model: Any
+    _loss: Any
+    _loss_fn: Any
+    _flow: Any
+
     def to(self, device: str | torch.device) -> "_HarnessRegressorBase":
         """Move the model and all submodules/losses to the specified device."""
         if hasattr(self, "_model") and self._model is not None:
@@ -610,8 +624,8 @@ class MDNRegressor(_HarnessRegressorBase):
 
     def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
         """Predictive mean/std from ``predict_mean_std`` + MC samples from
-        ``loss_fn.sample``.  Forces ``samples`` to ``(n_test, n_samples)``
-        so single-row edge cases (``n_test == 1``) don't get collapsed to 1-D.
+        ``loss_fn.sample``.  WRAP-04: the sampler MUST return
+        ``(n_test, n_samples)`` — no silent reshaping heuristics.
         """
         assert self._loss_fn is not None
         device = next(self._model.parameters()).device
@@ -628,20 +642,38 @@ class MDNRegressor(_HarnessRegressorBase):
             with torch.random.fork_rng(devices=[]):
                 torch.manual_seed(self._inference_seed)
                 samples = self._loss_fn.sample(out, n_samples=256).squeeze(-1)
-            # Accept (N, S), (S, N), or 1-D fallback for n_test=1: always
-            # reshape to (n_test, n_samples) so downstream consumers see
-            # consistent 2-D shape.
-            if samples.ndim == 1:
-                samples = samples.reshape(n_test, -1)
-            elif samples.ndim == 2 and samples.shape[0] != n_test and samples.shape[1] == n_test:
-                samples = samples.T  # (S, N) → (N, S)
-            else:
-                samples = samples.reshape(n_test, -1)
+            # ``MixtureDensityLoss.sample`` returns (n_samples, n_test,
+            # n_features); squeeze(-1) leaves (S, N) for the scalar head —
+            # transpose deterministically, then enforce the contract.
+            samples = samples.T
+            assert samples.shape == (n_test, 256), f"sampler returned {samples.shape}"
         return {
             "mean": mean.squeeze(-1).cpu().numpy(),
             "std": std.squeeze(-1).cpu().numpy(),
             "samples": samples.cpu().numpy(),
         }
+
+
+# ---------------------------------------------------------------------------
+# WRAP-05 — shared NIG parameter constraint (EvidentialRegressor)
+# ---------------------------------------------------------------------------
+
+
+def _constrain_nig(raw: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Map 4 raw network outputs to valid NIG parameters.
+
+    Returns ``(gamma, nu, alpha, beta)`` with ``nu > 0``, ``alpha > 1``,
+    ``beta > 0`` via softplus + fixed floors {0.01, 1.01, 0.01}.  Used
+    identically at fit time and predict time so train/test
+    parameterizations cannot drift.
+    """
+    import torch.nn.functional as F
+
+    gamma = raw[:, 0:1]
+    nu = F.softplus(raw[:, 1:2]) + 0.01
+    alpha = F.softplus(raw[:, 2:3]) + 1.01
+    beta = F.softplus(raw[:, 3:4]) + 0.01
+    return gamma, nu, alpha, beta
 
 
 class EvidentialRegressor(_HarnessRegressorBase):
@@ -698,15 +730,12 @@ class EvidentialRegressor(_HarnessRegressorBase):
         Mirrors ``suites/tabular/distributional_bins._train_evidential`` so
         wrapper behaviour matches the suite's reference fit exactly.
         """
-        import torch.nn.functional as F
         import torch.optim as optim
 
         assert self._loss_fn is not None
-        params = list(self._model.parameters())
-        for p in self._loss_fn.parameters():
-            if p.requires_grad:
-                params.append(p)
-        opt = optim.Adam(params, lr=cfg.lr)
+        # WRAP-05: the NIG loss has no learnable parameters — the old
+        # ``loss_fn.parameters()`` merge here was a no-op.
+        opt = optim.Adam(list(self._model.parameters()), lr=cfg.lr)
 
         device = next(self._model.parameters()).device
         X_dev = X_t.to(device)
@@ -718,11 +747,7 @@ class EvidentialRegressor(_HarnessRegressorBase):
                 idx = perm[i : i + cfg.batch_size]
                 opt.zero_grad(set_to_none=True)
                 raw = self._model(X_dev[idx])
-                gamma = raw[:, 0:1]
-                nu = F.softplus(raw[:, 1:2]) + 0.01
-                alpha = F.softplus(raw[:, 2:3]) + 1.01
-                beta = F.softplus(raw[:, 3:4]) + 0.01
-                constrained = torch.cat([gamma, nu, alpha, beta], dim=1)
+                constrained = torch.cat(_constrain_nig(raw), dim=1)
                 loss = self._loss_fn(constrained, y_dev[idx])
                 loss.backward()
                 opt.step()
@@ -741,18 +766,13 @@ class EvidentialRegressor(_HarnessRegressorBase):
         kwarg was added in torch 2.0+, so we keep the global seed path
         portable.
         """
-        import torch.nn.functional as F
-
         assert self._loss_fn is not None
         device = next(self._model.parameters()).device
         X_t = torch.from_numpy(X).float().to(device)
         n_test = X_t.shape[0]
         with torch.no_grad():
             raw = self._model(X_t)
-            gamma = raw[:, 0:1]
-            nu = F.softplus(raw[:, 1:2]) + 0.01
-            alpha = F.softplus(raw[:, 2:3]) + 1.01
-            beta = F.softplus(raw[:, 3:4]) + 0.01
+            gamma, nu, alpha, beta = _constrain_nig(raw)
 
         gamma_np = gamma.cpu().numpy().astype(np.float64).reshape(-1)
         nu_np = nu.cpu().numpy().astype(np.float64).reshape(-1)
@@ -853,13 +873,12 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
             with torch.random.fork_rng(devices=[]):
                 torch.manual_seed(self._inference_seed)
                 samples = self._loss.sample(context, n_samples=self.NF_N_SAMPLES).squeeze(-1)
-            # Force 2-D (N, S); handle (S, N), 1-D edge cases.
-            if samples.ndim == 1:
-                samples = samples.reshape(n_test, -1)
-            elif samples.ndim == 2 and samples.shape[0] != n_test and samples.shape[1] == n_test:
-                samples = samples.T
-            else:
-                samples = samples.reshape(n_test, -1)
+            # WRAP-04: ``NormalizingFlowLoss.sample`` returns
+            # (n_test, n_samples, n_features); squeeze(-1) → (N, S).
+            # Enforce the contract — no silent reshaping heuristics.
+            assert samples.shape == (n_test, self.NF_N_SAMPLES), (
+                f"sampler returned {samples.shape}"
+            )
         return {"samples": samples.cpu().numpy()}
 
 

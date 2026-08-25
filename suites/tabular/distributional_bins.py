@@ -623,9 +623,10 @@ class DistributionalBinsSuite(HarnessRunner):
                     **metrics,
                     "train_s": fit_time,
                     "eval_s": pred_time,
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": self.method_notes(method),
                 }
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError) as exc:
+            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -636,6 +637,7 @@ class DistributionalBinsSuite(HarnessRunner):
                     "IntervalScore": None,
                     "train_s": None,
                     "eval_s": None,
+                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
             rows.append(row)
@@ -688,6 +690,7 @@ class DistributionalBinsSuite(HarnessRunner):
                             "IntervalScore": None,
                             "train_s": None,
                             "eval_s": None,
+                            "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                             "Notes": f"Bin {b_idx} (center={br['BinCenter']:.4f}), n={br['BinSize']}",
                         }
                     )
@@ -754,6 +757,7 @@ class DistributionalBinsSuite(HarnessRunner):
                             "IntervalScore": None,
                             "train_s": None,
                             "eval_s": None,
+                            "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
                             "Notes": f"Aggregate deviation across {len(deviations)} bins (size-weighted)",
                         }
                     )

@@ -65,10 +65,6 @@ boosting = [
     "lightgbm",
     "xgboost",
 ]
-causal = [
-    "econml",
-    "dowhy",
-]
 image = [
     "torchvision",
     "torch-uncertainty>=0.13.0",
@@ -88,7 +84,7 @@ dev = [
     "ty",
 ]
 all = [
-    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,causal,test,dev]",
+    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,test,dev]",
 ]
 
 [tool.setuptools]

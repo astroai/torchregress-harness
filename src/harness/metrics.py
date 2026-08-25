@@ -120,8 +120,10 @@ def compute_pit_values(
             1. ``samples`` — empirical PIT (NF, MDN, ensemble)
             2. ``mean`` + ``std`` — Gaussian PIT (GaussianNLL, MultivariateGaussian)
             3. ``gamma``+``nu``+``alpha``+``beta`` — Student-t PIT (NIG evidential)
-            4. fallback — Uniform(0, 1) (only valid when ``predictions`` contains
-               a calibrated interval, e.g. Split CP with exact coverage)
+            4. ``lower``+``upper`` — interval-position proxy: relative position
+               of ``y`` inside its interval, clipped to [0, 1] (0 = at/below
+               lower, 1 = at/above upper).  Miscalibrated intervals saturate
+               and fail uniformity instead of being reported as calibrated.
 
     **Loss-fn dispatch** (PROPOSAL #15):
         If ``loss_fn`` is provided (alongside ``context`` and ``target``),
@@ -156,20 +158,31 @@ def compute_pit_values(
         # context=X_test_tensor)``), ``target`` falls back to ``y_arr`` —
         # we bridge from NumPy to torch, matching the context's device AND
         # dtype so a GPU/float64 loss_fn doesn't drift to CPU/float32.
-        if target is None:
-            import torch as _torch
+        if context is None:
+            raise TypeError(
+                "compute_pit_values: the ``loss_fn`` dispatch requires "
+                "``context`` (and ``target``, which may fall back to y_true)."
+            )
+        import torch as _torch
 
-            target = _torch.as_tensor(y_arr)
+        tgt = target if isinstance(target, _torch.Tensor) else None
+        if tgt is None:
+            # Bridge from NumPy (or whatever non-tensor the caller
+            # supplied; ``None`` falls back to ``y_true``) to torch,
+            # matching the context's device AND dtype so a GPU/float64
+            # loss_fn doesn't drift to CPU/float32.
+            src = y_arr if target is None else np.asarray(target)
+            tgt = _torch.as_tensor(src)
             ctx_device = getattr(context, "device", None)
             ctx_dtype = getattr(context, "dtype", None)
-            if ctx_device is not None and target.device != ctx_device:
-                target = target.to(ctx_device)
-            if ctx_dtype is not None and target.dtype != ctx_dtype:
-                target = target.to(ctx_dtype)
+            if ctx_device is not None and tgt.device != ctx_device:
+                tgt = tgt.to(ctx_device)
+            if ctx_dtype is not None and tgt.dtype != ctx_dtype:
+                tgt = tgt.to(ctx_dtype)
         return compute_pit_from_loss_fn(
             loss_fn,
             context=context,
-            target=target,
+            target=tgt,
             n_samples=n_samples,
         )
 
@@ -185,18 +198,20 @@ def compute_pit_values(
         return _pit_from_student_t(y_arr, predictions)
 
     if "lower" in predictions and "upper" in predictions:
-        # Interval-only predictions only carry a true PIT signal when the
-        # interval was constructed by a *conformal* calibration method
-        # (Split CP / CQR / Jackknife+) where the interval shape is
-        # known to satisfy F(y|X) ~ Uniform(0,1).  In that case the
-        # placeholder uniform is exact (not a stochastic approximation).
-        # For arbitrary quantile intervals (e.g. naive quantile regression
-        # quantiles not post-hoc calibrated), the descriptor is misleading
-        # — callers should pass ``samples`` or ``mean``+``std`` instead.
-        # Implementation: return uniform PIT, since Split CP semantics are
-        # the default for any interval-only descriptor in this harness.
-        rng = np.random.default_rng(0)
-        return rng.uniform(0.0, 1.0, size=len(y_arr))
+        # Interval-only descriptors carry no full predictive distribution, so
+        # no exact PIT exists.  The previous seeded-Uniform(0,1) placeholder
+        # laundered *any* interval method — including catastrophically wrong
+        # ones — into "perfectly calibrated" PIT diagnostics.  Use the honest
+        # interval-position proxy instead: 0 = y at/below the lower bound,
+        # 1 = y at/above the upper bound, relative position inside otherwise.
+        # Well-calibrated intervals concentrate near-uniformly; miscalibrated
+        # ones saturate and fail the uniformity tests.
+        lower = np.asarray(predictions["lower"], dtype=float).reshape(-1)
+        upper = np.asarray(predictions["upper"], dtype=float).reshape(-1)
+        width = upper - lower
+        if len(lower) != len(y_arr) or np.any(width <= 0):
+            raise ValueError("interval predictions require upper > lower per test point")
+        return np.clip((y_arr - lower) / width, 0.0, 1.0)
 
     return np.array([], dtype=np.float64)
 

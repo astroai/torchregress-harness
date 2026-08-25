@@ -1,3 +1,7 @@
+> **STALE (pre-regeneration snapshot)** — these numbers predate the
+> 2026-08-24 audit-fix regeneration (Workstream H). Do not cite until the
+> REGENERATED header replaces this banner.
+
 # torchregress Parity Report
 ## Definitive Tier 1 Benchmark — All Parity Results
 
