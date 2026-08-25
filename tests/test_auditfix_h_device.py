@@ -1,9 +1,9 @@
 """Any-device support: resolution fallbacks and backbone placement."""
 
 import torch
+from suites._backbones import _MLP
 
 from harness.devices import current_device, resolve_device, set_default_device
-from suites._backbones import _MLP
 
 
 def test_resolve_auto_without_gpu_falls_back_to_cpu() -> None:
