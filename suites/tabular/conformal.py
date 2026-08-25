@@ -49,6 +49,7 @@ import torch.nn as nn
 from torchregress.losses.conformal import finite_sample_quantile
 
 from harness.core import pip_git_commit, set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 
 # ---------------------------------------------------------------------------
@@ -460,7 +461,7 @@ def _torchcp_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> Any:
     # ABS = plain absolute-residual score `|y - f(x)|` — approximately
     # equivalent to MAPIE's ``SplitConformalRegressor(conformity_score='absolute')``
     # and to crepes' ``ConformalRegressor().fit(y_cal - pred_cal)``.
-    cp = _SplitPredictor(_ABS(), model=model, alpha=alpha, device="cpu")
+    cp = _SplitPredictor(_ABS(), model=model, alpha=alpha, device=str(current_device()))
     cp.calibrate(cal_loader)
     return cp
 
@@ -481,7 +482,7 @@ def _tabicl_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[st
     """Fit-half for TabICL split rows: backbone fit + conformal calibration."""
     from tabicl import TabICLRegressor
 
-    est = TabICLRegressor(device="cpu")
+    est = TabICLRegressor(device=str(current_device()))
     est.fit(splits["X_train"], splits["y_train"])
 
     pred_cal = est.predict(splits["X_cal"]).reshape(-1)
@@ -504,7 +505,7 @@ def _crepes_tabicl_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[s
     del alpha
     from tabicl import TabICLRegressor
 
-    est = TabICLRegressor(device="cpu")
+    est = TabICLRegressor(device=str(current_device()))
     est.fit(splits["X_train"], splits["y_train"])
 
     pred_cal = est.predict(splits["X_cal"]).reshape(-1)
@@ -643,7 +644,9 @@ def _crepes_split_intervals(
     alpha: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """crepes split-conformal + LinearRegression, one-shot (fit half + predict half)."""
-    return _crepes_split_predict(_crepes_split_fit(splits, alpha=alpha), splits["X_test"], alpha=alpha)
+    return _crepes_split_predict(
+        _crepes_split_fit(splits, alpha=alpha), splits["X_test"], alpha=alpha
+    )
 
 
 def _crepes_cqr_intervals(
@@ -1072,7 +1075,8 @@ class ConformalSuite(HarnessRunner):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
 
@@ -1089,11 +1093,20 @@ class ConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
+            except (
+                ValueError,
+                RuntimeError,
+                ImportError,
+                KeyError,
+                TypeError,
+                OSError,
+                NameError,
+            ) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -1106,7 +1119,8 @@ class ConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

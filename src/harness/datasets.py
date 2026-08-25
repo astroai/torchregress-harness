@@ -845,7 +845,9 @@ def _load_house_sales(
         # disclose that the canonical crepes dataset was unavailable).
         splits = _load_california_housing(n_samples=n_samples, test_size=test_size, seed=seed)
         splits["_synthetic_fallback"] = True
-        splits["_fallback_reason"] = "OpenML house_sales unavailable; substituted California Housing"
+        splits["_fallback_reason"] = (
+            "OpenML house_sales unavailable; substituted California Housing"
+        )
         return splits
 
     if n_samples < len(X):
@@ -1461,7 +1463,10 @@ def _load_nyu_depth_v2(
             rgb = images[i].transpose(1, 2, 0)
             rgb_pil = Image.fromarray((rgb * 255).astype(np.uint8))
             rgb_resized = (
-                np.array(rgb_pil.resize((W_out, H_out), Image.Resampling.BILINEAR), dtype=np.float32) / 255.0
+                np.array(
+                    rgb_pil.resize((W_out, H_out), Image.Resampling.BILINEAR), dtype=np.float32
+                )
+                / 255.0
             )
             X_resized[i] = rgb_resized.transpose(2, 0, 1)  # back to (3, H, W)
 

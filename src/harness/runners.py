@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+from harness.devices import current_device
+
 from .core import set_harness_seed
 from .datasets import SplitsDict
 from .metrics import compute_all_metrics
@@ -250,9 +252,7 @@ class HarnessRunner(ABC):
             if "_alpha" in scenario_splits:
                 effective_splits["_alpha"] = scenario_splits["_alpha"]
             if "_calibration_fraction" in scenario_splits:
-                effective_splits["_calibration_fraction"] = scenario_splits[
-                    "_calibration_fraction"
-                ]
+                effective_splits["_calibration_fraction"] = scenario_splits["_calibration_fraction"]
 
         return effective_dataset, effective_splits
 
@@ -401,6 +401,7 @@ class HarnessRunner(ABC):
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
 
@@ -417,6 +418,7 @@ class HarnessRunner(ABC):
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
@@ -433,6 +435,7 @@ class HarnessRunner(ABC):
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

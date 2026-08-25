@@ -52,6 +52,7 @@ from sklearn.svm import SVR
 from torchregress.losses import MultiQuantileLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import (
     _MLP,
@@ -163,12 +164,7 @@ class EnsemblesSuite(HarnessRunner):
             from harness.wrappers import DeepEnsembleRegressor, HeteroscedasticEnsembleRegressor
 
             # Identify active device
-            if torch.cuda.is_available():
-                device = "cuda"
-            elif torch.backends.mps.is_available():
-                device = "mps"
-            else:
-                device = "cpu"
+            device = str(current_device())
 
             if method == "DeepEnsemble_MSE":
                 reg = DeepEnsembleRegressor(

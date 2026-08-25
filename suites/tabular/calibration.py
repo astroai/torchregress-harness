@@ -48,6 +48,7 @@ from torchregress.calibration import (
 from torchregress.losses import BetaNLLLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _carve_calibration_split, _hidden_size, _train_one
 
@@ -332,7 +333,8 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
 
@@ -347,11 +349,20 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
+            except (
+                ValueError,
+                RuntimeError,
+                ImportError,
+                KeyError,
+                TypeError,
+                OSError,
+                NameError,
+            ) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -362,7 +373,8 @@ class CalibrationSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

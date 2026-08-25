@@ -39,6 +39,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import (
     _MLP,
@@ -348,7 +349,7 @@ class R2CConformalSuite(HarnessRunner):
             # - build_regression_model creates the model
             # - R2ccpLoss is the training loss
             # - R2CCP is the score function used with SplitPredictor
-            device = torch.device(config.device if torch.cuda.is_available() else "cpu")
+            device = current_device()
 
             # Build model using torchcp's factory
             model = build_regression_model(model_name="NonLinearNet")
@@ -682,7 +683,8 @@ class R2CConformalSuite(HarnessRunner):
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
 
@@ -698,7 +700,8 @@ class R2CConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
@@ -714,7 +717,8 @@ class R2CConformalSuite(HarnessRunner):
                     "train_s": None,
                     "eval_s": None,
                     "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

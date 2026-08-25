@@ -57,6 +57,9 @@ class _ImageCNN(nn.Module):
             nn.AdaptiveAvgPool2d(1),  # → (B, C, 1, 1)
         )
         self.head = nn.Linear(base_filters * 4, out_dim)
+        from harness.devices import current_device
+
+        self.to(current_device())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         feats = self.features(x).flatten(1)
@@ -111,7 +114,9 @@ def _make_resnet_backbone(
     in_features = resnet.fc.in_features
     resnet.fc = nn.Linear(in_features, out_dim)
 
-    return resnet
+    from harness.devices import current_device
+
+    return resnet.to(current_device())
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +159,9 @@ class _UNet(nn.Module):
         self.dec1 = self._conv_block(base_filters * 2, base_filters)
 
         self.out_conv = nn.Conv2d(base_filters, out_channels, 1)
+        from harness.devices import current_device
+
+        self.to(current_device())
 
     @staticmethod
     def _conv_block(in_c: int, out_c: int) -> nn.Sequential:

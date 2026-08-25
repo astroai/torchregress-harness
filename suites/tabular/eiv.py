@@ -51,6 +51,7 @@ from torchregress.losses import (
 from torchregress.losses.eiv import NoisyInputPredictor
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _carve_calibration_split, _hidden_size, _Linear, _train_one
 
@@ -291,7 +292,8 @@ class EIVSuite(HarnessRunner):
                         "Suite": self.name,
                         "train_s": train_s,
                         "eval_s": eval_s,
-                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                        "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                        "Device": str(current_device()),
                         "Notes": self.method_notes(method),
                         **metrics,
                     }
@@ -308,7 +310,8 @@ class EIVSuite(HarnessRunner):
                         "R2": None,
                         "train_s": None,
                         "eval_s": None,
-                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                        "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                        "Device": str(current_device()),
                         "Notes": f"skipped: {exc}",
                     }
                 )

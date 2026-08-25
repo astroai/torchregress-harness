@@ -135,6 +135,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--epochs", type=int, default=60, help="Training epochs for MLP methods.")
     p.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Torch device for training: cpu | cuda | cuda:0 | mps | auto (default: cpu)",
+    )
+    p.add_argument(
         "--smoke",
         action="store_true",
         help="Smoke test (reduced data, 10 epochs) for fast iteration.",
@@ -197,9 +203,13 @@ def run_leaderboard(
     markdown_path: str | None,
     tabred_samples: int = 10000,
     target_coverage: float = 0.9,
+    device: str = "cpu",
 ) -> None:
     """Run every requested suite × dataset pair and emit the leaderboard artifact."""
-    cfg = HarnessConfig(seed=42, smoke=smoke, standardize_targets=True)
+    from harness.devices import set_default_device
+
+    resolved_device = set_default_device(device)
+    cfg = HarnessConfig(seed=42, smoke=smoke, standardize_targets=True, device=str(resolved_device))
     if smoke:
         cfg.epochs = 10
 
@@ -241,6 +251,7 @@ def run_leaderboard(
             "epochs": cfg.epochs,
             "smoke": smoke,
             "target_coverage": target_coverage,
+            "device": str(resolved_device),
             "n_raw_rows": len(all_rows),
             "n_methods_total": len(summary),
             "n_attempts": n_attempts,
@@ -548,6 +559,6 @@ if __name__ == "__main__":
         smoke=args.smoke,
         output_path=args.output,
         markdown_path=args.markdown,
-        tabred_samples=args.tabred_samples,
+        device=args.device,
         target_coverage=args.target_coverage,
     )

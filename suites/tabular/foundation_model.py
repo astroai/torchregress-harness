@@ -24,6 +24,7 @@ import torch
 from torchregress.losses import BetaNLLLoss, MixtureDensityLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _gaussian_nll_predict, _hidden_size, _train_one
 
@@ -174,7 +175,7 @@ class FoundationModelSuite(HarnessRunner):
         elif method == "TabPFN":
             from tabpfn import TabPFNRegressor
 
-            est = TabPFNRegressor(device="cpu")
+            est = TabPFNRegressor(device=str(current_device()))
             est.fit(X_train_np, y_train_np)
             return {"type": "tabpfn", "model": est}
 
@@ -182,7 +183,7 @@ class FoundationModelSuite(HarnessRunner):
         elif method == "TabICL":
             from tabicl import TabICLRegressor
 
-            est = TabICLRegressor(device="cpu")
+            est = TabICLRegressor(device=str(current_device()))
             est.fit(X_train_np, y_train_np)
             return {"type": "tabicl", "model": est}
 

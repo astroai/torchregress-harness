@@ -96,7 +96,6 @@ def test_tabred_loader_missing_csv_is_not_swallowed_by_parser_handler() -> None:
 
 
 class _ProvenanceRunner(HarnessRunner):
-
     @property
     def name(self) -> str:
         return "provenance"
@@ -155,6 +154,7 @@ def test_row_carries_synthetic_fallback_column(
     rows = _ProvenanceRunner().run("fake", HarnessConfig(smoke=True))
     assert len(rows) == 1
     assert rows[0]["SyntheticFallback"] is flagged
+
 
 def test_row_defaults_to_false_without_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     splits = _fake_splits()

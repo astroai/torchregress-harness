@@ -38,6 +38,7 @@ import numpy as np
 import torch
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 
@@ -400,7 +401,8 @@ class PzflowParitySuite(HarnessRunner):
                         "NLL": None,
                         "train_s": None,
                         "eval_s": None,
-                        "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                        "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                        "Device": str(current_device()),
                         "Notes": (f"known-bad: {method} {self.name} #{self._KNOWN_BAD[method]}"),
                     }
                 )
@@ -450,11 +452,20 @@ class PzflowParitySuite(HarnessRunner):
                     "NLL": nll,
                     "train_s": fit_time,
                     "eval_s": pred_time,
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
 
-            except (ValueError, RuntimeError, ImportError, KeyError, TypeError, OSError, NameError) as exc:
+            except (
+                ValueError,
+                RuntimeError,
+                ImportError,
+                KeyError,
+                TypeError,
+                OSError,
+                NameError,
+            ) as exc:
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -466,7 +477,8 @@ class PzflowParitySuite(HarnessRunner):
                     "NLL": None,
                     "train_s": None,
                     "eval_s": None,
-                    "SyntheticFallback": bool(splits.get("_syntheticfallback", False)),
+                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+                    "Device": str(current_device()),
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
 

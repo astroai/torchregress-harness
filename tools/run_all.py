@@ -45,6 +45,7 @@ from harness import (
     write_harness_json,
 )
 from harness.datasets import load_dataset
+from harness.devices import set_default_device
 from harness.runners import HarnessRunner
 
 
@@ -72,6 +73,12 @@ def main() -> None:
         type=int,
         default=42,
         help="Random seed for reproducibility",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Torch device for training: cpu | cuda | cuda:0 | mps | auto (default: cpu)",
     )
     parser.add_argument(
         "--epochs",
@@ -104,6 +111,8 @@ def main() -> None:
         help="Output JSON path",
     )
     args = parser.parse_args()
+    resolved_device = set_default_device(args.device)
+    print(f"Device: {resolved_device}")
 
     # --- Validation mode ---
     if args.validate:
@@ -183,6 +192,7 @@ def main() -> None:
         epochs=2 if args.smoke else args.epochs,
         smoke=args.smoke,
         standardize_targets=args.standardize_targets,
+        device=str(resolved_device),
     )
 
     # Run each suite on its supported datasets

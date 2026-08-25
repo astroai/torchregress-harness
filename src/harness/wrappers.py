@@ -82,6 +82,7 @@ import torch
 import torch.nn as nn
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig
 
 # ---------------------------------------------------------------------------
@@ -659,7 +660,9 @@ class MDNRegressor(_HarnessRegressorBase):
 # ---------------------------------------------------------------------------
 
 
-def _constrain_nig(raw: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+def _constrain_nig(
+    raw: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Map 4 raw network outputs to valid NIG parameters.
 
     Returns ``(gamma, nu, alpha, beta)`` with ``nu > 0``, ``alpha > 1``,
@@ -876,9 +879,7 @@ class NormalizingFlowRegressor(_HarnessRegressorBase):
             # WRAP-04: ``NormalizingFlowLoss.sample`` returns
             # (n_test, n_samples, n_features); squeeze(-1) → (N, S).
             # Enforce the contract — no silent reshaping heuristics.
-            assert samples.shape == (n_test, self.NF_N_SAMPLES), (
-                f"sampler returned {samples.shape}"
-            )
+            assert samples.shape == (n_test, self.NF_N_SAMPLES), f"sampler returned {samples.shape}"
         return {"samples": samples.cpu().numpy()}
 
 
@@ -904,7 +905,7 @@ class DeepEnsembleRegressor(_HarnessRegressorBase):
         self._model = BaseEnsembleModel(
             base_model=_MLP,
             ensemble_size=self.ensemble_size,
-            device="cpu",
+            device=str(current_device()),
             in_dim=in_dim,
             hidden=hidden,
             out_dim=1,
@@ -969,7 +970,7 @@ class HeteroscedasticEnsembleRegressor(_HarnessRegressorBase):
         self._model = HeteroscedasticEnsembleModel(
             base_model=_MLP,
             ensemble_size=self.ensemble_size,
-            device="cpu",
+            device=str(current_device()),
             in_dim=in_dim,
             hidden=hidden,
             out_dim=2,

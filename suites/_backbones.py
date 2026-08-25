@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from harness.devices import current_device
 from harness.runners import HarnessConfig
 
 # ---------------------------------------------------------------------------
@@ -58,6 +59,9 @@ class _MLP(nn.Module):
             layers.append(nn.Dropout(dropout_p))
         layers.append(nn.Linear(hidden, out_dim))
         self.net = nn.Sequential(*layers)
+        # Any-device support: new modules land on the process default device;
+        # _train_one/_train_lbfgs and predict paths follow model.parameters().
+        self.to(current_device())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
@@ -69,6 +73,7 @@ class _Linear(nn.Module):
     def __init__(self, in_dim: int, out_dim: int) -> None:
         super().__init__()
         self.fc = nn.Linear(in_dim, out_dim)
+        self.to(current_device())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.fc(x)

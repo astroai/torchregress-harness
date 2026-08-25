@@ -115,6 +115,7 @@ def _torch_uncertainty_version() -> str:
     commit = pip_git_commit("torch-uncertainty")
     return f"{ver} (git {commit})" if commit else ver
 
+
 # ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------

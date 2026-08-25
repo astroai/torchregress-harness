@@ -75,7 +75,9 @@ def test_torch_split_intervals_match_finite_sample_rule() -> None:
         X_cal_t = torch.from_numpy(splits["X_cal"]).float()
         pred_cal = model(X_cal_t).squeeze(-1)
     X_test_t = torch.from_numpy(splits["X_test"]).float()
-    lo, hi = _torch_split_intervals(model, X_cal_t, torch.from_numpy(splits["y_cal"]).float(), X_test_t, alpha=alpha)
+    lo, hi = _torch_split_intervals(
+        model, X_cal_t, torch.from_numpy(splits["y_cal"]).float(), X_test_t, alpha=alpha
+    )
 
     residuals = torch.abs(torch.from_numpy(splits["y_cal"]).float() - pred_cal)
     k = min(math.ceil((residuals.numel() + 1) * (1.0 - alpha)), residuals.numel())
@@ -97,7 +99,9 @@ def test_torch_cqr_intervals_match_finite_sample_rule() -> None:
         X_cal_t = torch.from_numpy(splits["X_cal"]).float()
         pred_cal = model(X_cal_t)
     X_test_t = torch.from_numpy(splits["X_test"]).float()
-    lo, hi = _torch_cqr_intervals(model, X_cal_t, torch.from_numpy(splits["y_cal"]).float(), X_test_t, alpha=alpha)
+    lo, hi = _torch_cqr_intervals(
+        model, X_cal_t, torch.from_numpy(splits["y_cal"]).float(), X_test_t, alpha=alpha
+    )
 
     y_cal_t = torch.from_numpy(splits["y_cal"]).float()
     score = torch.maximum(pred_cal[:, 0] - y_cal_t, y_cal_t - pred_cal[:, 1])
@@ -123,7 +127,9 @@ def test_mapie_fit_predict_split_equivalent_to_one_shot() -> None:
 
     splits = _make_splits(seed=1)
     predictor = _external_fit("MAPIE_Split+Linear", splits, alpha=0.1, seed=42)
-    lo_split, hi_split = _external_predict("MAPIE_Split+Linear", predictor, splits["X_test"], alpha=0.1)
+    lo_split, hi_split = _external_predict(
+        "MAPIE_Split+Linear", predictor, splits["X_test"], alpha=0.1
+    )
     lo_one, hi_one = _mapie_split_intervals(splits, alpha=0.1, seed=42)
     # Deterministic base estimator: both paths must agree bit-for-bit.
     assert np.allclose(lo_split, lo_one)
