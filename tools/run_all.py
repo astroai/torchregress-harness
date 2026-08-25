@@ -77,8 +77,8 @@ def main() -> None:
     parser.add_argument(
         "--device",
         type=str,
-        default="cpu",
-        help="Torch device for training: cpu | cuda | cuda:0 | mps | auto (default: cpu)",
+        default="auto",
+        help="Torch device for training: auto | cpu | cuda | cuda:0 | mps (default: auto — detects the session)",
     )
     parser.add_argument(
         "--epochs",

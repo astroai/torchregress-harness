@@ -137,8 +137,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--device",
         type=str,
-        default="cpu",
-        help="Torch device for training: cpu | cuda | cuda:0 | mps | auto (default: cpu)",
+        default="auto",
+        help="Torch device for training: auto | cpu | cuda | cuda:0 | mps (default: auto — detects the session)",
     )
     p.add_argument(
         "--smoke",
@@ -203,7 +203,7 @@ def run_leaderboard(
     markdown_path: str | None,
     tabred_samples: int = 10000,
     target_coverage: float = 0.9,
-    device: str = "cpu",
+    device: str = "auto",
 ) -> None:
     """Run every requested suite × dataset pair and emit the leaderboard artifact."""
     from harness.devices import set_default_device

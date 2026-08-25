@@ -12,17 +12,29 @@ H3 regeneration produced:
 Supersedes those suites' rows with their reruns, re-aggregates with the
 leaderboard module's own functions, rewrites both artifacts.
 """
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
+
 sys.path.insert(0, "/scratch/src/torchregress-harness")
 sys.path.insert(0, "/scratch/src/torchregress-harness/src")
 
-from tools.leaderboard_regression import aggregate_per_method, render_leaderboard_markdown  # noqa: E402
+from tools.leaderboard_regression import (  # noqa: E402
+    aggregate_per_method,
+    render_leaderboard_markdown,
+)
 
-RERUN_SUITES = {"conformal", "eiv", "calibration", "pzflow_parity", "r2c_conformal", "distributional_bins"}
+RERUN_SUITES = {
+    "conformal",
+    "eiv",
+    "calibration",
+    "pzflow_parity",
+    "r2c_conformal",
+    "distributional_bins",
+}
 HN = Path("/scratch/src/torchregress-harness")
 
 
@@ -36,7 +48,6 @@ def main() -> None:
 
     kept = [r for r in old["rows"] if suite_of(r) not in RERUN_SUITES]
     rows = kept + [r for r in rr["rows"] if suite_of(r) in RERUN_SUITES]
-
 
     missing = [r["Method"] for r in rows if "SyntheticFallback" not in r]
     assert not missing, f"{len(missing)} rows lack provenance: {missing[:5]}"
@@ -58,7 +69,11 @@ def main() -> None:
             ),
         }
     )
-    (HN / "leaderboard_results.json").write_text(json.dumps({"metadata": metadata, "rows": rows, "leaderboard": summary}, indent=2, default=float))
+    (HN / "leaderboard_results.json").write_text(
+        json.dumps(
+            {"metadata": metadata, "rows": rows, "leaderboard": summary}, indent=2, default=float
+        )
+    )
     (HN / "leaderboard_results.md").write_text(md)
 
     sf_true = sum(1 for r in rows if r.get("SyntheticFallback"))
