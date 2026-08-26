@@ -303,6 +303,9 @@ class AgeRegressionSuite(ImageHarnessRunner):
             from torchregress.losses import GaussianNLLLoss
 
             resnet.fc = nn.Linear(resnet.fc.in_features, 2)  # mean + log-var
+            from harness.devices import current_device
+
+            resnet.to(current_device())
             _train_image_model(resnet, GaussianNLLLoss(), train_loader, config)
             return {"type": "gaussian_nll", "model": resnet}
 
@@ -311,6 +314,9 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
             context_dim = 64
             resnet.fc = nn.Linear(resnet.fc.in_features, context_dim)
+            from harness.devices import current_device
+
+            resnet.to(current_device())
             flow = create_flow_model(
                 n_features=1,
                 context_dim=context_dim,
@@ -445,6 +451,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
         opt = optim.Adam(params, lr=config.lr)
         device = next(model.parameters()).device
+        loss_fn.to(device)
         model.train()
 
         for _ in range(config.epochs):

@@ -211,6 +211,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
 
         opt = optim.Adam(params, lr=config.lr)
         device = next(model.parameters()).device
+        loss_fn.to(device)
         model.train()
 
         for _ in range(config.epochs):

@@ -61,6 +61,12 @@ For a registered-name list:
 
 from __future__ import annotations
 
+import os
+
+# Must precede the first torch import (suite registry pulls it in): MIG
+# partitions break torch's NVML-based allocator query otherwise.
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+
 import argparse
 import json
 import sys

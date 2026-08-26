@@ -13,6 +13,13 @@ Suites should rarely hardcode ``"cpu"``.  Resolve once per process via
 
 from __future__ import annotations
 
+import os
+
+# MIG partitions (e.g. H100 slices) break torch's NVML-based allocator query
+# with "NVML_SUCCESS == r INTERNAL ASSERT FAILED".  The NVML-free CUDA check
+# avoids that; set it before torch is imported anywhere downstream.
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+
 import torch
 
 _DEFAULT: torch.device = torch.device("cpu")

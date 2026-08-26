@@ -136,7 +136,7 @@ def _torch_split_intervals(
     n = residuals.numel()
     q_level = min(np.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)
     q = torch.quantile(residuals, q_level, interpolation="higher").item()
-    return (pred_test - q).numpy(), (pred_test + q).numpy()
+    return (pred_test - q).cpu().cpu().numpy(), (pred_test + q).cpu().cpu().numpy()
 
 
 def _torch_cqr_intervals(
@@ -158,7 +158,7 @@ def _torch_cqr_intervals(
     n = score.numel()
     q_level = min(np.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)
     q = torch.quantile(score, q_level, interpolation="higher").item()
-    return (q_lo_test - q).numpy(), (q_hi_test + q).numpy()
+    return (q_lo_test - q).cpu().numpy(), (q_hi_test + q).cpu().numpy()
 
 
 # ---------------------------------------------------------------------------
@@ -491,11 +491,11 @@ class R2CConformalSuite(HarnessRunner):
 
             # Predict intervals
             lo, hi = r2c.predict_interval(probs_test)
-            lo_np = lo.detach().cpu().numpy().reshape(-1)
-            hi_np = hi.detach().cpu().numpy().reshape(-1)
+            lo_np = lo.detach().cpu().cpu().numpy().reshape(-1)
+            hi_np = hi.detach().cpu().cpu().numpy().reshape(-1)
 
             # Also return point predictions (bin with highest probability)
-            y_pred_idx = probs_test.argmax(dim=-1).numpy()
+            y_pred_idx = probs_test.argmax(dim=-1).cpu().numpy()
             centers = (bin_edges_np[:-1] + bin_edges_np[1:]) / 2
             y_pred = centers[y_pred_idx]
 
@@ -542,11 +542,11 @@ class R2CConformalSuite(HarnessRunner):
             # result shape: (batch, 2*(n_bins-1)) — first half = per-pair lower,
             # second half = per-pair upper.  Take extremes for overall interval.
             mid = result.shape[1] // 2
-            lo = result[:, :mid].min(dim=-1).values.detach().cpu().numpy().reshape(-1)
-            hi = result[:, mid:].max(dim=-1).values.detach().cpu().numpy().reshape(-1)
+            lo = result[:, :mid].min(dim=-1).values.detach().cpu().cpu().numpy().reshape(-1)
+            hi = result[:, mid:].max(dim=-1).values.detach().cpu().cpu().numpy().reshape(-1)
 
             # Point prediction from already-computed probabilities
-            y_pred_idx = probs_test.argmax(dim=-1).cpu().numpy()
+            y_pred_idx = probs_test.argmax(dim=-1).cpu().cpu().numpy()
             centers = (bin_edges_np[:-1] + bin_edges_np[1:]) / 2
             y_pred = centers[y_pred_idx]
 
@@ -561,7 +561,7 @@ class R2CConformalSuite(HarnessRunner):
             # Point prediction
             model.eval()
             with torch.no_grad():
-                y_pred = model(X_test_t).squeeze(-1).numpy()
+                y_pred = model(X_test_t).squeeze(-1).cpu().numpy()
             return {"lower": lo, "upper": hi, "y_pred": y_pred}
 
         # --- CQR ----------------------------------------------------------
@@ -574,7 +574,7 @@ class R2CConformalSuite(HarnessRunner):
             model.eval()
             with torch.no_grad():
                 preds = model(X_test_t)
-                y_pred = preds.mean(dim=-1).numpy()
+                y_pred = preds.mean(dim=-1).cpu().numpy()
             return {"lower": lo, "upper": hi, "y_pred": y_pred}
 
         raise ValueError(f"Unknown model type: {model_type}")

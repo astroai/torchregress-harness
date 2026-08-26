@@ -250,6 +250,9 @@ def _train_image_model(
 
     opt = optim.Adam(params, lr=config.lr)
     device = next(model.parameters()).device
+    # Flows/heads living inside the loss must ride the model's device too,
+    # else forward passes mix accelerator inputs with cpu parameters.
+    loss_fn.to(device)
     model.train()
 
     for _ in range(config.epochs):

@@ -122,7 +122,7 @@ def _torch_split_intervals(
         pred_test = model(X_test).squeeze(-1)
     residuals = (y_cal - pred_cal).abs()
     q = finite_sample_quantile(residuals, alpha).item()
-    return (pred_test - q).numpy(), (pred_test + q).numpy()
+    return (pred_test - q).cpu().cpu().numpy(), (pred_test + q).cpu().cpu().numpy()
 
 
 def _torch_cqr_intervals(
@@ -141,7 +141,7 @@ def _torch_cqr_intervals(
     q_lo_test, q_hi_test = pred_test[:, 0], pred_test[:, 1]
     score = torch.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
     q = finite_sample_quantile(score, alpha).item()
-    return (q_lo_test - q).numpy(), (q_hi_test + q).numpy()
+    return (q_lo_test - q).cpu().numpy(), (q_hi_test + q).cpu().numpy()
 
 
 # ---------------------------------------------------------------------------
@@ -418,7 +418,7 @@ def _crepes_cqr_predict(
     """Predict-half for ``crepes_CQR+GBR``."""
     q_lo_test = state["lo"].predict(X_test)
     q_hi_test = state["hi"].predict(X_test)
-    _, intervals = state["cr"].predict_int(np.zeros(1), confidence=1.0 - alpha)
+    intervals = np.asarray(state["cr"].predict_int(np.zeros(1), confidence=1.0 - alpha))
     q = float(intervals[0, 1])
     return q_lo_test - q, q_hi_test + q
 
@@ -444,16 +444,16 @@ def _torchcp_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> Any:
             self.est = est
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            arr = x.detach().cpu().numpy()
+            arr = x.detach().cpu().cpu().numpy()
             pred = np.asarray(self.est.predict(arr)).reshape(-1, 1)
-            return torch.from_numpy(pred).float()
+            return torch.from_numpy(pred).float().to(current_device())
 
     model = _SklearnAdapter(point)
     model.eval()
 
     # --- calibrate via torch DataLoader; alpha lives on constructor (1.x API) ---
-    X_cal_t = torch.from_numpy(np.asarray(splits["X_cal"])).float()
-    y_cal_t = torch.from_numpy(np.asarray(splits["y_cal"]).reshape(-1)).float()
+    X_cal_t = torch.from_numpy(np.asarray(splits["X_cal"])).float().to(current_device())
+    y_cal_t = torch.from_numpy(np.asarray(splits["y_cal"]).reshape(-1)).float().to(current_device())
     cal_loader = DataLoader(
         TensorDataset(X_cal_t, y_cal_t),
         batch_size=min(len(X_cal_t), 1024),
@@ -468,9 +468,9 @@ def _torchcp_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> Any:
 
 def _torchcp_split_predict(cp: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Predict-half for ``torchcp_Split+Linear``; returns a (N, 1, 2)-style tensor."""
-    X_test_t = torch.from_numpy(np.asarray(X_test)).float()
+    X_test_t = torch.from_numpy(np.asarray(X_test)).float().to(current_device())
     out = cp.predict(X_test_t)
-    arr = out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
+    arr = out.detach().cpu().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
     if arr.ndim == 3 and arr.shape[-2:] == (1, 2):
         arr = arr.squeeze(axis=1)
     if arr.ndim == 2 and arr.shape[-1] == 2:
@@ -823,10 +823,11 @@ class ConformalSuite(HarnessRunner):
         set_harness_seed(config.seed)
         alpha = float(splits.get("_alpha", 0.1))
 
-        X_train = torch.from_numpy(splits["X_train"]).float()
-        y_train = torch.from_numpy(splits["y_train"]).float().unsqueeze(1)
-        X_cal = torch.from_numpy(splits["X_cal"]).float()
-        y_cal = torch.from_numpy(splits["y_cal"]).float()
+        dev = current_device()
+        X_train = torch.from_numpy(splits["X_train"]).float().to(dev)
+        y_train = torch.from_numpy(splits["y_train"]).float().unsqueeze(1).to(dev)
+        X_cal = torch.from_numpy(splits["X_cal"]).float().to(dev)
+        y_cal = torch.from_numpy(splits["y_cal"]).float().to(dev)
         in_dim = X_train.shape[1]
         hidden = _hidden_size(in_dim)
 
@@ -926,7 +927,7 @@ class ConformalSuite(HarnessRunner):
             model = model_state["model"]
             X_cal = model_state["X_cal"]
             y_cal = model_state["y_cal"]
-            X_test_t = torch.from_numpy(X_test).float()
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
             lo, hi = _torch_split_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
 
@@ -935,7 +936,7 @@ class ConformalSuite(HarnessRunner):
             model = model_state["model"]
             X_cal = model_state["X_cal"]
             y_cal = model_state["y_cal"]
-            X_test_t = torch.from_numpy(X_test).float()
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
             lo, hi = _torch_split_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
 
@@ -944,7 +945,7 @@ class ConformalSuite(HarnessRunner):
             model = model_state["model"]
             X_cal = model_state["X_cal"]
             y_cal = model_state["y_cal"]
-            X_test_t = torch.from_numpy(X_test).float()
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
             lo, hi = _torch_cqr_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
 

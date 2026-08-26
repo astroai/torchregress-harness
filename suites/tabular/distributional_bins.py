@@ -66,7 +66,7 @@ def _split_cp_intervals(
         pred_test = model(X_test).squeeze(-1)
     residuals = (y_cal - pred_cal).abs()
     q = torch.quantile(residuals, 1.0 - alpha).item()
-    return (pred_test - q).numpy(), (pred_test + q).numpy()
+    return (pred_test - q).cpu().numpy(), (pred_test + q).cpu().numpy()
 
 
 def _bin_metrics(

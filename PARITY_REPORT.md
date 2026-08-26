@@ -1,13 +1,19 @@
-> **STALE (pre-regeneration snapshot)** — these numbers predate the
-> 2026-08-24 audit-fix regeneration (Workstream H). Do not cite until the
-> REGENERATED header replaces this banner.
+> **REGENERATED**: 2026-08-26 against pinned externals —
+> MAPIE `1.4.2.dev36+g6478f16c9` (git `6478f16c9a`),
+> torch-uncertainty `0.13.0` (git `94e511a737`), crepes 0.9.1,
+> torchcp 1.2.1, lightgbm 4.7.0, xgboost 3.4.1, scikit-learn 1.9.0,
+> tabpfn 8.4.0, tabicl 2.1.1, botorch 0.18.1, pzflow 4.0.0.
+> Leaderboard: 943 rows / 208 methods (`leaderboard_results.json`, CPU phase).
+> Canonical scenarios + `run_all --suites conformal` / `age_regression`
+> regenerated on the CUDA phase (`Device=cuda` rows; IMDB-WIKI excluded —
+> upstream ETH mirror now 404s `wiki_meta.tar`).
 
 # torchregress Parity Report
 ## Definitive Tier 1 Benchmark — All Parity Results
 
-**Generated:** June 17, 2026  
+**Generated:** August 26, 2026  
 **Config:** 60 epochs, seed=42, standardize_targets=True  
-**External libs installed:** MAPIE 1.4.1, statsmodels  
+**External libs installed:** MAPIE git 6478f16c9a, torch-uncertainty git 94e511a737, crepes 0.9.1, torchcp 1.2.1, statsmodels  
 
 ---
 
