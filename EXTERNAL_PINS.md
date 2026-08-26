@@ -76,8 +76,7 @@ this file.  Rows are produced by:
 
 ## Status of older artifacts
 
-`PARITY_REPORT.md` and `results/` were generated against **MAPIE 1.4.1**
-(PyPI, June 2026) using manual sklearn reimplementations of the MAPIE
-algorithms.  They are **stale for external-comparison claims** — regenerate
-them on the linux box with the pinned git installs above before citing them
-in the papers.
+`PARITY_REPORT.md` and `results/` were regenerated on **2026-08-26**
+against the pinned commits above (`6478f16c9a` / `94e511a737`) on the
+CUDA phase and are **fresh** for external-comparison claims. Older
+artifacts (pre-2026-08-04) generated against MAPIE 1.4.1 PyPI are stale.
