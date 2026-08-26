@@ -30,6 +30,7 @@ from torchregress.losses import (
 )
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 
@@ -139,8 +140,8 @@ class OrdinalSuite(HarnessRunner):
         y_train_np = splits["y_train"]
         n_classes = int(splits.get("n_classes", 5))
 
-        X = torch.from_numpy(X_train_np).float()
-        y = torch.from_numpy(y_train_np).long()
+        X = torch.from_numpy(X_train_np).float().to(current_device())
+        y = torch.from_numpy(y_train_np).to(current_device()).long()
 
         in_dim = X.shape[1]
         hidden = _hidden_size(in_dim)
@@ -220,10 +221,18 @@ class OrdinalSuite(HarnessRunner):
 
         if model_type == "torch":
             with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
+                X = torch.from_numpy(X_test).float().to(current_device())
                 logits = m(X)
                 if logits.shape[-1] == 1:
-                    y_pred = logits.squeeze(-1).round().clamp(0, n_classes - 1).long().numpy()
+                    y_pred = (
+                        logits.squeeze(-1)
+                        .round()
+                        .clamp(0, n_classes - 1)
+                        .long()
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
                 elif logits.shape[-1] == n_classes - 1:
                     # CumulativeLink / CORAL / CORN: K-1 logits
                     if method == "CORAL":
@@ -234,17 +243,19 @@ class OrdinalSuite(HarnessRunner):
                                 logits, encoding="cumulative_logits", strategy="threshold"
                             )
                             .long()
+                            .detach()
+                            .cpu()
                             .numpy()
                         )
                     elif method == "CORN":
                         from coral_pytorch.dataset import corn_label_from_logits
 
-                        y_pred = corn_label_from_logits(logits).long().numpy()
+                        y_pred = corn_label_from_logits(logits).long().detach().cpu().numpy()
                     else:
                         probs = torch.sigmoid(logits)
-                        y_pred = probs.gt(0.5).sum(dim=-1).long().numpy()
+                        y_pred = probs.gt(0.5).sum(dim=-1).long().detach().cpu().numpy()
                 else:
-                    y_pred = logits.argmax(dim=-1).long().numpy()
+                    y_pred = logits.argmax(dim=-1).long().detach().cpu().numpy()
 
         elif model_type == "sklearn":
             y_pred = np.asarray(m.predict(X_test), dtype=np.int64)

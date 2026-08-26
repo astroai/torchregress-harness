@@ -194,8 +194,8 @@ class EnsemblesSuite(HarnessRunner):
                 for i in range(_N_ENSEMBLE):
                     member_seed = config.seed + i * 1000
                     set_harness_seed(member_seed)
-                    X_t = torch.from_numpy(X_train_np).float()
-                    y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
+                    X_t = torch.from_numpy(X_train_np).float().to(current_device())
+                    y_t = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
                     quantiles = [0.1, 0.5, 0.9]
                     model = _MLP(in_dim, hidden, len(quantiles))
                     loss_fn = MultiQuantileLoss(quantiles=quantiles)
@@ -280,10 +280,10 @@ class EnsemblesSuite(HarnessRunner):
             his = []
             for m in model_state["models"]:
                 with torch.no_grad():
-                    out = m(torch.from_numpy(X_test).float())
-                    los.append(out[:, 0].numpy().reshape(-1))
-                    meds.append(out[:, 1].numpy().reshape(-1))
-                    his.append(out[:, 2].numpy().reshape(-1))
+                    out = m(torch.from_numpy(X_test).float().to(current_device()))
+                    los.append(out[:, 0].detach().cpu().numpy().reshape(-1))
+                    meds.append(out[:, 1].detach().cpu().numpy().reshape(-1))
+                    his.append(out[:, 2].detach().cpu().numpy().reshape(-1))
             lo = np.stack(los, axis=0).mean(axis=0)
             med = np.stack(meds, axis=0).mean(axis=0)
             hi = np.stack(his, axis=0).mean(axis=0)

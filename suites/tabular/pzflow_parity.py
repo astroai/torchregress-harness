@@ -206,8 +206,8 @@ class PzflowParitySuite(HarnessRunner):
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=hidden)
             loss_fn = NormalizingFlowLoss(flow=flow)
 
-            X_t = torch.from_numpy(X_train).float()
-            y_t = torch.from_numpy(y_train).float().unsqueeze(1)
+            X_t = torch.from_numpy(X_train).float().to(current_device())
+            y_t = torch.from_numpy(y_train).float().to(current_device()).unsqueeze(1)
             _train_one(
                 model,
                 loss_fn,
@@ -281,14 +281,14 @@ class PzflowParitySuite(HarnessRunner):
             model = model_state["model"]
             flow_loss = model_state["flow"]
             model.eval()
-            X_t = torch.from_numpy(X_test).float()
+            X_t = torch.from_numpy(X_test).float().to(current_device())
             with torch.no_grad():
                 context = model(X_t)
                 samples = flow_loss.sample(
                     context,
                     n_samples=self.N_SAMPLES,
                 )
-                samples_np = samples.squeeze(-1).numpy()
+                samples_np = samples.squeeze(-1).detach().cpu().numpy()
                 if samples_np.ndim == 3:
                     samples_np = samples_np[:, :, 0]
                 if samples_np.shape[0] == X_test.shape[0]:
@@ -427,8 +427,8 @@ class PzflowParitySuite(HarnessRunner):
                         model = model_state["model"]
                         flow_loss = model_state["flow"]
                         model.eval()
-                        X_t = torch.from_numpy(X_test_np).float()
-                        y_t = torch.from_numpy(y_test_np).float().unsqueeze(1)
+                        X_t = torch.from_numpy(X_test_np).float().to(current_device())
+                        y_t = torch.from_numpy(y_test_np).float().to(current_device()).unsqueeze(1)
                         with torch.no_grad():
                             context = model(X_t)
                             nll = float(-flow_loss.log_prob(context, y_t).mean().item())

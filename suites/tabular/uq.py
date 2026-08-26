@@ -43,6 +43,7 @@ from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from torchregress.losses import BetaNLLLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import (
     _MLP,
@@ -76,7 +77,7 @@ def _mc_predict(
         with torch.no_grad():
             for _ in range(n_samples):
                 out = model(X)
-                preds.append(out[:, 0].numpy().reshape(-1))
+                preds.append(out[:, 0].detach().cpu().numpy().reshape(-1))
         stacked = np.stack(preds, axis=0)  # (n_samples, n_test)
         mean = stacked.mean(axis=0)
         std = stacked.std(axis=0, ddof=0).clip(1e-8)
@@ -190,8 +191,8 @@ class UQSuite(HarnessRunner):
 
         # --- GaussianNLL: single MLP with mean + log_var output ---
         if method == "GaussianNLL":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             model = _MLP(in_dim, hidden, 2)  # mean, log_variance
             loss_fn = BetaNLLLoss(beta=0.5)
@@ -202,8 +203,8 @@ class UQSuite(HarnessRunner):
 
         # --- MC_Dropout: MLP with dropout, train normally ---
         elif method == "MC_Dropout":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             model = _MLP(in_dim, hidden, 1, dropout_p=0.5)
             loss_fn = nn.MSELoss()
@@ -221,8 +222,8 @@ class UQSuite(HarnessRunner):
                 member_seed = config.seed + i * 1000
                 set_harness_seed(member_seed)
 
-                X_t = torch.from_numpy(X_train_np).float()
-                y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
+                X_t = torch.from_numpy(X_train_np).float().to(current_device())
+                y_t = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
                 model = _MLP(in_dim, hidden, 2)
                 loss_fn = BetaNLLLoss(beta=0.5)
@@ -302,7 +303,7 @@ class UQSuite(HarnessRunner):
         # --- MC_Dropout → empirical mean & std ---
         elif model_type == "mc_dropout":
             m = model_state["model"]
-            mean, std = _mc_predict(m, torch.from_numpy(X_test).float())
+            mean, std = _mc_predict(m, torch.from_numpy(X_test).float().to(current_device()))
             return {"mean": mean, "std": std}
 
         # --- DeepEnsemble_K10 → mixture mean & total variance ---

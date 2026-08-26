@@ -40,6 +40,7 @@ from torchregress.losses import (
 )
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _Linear, _train_lbfgs, _train_one
 
@@ -213,8 +214,8 @@ class RobustRegressionSuite(HarnessRunner):
 
         # --- Torchregress: Quantile_Linear (LBFGS parity with sklearn QuantileRegressor) ---
         elif method == "Quantile_Linear":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             in_dim = X.shape[1]
             model = _Linear(in_dim, out_dim=1)  # single Linear with bias
@@ -229,8 +230,8 @@ class RobustRegressionSuite(HarnessRunner):
             if base not in _TORCHREGRESS_LOSSES:
                 raise ValueError(f"Unknown _Linear variant: {method}")
 
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             in_dim = X.shape[1]
             model = _Linear(in_dim, out_dim=1)  # single Linear with bias
@@ -242,8 +243,8 @@ class RobustRegressionSuite(HarnessRunner):
 
         # --- Torchregress MLP losses ---
         elif method in _TORCHREGRESS_LOSSES:
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             in_dim = X.shape[1]
             hidden = _hidden_size(in_dim)
@@ -332,8 +333,8 @@ class RobustRegressionSuite(HarnessRunner):
         if model_type == "torch":
             m = model_state["model"]
             with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                y_pred = m(X).squeeze(-1).numpy()
+                X = torch.from_numpy(X_test).float().to(current_device())
+                y_pred = m(X).squeeze(-1).detach().cpu().numpy()
             return {"y_pred": y_pred}
 
         elif model_type == "sklearn_qr":

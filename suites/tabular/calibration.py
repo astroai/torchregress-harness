@@ -131,10 +131,10 @@ class CalibrationSuite(HarnessRunner):
         """
         set_harness_seed(config.seed)
 
-        X_train = torch.from_numpy(splits["X_train"]).float()
-        y_train = torch.from_numpy(splits["y_train"]).float().unsqueeze(1)
-        X_cal = torch.from_numpy(splits["X_cal"]).float()
-        y_cal = torch.from_numpy(splits["y_cal"]).float()
+        X_train = torch.from_numpy(splits["X_train"]).float().to(current_device())
+        y_train = torch.from_numpy(splits["y_train"]).float().to(current_device()).unsqueeze(1)
+        X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+        y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
 
         # Train base model once (shared across all methods)
         in_dim = X_train.shape[1]
@@ -173,8 +173,8 @@ class CalibrationSuite(HarnessRunner):
         elif method == "sklearn_IsotonicRegression":
             calibrator = IsotonicRegression(out_of_bounds="clip")
             calibrator.fit(
-                cal_mean.numpy().reshape(-1),
-                y_cal.numpy().reshape(-1),
+                cal_mean.detach().cpu().numpy().reshape(-1),
+                y_cal.detach().cpu().numpy().reshape(-1),
             )
 
         return {
@@ -197,7 +197,7 @@ class CalibrationSuite(HarnessRunner):
         calibrator = model_state["calibrator"]
 
         with torch.no_grad():
-            out = base_model(torch.from_numpy(X_test).float())
+            out = base_model(torch.from_numpy(X_test).float().to(current_device()))
             mean = out[:, 0].clone()
             log_var = out[:, 1].clone()
             var = torch.exp(log_var).clamp_min(1e-8)
@@ -205,33 +205,33 @@ class CalibrationSuite(HarnessRunner):
 
         # --- Apply calibration ---
         if method == "Uncalibrated":
-            calibrated_mean = mean.numpy()
-            calibrated_std = std.numpy()
+            calibrated_mean = mean.detach().cpu().numpy()
+            calibrated_std = std.detach().cpu().numpy()
 
         elif method == "VarianceTemperatureScaler":
-            calibrated_mean = mean.numpy()
-            calibrated_var = calibrator.transform(var.unsqueeze(1)).numpy()
+            calibrated_mean = mean.detach().cpu().numpy()
+            calibrated_var = calibrator.transform(var.unsqueeze(1)).detach().cpu().numpy()
             calibrated_std = np.sqrt(calibrated_var.clip(1e-8))
 
         elif method == "IsotonicMeanCalibrator":
-            calibrated_mean = calibrator.transform(mean).numpy()
-            calibrated_std = std.numpy()
+            calibrated_mean = calibrator.transform(mean).detach().cpu().numpy()
+            calibrated_std = std.detach().cpu().numpy()
 
         elif method == "PITCalibrator":
             # PIT calibrator maps PIT values; we apply it to test PITs
             # but the standard approach is: calibrate PIT → map to
             # calibrated probability → invert via Gaussian CDF
             # For simplicity, return original mean/std (ECE is the metric)
-            calibrated_mean = mean.numpy()
-            calibrated_std = std.numpy()
+            calibrated_mean = mean.detach().cpu().numpy()
+            calibrated_std = std.detach().cpu().numpy()
 
         elif method == "sklearn_IsotonicRegression":
-            calibrated_mean = calibrator.predict(mean.numpy().reshape(-1))
-            calibrated_std = std.numpy()
+            calibrated_mean = calibrator.predict(mean.detach().cpu().numpy().reshape(-1))
+            calibrated_std = std.detach().cpu().numpy()
 
         else:
-            calibrated_mean = mean.numpy()
-            calibrated_std = std.numpy()
+            calibrated_mean = mean.detach().cpu().numpy()
+            calibrated_std = std.detach().cpu().numpy()
 
         return {"mean": calibrated_mean.reshape(-1), "std": calibrated_std.reshape(-1)}
 
@@ -286,8 +286,8 @@ class CalibrationSuite(HarnessRunner):
 
         # Train base model ONCE (shared across all calibrators)
         set_harness_seed(cfg.seed)
-        X_train_t = torch.from_numpy(X_fit).float()
-        y_train_t = torch.from_numpy(y_fit).float().unsqueeze(1)
+        X_train_t = torch.from_numpy(X_fit).float().to(current_device())
+        y_train_t = torch.from_numpy(y_fit).float().to(current_device()).unsqueeze(1)
 
         in_dim = X_train_t.shape[1]
         hidden = _hidden_size(in_dim)
@@ -394,8 +394,8 @@ class CalibrationSuite(HarnessRunner):
         y_cal: np.ndarray,
     ) -> Any:
         """Fit a calibrator on top of a pre-trained base model."""
-        X_cal_t = torch.from_numpy(X_cal).float()
-        y_cal_t = torch.from_numpy(y_cal).float()
+        X_cal_t = torch.from_numpy(X_cal).float().to(current_device())
+        y_cal_t = torch.from_numpy(y_cal).float().to(current_device())
 
         with torch.no_grad():
             out = base_model(X_cal_t)
@@ -419,7 +419,7 @@ class CalibrationSuite(HarnessRunner):
         elif method == "sklearn_IsotonicRegression":
             calibrator = IsotonicRegression(out_of_bounds="clip")
             calibrator.fit(
-                cal_mean.numpy().reshape(-1),
+                cal_mean.detach().cpu().numpy().reshape(-1),
                 y_cal.reshape(-1),
             )
             return calibrator
@@ -435,9 +435,9 @@ class CalibrationSuite(HarnessRunner):
     ) -> dict[str, np.ndarray]:
         """Apply calibrator to base model test predictions."""
         with torch.no_grad():
-            out = base_model(torch.from_numpy(X_test).float())
-            mean = out[:, 0].numpy()
-            std = torch.sqrt(torch.exp(out[:, 1]).clamp_min(1e-8)).numpy()
+            out = base_model(torch.from_numpy(X_test).float().to(current_device()))
+            mean = out[:, 0].detach().cpu().numpy()
+            std = torch.sqrt(torch.exp(out[:, 1]).clamp_min(1e-8)).detach().cpu().numpy()
 
         if method == "Uncalibrated":
             calibrated_mean = mean
@@ -447,12 +447,16 @@ class CalibrationSuite(HarnessRunner):
             calibrated_mean = mean
             with torch.no_grad():
                 var_t = torch.exp(out[:, 1]).clamp_min(1e-8)
-                calibrated_var = calibrator.transform(var_t.unsqueeze(1)).numpy()
+                calibrated_var = calibrator.transform(var_t.unsqueeze(1)).detach().cpu().numpy()
                 calibrated_std = np.sqrt(calibrated_var.clip(1e-8))
 
         elif method == "IsotonicMeanCalibrator":
             calibrated_mean = (
-                calibrator.transform(torch.from_numpy(mean).float()).numpy().reshape(-1)
+                calibrator.transform(torch.from_numpy(mean).float().to(current_device()))
+                .detach()
+                .cpu()
+                .numpy()
+                .reshape(-1)
             )
             calibrated_std = std
 

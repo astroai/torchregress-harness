@@ -22,6 +22,7 @@ from sklearn.metrics import mean_tweedie_deviance
 from torchregress.losses import CompoundPoissonLoss, TweedieLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _Linear, _train_lbfgs, _train_one
 
@@ -115,8 +116,8 @@ class TweedieSuite(HarnessRunner):
                     f"or disable y-standardisation."
                 )
 
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             p_power = float(splits.get("p_power", 1.5))
             if "Tweedie" in method:
@@ -179,8 +180,8 @@ class TweedieSuite(HarnessRunner):
         if model["type"] == "torch":
             m = model["model"]
             with torch.no_grad():
-                X = torch.from_numpy(X_test).float()
-                mu = torch.exp(m(X)).squeeze(-1).numpy()
+                X = torch.from_numpy(X_test).float().to(current_device())
+                mu = torch.exp(m(X)).squeeze(-1).detach().cpu().numpy()
             return {"y_pred": mu}
 
         elif model["type"] == "sklego":

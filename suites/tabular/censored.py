@@ -30,6 +30,7 @@ from torchregress.losses import (
 )
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 
@@ -154,9 +155,9 @@ class CensoredSuite(HarnessRunner):
         y_train_np = splits["y_train"]
         censoring_np = splits["censoring_train"]
 
-        X = torch.from_numpy(X_train_np).float()
-        y = torch.from_numpy(y_train_np).float()
-        censoring = torch.from_numpy(censoring_np.astype(int)).long()
+        X = torch.from_numpy(X_train_np).float().to(current_device())
+        y = torch.from_numpy(y_train_np).float().to(current_device())
+        censoring = torch.from_numpy(censoring_np.astype(int)).to(current_device()).long()
 
         in_dim = X.shape[1]
         hidden = _hidden_size(in_dim)
@@ -237,13 +238,13 @@ class CensoredSuite(HarnessRunner):
         # Torch models
         m = model_state["model"]
         with torch.no_grad():
-            X = torch.from_numpy(X_test).float()
+            X = torch.from_numpy(X_test).float().to(current_device())
             raw = m(X)
             # For 2-output models (GaussianNLL, AFT), extract the mean
             if raw.shape[-1] >= 2:
-                y_pred = raw[..., 0].squeeze(-1).numpy()
+                y_pred = raw[..., 0].squeeze(-1).detach().cpu().numpy()
             else:
-                y_pred = raw.squeeze(-1).numpy()
+                y_pred = raw.squeeze(-1).detach().cpu().numpy()
         return {"y_pred": y_pred}
 
     # ------------------------------------------------------------------

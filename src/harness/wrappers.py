@@ -458,8 +458,8 @@ class _HarnessRegressorBase:
         self.n_features_in_ = in_dim
         self.feature_names_in_ = feature_names
         self.target_name_ = target_name
-        X_t = torch.from_numpy(X_arr).float()
-        y_t = torch.from_numpy(y_arr).float().reshape(-1, 1)
+        X_t = torch.from_numpy(X_arr).float().to(current_device())
+        y_t = torch.from_numpy(y_arr).float().to(current_device()).reshape(-1, 1)
         self._fit_impl(X_t, y_t, cfg)
         self._fitted = True
         return self

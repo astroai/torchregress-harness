@@ -140,39 +140,39 @@ def _eiv_predict(
     if model_type == "latentnn":
         sigma_x_val = float(model_state.get("sigma_x", 0.2))
         with torch.no_grad():
-            X = torch.from_numpy(X_np).float()
-            return m.predict(X, sigma_x=sigma_x_val).squeeze(-1).numpy()
+            X = torch.from_numpy(X_np).float().to(current_device())
+            return m.predict(X, sigma_x=sigma_x_val).squeeze(-1).detach().cpu().numpy()
 
     if model_type == "simex":
         with torch.no_grad():
-            X = torch.from_numpy(X_np).float()
-            return m.predict(X).squeeze(-1).numpy()
+            X = torch.from_numpy(X_np).float().to(current_device())
+            return m.predict(X).squeeze(-1).detach().cpu().numpy()
 
     if model_type == "rc":
         if noisy:
             X_cal = model_state["X_cal_test"]
             with torch.no_grad():
-                return m(X_cal).squeeze(-1).numpy()
+                return m(X_cal).squeeze(-1).detach().cpu().numpy()
         # Clean X doesn't need RC calibration — use model directly
         with torch.no_grad():
-            X = torch.from_numpy(X_np).float()
-            return m(X).squeeze(-1).numpy()
+            X = torch.from_numpy(X_np).float().to(current_device())
+            return m(X).squeeze(-1).detach().cpu().numpy()
 
     if method == "MSE_NoisyPredict" and noisy:
         sigma_x_val = float(model_state.get("sigma_x", 0.2))
         noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
         with torch.no_grad():
-            X = torch.from_numpy(X_np).float()
-            return noisy_pred(X).squeeze(-1).numpy()
+            X = torch.from_numpy(X_np).float().to(current_device())
+            return noisy_pred(X).squeeze(-1).detach().cpu().numpy()
 
     # Torch models
     with torch.no_grad():
-        X = torch.from_numpy(X_np).float()
+        X = torch.from_numpy(X_np).float().to(current_device())
         if method == "NoiseAware":
             # NoiseAware always needs sigma_x (architectural requirement)
             sigma_x_val = float(model_state.get("sigma_x", 0.2))
-            return m(X, sigma_x_val).squeeze(-1).numpy()
-        return m(X).squeeze(-1).numpy()
+            return m(X, sigma_x_val).squeeze(-1).detach().cpu().numpy()
+        return m(X).squeeze(-1).detach().cpu().numpy()
 
 
 # ---------------------------------------------------------------------------
@@ -332,8 +332,8 @@ class EIVSuite(HarnessRunner):
         X_train_np = splits["X_train"]
         y_train_np = splits["y_train"]
 
-        X = torch.from_numpy(X_train_np).float()
-        y = torch.from_numpy(y_train_np).float()
+        X = torch.from_numpy(X_train_np).float().to(current_device())
+        y = torch.from_numpy(y_train_np).float().to(current_device())
         if y.dim() == 1:
             y = y.unsqueeze(1)
 
@@ -532,7 +532,9 @@ class EIVSuite(HarnessRunner):
             rc = RegressionCalibration(sigma_u=sigma_x)
             rc.fit(X)
             X_cal_train = rc.transform(X)
-            X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
+            X_cal_test = rc.transform(
+                torch.from_numpy(splits["X_test"]).float().to(current_device())
+            )
             model = _MLP(in_dim, hidden, out_dim)
             _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
             result = {"type": "rc", "model": model, "X_cal_test": X_cal_test}
@@ -600,7 +602,9 @@ class EIVSuite(HarnessRunner):
             rc = RegressionCalibration(sigma_u=sigma_x)
             rc.fit(X)
             X_cal_train = rc.transform(X)
-            X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
+            X_cal_test = rc.transform(
+                torch.from_numpy(splits["X_test"]).float().to(current_device())
+            )
             model = _MLP(in_dim, hidden, out_dim=2)
             _train_one(model, GaussianNLLLoss(), X_cal_train, y, config)
             return {"type": "rc_gaussian", "model": model, "X_cal_test": X_cal_test}
@@ -611,7 +615,9 @@ class EIVSuite(HarnessRunner):
             rc = RegressionCalibration(sigma_u=sigma_x)
             rc.fit(X)
             X_cal_train = rc.transform(X)
-            X_cal_test = rc.transform(torch.from_numpy(splits["X_test"]).float())
+            X_cal_test = rc.transform(
+                torch.from_numpy(splits["X_test"]).float().to(current_device())
+            )
             model = _MLP(in_dim, hidden, out_dim)
             # Small residual sigma_x after RC
             residual_sigma = sigma_x * 0.3
@@ -642,7 +648,9 @@ class EIVSuite(HarnessRunner):
 
             model = _Linear(in_dim, out_dim=1)
             with torch.no_grad():
-                model.fc.weight.copy_(torch.from_numpy(beta).float().unsqueeze(0))
+                model.fc.weight.copy_(
+                    torch.from_numpy(beta).float().to(current_device()).unsqueeze(0)
+                )
                 model.fc.bias.copy_(torch.tensor([intercept]).float())
             loss_fn = FunctionalEIVLoss(model=model, sigma_x=sigma_x, sigma_y=sigma_y)
             _train_eiv(model, loss_fn, X, y, config, lr=config.lr * 0.1)
@@ -746,7 +754,7 @@ class EIVSuite(HarnessRunner):
 
             def _moment_match(X_np):
                 with torch.no_grad():
-                    X_t = torch.from_numpy(X_np).float()
+                    X_t = torch.from_numpy(X_np).float().to(current_device())
                     raw = predictor.sample_predictions(X_t)
                     means = raw[..., 0]
                     logvars = raw[..., 1]
@@ -754,8 +762,8 @@ class EIVSuite(HarnessRunner):
                     mean_final = means.mean(dim=0)
                     var_final = (vars_ + means**2).mean(dim=0) - mean_final**2
                 return (
-                    mean_final.squeeze(-1).numpy(),
-                    torch.sqrt(var_final.clamp_min(1e-8)).squeeze(-1).numpy(),
+                    mean_final.squeeze(-1).detach().cpu().numpy(),
+                    torch.sqrt(var_final.clamp_min(1e-8)).squeeze(-1).detach().cpu().numpy(),
                 )
 
             mean_np, std_np = _moment_match(X_test)
@@ -775,16 +783,16 @@ class EIVSuite(HarnessRunner):
                 out = m(X_cal)
                 mean = out[:, 0]
                 std = torch.exp(out[:, 1] * 0.5)
-            result["mean"] = mean.squeeze(-1).numpy()
-            result["std"] = std.squeeze(-1).numpy()
+            result["mean"] = mean.squeeze(-1).detach().cpu().numpy()
+            result["std"] = std.squeeze(-1).detach().cpu().numpy()
             result["y_pred"] = result["mean"]
             # Clean-X: run model directly on clean X (no RC calibration needed)
             X_test_true = model_state.get("_X_test_true")
             if X_test_true is not None:
                 with torch.no_grad():
-                    X_t = torch.from_numpy(X_test_true).float()
+                    X_t = torch.from_numpy(X_test_true).float().to(current_device())
                     out_clean = m(X_t)
-                result["y_pred_clean"] = out_clean[:, 0].squeeze(-1).numpy()
+                result["y_pred_clean"] = out_clean[:, 0].squeeze(-1).detach().cpu().numpy()
             return result
 
         # --- Standard point-prediction path ---

@@ -670,12 +670,14 @@ class AgeRegressionSuite(ImageHarnessRunner):
         import lightning as pl
         from torch.utils.data import DataLoader, Dataset
 
+        from harness.devices import current_device
+
         # Lightning's default predict_step calls ``self(batch)`` with the raw
         # batch, so the loader must yield bare input tensors (no label tuples)
         # for the routine's forward() to receive a tensor.
         class _InputsOnly(Dataset):
             def __init__(self, arr: np.ndarray) -> None:
-                self.data = torch.from_numpy(arr).float()
+                self.data = torch.from_numpy(arr).float().to(current_device())
 
             def __len__(self) -> int:
                 return len(self.data)

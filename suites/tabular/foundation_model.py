@@ -136,8 +136,8 @@ class FoundationModelSuite(HarnessRunner):
 
         # --- torchregress: GaussianNLL ---
         if method == "GaussianNLL":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             model = _MLP(in_dim, hidden, 2)  # mean, log_variance
             loss_fn = BetaNLLLoss(beta=0.5)
@@ -148,8 +148,8 @@ class FoundationModelSuite(HarnessRunner):
 
         # --- torchregress: MDN ---
         elif method == "MDN":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             n_components = self._MDN_COMPONENTS
             n_features = 1  # scalar regression
@@ -212,11 +212,11 @@ class FoundationModelSuite(HarnessRunner):
             model = model_state["model"]
             loss_fn = model_state["loss_fn"]
             with torch.no_grad():
-                out = model(torch.from_numpy(X_test).float())
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
                 mean, std = loss_fn.predict_mean_std(out)
             return {
-                "mean": mean.squeeze(-1).numpy(),
-                "std": std.squeeze(-1).numpy(),
+                "mean": mean.squeeze(-1).detach().cpu().numpy(),
+                "std": std.squeeze(-1).detach().cpu().numpy(),
             }
 
         # --- TabPFN: point predictions only ---

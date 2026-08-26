@@ -241,8 +241,8 @@ class DistributionalBinsSuite(HarnessRunner):
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
-        X_train = torch.from_numpy(splits["X_train"]).float()
-        y_train = torch.from_numpy(splits["y_train"]).float().unsqueeze(1)
+        X_train = torch.from_numpy(splits["X_train"]).float().to(current_device())
+        y_train = torch.from_numpy(splits["y_train"]).float().to(current_device()).unsqueeze(1)
         in_dim = X_train.shape[1]
         hidden = _hidden_size(in_dim)
 
@@ -251,8 +251,8 @@ class DistributionalBinsSuite(HarnessRunner):
         # branches (GaussianNLL, NF, Ensemble, MDN, Evidential) do not
         # require them so they remain decoupled from the cal split.
         if method == "Split_CP":
-            X_cal = torch.from_numpy(splits["X_cal"]).float()
-            y_cal = torch.from_numpy(splits["y_cal"]).float()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
             _train_one(model, nn.MSELoss(), X_train, y_train, config)
             model.eval()
@@ -379,7 +379,7 @@ class DistributionalBinsSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
-        X_t = torch.from_numpy(X_test).float()
+        X_t = torch.from_numpy(X_test).float().to(current_device())
         model = model_state.get("model")
 
         # --- Split CP → post-hoc calibration ---
@@ -412,7 +412,7 @@ class DistributionalBinsSuite(HarnessRunner):
             with torch.no_grad():
                 context = model(X_t)
                 samples = flow_loss.sample(context, n_samples=256).squeeze(-1)  # (N, 256)
-                samples_np = samples.numpy()
+                samples_np = samples.detach().cpu().numpy()
             lo = np.quantile(samples_np, 0.05, axis=1)
             hi = np.quantile(samples_np, 0.95, axis=1)
             # Return MC samples so compute_pit_values can compute PIT diagnostics
@@ -441,6 +441,8 @@ class DistributionalBinsSuite(HarnessRunner):
                             n_samples=self._NF_ENSEMBLE_N_SAMPLES,
                         )
                         .squeeze(-1)
+                        .detach()
+                        .cpu()
                         .numpy()
                     )  # expected shape (N, n_samples)
                 # Accept both (N, S) post-squeeze and (S, N) layouts; fail
@@ -477,7 +479,7 @@ class DistributionalBinsSuite(HarnessRunner):
             with torch.no_grad():
                 context = model(X_t)
                 samples = loss_fn.sample(context, n_samples=256).squeeze(-1).T  # (N, 256)
-                samples_np = samples.numpy()
+                samples_np = samples.detach().cpu().numpy()
             lo = np.quantile(samples_np, 0.05, axis=1)
             hi = np.quantile(samples_np, 0.95, axis=1)
             # Return MC samples for PIT diagnostics.
@@ -501,17 +503,17 @@ class DistributionalBinsSuite(HarnessRunner):
                 beta = F.softplus(raw[:, 3:4]) + 0.01
                 params = torch.cat([gamma, nu, alpha, beta], dim=1)
                 lo, hi = loss_fn.predict_interval(params, confidence=0.90)
-                lo_np = lo.numpy().reshape(-1)
-                hi_np = hi.numpy().reshape(-1)
+                lo_np = lo.detach().cpu().numpy().reshape(-1)
+                hi_np = hi.detach().cpu().numpy().reshape(-1)
             # Return NIG parameters so compute_pit_values can compute
             # Student-t PIT (Proposal #9): df=2*α, loc=γ, scale²=β(1+ν)/(να).
             return {
                 "lower": lo_np,
                 "upper": hi_np,
-                "gamma": gamma.numpy().reshape(-1),
-                "nu": nu.numpy().reshape(-1),
-                "alpha": alpha.numpy().reshape(-1),
-                "beta": beta.numpy().reshape(-1),
+                "gamma": gamma.detach().cpu().numpy().reshape(-1),
+                "nu": nu.detach().cpu().numpy().reshape(-1),
+                "alpha": alpha.detach().cpu().numpy().reshape(-1),
+                "beta": beta.detach().cpu().numpy().reshape(-1),
             }
 
         raise ValueError(f"Unknown model type: {model_type}")

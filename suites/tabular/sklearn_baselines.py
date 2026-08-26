@@ -53,6 +53,7 @@ from sklearn.tree import DecisionTreeRegressor
 from torchregress.losses import BetaNLLLoss, MultiQuantileLoss
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import (
     _MLP,
@@ -252,8 +253,8 @@ class SklearnBaselinesSuite(HarnessRunner):
 
         # --- torchregress: OLS (analytic closed-form, matches sklearn LinearRegression) ---
         if method == "OLS":
-            X_t = torch.from_numpy(X_train_np).float()
-            y_t = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X_t = torch.from_numpy(X_train_np).float().to(current_device())
+            y_t = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             # Design matrix [X | 1] with intercept column
             ones = torch.ones(X_t.shape[0], 1, dtype=X_t.dtype, device=X_t.device)
@@ -267,8 +268,8 @@ class SklearnBaselinesSuite(HarnessRunner):
 
         # --- torchregress: GaussianNLL_Linear (OLS parity + analytic variance) ---
         elif method == "GaussianNLL_Linear":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             # Stage 1: _Linear(→1) + MSE via LBFGS → exact OLS optimum
             # (MSE is strictly convex for a linear model)
@@ -290,8 +291,8 @@ class SklearnBaselinesSuite(HarnessRunner):
 
         # --- torchregress: GaussianNLL ---
         elif method == "GaussianNLL":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             hidden = _hidden_size(in_dim)
             model = _MLP(in_dim, hidden, 2)  # mean, log_variance
@@ -303,8 +304,8 @@ class SklearnBaselinesSuite(HarnessRunner):
 
         # --- torchregress: MultiQuantile ---
         elif method == "MultiQuantile":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             hidden = _hidden_size(in_dim)
             quantiles = [0.1, 0.5, 0.9]
@@ -317,8 +318,8 @@ class SklearnBaselinesSuite(HarnessRunner):
 
         # --- torchregress: MSE ---
         elif method == "MSE":
-            X = torch.from_numpy(X_train_np).float()
-            y = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             hidden = _hidden_size(in_dim)
             model = _MLP(in_dim, hidden, 1)
@@ -387,27 +388,34 @@ class SklearnBaselinesSuite(HarnessRunner):
         elif model_type == "multi_quantile":
             m = model_state["model"]
             with torch.no_grad():
-                out = m(torch.from_numpy(X_test).float())
+                out = m(torch.from_numpy(X_test).float().to(current_device()))
                 # out shape: (N, 3) for quantiles [0.1, 0.5, 0.9]
-                lo = out[:, 0].numpy().reshape(-1)
-                med = out[:, 1].numpy().reshape(-1)
-                hi = out[:, 2].numpy().reshape(-1)
+                lo = out[:, 0].detach().cpu().numpy().reshape(-1)
+                med = out[:, 1].detach().cpu().numpy().reshape(-1)
+                hi = out[:, 2].detach().cpu().numpy().reshape(-1)
             return {"y_pred": med, "lower": lo, "upper": hi}
 
         # --- torchregress: OLS → y_pred (analytic, matches sklearn LinearRegression) ---
         elif model_type == "ols":
             coef = model_state["coef"]
-            X_t = torch.from_numpy(X_test).float()
+            X_t = torch.from_numpy(X_test).float().to(current_device())
             ones = torch.ones(X_t.shape[0], 1, dtype=X_t.dtype, device=coef.device)
             A = torch.cat([X_t, ones], dim=-1)
-            y_pred = (A @ coef).numpy().reshape(-1)
+            y_pred = (A @ coef).detach().cpu().numpy().reshape(-1)
             return {"y_pred": y_pred}
 
         # --- torchregress: MSE → y_pred ---
         elif model_type == "mse":
             m = model_state["model"]
             with torch.no_grad():
-                y_pred = m(torch.from_numpy(X_test).float()).squeeze(-1).numpy().reshape(-1)
+                y_pred = (
+                    m(torch.from_numpy(X_test).float().to(current_device()))
+                    .squeeze(-1)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .reshape(-1)
+                )
             return {"y_pred": y_pred}
 
         # --- sklearn → y_pred ---

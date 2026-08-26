@@ -264,10 +264,10 @@ class R2CConformalSuite(HarnessRunner):
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
 
-        X_train = torch.from_numpy(splits["X_train"]).float()
+        X_train = torch.from_numpy(splits["X_train"]).float().to(current_device())
         y_train_np = splits["y_train"]
-        X_cal = torch.from_numpy(splits["X_cal"]).float()
-        y_cal = torch.from_numpy(splits["y_cal"]).float()
+        X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+        y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
         in_dim = X_train.shape[1]
         hidden = _hidden_size(in_dim)
         alpha = self.ALPHA
@@ -275,11 +275,11 @@ class R2CConformalSuite(HarnessRunner):
 
         # Shared bin edges (computed from training targets)
         bin_edges_np = _make_bin_edges(y_train_np, n_bins=n_bins)
-        bin_edges = torch.from_numpy(bin_edges_np).float()
+        bin_edges = torch.from_numpy(bin_edges_np).float().to(current_device())
 
         # Discretise training and calibration targets
         y_train_bins = _discretise_targets(y_train_np, bin_edges_np)
-        y_train_idx = torch.from_numpy(y_train_bins).long()
+        y_train_idx = torch.from_numpy(y_train_bins).to(current_device()).long()
         y_cal_bins = _discretise_targets(splits["y_cal"], bin_edges_np)
 
         # --- R2C+Softmax -------------------------------------------------
@@ -410,7 +410,7 @@ class R2CConformalSuite(HarnessRunner):
         elif method == "Split+MLP":
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
             loss_fn = nn.MSELoss()
-            y_train = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            y_train = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
             _train_one(model, loss_fn, X_train, y_train, config)
             model.eval()
 
@@ -428,7 +428,7 @@ class R2CConformalSuite(HarnessRunner):
 
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
             loss_fn = MultiQuantileLoss(quantiles=[alpha / 2, 1.0 - alpha / 2])
-            y_train = torch.from_numpy(y_train_np).float().unsqueeze(1)
+            y_train = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
             _train_one(model, loss_fn, X_train, y_train, config)
             model.eval()
 
@@ -457,7 +457,7 @@ class R2CConformalSuite(HarnessRunner):
         alpha = model_state.get("alpha", self.ALPHA)
         model_type = model_state["type"]
 
-        X_test_t = torch.from_numpy(X_test).float()
+        X_test_t = torch.from_numpy(X_test).float().to(current_device())
 
         # --- R2C methods --------------------------------------------------
         if model_type == "r2c":
@@ -484,7 +484,7 @@ class R2CConformalSuite(HarnessRunner):
             # Calibrate R2CConformal with *continuous* targets (not bin indices).
             # R2CConformal internally discretises continuous targets via searchsorted,
             # so passing pre-discretised bin indices produces garbage scores.
-            bin_edges_t = torch.from_numpy(bin_edges_np).float()
+            bin_edges_t = torch.from_numpy(bin_edges_np).float().to(current_device())
             r2c = R2CConformal(alpha=alpha, bin_edges=bin_edges_t)
             y_cal_cont = model_state["y_cal"]  # stored as torch float tensor
             r2c.calibrate(probs_cal, y_cal_cont)
@@ -512,7 +512,7 @@ class R2CConformalSuite(HarnessRunner):
             bin_edges_np = model_state["bin_edges"]
             device = model_state["device"]
 
-            bin_edges_t = torch.from_numpy(bin_edges_np).float()
+            bin_edges_t = torch.from_numpy(bin_edges_np).float().to(current_device())
             midpoints = (bin_edges_t[:-1] + bin_edges_t[1:]) / 2
 
             # R2CCP has its own generate_intervals() method — use it directly
@@ -521,7 +521,9 @@ class R2CConformalSuite(HarnessRunner):
             model.to(device)
 
             X_cal_dev = X_cal.to(device)
-            y_cal_dev = torch.from_numpy(np.asarray(y_cal_bins)).long().to(device)
+            y_cal_dev = (
+                torch.from_numpy(np.asarray(y_cal_bins)).to(current_device()).long().to(device)
+            )
 
             # Compute calibration scores via R2CCP.__call__
             score_fn = R2CCP(midpoints=midpoints, device=device)

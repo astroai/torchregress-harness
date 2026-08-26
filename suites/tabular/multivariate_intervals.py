@@ -27,6 +27,7 @@ import torch
 import torch.nn as nn
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import NF_ENSEMBLE_K_VARIANTS, _hidden_size, _train_one
 
@@ -71,9 +72,9 @@ def _gaussian_nll_multi_predict(
     """Extract marginal mean & std from a 2*D output diagonal Gaussian model."""
     model.eval()
     with torch.no_grad():
-        out = model(torch.from_numpy(X).float())  # (N, 2*D)
-        mean = out[:, :n_features].numpy()
-        log_var = out[:, n_features:].numpy()
+        out = model(torch.from_numpy(X).float().to(current_device()))  # (N, 2*D)
+        mean = out[:, :n_features].detach().cpu().numpy()
+        log_var = out[:, n_features:].detach().cpu().numpy()
         std = np.sqrt(np.exp(np.clip(log_var, -20, 20)) + 1e-8)
     return mean, std
 
@@ -119,14 +120,14 @@ def _multivariate_gaussian_predict(
     """
     model.eval()
     with torch.no_grad():
-        raw = model(torch.from_numpy(X).float())
+        raw = model(torch.from_numpy(X).float().to(current_device()))
         mean = raw[:, :D]
         L_params = raw[:, D:]
         cov = _covariance_from_cholesky_params(L_params, D)
         # Marginal std = sqrt(diagonal of covariance)
         var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8)
         std = torch.sqrt(var)
-        return mean.numpy(), std.numpy()
+        return mean.detach().cpu().numpy(), std.detach().cpu().numpy()
 
 
 class _CholeskyGaussianLossWrapper(nn.Module):
@@ -180,7 +181,7 @@ def _sls_predict_intervals(
     flow = frontier.flow
 
     model.eval()
-    X_t = torch.from_numpy(X).float()
+    X_t = torch.from_numpy(X).float().to(current_device())
     N = X_t.shape[0]
 
     with torch.no_grad():
@@ -210,10 +211,10 @@ def _sls_predict_intervals(
         y_samples = flow.inverse(z_flow.reshape(-1, D), ctx_repeated)
         y_samples = y_samples.reshape(n_samples, N, D)
 
-        y_np = y_samples.numpy()
+        y_np = y_samples.detach().cpu().numpy()
         lower = y_np.min(axis=0)  # (N, D)
         upper = y_np.max(axis=0)  # (N, D)
-        mean = mu.numpy()  # (N, D) — learned centre
+        mean = mu.detach().cpu().numpy()  # (N, D) — learned centre
 
     return mean, lower, upper
 
@@ -333,8 +334,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
         if y_train_np.ndim == 1:
             y_train_np = y_train_np.reshape(-1, D)
 
-        X = torch.from_numpy(X_train_np).float()
-        y = torch.from_numpy(y_train_np).float()
+        X = torch.from_numpy(X_train_np).float().to(current_device())
+        y = torch.from_numpy(y_train_np).float().to(current_device())
 
         # --- GaussianNLL: diagonal ---
         if method == "GaussianNLL":
@@ -514,11 +515,11 @@ class MultivariateIntervalsSuite(HarnessRunner):
             flow_loss = model_state["flow"]
             model.eval()
 
-            X_t = torch.from_numpy(X_test).float()
+            X_t = torch.from_numpy(X_test).float().to(current_device())
             with torch.no_grad():
                 context = model(X_t)
                 samples = flow_loss.sample(context, n_samples=512)  # (N, 512, D)
-                samples_np = samples.numpy()
+                samples_np = samples.detach().cpu().numpy()
 
             lo_q = 0.05
             hi_q = 0.95
@@ -539,7 +540,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
         elif model_type == "nflow_ensemble":
             members = model_state["members"]
             n_test = X_test.shape[0]
-            X_t = torch.from_numpy(X_test).float()
+            X_t = torch.from_numpy(X_test).float().to(current_device())
             per_member: list[np.ndarray] = []
             for m in members:
                 m["model"].eval()
@@ -551,6 +552,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                             ctx,
                             n_samples=self._NF_ENSEMBLE_N_SAMPLES,
                         )
+                        .detach()
+                        .cpu()
                         .numpy()
                     )  # expected (N, n_samples, D)
                 if s.ndim != 3 or s.shape[0] != n_test or s.shape[-1] != D:

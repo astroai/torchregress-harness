@@ -825,7 +825,9 @@ class ConformalSuite(HarnessRunner):
 
         dev = current_device()
         X_train = torch.from_numpy(splits["X_train"]).float().to(dev)
-        y_train = torch.from_numpy(splits["y_train"]).float().unsqueeze(1).to(dev)
+        y_train = (
+            torch.from_numpy(splits["y_train"]).float().to(current_device()).unsqueeze(1).to(dev)
+        )
         X_cal = torch.from_numpy(splits["X_cal"]).float().to(dev)
         y_cal = torch.from_numpy(splits["y_cal"]).float().to(dev)
         in_dim = X_train.shape[1]

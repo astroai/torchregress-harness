@@ -29,6 +29,7 @@ import torch
 from sklearn.linear_model import BayesianRidge
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 
 try:
@@ -114,8 +115,8 @@ class BayesianLinearSuite(HarnessRunner):
         if method == "BLR_Linear" or method == "BayesianLinearHead":
             from torchregress.test_time import BayesianLinearHead
 
-            X_t = torch.from_numpy(X).float()
-            y_t = torch.from_numpy(y).float().unsqueeze(-1)
+            X_t = torch.from_numpy(X).float().to(current_device())
+            y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(-1)
 
             if method == "BLR_Linear":
                 # Parity: match sklearn BayesianRidge exactly.
@@ -134,8 +135,8 @@ class BayesianLinearSuite(HarnessRunner):
                 y_mean = float(y.mean())
                 X_c = X - X_mean
                 y_c = y - y_mean
-                X_t = torch.from_numpy(X_c).float()
-                y_t = torch.from_numpy(y_c).float().unsqueeze(-1)
+                X_t = torch.from_numpy(X_c).float().to(current_device())
+                y_t = torch.from_numpy(y_c).float().to(current_device()).unsqueeze(-1)
             else:
                 X_mean = None
                 y_mean = None
@@ -200,15 +201,15 @@ class BayesianLinearSuite(HarnessRunner):
     ) -> dict[str, np.ndarray]:
         if method in ("BLR_Linear", "BayesianLinearHead"):
             head = model["head"]
-            X_t = torch.from_numpy(X_test).float()
+            X_t = torch.from_numpy(X_test).float().to(current_device())
 
             # BLR_Linear: un-centre the predictions (trained on centred data)
             if method == "BLR_Linear" and "X_mean" in model:
-                X_t = X_t - torch.from_numpy(model["X_mean"]).float()
+                X_t = X_t - torch.from_numpy(model["X_mean"]).float().to(current_device())
 
             pred = head.predict(X_t, return_std=True, include_noise=True)
-            mean = pred["mean"].detach().numpy().reshape(-1)
-            std = pred["std"].detach().numpy().reshape(-1).clip(1e-8)
+            mean = pred["mean"].detach().cpu().detach().cpu().numpy().reshape(-1)
+            std = pred["std"].detach().cpu().detach().cpu().numpy().reshape(-1).clip(1e-8)
 
             # BLR_Linear: add back y_mean
             if method == "BLR_Linear" and "y_mean" in model:
@@ -227,8 +228,16 @@ class BayesianLinearSuite(HarnessRunner):
 
             with torch.no_grad():
                 posterior = gp.posterior(X_t)
-                mean = posterior.mean.squeeze(-1).numpy().reshape(-1)
-                std = posterior.variance.squeeze(-1).clamp_min(1e-8).sqrt().numpy().reshape(-1)
+                mean = posterior.mean.squeeze(-1).detach().cpu().numpy().reshape(-1)
+                std = (
+                    posterior.variance.squeeze(-1)
+                    .clamp_min(1e-8)
+                    .sqrt()
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .reshape(-1)
+                )
 
             return {"mean": mean, "std": std}
 

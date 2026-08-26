@@ -19,6 +19,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
+from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 
 # ---------------------------------------------------------------------------
@@ -208,15 +209,15 @@ def _image_to_dataloader(
 
     Returns a DataLoader yielding (X_batch,) or (X_batch, y_batch).
     """
-    X_t = torch.from_numpy(X).float()
+    X_t = torch.from_numpy(X).float().to(current_device())
     if y is not None:
         if y.ndim == 1:
-            y_t = torch.from_numpy(y).float().unsqueeze(1)
+            y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(1)
         elif y.ndim == 3:
             # Dense (N, H, W) — keep as 3D for spatial loss functions
-            y_t = torch.from_numpy(y).float().unsqueeze(1)  # (N, 1, H, W)
+            y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(1)  # (N, 1, H, W)
         else:
-            y_t = torch.from_numpy(y).float()
+            y_t = torch.from_numpy(y).float().to(current_device())
         dataset = TensorDataset(X_t, y_t)
     else:
         dataset = TensorDataset(X_t)
