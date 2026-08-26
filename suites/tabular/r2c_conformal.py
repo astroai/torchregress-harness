@@ -136,7 +136,7 @@ def _torch_split_intervals(
     n = residuals.numel()
     q_level = min(np.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)
     q = torch.quantile(residuals, q_level, interpolation="higher").item()
-    return (pred_test - q).cpu().cpu().numpy(), (pred_test + q).cpu().cpu().numpy()
+    return (pred_test - q).cpu().numpy(), (pred_test + q).cpu().numpy()
 
 
 def _torch_cqr_intervals(
@@ -491,8 +491,8 @@ class R2CConformalSuite(HarnessRunner):
 
             # Predict intervals
             lo, hi = r2c.predict_interval(probs_test)
-            lo_np = lo.detach().cpu().cpu().numpy().reshape(-1)
-            hi_np = hi.detach().cpu().cpu().numpy().reshape(-1)
+            lo_np = lo.detach().cpu().numpy().reshape(-1)
+            hi_np = hi.detach().cpu().numpy().reshape(-1)
 
             # Also return point predictions (bin with highest probability)
             y_pred_idx = probs_test.argmax(dim=-1).cpu().numpy()
@@ -542,11 +542,11 @@ class R2CConformalSuite(HarnessRunner):
             # result shape: (batch, 2*(n_bins-1)) — first half = per-pair lower,
             # second half = per-pair upper.  Take extremes for overall interval.
             mid = result.shape[1] // 2
-            lo = result[:, :mid].min(dim=-1).values.detach().cpu().cpu().numpy().reshape(-1)
-            hi = result[:, mid:].max(dim=-1).values.detach().cpu().cpu().numpy().reshape(-1)
+            lo = result[:, :mid].min(dim=-1).values.detach().cpu().numpy().reshape(-1)
+            hi = result[:, mid:].max(dim=-1).values.detach().cpu().numpy().reshape(-1)
 
             # Point prediction from already-computed probabilities
-            y_pred_idx = probs_test.argmax(dim=-1).cpu().cpu().numpy()
+            y_pred_idx = probs_test.argmax(dim=-1).cpu().numpy()
             centers = (bin_edges_np[:-1] + bin_edges_np[1:]) / 2
             y_pred = centers[y_pred_idx]
 

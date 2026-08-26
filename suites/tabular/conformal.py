@@ -122,7 +122,7 @@ def _torch_split_intervals(
         pred_test = model(X_test).squeeze(-1)
     residuals = (y_cal - pred_cal).abs()
     q = finite_sample_quantile(residuals, alpha).item()
-    return (pred_test - q).cpu().cpu().numpy(), (pred_test + q).cpu().cpu().numpy()
+    return (pred_test - q).cpu().numpy(), (pred_test + q).cpu().numpy()
 
 
 def _torch_cqr_intervals(
@@ -444,7 +444,7 @@ def _torchcp_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> Any:
             self.est = est
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            arr = x.detach().cpu().cpu().numpy()
+            arr = x.detach().cpu().numpy()
             pred = np.asarray(self.est.predict(arr)).reshape(-1, 1)
             return torch.from_numpy(pred).float().to(current_device())
 
@@ -470,7 +470,7 @@ def _torchcp_split_predict(cp: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.
     """Predict-half for ``torchcp_Split+Linear``; returns a (N, 1, 2)-style tensor."""
     X_test_t = torch.from_numpy(np.asarray(X_test)).float().to(current_device())
     out = cp.predict(X_test_t)
-    arr = out.detach().cpu().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
+    arr = out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
     if arr.ndim == 3 and arr.shape[-2:] == (1, 2):
         arr = arr.squeeze(axis=1)
     if arr.ndim == 2 and arr.shape[-1] == 2:
