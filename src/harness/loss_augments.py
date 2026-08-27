@@ -94,6 +94,7 @@ def _mixturedensity_log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
     # _extract_distribution_parameters now returns log_weights (log_softmax) directly
     return torch.logsumexp(log_weights + log_probs_comp, dim=-1)
 
+
 def _normalizingflow_predict_interval(
     self,
     y_pred: Tensor,

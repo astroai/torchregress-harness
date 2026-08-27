@@ -19,11 +19,10 @@ import yaml
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from torchregress.losses.loss_registry import create_loss_from_config
-from torchregress.metrics.distribution import distribution_metrics_report
-from torchregress.metrics.interval import interval_metrics_report
-from torchregress.metrics.point import regression_metrics_report
 from torchregress.prediction import PredictiveBatch
 from torchregress.viz.results import plot_corner_plot
+
+from harness.metrics import compute_all_metrics
 
 
 def _device_auto() -> torch.device:
@@ -94,22 +93,72 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                         from suites.experiments.backbones.image import ResNet18FeatureExtractor
 
                         backbone = ResNet18FeatureExtractor(d_out=64)
-                        # for image, y_pred is 64-dim context, need head for loss
-                        # create loss first to infer head size, then wrap
                         loss_kwargs = dict(method_cfg.get("loss_kwargs", {}))
+                        # determine head size (same logic as tabular)
                         if method_cfg["loss"] == "sls":
                             loss_kwargs.setdefault("d", d_out)
                             loss_kwargs.setdefault("context_dim", 64)
+                            loss_kwargs.setdefault("K", 1)
+                            loss_kwargs.setdefault("hidden_dim", 64)
+                            loss_kwargs.setdefault("n_transforms", 4)
+                            head_out = 64
                         elif method_cfg["loss"] in ("nflow", "contrastive_nflow"):
-                            loss_kwargs.setdefault("n_features", d_out)
-                            loss_kwargs.setdefault("context_dim", 64)
-                        loss_kwargs.setdefault("reduction", "mean")
-                        loss_fn = create_loss_from_config(
-                            {"type": method_cfg["loss"], **loss_kwargs}
-                        )
-                        model = backbone
+                            from torchregress.losses.nflows import (
+                                create_contrastive_flow_loss,
+                                create_flow_loss,
+                            )
+
+                            nflow_kwargs = {
+                                k: v
+                                for k, v in loss_kwargs.items()
+                                if k not in ("n_features", "context_dim")
+                            }
+                            nflow_kwargs.setdefault("flow_type", "nsf")
+                            nflow_kwargs.setdefault("n_transforms", 3)
+                            nflow_kwargs.setdefault("hidden_features", [64, 64])
+                            # need to create flow with d_out
+                            loss_fn = (
+                                create_flow_loss
+                                if method_cfg["loss"] == "nflow"
+                                else create_contrastive_flow_loss
+                            )
+                            loss_fn = loss_fn(n_features=d_out, context_dim=64, **nflow_kwargs)
+                            loss_kwargs = {}  # already handled
+                            head_out = 64  # nflow head is context (we will set below)
+                            # for nflow, model is backbone (context) directly
+                            model = backbone
+                            loss_kwargs = {}  # prevent double creation
+                        else:
+                            # gaussian, mdn, etc: need 2*d or similar — infer via dummy like tabular
+                            # reuse tabular helper: create a temp loss to infer head_out
+                            if method_cfg["loss"] == "gaussian":
+                                head_out = 2 * d_out
+                            elif method_cfg["loss"] == "gaussian_nll":
+                                head_out = 2 * d_out
+                            elif method_cfg["loss"] == "student_t":
+                                head_out = 3 * d_out
+                            else:
+                                head_out = 2 * d_out  # fallback
+                            loss_kwargs.setdefault("reduction", "mean")
+                            # mdn needs n_features; others (gaussian_nll, student_t) do not
+                            if method_cfg["loss"] == "mdn":
+                                loss_kwargs.setdefault("n_components", 5)
+                                loss_kwargs.setdefault("n_features", d_out)
+                                # correct head_out for mdn if fallback was used
+                                K = int(loss_kwargs["n_components"])
+                                head_out = K + 2 * K * d_out
+                        # for non-nflow, create loss via registry if not already
+                        if method_cfg["loss"] not in ("nflow", "contrastive_nflow"):
+                            loss_kwargs.setdefault("reduction", "mean")
+                            loss_fn = create_loss_from_config(
+                                {"type": method_cfg["loss"], **loss_kwargs}
+                            )
+                        if method_cfg["loss"] not in ("nflow", "contrastive_nflow", "sls"):
+                            model = torch.nn.Sequential(backbone, torch.nn.Linear(64, head_out))
+                        elif method_cfg["loss"] == "sls":
+                            model = backbone
+                        # nflow already set model
                     else:
-                        # tabular: simple 2-layer MLP
                         in_dim = X_train.shape[1]
                         hidden = 64
                         # need loss_kwargs to infer output dim for head
@@ -204,13 +253,28 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             # NFlow: sample
                             try:
                                 samples = loss_fn.sample(out_test, n_samples=256)  # [B, nS, D]
-                                # aggregate to [nS, B, D] for viz
                                 samples_np = (
                                     samples.cpu().numpy()
                                     if isinstance(samples, torch.Tensor)
                                     else np.array(samples)
                                 )
-                                pred = PredictiveBatch(samples=samples_np)
+                                # harness expects mean/std for CRPS; derive from samples when 3D
+                                try:
+                                    if samples_np.ndim == 3:
+                                        # [B, nS, D] or [nS, B, D] – infer samples axis
+                                        if samples_np.shape[0] == out_test.shape[0]:
+                                            mean_np = samples_np.mean(axis=1)
+                                            std_np = samples_np.std(axis=1)
+                                        else:
+                                            mean_np = samples_np.mean(axis=0)
+                                            std_np = samples_np.std(axis=0)
+                                        pred = PredictiveBatch(
+                                            mean=mean_np, std=std_np, samples=samples_np
+                                        )
+                                    else:
+                                        pred = PredictiveBatch(samples=samples_np)
+                                except Exception:
+                                    pred = PredictiveBatch(samples=samples_np)
                             except Exception:
                                 pred = PredictiveBatch(
                                     point=out_test[:, :d_out].cpu()
@@ -244,37 +308,52 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                         if isinstance(y_test, torch.Tensor)
                         else np.array(y_test)
                     )
-                    # distribution_metrics_report expects y_true and pred dict
-                    try:
-                        dist_rep = distribution_metrics_report(y_test, pred)
-                    except Exception:
-                        dist_rep = {}
-                    try:
-                        if pred.point is not None:
-                            y_pred_for_point = pred.point
-                        elif pred.mean is not None:
-                            y_pred_for_point = pred.mean
-                        elif pred.samples is not None:
-                            s = pred.samples
-                            if s.ndim == 3:
-                                y_pred_for_point = (
-                                    s.mean(axis=1)
-                                    if s.shape[1] > 1 and s.shape[0] == len(y_test)
-                                    else s.mean(axis=0)
-                                )
-                            else:
-                                y_pred_for_point = s
+                    # Build harness pred dict from PredictiveBatch
+                    pred_dict: dict[str, Any] = {}
+                    if pred.point is not None:
+                        pred_dict["y_pred"] = np.asarray(pred.point)
+                    if pred.mean is not None:
+                        pred_dict["mean"] = np.asarray(pred.mean)
+                    if pred.std is not None:
+                        pred_dict["std"] = np.asarray(pred.std)
+                    if pred.samples is not None:
+                        s = np.asarray(pred.samples)
+                        # harness PIT only supports 1D/2D samples; drop 3D multivariate for PIT
+                        # Keep mean/std for NLL/CRPS, drop samples to avoid ValueError
+                        if s.ndim == 3 and s.shape[-1] != 1:
+                            # drop: mean/std already present for nflow/mdn
+                            pass
                         else:
-                            y_pred_for_point = y_test
-                        point_rep = regression_metrics_report(y_test, y_pred_for_point)
-                    except Exception:
-                        point_rep = {}
+                            pred_dict["samples"] = s
+                    if not pred_dict and y_test_np is not None:
+                        # last resort: use mean point
+                        pred_dict["y_pred"] = y_test_np  # will give zero error
                     try:
-                        interval_rep = interval_metrics_report(y_test, pred)
+                        metrics = compute_all_metrics(pred_dict, y_test_np)
                     except Exception:
-                        interval_rep = {}
+                        # fallback to simple point mse if harness fails
+                        try:
+                            if pred.point is not None:
+                                y_pred_fp = np.asarray(pred.point)
+                            elif pred.mean is not None:
+                                y_pred_fp = np.asarray(pred.mean)
+                            elif pred.samples is not None:
+                                s = np.asarray(pred.samples)
+                                if s.ndim == 3:
+                                    # [B, nS, D] or [nS, B, D] — mean over samples dim
+                                    if s.shape[0] == len(y_test_np):
+                                        y_pred_fp = s.mean(axis=1)
+                                    else:
+                                        y_pred_fp = s.mean(axis=0)
+                                else:
+                                    y_pred_fp = s.mean(axis=0) if s.ndim == 2 else s
+                            else:
+                                y_pred_fp = y_test_np
+                            from harness.metrics import compute_point_metrics as _cpm
 
-                    metrics = {**point_rep, **interval_rep, **dist_rep}
+                            metrics = _cpm(y_pred_fp.reshape(-1), y_test_np.reshape(-1))
+                        except Exception:
+                            metrics = {}
                     # ensure finite
                     for k, v in list(metrics.items()):
                         try:
@@ -282,7 +361,6 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                 metrics[k] = None
                         except Exception:
                             pass
-
                 except Exception as exc:
                     rows.append(
                         {

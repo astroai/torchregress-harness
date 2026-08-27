@@ -1,0 +1,15 @@
+datasets:
+  - name: superconductivity
+    type: tabular
+    n_cap: 2000
+    target_dim: 2
+    rho: 0.6
+methods:
+  - loss: gaussian_nll
+    loss_kwargs: {}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 1, hidden_dim: 64, n_transforms: 4}
+seeds: [42]
+epochs: 10
+batch_size: 256
+device: auto

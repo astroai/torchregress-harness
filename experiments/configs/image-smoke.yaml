@@ -1,0 +1,15 @@
+datasets:
+  - name: biwi
+    type: image
+    n_cap: 500
+    target_dim: 3
+    rho: 0.6
+methods:
+  - loss: gaussian_nll
+    loss_kwargs: {}
+  - loss: sls
+    loss_kwargs: {d: 3, context_dim: 64, K: 1, hidden_dim: 64, n_transforms: 4}
+seeds: [42]
+epochs: 5
+batch_size: 32
+device: auto
