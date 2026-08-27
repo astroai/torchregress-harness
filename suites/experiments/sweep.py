@@ -46,7 +46,8 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
 
     rows: List[Dict[str, Any]] = []
     out_root.mkdir(parents=True, exist_ok=True)
-
+    # predictive samples for corner plots: (dataset, method) -> {samples, true}
+    corner_store: dict[tuple[str, str], dict[str, Any]] = {}
     for ds_cfg in cfg["datasets"]:
         for method_cfg in cfg["methods"]:
             for seed in cfg["seeds"]:
@@ -361,6 +362,59 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                 metrics[k] = None
                         except Exception:
                             pass
+                    # --- build samples for corner plot (store last seed per dataset×method) ---
+                    try:
+                        corner_key = (str(ds_cfg["name"]), str(method_cfg["loss"]))
+                        corner_samples = None  # [N_total, D]
+                        if pred.samples is not None:
+                            s = np.asarray(pred.samples)
+                            if s.ndim == 3:
+                                # [B, nS, D] or [nS, B, D] -> [B*nS, D]
+                                if s.shape[0] == out_test.shape[0]:
+                                    corner_samples = s.reshape(-1, s.shape[-1])
+                                elif s.shape[1] == out_test.shape[0]:
+                                    corner_samples = s.transpose(1, 0, 2).reshape(-1, s.shape[-1])
+                                else:
+                                    corner_samples = s.reshape(-1, s.shape[-1])
+                            elif s.ndim == 2:
+                                # univariate: [nS, B] -> [B*nS, 1]
+                                if s.shape[1] == y_test_np.shape[0]:
+                                    corner_samples = s.T.reshape(-1, 1)
+                                elif s.shape[0] == y_test_np.shape[0]:
+                                    corner_samples = s.reshape(-1, 1)
+                                else:
+                                    corner_samples = s.reshape(-1, 1)
+                        elif pred.mean is not None and pred.std is not None:
+                            mean_a = np.asarray(pred.mean)
+                            std_a = np.asarray(pred.std)
+                            if mean_a.ndim == 1:
+                                mean_a = mean_a[:, None]
+                            if std_a.ndim == 1:
+                                std_a = std_a[:, None]
+                            N_, D_ = mean_a.shape
+                            K = 128  # draws per point -> controls corner density
+                            corner_samples = (
+                                mean_a[:, None, :] + std_a[:, None, :] * np.random.randn(N_, K, D_)
+                            ).reshape(-1, D_)
+                        elif pred.point is not None:
+                            pt = np.asarray(pred.point)
+                            if pt.ndim == 1:
+                                pt = pt[:, None]
+                            corner_samples = pt  # [B, D]
+                        if corner_samples is not None and corner_samples.size > 0:
+                            # cap to 20000 rows for viz speed
+                            if corner_samples.shape[0] > 20000:
+                                idx = np.random.choice(
+                                    corner_samples.shape[0], 20000, replace=False
+                                )
+                                corner_samples = corner_samples[idx]
+                            corner_store[corner_key] = {
+                                "samples": corner_samples,
+                                "true": np.asarray(y_test_np),
+                                "d_out": int(d_out),
+                            }
+                    except Exception:
+                        pass
                 except Exception as exc:
                     rows.append(
                         {
@@ -392,33 +446,47 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                 # --- corner plot per dataset×method after all seeds (deferred) ---
                 # handled after loop
 
-    # --- corner plots: aggregate per dataset×method ---
+    # --- corner plots: real predictive samples per dataset×method ---
     try:
-        from collections import defaultdict
-
-        grouped = defaultdict(list)
-        for r in rows:
-            if r.get("Notes"):
-                continue
-            # need samples — for now skip if no samples, log note
-            grouped[(r["dataset"], r["method"])].append(r)
-        for (ds, method), lst in grouped.items():
-            # collect samples if available in metrics? For now skip actual rendering if no samples
-            # placeholder: create empty corner if not enough data
+        for (ds, method), info in corner_store.items():
             try:
-                # find d from first row's y_test? use 2
-                d = 2
-                # dummy samples for smoke: randn
-                samples = np.random.randn(500, d)
+                samples = np.asarray(info["samples"])
+                y_true = np.asarray(info["true"])
+                d = int(info.get("d_out", samples.shape[1] if samples.ndim == 2 else 2))
+                # sanitize: ensure 2D
+                if samples.ndim != 2:
+                    continue
+                if samples.shape[1] != d:
+                    d = samples.shape[1]
+                # limit D for corner readability (cap 4 dims)
+                max_d = 4
+                if d > max_d:
+                    samples = samples[:, :max_d]
+                    y_true = y_true[:, :max_d] if y_true.ndim == 2 else y_true
+                    d = max_d
+                # true values: median of y_test for reference lines
+                try:
+                    if y_true.ndim == 1:
+                        true_vals = np.array([float(np.median(y_true))])
+                    else:
+                        true_vals = np.median(y_true, axis=0).astype(float)
+                        if true_vals.ndim == 0:
+                            true_vals = np.array([float(true_vals)])
+                        true_vals = true_vals[:d]
+                except Exception:
+                    true_vals = None
+                save_path = out_root / ds / f"corner_{method}.png"
+                save_path.parent.mkdir(parents=True, exist_ok=True)
                 fig = plot_corner_plot(
                     samples=samples,
                     param_names=[f"y{i}" for i in range(d)],
-                    save_path=out_root / ds / f"corner_{method}.png",
+                    true_vals=true_vals,
+                    save_path=save_path,
                     return_figure=True,
                 )
-                plt.close(fig)
+                if fig is not None:
+                    plt.close(fig)
             except Exception as exc:
-                # log but don't fail sweep
                 rows.append(
                     {
                         "dataset": ds,
