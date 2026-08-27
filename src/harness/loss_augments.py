@@ -82,7 +82,7 @@ def _mixturedensity_log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
     sign-flip and **before** the ``reduction`` parameter is applied.
     """
     # Extract mixture weights, component means, and (stds | Cholesky Ls).
-    weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+    log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
     # Per-component log probabilities
     if self.covariance_type == "diagonal":
@@ -91,10 +91,8 @@ def _mixturedensity_log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
         log_probs_comp = self._log_prob_full(target, means, stds_or_L)
 
     # log P(y|X) = logsumexp_k [ log w_k + log p_k(y|X) ]
-    # Numerical stability: clamp the weights inside the log.
-    log_weights = torch.log(weights.clamp_min(self.eps))
+    # _extract_distribution_parameters now returns log_weights (log_softmax) directly
     return torch.logsumexp(log_weights + log_probs_comp, dim=-1)
-
 
 def _normalizingflow_predict_interval(
     self,
