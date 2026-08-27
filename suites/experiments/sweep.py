@@ -234,6 +234,13 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             torch.nn.ReLU(),
                             torch.nn.Linear(hidden, head_out),
                         )
+                    model.to(device)
+                    # SLS/NFlow have flow params that must follow model device
+                    try:
+                        if hasattr(loss_fn, "to"):
+                            loss_fn.to(device)  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
                     X_train_d = X_train.to(device)
                     y_train_d = y_train.to(device)
                     opt = torch.optim.Adam(model.parameters(), lr=cfg.get("lr", 1e-3))

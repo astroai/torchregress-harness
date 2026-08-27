@@ -33,6 +33,10 @@ torchregress-harness = { path = ".", editable = true }
 
 [environments]
 default = { features = ["dev", "test"], solve-group = "default" }
+gpu = { features = ["gpu", "dev", "test"], solve-group = "gpu" }
+
+[feature.gpu.system-requirements]
+cuda = "12"
 
 [tasks]
 lint = { cmd = "ruff check src/harness tests tools suites && ruff format --check src/harness tests tools suites" }
