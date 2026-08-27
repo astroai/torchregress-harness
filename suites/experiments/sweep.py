@@ -130,9 +130,13 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             model = backbone
                             loss_kwargs = {}  # prevent double creation
                         else:
-                            # gaussian, mdn, etc: need 2*d or similar — infer via dummy like tabular
-                            # reuse tabular helper: create a temp loss to infer head_out
-                            if method_cfg["loss"] == "gaussian":
+                            # gaussian, mdn, skew_t, etc: infer head size; handle full covariance ponytail
+                            lk_cov_i = loss_kwargs.get("covariance_type")
+                            if method_cfg["loss"] == "gaussian_nll" and lk_cov_i == "full":
+                                head_out = 2 * d_out  # fallback to diagonal
+                            elif method_cfg["loss"] in ("skew_t_nll", "skew_t"):
+                                head_out = 4 * d_out
+                            elif method_cfg["loss"] == "gaussian":
                                 head_out = 2 * d_out
                             elif method_cfg["loss"] == "gaussian_nll":
                                 head_out = 2 * d_out
@@ -148,12 +152,15 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                 # correct head_out for mdn if fallback was used
                                 K = int(loss_kwargs["n_components"])
                                 head_out = K + 2 * K * d_out
-                        # for non-nflow, create loss via registry if not already
                         if method_cfg["loss"] not in ("nflow", "contrastive_nflow"):
-                            loss_kwargs.setdefault("reduction", "mean")
-                            loss_fn = create_loss_from_config(
-                                {"type": method_cfg["loss"], **loss_kwargs}
-                            )
+                            lk_i = dict(loss_kwargs)
+                            if (
+                                method_cfg["loss"] == "gaussian_nll"
+                                and lk_i.get("covariance_type") == "full"
+                            ):
+                                lk_i["covariance_type"] = "diagonal"
+                            lk_i.setdefault("reduction", "mean")
+                            loss_fn = create_loss_from_config({"type": method_cfg["loss"], **lk_i})
                         if method_cfg["loss"] not in ("nflow", "contrastive_nflow", "sls"):
                             model = torch.nn.Sequential(backbone, torch.nn.Linear(64, head_out))
                         elif method_cfg["loss"] == "sls":
@@ -193,17 +200,33 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             head_out = hidden
                             loss_kwargs = {}  # already used
                         elif "gaussian" in method_cfg["loss"]:
-                            head_out = 2 * d_out
+                            lk_cov = loss_kwargs.get("covariance_type")
+                            if method_cfg["loss"] == "gaussian_nll" and lk_cov == "full":
+                                head_out = 2 * d_out
+                            else:
+                                head_out = 2 * d_out
+                        elif "skew_t" in method_cfg["loss"]:
+                            head_out = 4 * d_out
+                        elif "gev" in method_cfg["loss"]:
+                            head_out = 3 * d_out
                         elif "mdn" in method_cfg["loss"]:
                             K = loss_kwargs.get("n_components", 5)
                             head_out = K + 2 * K * d_out
                         else:
                             head_out = d_out
                         if method_cfg["loss"] not in ("nflow", "contrastive_nflow"):
-                            loss_kwargs.setdefault("reduction", "mean")
-                            loss_fn = create_loss_from_config(
-                                {"type": method_cfg["loss"], **loss_kwargs}
-                            )
+                            # handle full covariance: map to multivariate
+                            lk = dict(loss_kwargs)
+                            if (
+                                method_cfg["loss"] == "gaussian_nll"
+                                and lk.get("covariance_type") == "full"
+                            ):
+                                lk["covariance_type"] = (
+                                    "diagonal"  # ponytail: harness tabular MLP cannot emit full cov yet; keep diagonal for now
+                                )
+                                # TODO: emit cholesky and use MultivariateGaussianLoss
+                            lk.setdefault("reduction", "mean")
+                            loss_fn = create_loss_from_config({"type": method_cfg["loss"], **lk})
                         model = torch.nn.Sequential(
                             torch.nn.Linear(in_dim, hidden),
                             torch.nn.ReLU(),
@@ -291,6 +314,10 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             )
                             std = torch.exp(0.5 * log_var).clamp_min(1e-3)
                             pred = PredictiveBatch(mean=mu.cpu(), std=std.cpu())
+                        elif "skew_t" in method_cfg["loss"] or "gev" in method_cfg["loss"]:
+                            # location is first d_out columns; treat as point/mean for metrics/corner
+                            mu = out_test[:, :d_out] if out_test.shape[1] >= d_out else out_test
+                            pred = PredictiveBatch(point=mu.cpu(), mean=mu.cpu())
                         elif "mdn" in method_cfg["loss"]:
                             try:
                                 mean, std = loss_fn.predict_mean_std(out_test)
@@ -302,7 +329,6 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                 pred = PredictiveBatch(point=out_test.cpu())
                         else:
                             pred = PredictiveBatch(point=out_test.cpu())
-
                     # metrics — headless, CPU
                     y_test_np = (
                         y_test.cpu().numpy()
@@ -451,6 +477,18 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
         for (ds, method), info in corner_store.items():
             try:
                 samples = np.asarray(info["samples"])
+                # drop non-finite rows before viz
+                try:
+                    mask = (
+                        np.isfinite(samples).all(axis=1)
+                        if samples.ndim == 2
+                        else np.isfinite(samples)
+                    )
+                    samples = samples[mask] if mask.ndim == 1 else samples
+                    if samples.size == 0 or samples.shape[0] < 10:
+                        continue
+                except Exception:
+                    pass
                 y_true = np.asarray(info["true"])
                 d = int(info.get("d_out", samples.shape[1] if samples.ndim == 2 else 2))
                 # sanitize: ensure 2D
