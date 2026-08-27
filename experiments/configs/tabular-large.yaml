@@ -1,0 +1,31 @@
+datasets:
+  - name: california_housing
+    type: tabular
+    n_cap: 10000
+    target_dim: 2
+    rho: 0.6
+  - name: superconductivity
+    type: tabular
+    n_cap: 20000
+    target_dim: 2
+    rho: 0.6
+  - name: year_prediction_msd
+    type: tabular
+    n_cap: 50000
+    target_dim: 2
+    rho: 0.6
+methods:
+  - loss: gaussian_nll
+    loss_kwargs: {}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 1, hidden_dim: 64, n_transforms: 4}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 3, hidden_dim: 64, n_transforms: 4}
+  - loss: nflow
+    loss_kwargs: {n_features: 2, context_dim: 64, flow_type: nsf, n_transforms: 5, hidden_features: [64, 64]}
+  - loss: mdn
+    loss_kwargs: {n_components: 5, n_features: 2, covariance_type: diagonal}
+seeds: [42, 43, 44]
+epochs: 60
+batch_size: 256
+device: auto

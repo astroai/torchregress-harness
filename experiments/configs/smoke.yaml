@@ -1,0 +1,17 @@
+datasets:
+  - name: diabetes
+    type: tabular
+    n_cap: 442
+    target_dim: 2
+    rho: 0.6
+methods:
+  - loss: gaussian_nll
+    loss_kwargs: {}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 1, hidden_dim: 64, n_transforms: 4}
+  - loss: nflow
+    loss_kwargs: {n_features: 2, context_dim: 64, flow_type: nsf, n_transforms: 3, hidden_features: [64, 64]}
+seeds: [42]
+epochs: 20
+batch_size: 256
+device: auto

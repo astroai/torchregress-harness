@@ -1,0 +1,36 @@
+datasets:
+  - name: diabetes
+    type: tabular
+    n_cap: 442
+    target_dim: 2
+    rho: 0.6
+  - name: superconductivity
+    type: tabular
+    n_cap: 5000
+    target_dim: 2
+    rho: 0.6
+methods:
+  - loss: gaussian_nll
+    loss_kwargs: {}
+  - loss: gaussian_nll
+    loss_kwargs: {covariance_type: full}
+  - loss: mdn
+    loss_kwargs: {n_components: 2, n_features: 2, covariance_type: diagonal}
+  - loss: mdn
+    loss_kwargs: {n_components: 5, n_features: 2, covariance_type: diagonal}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 1, hidden_dim: 32, n_transforms: 2}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 1, hidden_dim: 64, n_transforms: 4}
+  - loss: sls
+    loss_kwargs: {d: 2, context_dim: 64, K: 3, hidden_dim: 64, n_transforms: 4}
+  - loss: nflow
+    loss_kwargs: {n_features: 2, context_dim: 64, flow_type: nsf, n_transforms: 3, hidden_features: [64, 64]}
+  - loss: nflow
+    loss_kwargs: {n_features: 2, context_dim: 64, flow_type: maf, n_transforms: 5, hidden_features: [64, 64]}
+  - loss: skew_t_nll
+    loss_kwargs: {}
+seeds: [42]
+epochs: 40
+batch_size: 256
+device: auto
