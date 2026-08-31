@@ -62,13 +62,13 @@ PROPOSAL §15 (unify `DistributionLoss` interface) is partially addressed:
 
 ```bash
 # Smoke test from this repo's venv (which already has torchregress installed):
-uv run python proposals/conditional_flow/conditional_flow.py
+pixi run python proposals/conditional_flow/conditional_flow.py
 # expected: [conditional_flow._demo] OK: is_fitted=True, predict=(50, 1),
 #          interval=(50, 1)x(50, 1), samples=(50, 4, 1), log_prob=(50,),
 #          posterior=(3, 25)
 
 # Or import-check only:
-uv run python -c "from proposals.conditional_flow import ConditionalFlow; print('OK')"
+pixi run python -c "from proposals.conditional_flow import ConditionalFlow; print('OK')"
 ```
 
 Production validation is deferred to the upstream PR's `torchregress/tests/`
