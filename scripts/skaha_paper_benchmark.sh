@@ -136,6 +136,11 @@ EOF
 
 # --- 2. Pixi env --------------------------------------------------------------
 export PATH="$HOME/.pixi/bin:$PATH"
+# Mock the CUDA virtual package for every pixi invocation (install AND run):
+# the committed lock carries a CUDA pseudo-platform solve, which CPU-only
+# headless nodes reject with "unsupported-platform ... __cuda". Offsetting the
+# mock with CONDA_OVERRIDE_CUDA lets CPU nodes install and run the CPU parts.
+export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
 if ! command -v pixi >/dev/null 2>&1; then
   log "installing pixi"
   curl -fsSL https://pixi.sh/install.sh | bash
@@ -154,7 +159,7 @@ fi
 # wire torchregress/harness into the env with a .pth instead of pip -e.
 OFFLINE_MODE="${OFFLINE_MODE:-0}"
 # The openworker image ships a read-only system venv on PATH; make sure the
-# pixi env owns pip/setuptools so `pixi run pip` installs into the writable
+# pixi env owns pip/setuptools so `pixi_run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
 # NOTE: `pixi add` re-solves every environment and fails on CPU-only nodes
 # when the lock carries a CUDA pseudo-platform; the cached offline env already
@@ -170,7 +175,11 @@ if [ "$OFFLINE_MODE" != "1" ]; then
 fi
 if [ "$OFFLINE_MODE" = "1" ]; then
   log "OFFLINE_MODE: wiring local packages via .pth (no pypi)"
-  pixi run python - <<'PY'
+  # Direct interpreter call: `pixi run` re-validates every environment and
+  # fails on CPU nodes when the lock carries a CUDA pseudo-platform.
+  PYBIN="$PWD/.pixi/envs/default/bin/python"
+  [ -x "$PYBIN" ] || { log "FATAL: cached pixi env python missing at $PYBIN"; exit 1; }
+  "$PYBIN" - <<'PY'
 import pathlib, sysconfig
 sp = pathlib.Path(sysconfig.get_paths()["purelib"])
 root = pathlib.Path.cwd().parent  # $SRC (torchregress-harness's parent)
@@ -185,9 +194,9 @@ if [ "$OFFLINE_MODE" = "1" ]; then
   log "OFFLINE_MODE: skipping pypi/git pip installs (already in cached env)"
 else
   log "installing MAPIE git pin"
-  pixi run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
+  pixi_run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
   log "installing torch-uncertainty git pin + lightning"
-  pixi run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
+  pixi_run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
 fi
 
 # --- 4. Optional extras (best-effort; skips degrade gracefully) ---------------
@@ -195,13 +204,13 @@ if [ "$OFFLINE_MODE" = "1" ]; then
   log "OFFLINE_MODE: skipping [all] extras and pzflow pip installs"
 else
   log "installing optional extras [all] (best-effort)"
-  pixi run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
+  pixi_run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
   log "installing pzflow (best-effort)"
-  pixi run pip install --quiet pzflow || log "WARN: pzflow install failed"
+  pixi_run pip install --quiet pzflow || log "WARN: pzflow install failed"
 fi
 
 log "recording installed versions"
-pixi run python - <<'PY' > "$OUT_DIR/versions.txt" 2>&1 || true
+pixi_run python - <<'PY' > "$OUT_DIR/versions.txt" 2>&1 || true
 import importlib.metadata as md
 for pkg in ("mapie", "torch-uncertainty", "torch", "lightning", "torchregress",
             "torchregress-harness", "pzflow", "jax", "crepes", "torchcp",
@@ -217,7 +226,7 @@ PY
 cat "$OUT_DIR/versions.txt"
 
 # --- 4b. Pre-flight import check (fail fast instead of 7 failing steps) ------
-if ! pixi run python -c "import torch, torchvision, torchregress, harness, mapie"; then
+if ! pixi_run python -c "import torch, torchvision, torchregress, harness, mapie"; then
   log "FATAL: pre-flight import check failed (torch/torchvision ABI mismatch?) -- aborting"
   exit 1
 fi
@@ -229,19 +238,19 @@ run_bench() {
   "$@" || log "WARN: step failed (continuing): $*"
 }
 
-run_bench pixi run python tools/run_canonical.py --scenario mapie_reference \
+run_bench pixi_run python tools/run_canonical.py --scenario mapie_reference \
   --output "$OUT_DIR/canonical_mapie.json" --report "$OUT_DIR/canonical_mapie.md"
-run_bench pixi run python tools/run_canonical.py --scenario crepes_reference \
+run_bench pixi_run python tools/run_canonical.py --scenario crepes_reference \
   --output "$OUT_DIR/canonical_crepes.json" --report "$OUT_DIR/canonical_crepes.md"
-run_bench pixi run python leaderboard_conformal.py \
+run_bench pixi_run python leaderboard_conformal.py \
   --output "$OUT_DIR/leaderboard_conformal.json" --epochs 60
-run_bench pixi run python tools/leaderboard_regression.py \
+run_bench pixi_run python tools/leaderboard_regression.py \
   --output "$OUT_DIR/leaderboard_results.json" --markdown "$OUT_DIR/leaderboard_results.md"
-run_bench pixi run python tools/benchmark_pit_ensemble.py \
+run_bench pixi_run python tools/benchmark_pit_ensemble.py \
   --epochs 60 --output "$OUT_DIR/pit_ensemble.json"
-run_bench pixi run python tools/run_all.py --suites conformal \
+run_bench pixi_run python tools/run_all.py --suites conformal \
   --datasets california_housing --output "$OUT_DIR/run_all_conformal.json"
-run_bench pixi run python tools/run_all.py --suites age_regression \
+run_bench pixi_run python tools/run_all.py --suites age_regression \
   --datasets synthetic_image_regression --output "$OUT_DIR/run_all_image.json"
 
 # --- 6. Summary ---------------------------------------------------------------
@@ -249,7 +258,7 @@ log "===== ARTIFACTS ====="
 ls -la "$OUT_DIR" || true
 
 log "===== EXTERNAL LIBRARY ROWS (LibraryVersion) ====="
-pixi run python - "$OUT_DIR" <<'PY' || true
+pixi_run python - "$OUT_DIR" <<'PY' || true
 import json, sys, glob, os
 root = sys.argv[1]
 def rows_of(path):
