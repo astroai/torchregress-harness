@@ -109,13 +109,16 @@ refresh_repo() { # <dest> <repo>
 if [ ! -d "$SRC/torchregress/.git" ]; then
   log "cloning astroai/torchregress"
   clone_repo astroai/torchregress "$SRC/torchregress"
+else
+  log "torchregress clone exists; refreshing"
+  refresh_repo "$SRC/torchregress" sfabbro/torchregress 2>/dev/null || true
 fi
 if [ ! -d "$SRC/torchregress-harness/.git" ]; then
   log "cloning astroai/torchregress-harness"
   clone_repo astroai/torchregress-harness "$SRC/torchregress-harness"
 else
   log "harness clone exists; refreshing"
-  refresh_repo "$SRC/torchregress-harness" astroai/torchregress-harness 2>/dev/null || true
+  refresh_repo "$SRC/torchregress-harness" sfabbro/torchregress-harness 2>/dev/null || true
 fi
 cd "$SRC/torchregress-harness"
 HARNESS_SHA=$(git rev-parse HEAD)
