@@ -156,13 +156,18 @@ OFFLINE_MODE="${OFFLINE_MODE:-0}"
 # The openworker image ships a read-only system venv on PATH; make sure the
 # pixi env owns pip/setuptools so `pixi run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
-pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
-# torch must pair with torchvision from the SAME source.  The conda-forge
-# torch in the pixi env is ABI-incompatible with a PyPI torchvision wheel
-# (torchvision::nms does not exist).  Install torchvision from conda-forge and
-# drop any pip-installed one so pip does not reinstall its own wheel during
-# the extras step.
-pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
+# NOTE: `pixi add` re-solves every environment and fails on CPU-only nodes
+# when the lock carries a CUDA pseudo-platform; the cached offline env already
+# contains pip/setuptools/torchvision, so skip adds there.
+if [ "$OFFLINE_MODE" != "1" ]; then
+  pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
+  # torch must pair with torchvision from the SAME source.  The conda-forge
+  # torch in the pixi env is ABI-incompatible with a PyPI torchvision wheel
+  # (torchvision::nms does not exist).  Install torchvision from conda-forge and
+  # drop any pip-installed one so pip does not reinstall its own wheel during
+  # the extras step.
+  pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
+fi
 if [ "$OFFLINE_MODE" = "1" ]; then
   log "OFFLINE_MODE: wiring local packages via .pth (no pypi)"
   pixi run python - <<'PY'
