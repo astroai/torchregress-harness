@@ -149,6 +149,10 @@ if [ "${SKIP_PIXI_INSTALL:-}" != "1" ]; then
   # GPU machines; mock the virtual package so CPU nodes can install.
   CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}" pixi install -e default
 fi
+# OFFLINE_MODE=1: Skaha headless nodes cannot reach pypi.org (egress blocked);
+# reuse the cached pixi env on /arc, take torchvision from conda-forge, and
+# wire torchregress/harness into the env with a .pth instead of pip -e.
+OFFLINE_MODE="${OFFLINE_MODE:-0}"
 # The openworker image ships a read-only system venv on PATH; make sure the
 # pixi env owns pip/setuptools so `pixi run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
@@ -158,20 +162,38 @@ pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setupto
 # (torchvision::nms does not exist).  Install torchvision from conda-forge and
 # drop any pip-installed one so pip does not reinstall its own wheel during
 # the extras step.
-pixi run pip uninstall -y torchvision >/dev/null 2>&1 || true
 pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: wiring local packages via .pth (no pypi)"
+  pixi run python - <<'PY'
+import pathlib, sysconfig
+sp = pathlib.Path(sysconfig.get_paths()["purelib"])
+root = pathlib.Path.cwd().parent  # $SRC (torchregress-harness's parent)
+lines = [str(root / "torchregress" / "src"), str(root / "torchregress-harness" / "src")]
+(sp / "harness_local.pth").write_text("\n".join(lines) + "\n")
+print("wrote", sp / "harness_local.pth")
+PY
+fi
 
 # --- 3. Pinned external libraries (EXTERNAL_PINS.md) --------------------------
-log "installing MAPIE git pin"
-pixi run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
-log "installing torch-uncertainty git pin + lightning"
-pixi run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: skipping pypi/git pip installs (already in cached env)"
+else
+  log "installing MAPIE git pin"
+  pixi run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
+  log "installing torch-uncertainty git pin + lightning"
+  pixi run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
+fi
 
 # --- 4. Optional extras (best-effort; skips degrade gracefully) ---------------
-log "installing optional extras [all] (best-effort)"
-pixi run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
-log "installing pzflow (best-effort)"
-pixi run pip install --quiet pzflow || log "WARN: pzflow install failed"
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: skipping [all] extras and pzflow pip installs"
+else
+  log "installing optional extras [all] (best-effort)"
+  pixi run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
+  log "installing pzflow (best-effort)"
+  pixi run pip install --quiet pzflow || log "WARN: pzflow install failed"
+fi
 
 log "recording installed versions"
 pixi run python - <<'PY' > "$OUT_DIR/versions.txt" 2>&1 || true
