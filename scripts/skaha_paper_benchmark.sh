@@ -145,7 +145,9 @@ if [ "${SKIP_PIXI_INSTALL:-}" != "1" ]; then
   log "pixi install (locked env; may take several minutes)"
   # -e default: plain `pixi install` installs EVERY env incl. the CUDA `gpu`
   # env, which fails on CPU-only headless nodes. Only default is needed here.
-  pixi install -e default
+  # CONDA_OVERRIDE_CUDA: the lock may carry a CUDA pseudo-platform solve from
+  # GPU machines; mock the virtual package so CPU nodes can install.
+  CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}" pixi install -e default
 fi
 # The openworker image ships a read-only system venv on PATH; make sure the
 # pixi env owns pip/setuptools so `pixi run pip` installs into the writable
