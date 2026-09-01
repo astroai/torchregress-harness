@@ -143,7 +143,9 @@ if ! command -v pixi >/dev/null 2>&1; then
 fi
 if [ "${SKIP_PIXI_INSTALL:-}" != "1" ]; then
   log "pixi install (locked env; may take several minutes)"
-  pixi install
+  # -e default: plain `pixi install` installs EVERY env incl. the CUDA `gpu`
+  # env, which fails on CPU-only headless nodes. Only default is needed here.
+  pixi install -e default
 fi
 # The openworker image ships a read-only system venv on PATH; make sure the
 # pixi env owns pip/setuptools so `pixi run pip` installs into the writable
