@@ -36,10 +36,18 @@ set -euo pipefail
 
 # Skaha containers run as a non-root user without write access to the
 # system pixi/uv caches -- redirect every cache to $HOME (or /arc).
-export PIXI_HOME="${PIXI_HOME:-$HOME/.pixi}"
-export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}"
-export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-export PIXI_CACHE_DIR="${PIXI_CACHE_DIR:-$HOME/.cache/pixi}"
+# NOTE: some images pre-set PIXI_HOME to a non-writable path (e.g.
+# /usr/local/share/pixi); force a writable location instead of honoring it.
+ensure_writable() { [ -d "$1" ] && [ -w "$1" ] || mkdir -p "$1" 2>/dev/null && [ -w "$1" ]; }
+export PIXI_HOME="$HOME/.pixi"
+ensure_writable "$PIXI_HOME" || PIXI_HOME="/arc/home/sfabbro/.pixi"
+export PIXI_HOME
+export PIXI_CACHE_DIR="$HOME/.cache/pixi"
+export UV_CACHE_DIR="$HOME/.cache/uv"
+export XDG_CACHE_HOME="$HOME/.cache"
+ensure_writable "$UV_CACHE_DIR" || { export UV_CACHE_DIR="/arc/home/sfabbro/.cache/uv"; ensure_writable "$UV_CACHE_DIR"; }
+export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
+echo "[caches] PIXI_HOME=$PIXI_HOME UV_CACHE_DIR=$UV_CACHE_DIR"
 
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
 MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
