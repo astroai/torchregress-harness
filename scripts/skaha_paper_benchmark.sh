@@ -98,12 +98,13 @@ clone_repo() { # <repo> <dest>
   git -C "$2" remote set-url origin "https://github.com/$1"
 }
 refresh_repo() { # <dest> <repo>
+  local url="https://github.com/$2"
   if [ -n "${GH_TOKEN:-}" ]; then
-    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 origin main
+    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 "$url" main
   else
-    git -C "$1" fetch --depth 1 origin main
+    git -C "$1" fetch --depth 1 "$url" main
   fi
-  git -C "$1" reset --hard origin/main
+  git -C "$1" reset --hard FETCH_HEAD
 }
 
 if [ ! -d "$SRC/torchregress/.git" ]; then
