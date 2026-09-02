@@ -158,6 +158,22 @@ fi
 # reuse the cached pixi env on /arc, take torchvision from conda-forge, and
 # wire torchregress/harness into the env with a .pth instead of pip -e.
 OFFLINE_MODE="${OFFLINE_MODE:-0}"
+# pixi_run: drop-in for `pixi run` that skips pixi's environment re-validation
+# (`pixi run` re-solves the lock and fails on CPU-only nodes when the lock
+# carries a CUDA pseudo-platform). In OFFLINE_MODE, invoke the cached env's
+# binaries directly instead.
+pixi_run() {
+  if [ "$OFFLINE_MODE" = "1" ]; then
+    local envbin="$SRC/torchregress-harness/.pixi/envs/default/bin"
+    case "$1" in
+      python) "$envbin/python" "${@:2}" ;;
+      pip)    "$envbin/python" -m pip "${@:2}" ;;
+      *)      "$envbin/$1" "${@:2}" ;;
+    esac
+  else
+    pixi run "$@"
+  fi
+}
 # The openworker image ships a read-only system venv on PATH; make sure the
 # pixi env owns pip/setuptools so `pixi_run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
