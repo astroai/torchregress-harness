@@ -242,7 +242,9 @@ PY
 cat "$OUT_DIR/versions.txt"
 
 # --- 4b. Pre-flight import check (fail fast instead of 7 failing steps) ------
-if ! pixi_run python -c "import torch, torchvision, torchregress, harness, mapie"; then
+# torchvision is NOT imported anywhere in harness/torchregress (datasets.py
+# resizes via numpy+PIL); only torch + the wired locals are load-bearing.
+if ! pixi_run python -c "import torch, torchregress, harness, mapie"; then
   log "FATAL: pre-flight import check failed (torch/torchvision ABI mismatch?) -- aborting"
   exit 1
 fi
