@@ -12,6 +12,11 @@ pytorch = ">=2.0"
 numpy = ">=1.24"
 scipy = ">=1.10"
 scikit-learn = "*"
+# httpx/requests: required by huggingface_hub>=1 and torch_geometric (both
+# present in the offline /arc env); missing here made torchmetrics and every
+# harness benchmark step fail with ModuleNotFoundError on headless nodes.
+httpx = ">=0.28.1,<0.29"
+requests = ">=2.34.2,<3"
 pandas = "*"
 matplotlib = "*"
 tqdm = "*"
