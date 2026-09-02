@@ -270,6 +270,10 @@ run_bench pixi_run python tools/run_all.py --suites conformal \
   --datasets california_housing --output "$OUT_DIR/run_all_conformal.json"
 run_bench pixi_run python tools/run_all.py --suites age_regression \
   --datasets synthetic_image_regression --output "$OUT_DIR/run_all_image.json"
+# Diversity/stress matrix: 6 stress axes x methods x metrics (+ LUQ-box rows
+# when lightning-uq-box is importable in the env).
+run_bench pixi_run python tools/run_all.py --suites stress_matrix \
+  --output "$OUT_DIR/run_all_stress_matrix.json"
 
 # --- 6. Summary ---------------------------------------------------------------
 log "===== ARTIFACTS ====="
