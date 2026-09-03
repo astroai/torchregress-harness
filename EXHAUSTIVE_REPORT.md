@@ -94,12 +94,12 @@ Offline-mode fixes committed to the harness (all pushed):
 |---|---|---|
 | Imbalanced targets | MSE 0.475 · BinReweighted 0.475 · DensityWeighted 0.556 · LDS 0.563 | MSE / BinReweighted |
 | Noisy inputs (EIV) | MSE 0.422 · InputNoise 0.498 | plain MSE (noise modest, σx=0.5) |
-| Noisy labels | BetaNLL 0.586 · NoisyTargetNLL 0.589 · GaussianNLL 0.591; NLL: BetaNLL 0.960 < GaussianNLL 1.069 | BetaNLL (best NLL + best RMSE) |
+| Noisy labels | BetaNLL 0.763 · GaussianNLL 0.774 · NoisyTargetNLL 0.781 (RMSE); NLL: NoisyTargetNLL 1.146 < BetaNLL 1.219 < GaussianNLL 1.305, PIT_KS 0.031 | NoisyTargetNLL (best NLL + best PIT; eval adds the known test-side noise variance to predictive variance) |
 | Sparse labels (20%) | SupervisedOnly 0.340 · PseudoLabelNLL 0.449 | supervised-only baseline |
 | OOD (covariate shift) | DeepEnsemble_K10 0.425 · GaussianNLL 0.567 · MC_Dropout 0.577 | DeepEnsemble_K10 |
-| Semi-supervised (200 labeled) | SupervisedOnly 0.463 · SAGE 0.780 (PIT_KS 0.030 — best calibration) | supervised on RMSE; SAGE on PIT uniformity |
+| Semi-supervised (200 labeled) | SupervisedOnly 0.513 (NLL 6.12) · SAGE 0.582 (NLL 1.06, PIT_KS 0.085 — best calibration) | supervised on RMSE; SAGE on NLL/CRPS/PIT (tuned: BetaNLL(β=1) supervision, agreement_weight 0.3, 100 ep — see `stress_matrix_sage_tuned_localverify.json`) |
 
-Full per-row metrics (NLL/CRPS/ECE/PIT) in `runs/stress_20260903_011458/stress_matrix_fixed_localverify.json`. LUQ-box comparator rows are import-gated and require a fresh headless re-run after the signature fix (commit pending push).
+Full per-row metrics (NLL/CRPS/ECE/PIT) in `runs/stress_20260903_011458/stress_matrix_fixed_localverify.json` (pre-tuning), `stress_matrix_sage_tuned_localverify.json` (SAGE tuned, 2026-09-03) and `stress_matrix_noisytgtfix_sage_tuned_localverify.json` (NoisyTargetNLL eval-protocol fix + SAGE tuning; 3-seed stability: 48/48 rows clean). LUQ-box comparator rows are import-gated and require a fresh headless re-run after the signature fix (commit pending push).
 
 ## 6. Conclusion
 

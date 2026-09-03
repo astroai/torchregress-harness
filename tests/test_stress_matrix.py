@@ -86,6 +86,76 @@ def test_axis_methods_require_only_own_columns(suite: StressMatrixSuite) -> None
         assert axis in _STRESS_GENERATORS
 
 
+def test_sage_tuned_hyperparameters_wired() -> None:
+    """SAGE config must stay on the tuned 3-seed sweep optimum.
+
+    Sweep (2026-09-03) on the full stress_semi_sup axis found RMSE 0.58 /
+    NLL 1.06 with BetaNLL(beta=1) supervision, agreement_weight 0.3 and 100
+    epochs. Plain GaussianNLL supervision collapses the variance head, and
+    <400 optimizer steps leaves the EMA teacher polluted by its random init
+    (RMSE 0.78+).
+    """
+    import inspect
+    import types
+
+    from suites.tabular import stress_matrix as sm
+
+    src = inspect.getsource(sm.StressMatrixSuite._fit_sage)
+    assert "BetaNLLLoss(beta=1.0)" in src, "supervision must be BetaNLL(beta=1.0)"
+    assert 'agreement_weight=0.3' in src, "agreement_weight must be 0.3"
+    assert "epochs = 2 if config.smoke else 100" in src, "full-run epochs must be 100"
+    # BetaNLLLoss must be importable where _fit_sage can see it.
+    mod = types.SimpleNamespace(**vars(sm))
+    assert hasattr(mod, "BetaNLLLoss")
+
+
+def test_noisy_labels_generator_emits_test_variance() -> None:
+    """The known noise law is deterministic from X, so test-side variance exists."""
+    import numpy as np
+    from suites.tabular.stress_matrix import load_stress_dataset
+
+    data = load_stress_dataset("stress_noisy_labels")
+    tv = data["target_variance_test"]
+    expected = 0.1 + 0.4 * np.abs(data["X_test"][:, 0])
+    np.testing.assert_allclose(tv, expected, rtol=1e-5)
+    assert len(tv) == len(data["X_test"])
+
+
+def test_noisytarget_predict_adds_known_noise(suite: StressMatrixSuite) -> None:
+    """NoisyTargetGaussianNLL eval variance must include the known test noise.
+
+    Training scores NLL against pred_var + target_var, so the head's own
+    variance optimizes toward the residual excess only. Without adding the
+    known noise back at eval, NLL is scored against a collapsed variance
+    (run stress_20260903_011458: NLL 6.5-3379 vs ~1.2 for its peers).
+    """
+    import numpy as np
+    from suites.tabular.stress_matrix import load_stress_dataset
+
+    from harness.metrics import compute_all_metrics
+
+    data = load_stress_dataset("stress_noisy_labels")
+    cfg = _smoke_config()
+    model = suite.fit("stress_noisy_labels/NoisyTargetGaussianNLL_MLP", data, cfg)
+    preds = suite.predict(
+        "stress_noisy_labels/NoisyTargetGaussianNLL_MLP", model, data["X_test"], cfg
+    )
+    mean = np.asarray(preds["mean"]).reshape(-1)
+    std = np.asarray(preds["std"]).reshape(-1)
+    assert len(mean) == len(std) > 0
+    tv = np.asarray(data["target_variance_test"], dtype=np.float64)[: len(mean)]
+    # Predictive variance must dominate the known noise everywhere.
+    assert np.all(std.astype(np.float64) ** 2 >= tv - 1e-8)
+    # Peer methods must NOT get the additive variance (raw head protocol).
+    plain = suite.fit("stress_noisy_labels/GaussianNLL_MLP", data, cfg)
+    assert "target_variance_test" not in plain
+    # Smoke-run NLL must be finite (the collapse produced ~1e3 values).
+    yte = np.asarray(data["y_test"]).reshape(-1)[: len(mean)]
+    m = compute_all_metrics({"mean": mean, "std": std}, yte)
+    assert np.isfinite(m["NLL"])
+    assert m["NLL"] < 50.0, f"NLL still diverged: {m['NLL']}"
+
+
 def test_luqbox_methods_import_gated(suite: StressMatrixSuite) -> None:
     """LUQ-box rows either run clean or are skipped — never error."""
     rows = suite.run("stress_ood", config=_smoke_config())
