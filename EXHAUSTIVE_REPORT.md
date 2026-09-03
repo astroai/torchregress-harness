@@ -79,6 +79,8 @@ The leaderboard includes rows from **MAPIE, crepes, torchcp, pzflow, sklearn, ta
 
 **Status:** complete. First full run (session `w03k5rek` → run `stress_20260903_011458`, harness `cdff7b8`) surfaced 6 failure modes (35 errors / 12 skips of 108 rows): cross-axis method/dataset pairing, `LDSLoss.fit()` API mismatch, non-mask-aware `nn.MSELoss` base, float `~label_mask`, LUQ-box v0.3.0 MLP signature drift, and a smoke-mode mask truncation bug in SAGE. All fixed in the harness (plus an `n_ok` miscount in `write_harness_json`); regression-tested by `tests/test_stress_matrix.py` (9 tests) and verified locally: **16/16 rows OK, 0 errors, 0 skips** (artifact `stress_matrix_fixed_localverify.json`).
 
+A seventh defect surfaced in the first LUQ-box-enabled headless run (`stress_20260903_174930`): `LUQMLP` was built with its default `dropout_p=0.0`, so the `luqbox_MCDropout` comparator wrapped a net with **no dropout layers** — MC "sampling" replayed a deterministic net 20× (std → the 1e-8 clip floor, NLL 1.8e15) and its point metrics were bit-identical to `luqbox_GaussianNLL`. The LUQ-box fit also ran only 15 epochs (vs 60 for torchregress rows) with all work billed to `eval_s`. Fixed in `539e3a2` (dropout_p=0.5, fit/predict split, predict mirrors the library's own `predict_step` with Kendall et al. 2017 predictive uncertainty), regression-guarded by `test_luqbox_mcdropout_has_real_dropout`.
+
 ## 5. Harness Engineering Notes (this session)
 
 Offline-mode fixes committed to the harness (all pushed):
@@ -99,10 +101,23 @@ Offline-mode fixes committed to the harness (all pushed):
 | OOD (covariate shift) | DeepEnsemble_K10 0.425 · GaussianNLL 0.567 · MC_Dropout 0.577 | DeepEnsemble_K10 |
 | Semi-supervised (200 labeled) | SupervisedOnly 0.513 (NLL 6.12) · SAGE 0.582 (NLL 1.06, PIT_KS 0.085 — best calibration) | supervised on RMSE; SAGE on NLL/CRPS/PIT (tuned: BetaNLL(β=1) supervision, agreement_weight 0.3, 100 ep — see `stress_matrix_sage_tuned_localverify.json`) |
 
-Full per-row metrics (NLL/CRPS/ECE/PIT) in `runs/stress_20260903_011458/stress_matrix_fixed_localverify.json` (pre-tuning), `stress_matrix_sage_tuned_localverify.json` (SAGE tuned, 2026-09-03) and `stress_matrix_noisytgtfix_sage_tuned_localverify.json` (NoisyTargetNLL eval-protocol fix + SAGE tuning; 3-seed stability: 48/48 rows clean). LUQ-box comparator rows are import-gated and require a fresh headless re-run after the signature fix (commit pending push).
+Full per-row metrics (NLL/CRPS/ECE/PIT) in `runs/stress_20260903_011458/stress_matrix_fixed_localverify.json` (pre-tuning), `stress_matrix_sage_tuned_localverify.json` (SAGE tuned, 2026-09-03) and `stress_matrix_noisytgtfix_sage_tuned_localverify.json` (NoisyTargetNLL eval-protocol fix + SAGE tuning; 3-seed stability: 48/48 rows clean).
+
+### 4.2 LUQ-box comparator headless re-run (`stress_luqboxfix20260903`, harness `539e3a2`)
+
+Full 60-epoch Skaha re-run (session `aljbqdg9`, image `astroai/notebook:latest` after `openworker:latest` was removed from the registry; torchregress `e28215d`, luqbox `df6366e`): **18/18 rows OK, 0 errors, 0 skips**, all torchregress numbers reproducing previous runs. Fixed LUQ-box rows (artifact `results/latest/stress_matrix_luqboxfix.json`):
+
+| Row | RMSE | NLL | PIT_KS | ECE | train_s |
+|---|---:|---:|---:|---:|---:|
+| luqbox_MCDropout | 0.7253 | 1.0717 | 0.309 | 0.0105 | 42.1 |
+| luqbox_GaussianNLL | 0.5500 | 7.4940 | 0.434 | 0.0038 | 6.6 |
+| (torchregress) MC_Dropout | 0.5774 | 1.4008 | 0.220 | 0.0021 | 2.0 |
+| (torchregress) DeepEnsemble_K10 | 0.4249 | 0.3440 | 0.277 | 0.0040 | 19.2 |
+
+On the covariate-shift axis the (now real) LUQ-box MC-dropout beats its deterministic sibling on NLL (1.07 vs 7.49) — the NLL head's variance collapses under shift — while torchregress `DeepEnsemble_K10` remains best of the four comparators on every UQ metric. The two LUQ-box rows' point metrics are no longer identical; MC std is non-degenerate and honest per-phase timing is recorded.
 
 ## 6. Conclusion
 
 - **Parity:** exact numeric agreement with MAPIE on identical configurations; four-way split-conformal agreement across torchregress/MAPIE/crepes/torchcp; 208-method leaderboard with all comparator libraries present.
-- **Diversity:** stress-matrix suite covers 6 data-conditions × method families × metrics, with Lightning-UQ-Box added as the fourth external UQ comparator. All 16 torchregress stress rows verified error-free (60-epoch); regression guard: `tests/test_stress_matrix.py`.
+- **Diversity:** stress-matrix suite covers 6 data-conditions × method families × metrics, with Lightning-UQ-Box added as the fourth external UQ comparator. All 18 stress rows (16 torchregress + 2 LUQ-box) verified error-free at 60 epochs (`stress_luqboxfix20260903`); regression guard: `tests/test_stress_matrix.py` (13 tests).
 - **QA:** 2,723 tests @ 89% coverage; the harness run regenerates the benchmarks against the current library to guard against regressions.
