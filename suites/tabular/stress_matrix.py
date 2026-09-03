@@ -28,6 +28,9 @@ backbones and (when importable) Lightning-UQ-Box:
 
 Lightning-UQ-Box rows (``luqbox_*``) degrade to skip rows when the package
 is not importable (matching how MAPIE/torch-uncertainty rows behave offline).
+The MC-dropout comparator wraps a dropout-enabled LUQMLP (dropout_p=0.5) and
+mirrors the library's own ``predict_step`` (activate_dropout + stacked MC
+forwards, Kendall et al. 2017 predictive uncertainty).
 """
 
 from __future__ import annotations
@@ -258,17 +261,15 @@ def _train_special(
 _LUQBOX_PIN = "v0.3.0 (git df6366e02055618873f2cc8711b2dbc22e131a12)"
 
 
-def _luqbox_run(
+def _luqbox_fit(
     method: str,
     X_train: np.ndarray,
     y_train: np.ndarray,
-    X_test: np.ndarray,
     *,
     epochs: int,
     seed: int,
-    smoke: bool,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Fit a Lightning-UQ-Box regression method, return (mean, std) on X_test.
+) -> Any:
+    """Train a Lightning-UQ-Box regression model; return the LightningModule.
 
     Raises ImportError for *any* environment/signature problem so the base
     loop records a skip row instead of failing the suite.
@@ -312,45 +313,79 @@ def _luqbox_run(
 
         X_tr = torch.from_numpy(X_train).float()
         y_tr = torch.from_numpy(y_train).float().unsqueeze(1)  # (N, 1) target
-        X_te = torch.from_numpy(X_test).float()
-        n_mc = 5 if smoke else 20
 
+        # LUQ-box v0.3.0 MLP signature: n_hidden (not hidden_dims);
+        # activation_fn takes an nn.Module instance. dropout_p must be > 0 for
+        # the MC-dropout row: LUQMLP defaults to 0.0, MCDropoutBase then finds
+        # no nn.Dropout layers and MC sampling degenerates (std -> 0 -> NLL
+        # 1.8e15, point metrics bit-identical to the deterministic sibling;
+        # run stress_20260903_174930).
+        dropout_p = 0.5 if method == "luqbox_MCDropout" else 0.0
+        base = LUQMLP(
+            n_inputs=in_dim,
+            n_outputs=2,
+            n_hidden=[hidden, hidden],
+            activation_fn=nn.ReLU(),
+            dropout_p=dropout_p,
+        )
         if method == "luqbox_MCDropout":
-            # LUQ-box v0.3.0 MLP signature: n_hidden (not hidden_dims);
-            # activation_fn takes an nn.Module instance.
-            base = LUQMLP(
-                n_inputs=in_dim, n_outputs=2, n_hidden=[hidden, hidden], activation_fn=nn.ReLU()
-            )
-            mod = MCDropoutRegression(model=base, num_mc_samples=n_mc, loss_fn=LUQNLL())
-            _trainer().fit(mod, train_dataloaders=_loader(X_tr, y_tr, True))
-            # MC-dropout predict: dropout active (train mode), no_grad sampling
-            # over stacked forwards — same semantics as predict_step.
-            base.train()
-            with torch.no_grad():
-                preds = torch.stack([base(X_te) for _ in range(n_mc)], dim=-1)  # (N, 2, S)
-            mean = preds[:, 0, :].mean(dim=-1)
-            std = preds[:, 0, :].std(dim=-1, unbiased=False)
-            return (
-                mean.numpy().reshape(-1),
-                np.clip(std.numpy().reshape(-1), 1e-8, None),
-            )
+            mod: Any = MCDropoutRegression(model=base, num_mc_samples=20, loss_fn=LUQNLL())
         elif method == "luqbox_GaussianNLL":
-            base = LUQMLP(
-                n_inputs=in_dim, n_outputs=2, n_hidden=[hidden, hidden], activation_fn=nn.ReLU()
-            )
             mod = DeterministicRegression(model=base, loss_fn=LUQNLL())
-            _trainer().fit(mod, train_dataloaders=_loader(X_tr, y_tr, True))
-            base.eval()
-            with torch.no_grad():
-                out = base(X_te)
-            mean = out[:, 0].numpy().reshape(-1)
-            std = torch.exp(0.5 * out[:, 1]).numpy().reshape(-1)  # log-var -> std
-            return mean, np.clip(std, 1e-8, None)
         else:
             raise ImportError(f"Unknown luqbox method {method!r}")
+        _trainer().fit(mod, train_dataloaders=_loader(X_tr, y_tr, True))
+        return mod
     except ImportError:
         raise
     except Exception as exc:  # signature drift, lightning version mismatch, ...
+        raise ImportError(f"lightning-uq-box comparator unavailable: {exc}") from exc
+
+
+def _luqbox_predict(
+    method: str,
+    mod: Any,
+    X_test: np.ndarray,
+    *,
+    smoke: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict (mean, std) with a trained LUQ-box module.
+
+    Mirrors the library's own predict_step semantics so the comparator rows
+    reflect Lightning-UQ-Box's uncertainty definitions, not ours.
+    """
+    try:
+        from lightning_uq_box.uq_methods import MCDropoutRegression
+
+        base = mod.model  # the wrapped nn.Module (LUQMLP)
+        X_te = torch.from_numpy(X_test).float()
+        n_mc = 5 if smoke else 20
+        with torch.no_grad():
+            if isinstance(mod, MCDropoutRegression):
+                # predict_step: activate_dropout() puts the network in train
+                # mode (dropout active), then num_mc_samples stacked forwards.
+                mod.activate_dropout()
+                preds = torch.stack([base(X_te) for _ in range(n_mc)], dim=-1)  # (N, 2, S)
+                means = preds[:, 0, :]  # (N, S)
+                sigmas = torch.exp(0.5 * preds[:, 1, :])  # (N, S) NLL-head sigma
+                mean = means.mean(dim=-1)
+                # process_regression_prediction -> compute_predictive_uncertainty
+                # (Kendall et al. 2017 Eq. 9): aleatoric + epistemic.
+                std = torch.sqrt((sigmas**2).mean(-1) + (means**2).mean(-1) - means.mean(-1) ** 2)
+            else:
+                # DeterministicModel.predict_step: plain forward in eval mode;
+                # NLL head -> log-variance parameterisation.
+                mod.eval()
+                out = base(X_te)
+                mean = out[:, 0]
+                std = torch.exp(0.5 * out[:, 1])  # log-var -> std
+        return (
+            mean.numpy().reshape(-1),
+            np.clip(std.numpy().reshape(-1), 1e-8, None),
+        )
+    except ImportError:
+        raise
+    except Exception as exc:
         raise ImportError(f"lightning-uq-box comparator unavailable: {exc}") from exc
 
 
@@ -583,13 +618,15 @@ class StressMatrixSuite(HarnessRunner):
 
         axis, name = method.split("/", 1)
         if name in self._LUQBOX_METHODS:
-            # LUQ-box trains + predicts in one call; arrays stored for predict.
-            return {
-                "type": "luqbox",
-                "name": name,
-                "X": splits["X_train"],
-                "y": splits["y_train"].reshape(-1),
-            }
+            # LUQ-box fit is timed here (train_s); predict happens in predict().
+            mod = _luqbox_fit(
+                name,
+                splits["X_train"],
+                splits["y_train"].reshape(-1),
+                epochs=2 if config.smoke else config.epochs,
+                seed=config.seed,
+            )
+            return {"type": "luqbox", "name": name, "module": mod}
 
         X_np = splits["X_train"]
         y_np = splits["y_train"].reshape(-1)
@@ -813,13 +850,10 @@ class StressMatrixSuite(HarnessRunner):
         head = model.get("head", "point")
 
         if model.get("type") == "luqbox":
-            mean, std = _luqbox_run(
+            mean, std = _luqbox_predict(
                 model["name"],
-                model["X"],
-                model["y"],
+                model["module"],
                 X_test,
-                epochs=2 if config.smoke else 15,
-                seed=config.seed,
                 smoke=config.smoke,
             )
             return {"mean": mean, "std": std}
