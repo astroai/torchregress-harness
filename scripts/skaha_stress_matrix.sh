@@ -64,7 +64,11 @@ SITE="$HARNESS_DIR/.pixi/envs/default/lib/python3.13/site-packages"
 refresh() { # <dest> <repo>
   local dest="$1" repo="$2"
   rm -f "$dest/.git/shallow.lock" "$dest/.git/index.lock" 2>/dev/null || true
-  if git -C "$dest" fetch --depth 1 "https://github.com/$repo" main \
+  # -c credential.helper= : the clone's config may carry a gh-based credential
+  # helper that does not exist in this image; an empty helper disables it.
+  # Both repos are public, so unauthenticated fetch is enough.
+  if GIT_TERMINAL_PROMPT=0 git -c credential.helper= -C "$dest" fetch --depth 1 \
+      "https://github.com/$repo" main \
     && git -C "$dest" reset --hard FETCH_HEAD; then
     log "refreshed $repo -> $(git -C "$dest" rev-parse --short HEAD)"
   else
@@ -91,11 +95,17 @@ if [ ! -d "$LUQ_DIR" ]; then
 fi
 LUQ_SHA=$(git -C "$LUQ_DIR" rev-parse HEAD)
 log "luqbox @ $LUQ_SHA"
-rm -rf "$SITE/lightning_uq_box" "$SITE/lightning_uq_box-0.3.0.dist-info"
-cp -r "$LUQ_DIR/lightning_uq_box" "$SITE/"
+rm -rf "$SITE/lightning_uq_box" "$SITE/lightning_uq_box-0.3.0.dist-info" \
+  || log "WARN: rm of old lightning_uq_box incomplete (Cavern lag?) — will copy over it"
+# Copy the package CONTENTS into the target dir: works whether or not the
+# previous rm fully settled (busybox cp -r refuses an existing destination).
+mkdir -p "$SITE/lightning_uq_box"
+cp -a "$LUQ_DIR/lightning_uq_box/." "$SITE/lightning_uq_box/" \
+  || log "WARN: luqbox package copy reported errors (existing copy retained)"
 mkdir -p "$SITE/lightning_uq_box-0.3.0.dist-info"
-printf 'Metadata-Version: 2.1\nName: lightning-uq-box\nVersion: 0.3.0\n' > "$SITE/lightning_uq_box-0.3.0.dist-info/METADATA"
-touch "$SITE/lightning_uq_box-0.3.0.dist-info/RECORD"
+printf 'Metadata-Version: 2.1\nName: lightning-uq-box\nVersion: 0.3.0\n' > "$SITE/lightning_uq_box-0.3.0.dist-info/METADATA" \
+  || log "WARN: could not write luqbox dist-info METADATA"
+touch "$SITE/lightning_uq_box-0.3.0.dist-info/RECORD" 2>/dev/null || true
 
 stub_pkg() { # <import-name> <heredoc-file>
   mkdir -p "$SITE/$1"
