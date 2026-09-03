@@ -1691,6 +1691,23 @@ def _load_imdb_wiki(
 # ---------------------------------------------------------------------------
 
 
+def _stress_registry_loader(name: str) -> Callable[..., "SplitsDict"]:
+    """Build a registry loader for a synthetic stress-matrix dataset.
+
+    Lazy import: ``suites.tabular.stress_matrix`` pulls in torchregress and
+    the rest of the harness stack, which must not happen at datasets.py
+    import time (circular import).
+    """
+
+    def _loader(**kwargs: Any) -> "SplitsDict":
+        from suites.tabular.stress_matrix import load_stress_dataset
+
+        n = int(kwargs.get("n_samples") or 4000)
+        return load_stress_dataset(name, n=n)
+
+    return _loader
+
+
 def _registry_loader(
     fn: Callable[..., SplitsDict],
     **defaults: Any,
@@ -2077,6 +2094,59 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Default filters: face_score ≥ 2.0, ages 0–100."
         ),
         loader=_registry_loader(_load_imdb_wiki),
+    ),
+    # --- Stress-matrix (suites/tabular/stress_matrix.py) ---
+    # Thin registry wrappers over the synthetic stress generators so that
+    # tools/run_all.py can resolve ``stress_*`` dataset names through the
+    # standard DATASET_REGISTRY path. Lazy import avoids a circular dep
+    # (datasets.py must stay importable without the suites package).
+    "stress_imbalanced": DatasetInfo(
+        name="stress_imbalanced",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: long-tailed (exponential) target density.",
+        loader=_stress_registry_loader("stress_imbalanced"),
+    ),
+    "stress_noisy_inputs": DatasetInfo(
+        name="stress_noisy_inputs",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: additive observation noise on train features (EIV); test features clean.",
+        loader=_stress_registry_loader("stress_noisy_inputs"),
+    ),
+    "stress_noisy_labels": DatasetInfo(
+        name="stress_noisy_labels",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: heteroscedastic Gaussian label noise with known per-sample variance.",
+        loader=_stress_registry_loader("stress_noisy_labels"),
+    ),
+    "stress_sparse_labels": DatasetInfo(
+        name="stress_sparse_labels",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: sparse supervision (20% labeled) with pseudo-targets and known variance.",
+        loader=_stress_registry_loader("stress_sparse_labels"),
+    ),
+    "stress_ood": DatasetInfo(
+        name="stress_ood",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: covariate shift (train/test split by x0 sign, not random).",
+        loader=_stress_registry_loader("stress_ood"),
+    ),
+    "stress_semi_sup": DatasetInfo(
+        name="stress_semi_sup",
+        category="synthetic",
+        n_features=12,
+        n_samples=4000,
+        description="Stress axis: small labeled pool (200) + large unlabeled pool (SAGE regime).",
+        loader=_stress_registry_loader("stress_semi_sup"),
     ),
 }
 
