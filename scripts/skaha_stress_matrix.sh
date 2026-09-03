@@ -56,9 +56,20 @@ SITE="$HARNESS_DIR/.pixi/envs/default/lib/python3.13/site-packages"
 [ -x "$PYBIN" ] || { log "FATAL: pixi env python missing at $PYBIN"; exit 1; }
 
 # --- 0. Refresh clones to latest main (keeps /arc in sync with the repo) -----
+# Fetch from the sfabbro fork explicitly: the clone's origin may point at the
+# upstream astroai remote with a gh credential helper that does not exist in
+# the Skaha image (expired x-access-token URLs abort the fetch). A refresh
+# failure must not kill the session — the /arc clone is kept current by the
+# operator, so fall back to whatever HEAD is checked out.
 refresh() { # <dest> <repo>
-  git -C "$1" fetch --depth 1 "https://github.com/$2" main
-  git -C "$1" reset --hard FETCH_HEAD
+  local dest="$1" repo="$2"
+  rm -f "$dest/.git/shallow.lock" "$dest/.git/index.lock" 2>/dev/null || true
+  if git -C "$dest" fetch --depth 1 "https://github.com/$repo" main \
+    && git -C "$dest" reset --hard FETCH_HEAD; then
+    log "refreshed $repo -> $(git -C "$dest" rev-parse --short HEAD)"
+  else
+    log "WARN: could not refresh $repo (offline?); using $dest at $(git -C "$dest" rev-parse --short HEAD)"
+  fi
 }
 refresh "$HARNESS_DIR" sfabbro/torchregress-harness
 refresh "$TR_DIR" sfabbro/torchregress
