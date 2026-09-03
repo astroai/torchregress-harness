@@ -224,14 +224,11 @@ def main() -> None:
                 all_rows.extend(rows)
 
                 for row in rows:
-                    # Any non-structural key with a non-None value = has results
-                    has_result = any(
-                        v is not None
-                        and k not in ("Method", "Library", "Dataset", "Suite", "Notes")
-                        for k, v in row.items()
-                    )
+                    note = str(row.get("Notes", "")).lower()
+                    has_result = not ("error" in note or "failed" in note or "skipped" in note)
                     status = "✓" if has_result else "✗"
-                    print(f"  {status} {row['Method']}")
+                    suffix = f"  ({row['Notes'][:80]})" if not has_result else ""
+                    print(f"  {status} {row['Method']}{suffix}")
 
             except NotImplementedError:
                 print(f"  Suite {suite.name!r} not yet implemented — skipping")

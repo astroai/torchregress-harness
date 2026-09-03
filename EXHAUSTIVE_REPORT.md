@@ -77,7 +77,7 @@ The leaderboard includes rows from **MAPIE, crepes, torchcp, pzflow, sklearn, ta
 | Semi-supervised | SAGE consistency + EMA teacher | supervised baseline |
 | Ensembles | deep ensembles, NF ensembles | LUQ-box MC dropout |
 
-**Status:** session `w03k5rek` Running — pre-flight passed (incl. `lightning_uq_box` import), suite executing. Artifacts → `/arc/.../runs/stress_20260902_234801/`. *This section will be updated with the result tables when the run completes.*
+**Status:** complete. First full run (session `w03k5rek` → run `stress_20260903_011458`, harness `cdff7b8`) surfaced 6 failure modes (35 errors / 12 skips of 108 rows): cross-axis method/dataset pairing, `LDSLoss.fit()` API mismatch, non-mask-aware `nn.MSELoss` base, float `~label_mask`, LUQ-box v0.3.0 MLP signature drift, and a smoke-mode mask truncation bug in SAGE. All fixed in the harness (plus an `n_ok` miscount in `write_harness_json`); regression-tested by `tests/test_stress_matrix.py` (9 tests) and verified locally: **16/16 rows OK, 0 errors, 0 skips** (artifact `stress_matrix_fixed_localverify.json`).
 
 ## 5. Harness Engineering Notes (this session)
 
@@ -88,8 +88,21 @@ Offline-mode fixes committed to the harness (all pushed):
 4. `4bce8ff` — `stress_matrix` suite + Lightning-UQ-Box offline install (package copy + dist-info + optional-dep stubs)
 5. CUDA virtual-package mock (`CONDA_OVERRIDE_CUDA`) for CPU nodes; pypi-free install path (conda + .pth wiring) documented in `skaha_paper_benchmark.sh`
 
+### 4.1 Verified stress-matrix results (60-epoch, seed 42, CPU)
+
+| Stress axis | torchregress methods (RMSE) | Best on axis |
+|---|---|---|
+| Imbalanced targets | MSE 0.475 · BinReweighted 0.475 · DensityWeighted 0.556 · LDS 0.563 | MSE / BinReweighted |
+| Noisy inputs (EIV) | MSE 0.422 · InputNoise 0.498 | plain MSE (noise modest, σx=0.5) |
+| Noisy labels | BetaNLL 0.586 · NoisyTargetNLL 0.589 · GaussianNLL 0.591; NLL: BetaNLL 0.960 < GaussianNLL 1.069 | BetaNLL (best NLL + best RMSE) |
+| Sparse labels (20%) | SupervisedOnly 0.340 · PseudoLabelNLL 0.449 | supervised-only baseline |
+| OOD (covariate shift) | DeepEnsemble_K10 0.425 · GaussianNLL 0.567 · MC_Dropout 0.577 | DeepEnsemble_K10 |
+| Semi-supervised (200 labeled) | SupervisedOnly 0.463 · SAGE 0.780 (PIT_KS 0.030 — best calibration) | supervised on RMSE; SAGE on PIT uniformity |
+
+Full per-row metrics (NLL/CRPS/ECE/PIT) in `runs/stress_20260903_011458/stress_matrix_fixed_localverify.json`. LUQ-box comparator rows are import-gated and require a fresh headless re-run after the signature fix (commit pending push).
+
 ## 6. Conclusion
 
 - **Parity:** exact numeric agreement with MAPIE on identical configurations; four-way split-conformal agreement across torchregress/MAPIE/crepes/torchcp; 208-method leaderboard with all comparator libraries present.
-- **Diversity:** stress-matrix suite covers 6 data-conditions × method families × metrics, with Lightning-UQ-Box added as the fourth external UQ comparator.
+- **Diversity:** stress-matrix suite covers 6 data-conditions × method families × metrics, with Lightning-UQ-Box added as the fourth external UQ comparator. All 16 torchregress stress rows verified error-free (60-epoch); regression guard: `tests/test_stress_matrix.py`.
 - **QA:** 2,723 tests @ 89% coverage; the harness run regenerates the benchmarks against the current library to guard against regressions.

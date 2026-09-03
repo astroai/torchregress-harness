@@ -38,6 +38,22 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
+from torchregress.losses import (
+    BetaNLLLoss,
+    BinReweightedMSELoss,
+    DensityWeightedLoss,
+    GaussianNLLLoss,
+    InputNoiseAugmentationLoss,
+    LDSLoss,
+    NoisyTargetGaussianNLL,
+    PseudoLabelNLL,
+    WeightedMSELoss,
+)
+from torchregress.semi_supervised import (
+    PredictiveBatch,
+    SAGERegLoss,
+)
+from torchregress.utils import update_ema_teacher_
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
@@ -49,22 +65,6 @@ from suites._backbones import (
     _mixture_gaussian_stats,
     _train_one,
 )
-
-from torchregress.losses import (
-    BetaNLLLoss,
-    BinReweightedMSELoss,
-    DensityWeightedLoss,
-    GaussianNLLLoss,
-    InputNoiseAugmentationLoss,
-    LDSLoss,
-    NoisyTargetGaussianNLL,
-    PseudoLabelNLL,
-)
-from torchregress.semi_supervised import (
-    PredictiveBatch,
-    SAGERegLoss,
-)
-from torchregress.utils import update_ema_teacher_
 
 # ---------------------------------------------------------------------------
 # Optional deps (never fatal — skip rows instead)
@@ -286,7 +286,9 @@ def _luqbox_run(
             # LUQ-box batches are dicts with input/target keys (class defaults).
             ds = TensorDataset(X, y)
 
-            def _collate(samples: list[tuple[torch.Tensor, torch.Tensor]]) -> dict[str, torch.Tensor]:
+            def _collate(
+                samples: list[tuple[torch.Tensor, torch.Tensor]],
+            ) -> dict[str, torch.Tensor]:
                 xs = torch.stack([s[0] for s in samples])
                 ys = torch.stack([s[1] for s in samples])
                 return {"input": xs, "target": ys}
@@ -311,7 +313,11 @@ def _luqbox_run(
         n_mc = 5 if smoke else 20
 
         if method == "luqbox_MCDropout":
-            base = LUQMLP(n_inputs=in_dim, n_outputs=2, hidden_dims=[hidden, hidden], activation_fn=nn.ReLU)
+            # LUQ-box v0.3.0 MLP signature: n_hidden (not hidden_dims);
+            # activation_fn takes an nn.Module instance.
+            base = LUQMLP(
+                n_inputs=in_dim, n_outputs=2, n_hidden=[hidden, hidden], activation_fn=nn.ReLU()
+            )
             mod = MCDropoutRegression(model=base, num_mc_samples=n_mc, loss_fn=LUQNLL())
             _trainer().fit(mod, train_dataloaders=_loader(X_tr, y_tr, True))
             # MC-dropout predict: dropout active (train mode), no_grad sampling
@@ -326,7 +332,9 @@ def _luqbox_run(
                 np.clip(std.numpy().reshape(-1), 1e-8, None),
             )
         elif method == "luqbox_GaussianNLL":
-            base = LUQMLP(n_inputs=in_dim, n_outputs=2, hidden_dims=[hidden, hidden], activation_fn=nn.ReLU)
+            base = LUQMLP(
+                n_inputs=in_dim, n_outputs=2, n_hidden=[hidden, hidden], activation_fn=nn.ReLU()
+            )
             mod = DeterministicRegression(model=base, loss_fn=LUQNLL())
             _trainer().fit(mod, train_dataloaders=_loader(X_tr, y_tr, True))
             base.eval()
@@ -446,6 +454,23 @@ class StressMatrixSuite(HarnessRunner):
     # Orchestration (stress datasets live outside the global registry)
     # ------------------------------------------------------------------
 
+    # Axis prefix -> which extra split columns the axis' methods require.
+    _AXIS_REQUIRED_KEYS: dict[str, tuple[str, ...]] = {
+        "stress_sparse_labels": ("labeled_mask_train",),
+        "stress_semi_sup": ("labeled_mask_train",),
+        "stress_noisy_labels": ("target_variance_train",),
+        "stress_noisy_inputs": ("sigma_x",),
+    }
+
+    @staticmethod
+    def _method_axis(method: str) -> str:
+        """stress_imbalanced/MSE_MLP -> stress_imbalanced."""
+        return method.split("/", 1)[0]
+
+    def _method_for_axis(self, axis: str) -> list[str]:
+        """Methods that belong to a stress axis (their required columns exist only there)."""
+        return [m for m in self.methods() if self._method_axis(m) == axis]
+
     def run(
         self,
         dataset_name: str = "",
@@ -463,7 +488,9 @@ class StressMatrixSuite(HarnessRunner):
         rows: list[dict[str, Any]] = []
         datasets = [dataset_name] if dataset_name else list(_STRESS_GENERATORS)
         for ds in datasets:
-            data = splits if (splits is not None and ds == dataset_name) else load_stress_dataset(ds)
+            data = (
+                splits if (splits is not None and ds == dataset_name) else load_stress_dataset(ds)
+            )
             X_test = data["X_test"]
             y_test = data["y_test"]
             if cfg.smoke:
@@ -471,7 +498,11 @@ class StressMatrixSuite(HarnessRunner):
                 data = dict(data)
                 data["X_train"], data["y_train"] = X_train[:200], y_train[:200]
                 X_test, y_test = X_test[:50], y_test[:50]
-            for method in self.methods():
+            # Each method requires its own axis' extra columns (e.g.
+            # labeled_mask_train), so only run methods whose axis matches the
+            # dataset — cross-axis combinations would KeyError by construction.
+            axis_methods = self._method_for_axis(ds)
+            for method in axis_methods:
                 set_harness_seed(cfg.seed)
                 try:
                     t0 = perf_counter()
@@ -550,7 +581,12 @@ class StressMatrixSuite(HarnessRunner):
         axis, name = method.split("/", 1)
         if name in self._LUQBOX_METHODS:
             # LUQ-box trains + predicts in one call; arrays stored for predict.
-            return {"type": "luqbox", "name": name, "X": splits["X_train"], "y": splits["y_train"].reshape(-1)}
+            return {
+                "type": "luqbox",
+                "name": name,
+                "X": splits["X_train"],
+                "y": splits["y_train"].reshape(-1),
+            }
 
         X_np = splits["X_train"]
         y_np = splits["y_train"].reshape(-1)
@@ -575,7 +611,7 @@ class StressMatrixSuite(HarnessRunner):
         elif name == "LDS_MLP":
             model = _MLP(in_dim, hidden, out_dim=1)
             loss = LDSLoss()
-            loss.fit_density(y.reshape(-1))
+            loss.fit(y.reshape(-1))  # LDSLoss API: fit(), not fit_density()
             _train_one(model, loss, X, y, config)
             return {"type": "torch", "model": model, "head": "point"}
         elif name == "BinReweighted_MLP":
@@ -589,7 +625,11 @@ class StressMatrixSuite(HarnessRunner):
         elif name == "InputNoise_MLP":
             model = _MLP(in_dim, hidden, out_dim=1)
             sigma = float(splits.get("sigma_x", 0.5))
-            loss = InputNoiseAugmentationLoss(model=model, base_loss=nn.MSELoss(), sigma_x=sigma)
+            # WeightedMSELoss: mask/weights-aware MSE (plain nn.MSELoss cannot
+            # accept the mask kwarg _train_special forwards).
+            loss = InputNoiseAugmentationLoss(
+                model=model, base_loss=WeightedMSELoss(), sigma_x=sigma
+            )
             # x_obs is the observed (noisy) input batch; y_pred arg is ignored
             # when x_obs is provided.
             _train_special(model, loss, X, y, config, extra={"x_obs": X})
@@ -617,16 +657,19 @@ class StressMatrixSuite(HarnessRunner):
         # ---------------- sparse labels ----------------
         elif name == "SupervisedOnly_GaussianNLL":
             model = _MLP(in_dim, hidden, out_dim=2)
-            mask = torch.from_numpy(splits["labeled_mask_train"]).float().to(dev).unsqueeze(1)
+            mask = torch.from_numpy(splits["labeled_mask_train"].astype(bool)).to(dev).unsqueeze(1)
             _train_special(model, GaussianNLLLoss(), X, y, config, extra={"mask": mask})
             return {"type": "torch", "model": model, "head": "gaussian"}
         elif name == "PseudoLabelNLL_MLP":
             model = _MLP(in_dim, hidden, out_dim=2)
-            mask = torch.from_numpy(splits["labeled_mask_train"]).float().to(dev).unsqueeze(1)
+            # bool mask: PseudoLabelNLL applies (~label_mask) — invalid on floats
+            mask = torch.from_numpy(splits["labeled_mask_train"].astype(bool)).to(dev).unsqueeze(1)
             pseudo = torch.from_numpy(splits["pseudo_target_train"]).float().to(dev).unsqueeze(1)
             pseudo_var = splits.get("pseudo_variance_train")
             if pseudo_var is not None:
-                conf = 1.0 / (1.0 + torch.from_numpy(np.asarray(pseudo_var)).float().to(dev).unsqueeze(1))
+                conf = 1.0 / (
+                    1.0 + torch.from_numpy(np.asarray(pseudo_var)).float().to(dev).unsqueeze(1)
+                )
             else:
                 conf = None
             extra: dict[str, torch.Tensor] = {"pseudo_target": pseudo, "label_mask": mask}
@@ -653,11 +696,11 @@ class StressMatrixSuite(HarnessRunner):
         # ---------------- semi-supervised (SAGE) ----------------
         elif name == "SupervisedOnly_MLP":
             model = _MLP(in_dim, hidden, out_dim=2)
-            mask = torch.from_numpy(splits["labeled_mask_train"]).float().to(dev).unsqueeze(1)
+            mask = torch.from_numpy(splits["labeled_mask_train"].astype(bool)).to(dev).unsqueeze(1)
             _train_special(model, GaussianNLLLoss(), X, y, config, extra={"mask": mask})
             return {"type": "torch", "model": model, "head": "gaussian"}
         elif name == "SAGE_MLP":
-            return self._fit_sage(splits, config, in_dim, hidden, dev)
+            return self._fit_sage(splits, config, in_dim, hidden, dev, y_train_len=y_np.shape[0])
 
         raise ValueError(f"Unknown method: {method}")
 
@@ -672,11 +715,17 @@ class StressMatrixSuite(HarnessRunner):
         in_dim: int,
         hidden: int,
         dev: torch.device,
+        *,
+        y_train_len: int | None = None,
     ) -> dict[str, Any]:
         set_harness_seed(config.seed)
         X_np = splits["X_train"]
         y_np = splits["y_train"].reshape(-1)
-        mask_np = splits["labeled_mask_train"].astype(bool)
+        # The mask is stored at full generator length; under cfg.smoke the train
+        # split is truncated to the first 200 rows, so truncate the mask too.
+        mask_full = splits["labeled_mask_train"].astype(bool)
+        n_train = y_train_len if y_train_len is not None else X_np.shape[0]
+        mask_np = mask_full[:n_train]
         X = torch.from_numpy(X_np).float().to(dev)
         y = torch.from_numpy(y_np).float().to(dev).unsqueeze(1)
 
@@ -773,7 +822,10 @@ class StressMatrixSuite(HarnessRunner):
                 with torch.no_grad():
                     for _ in range(20):
                         preds.append(
-                            m(torch.from_numpy(X_test).float().to(device))[:, 0].cpu().numpy().reshape(-1)
+                            m(torch.from_numpy(X_test).float().to(device))[:, 0]
+                            .cpu()
+                            .numpy()
+                            .reshape(-1)
                         )
             finally:
                 if not was_training:

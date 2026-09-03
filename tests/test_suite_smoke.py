@@ -25,6 +25,7 @@ from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
+from suites.tabular.stress_matrix import StressMatrixSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
 
@@ -45,6 +46,7 @@ ALL_SUITES = [
     EIVSuite,
     OrdinalSuite,
     R2CConformalSuite,
+    StressMatrixSuite,
     AgeRegressionSuite,
     DepthEstimationSuite,
 ]

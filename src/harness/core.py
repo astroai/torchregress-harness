@@ -19,6 +19,8 @@ import numpy as np
 import torch
 
 # Keys that are row metadata, not performance metrics.
+# (Device/SourceURL/SyntheticFallback are provenance fields present on every
+# row — treating them as metrics made error rows look like successes.)
 _NON_METRIC_KEYS: frozenset[str] = frozenset(
     {
         "Method",
@@ -27,6 +29,9 @@ _NON_METRIC_KEYS: frozenset[str] = frozenset(
         "Dataset",
         "Suite",
         "Notes",
+        "Device",
+        "SourceURL",
+        "SyntheticFallback",
     }
 )
 
@@ -231,15 +236,22 @@ def write_harness_json(
     else:
         config_payload = config
 
-    n_ok = sum(
-        1 for r in rows if any(r.get(m) is not None and m not in _NON_METRIC_KEYS for m in r)
-    )
-    n_skipped = sum(1 for r in rows if "skipped" in str(r.get("Notes", "")).lower())
-    n_error = sum(
-        1
-        for r in rows
-        if "failed" in str(r.get("Notes", "")).lower() or "error" in str(r.get("Notes", "")).lower()
-    )
+    # Classification precedence: an error row may still carry metric-shaped
+    # keys (Device, timings) or even stale metric values, so classify by Notes
+    # first and only fall back to the any-metric heuristic otherwise.
+    n_skipped = 0
+    n_error = 0
+    n_ok = 0
+    for r in rows:
+        note = str(r.get("Notes", "")).lower()
+        if "error" in note or "failed" in note:
+            n_error += 1
+        elif "skipped" in note:
+            n_skipped += 1
+        elif any(r.get(m) is not None and m not in _NON_METRIC_KEYS for m in r):
+            n_ok += 1
+        else:
+            n_error += 1  # no note, no metrics — treat as failure, not success
 
     payload: dict[str, Any] = {
         "artifact": "harness_run",
