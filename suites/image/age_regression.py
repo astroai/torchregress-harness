@@ -155,6 +155,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
         return [
             "synthetic_image_regression",
             "imdb_wiki",
+            "imdb_wiki_fullres",
+            "utkface_age",
+            "utkface_age_tiny",
+            "boneage",
         ]
 
     # ------------------------------------------------------------------

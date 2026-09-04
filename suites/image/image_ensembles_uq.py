@@ -44,7 +44,13 @@ class ImageEnsemblesUQSuite(ImageHarnessRunner):
     @property
     def supported_datasets(self) -> list[str]:
         # Scalar targets only (multitarget → keypoint_regression).
-        return ["synthetic_image_regression", "imdb_wiki"]
+        return [
+            "synthetic_image_regression",
+            "imdb_wiki",
+            "utkface_age",
+            "utkface_age_tiny",
+            "boneage",
+        ]
 
     def methods(self) -> list[str]:
         m = ["DeepEnsemble_K5", "MC_Dropout", "SWAG"]

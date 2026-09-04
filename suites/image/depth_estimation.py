@@ -74,6 +74,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
         return [
             "synthetic_image_depth",
             "nyu_depth_v2",
+            "nyu_depth_v2_tiny",
+            "nyu_depth_v2_fullres",
         ]
 
     # ------------------------------------------------------------------

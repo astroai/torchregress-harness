@@ -70,7 +70,7 @@ class KeypointRegressionSuite(ImageHarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_image_keypoint", "biwi_head_pose"]
+        return ["synthetic_image_keypoint", "biwi_head_pose", "biwi_head_pose_tiny"]
 
     def methods(self) -> list[str]:
         m = ["CNN+MSE", "CNN+GaussianNLL", "CNN+MultivariateGaussian", "CNN+NF", "sklearn_RF"]

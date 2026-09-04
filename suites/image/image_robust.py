@@ -45,7 +45,13 @@ class ImageRobustSuite(ImageHarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_image_regression", "imdb_wiki"]
+        return [
+            "synthetic_image_regression",
+            "imdb_wiki",
+            "utkface_age",
+            "utkface_age_tiny",
+            "boneage",
+        ]
 
     def methods(self) -> list[str]:
         m = ["MSE", "Huber", "Barron", "Cauchy", "LogCosh", "DensityWeighted", "LDS"]

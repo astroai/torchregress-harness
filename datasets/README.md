@@ -22,5 +22,13 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   (774 MB) + metadata tars. The ETH mirror 404s `wiki_meta.tar`
   (2026-08); the loader falls back to the HuggingFace mirror, and a
   missing `wiki_meta.tar` only drops the wiki subset (imdb still runs).
-* `biwi_head_pose` — real data via `BIWI_ROOT` env (dir of `*.jpg` +
+* `biwi_head_pose[_tiny]` — real data via `BIWI_ROOT` env (dir of `*.jpg` +
   `*.txt` poses); synthetic proxy otherwise (flagged `SyntheticFallback`).
+  Tiny = 200 samples at 32×32 for CPU smoke.
+* `utkface_age[_tiny]` — UTKFace age (0–100y) via `UTKFACE_ROOT` env
+  (`<age>_<gender>_<race>_*.jpg`); synthetic face-blob proxy otherwise.
+  Small-real P0 default (avoids 8 GB IMDB download for debug).
+* `boneage` — RSNA bone-age maturity (0–228 months) via `BONEAGE_ROOT`
+  env (csv + X-rays); synthetic gradient+blob proxy otherwise.
+  Imbalanced/high-stakes P0 axis.
+* `nyu_depth_v2[_tiny|_fullres]` — tiny = 50 samples at 64×64 for CPU smoke.

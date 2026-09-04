@@ -1877,6 +1877,215 @@ def _load_synthetic_image_keypoint(
     }
 
 
+def _load_utkface_age(
+    n_samples: int = 2000,
+    img_size: int = 64,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """UTKFace age regression (scalar years) with hermetic fallback.
+
+    Real path: ``UTKFACE_ROOT`` dir of ``<age>_<gender>_<race>_*.jpg``
+    (standard UTKFace filename convention). Images are RGB-resized to
+    ``img_size`` and scaled to [0, 1]; ``y`` is age in years (float32).
+
+    Fallback: face-like Gaussian blobs on 3-channel images with
+    ``y = 60*cx/H + 40*cy/H + N(0, 3)`` clipped to [0, 100], preserving the
+    (N,3,H,W)→(N,) contract so age suites run hermetically in CI.
+    """
+    import os as _os
+
+    root = _os.environ.get("UTKFACE_ROOT", "")
+    if root:
+        p = Path(root)
+        files = sorted(p.rglob("*.jpg")) + sorted(p.rglob("*.png"))
+        if files:
+            try:
+                from PIL import Image
+
+                imgs, ages = [], []
+                rng_pick = np.random.default_rng(seed)
+                order = rng_pick.permutation(len(files))[:n_samples]
+                for idx in order:
+                    fp = files[int(idx)]
+                    try:
+                        age = int(fp.name.split("_")[0])
+                    except (ValueError, IndexError):
+                        continue
+                    img = Image.open(fp).convert("RGB").resize((img_size, img_size))
+                    arr = np.array(img, dtype=np.float32) / 255.0
+                    imgs.append(arr.transpose(2, 0, 1))
+                    ages.append(float(age))
+                    if len(imgs) >= n_samples:
+                        break
+                if imgs:
+                    X = np.stack(imgs).astype(np.float32)
+                    y = np.array(ages, dtype=np.float32)
+                    Xtr, Xte, ytr, yte = train_test_split(
+                        X, y, test_size=test_size, random_state=seed
+                    )
+                    return {
+                        "X_train": Xtr,
+                        "X_test": Xte,
+                        "y_train": ytr,
+                        "y_test": yte,
+                        "_image_data": True,
+                        "_image_size": img_size,
+                        "_n_channels": 3,
+                        "_skip_y_standardization": True,
+                    }
+            except Exception:
+                pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: 3-channel blobs, age in [0, 100].
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    cx = rng.uniform(0, img_size, n).astype(np.float32)
+    cy = rng.uniform(0, img_size, n).astype(np.float32)
+    y = (60.0 * cx / img_size + 40.0 * cy / img_size + rng.normal(0, 3, n)).astype(
+        np.float32
+    )
+    y = np.clip(y, 0, 100).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        sigma = img_size / 8
+        blob = np.exp(-((xs - cx[i]) ** 2 + (ys - cy[i]) ** 2) / (2 * sigma**2))
+        for c in range(3):
+            X[i, c] = (blob * (0.6 + 0.1 * c)).astype(np.float32)
+    X += 0.05 * rng.standard_normal(X.shape).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": not bool(root),
+    }
+    if not root:
+        splits["_fallback_reason"] = "UTKFACE_ROOT unset; synthetic age proxy"
+    return splits
+
+
+def _load_boneage(
+    n_samples: int = 1000,
+    img_size: int = 64,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Bone-age maturity regression (months) with hermetic fallback.
+
+    Real path: ``BONEAGE_ROOT`` dir with ``boneage-training-dataset.csv``
+    (columns ``id`` + ``boneage`` months) and PNG/JPG hand X-rays.
+    Grayscale-resized to ``img_size``; ``y`` is bone age in months.
+
+    Fallback: single-channel bone-like gradient + blob with
+    ``y = 228*brightness + N(0, 6)`` clipped to [0, 228] months (0–19y),
+    preserving the (N,1,H,W)→(N,) contract for imbalanced/high-stakes tests.
+    """
+    import os as _os
+
+    root = _os.environ.get("BONEAGE_ROOT", "")
+    if root:
+        p = Path(root)
+        csvs = sorted(p.glob("*.csv"))
+        if csvs:
+            try:
+                import csv as _csv
+
+                from PIL import Image
+
+                # Find id→boneage mapping in the first csv containing 'boneage'.
+                mapping: dict[str, float] = {}
+                for csv_path in csvs:
+                    with open(csv_path, newline="") as fh:
+                        reader = _csv.DictReader(fh)
+                        if reader.fieldnames and "boneage" in reader.fieldnames:
+                            id_key = (
+                                "id"
+                                if "id" in reader.fieldnames
+                                else reader.fieldnames[0]
+                            )
+                            for row in reader:
+                                try:
+                                    mapping[str(row[id_key])] = float(row["boneage"])
+                                except (ValueError, KeyError):
+                                    continue
+                            break
+                if mapping:
+                    imgs, ages = [], []
+                    files = sorted(p.rglob("*.png")) + sorted(p.rglob("*.jpg"))
+                    rng_pick = np.random.default_rng(seed)
+                    order = rng_pick.permutation(len(files))[:n_samples]
+                    for idx in order:
+                        fp = files[int(idx)]
+                        key = fp.stem
+                        if key not in mapping:
+                            continue
+                        img = Image.open(fp).convert("L").resize((img_size, img_size))
+                        arr = np.array(img, dtype=np.float32) / 255.0
+                        imgs.append(arr[None, :, :])
+                        ages.append(mapping[key])
+                        if len(imgs) >= n_samples:
+                            break
+                    if imgs:
+                        X = np.stack(imgs).astype(np.float32)
+                        y = np.array(ages, dtype=np.float32)
+                        Xtr, Xte, ytr, yte = train_test_split(
+                            X, y, test_size=test_size, random_state=seed
+                        )
+                        return {
+                            "X_train": Xtr,
+                            "X_test": Xte,
+                            "y_train": ytr,
+                            "y_test": yte,
+                            "_image_data": True,
+                            "_image_size": img_size,
+                            "_n_channels": 1,
+                            "_skip_y_standardization": True,
+                        }
+            except Exception:
+                pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: gradient + blob, maturity in [0, 228] months.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    brightness = rng.uniform(0.2, 1.0, n).astype(np.float32)
+    y = np.clip(228.0 * brightness + rng.normal(0, 6, n), 0, 228).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, 1, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        grad = (xs / img_size * 0.5 + 0.5) * brightness[i]
+        cx = img_size / 2 + rng.normal(0, img_size / 10)
+        cy = img_size / 2 + rng.normal(0, img_size / 10)
+        blob = np.exp(-((xs - cx) ** 2 + (ys - cy) ** 2) / (2 * (img_size / 6) ** 2))
+        X[i, 0] = (0.7 * grad + 0.3 * blob * brightness[i]).astype(np.float32)
+    X += 0.03 * rng.standard_normal(X.shape).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 1,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": not bool(root),
+    }
+    if not root:
+        splits["_fallback_reason"] = "BONEAGE_ROOT unset; synthetic bone-age proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -2318,6 +2527,62 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "via BIWI_ROOT env; synthetic proxy otherwise (flagged)."
         ),
         loader=_registry_loader(_load_biwi_head_pose),
+    ),
+    "biwi_head_pose_tiny": DatasetInfo(
+        name="biwi_head_pose_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "BIWI tiny smoke variant: 200 samples at 32×32 for fast CPU debug. "
+            "Same loader as biwi_head_pose."
+        ),
+        loader=_registry_loader(_load_biwi_head_pose, n_samples=200, img_size=32),
+    ),
+    "utkface_age": DatasetInfo(
+        name="utkface_age",
+        category="image",
+        n_features=-1,
+        n_samples=2000,
+        description=(
+            "UTKFace age regression (scalar years, 0–100). Real data via "
+            "UTKFACE_ROOT env (<age>_<gender>_<race>_*.jpg); synthetic "
+            "face-blob proxy otherwise (flagged). Small-real P0 default."
+        ),
+        loader=_registry_loader(_load_utkface_age),
+    ),
+    "utkface_age_tiny": DatasetInfo(
+        name="utkface_age_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "UTKFace tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_utkface_age, n_samples=200, img_size=32),
+    ),
+    "boneage": DatasetInfo(
+        name="boneage",
+        category="image",
+        n_features=-1,
+        n_samples=1000,
+        description=(
+            "Bone-age maturity (months, 0–228). Real RSNA data via "
+            "BONEAGE_ROOT env (csv + hand X-rays); synthetic proxy "
+            "otherwise (flagged). Imbalanced/high-stakes P0 axis."
+        ),
+        loader=_registry_loader(_load_boneage),
+    ),
+    "nyu_depth_v2_tiny": DatasetInfo(
+        name="nyu_depth_v2_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=50,
+        description=(
+            "NYU Depth V2 tiny smoke variant: 50 samples at 64×64 for fast "
+            "CPU debug. Same loader as nyu_depth_v2."
+        ),
+        loader=_registry_loader(_load_nyu_depth_v2, n_samples=50, img_size=64),
     ),
     "synthetic_image_keypoint": DatasetInfo(
         name="synthetic_image_keypoint",
