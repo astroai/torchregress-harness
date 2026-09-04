@@ -605,3 +605,81 @@ def validate_suites(all_suites: dict) -> tuple[bool, list[str]]:
             msgs.append(f"  ✗ {name}: {type(exc).__name__}: {exc}")
 
     return ok, msgs
+
+
+def validate_image_backbones() -> tuple[bool, list[str]]:
+    """CI smoketest: verify image backbones emit correct shapes.
+
+    Builds CNN/UNet/Dropout-CNN with synthetic (N,C,H,W) input and checks
+    output shapes for scalar, multi-output, and dense heads. Deterministic,
+    no training.
+    """
+    ok = True
+    msgs: list[str] = []
+    try:
+        import numpy as np
+        import torch
+        from suites.image._base import (
+            _image_to_dataloader,
+            _ImageCNN,
+            _ImageCNN_Dropout,
+            _UNet,
+        )
+
+        cnn = _ImageCNN(in_channels=1, out_dim=2)
+        x = torch.randn(4, 1, 32, 32)
+        out = cnn(x)
+        if tuple(out.shape) == (4, 2):
+            msgs.append("  ✓ _ImageCNN (4,1,32,32)->(4,2)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ _ImageCNN shape {tuple(out.shape)} != (4, 2)")
+
+        drop = _ImageCNN_Dropout(in_channels=3, out_dim=1)
+        out_d = drop(torch.randn(2, 3, 32, 32))
+        if tuple(out_d.shape) == (2, 1):
+            msgs.append("  ✓ _ImageCNN_Dropout (2,3,32,32)->(2,1)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ _ImageCNN_Dropout shape {tuple(out_d.shape)} != (2, 1)")
+
+        unet = _UNet(in_channels=3, out_channels=2)
+        out_u = unet(torch.randn(2, 3, 64, 64))
+        if tuple(out_u.shape) == (2, 2, 64, 64):
+            msgs.append("  ✓ _UNet (2,3,64,64)->(2,2,64,64)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ _UNet shape {tuple(out_u.shape)} != (2, 2, 64, 64)")
+
+        # Dataloader: scalar / multi-output / dense y layouts.
+        dl1 = _image_to_dataloader(
+            np.zeros((5, 1, 32, 32), np.float32), np.zeros(5, np.float32), 2, False
+        )
+        b = next(iter(dl1))
+        if tuple(b[1].shape) == (2, 1):
+            msgs.append("  ✓ dataloader scalar y->(B,1)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ dataloader scalar {tuple(b[1].shape)}")
+        dl2 = _image_to_dataloader(
+            np.zeros((5, 3, 32, 32), np.float32), np.zeros((5, 3), np.float32), 2, False
+        )
+        b2 = next(iter(dl2))
+        if tuple(b2[1].shape) == (2, 3):
+            msgs.append("  ✓ dataloader multi-output y->(B,D)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ dataloader multi {tuple(b2[1].shape)}")
+        dl3 = _image_to_dataloader(
+            np.zeros((5, 3, 16, 16), np.float32), np.zeros((5, 16, 16), np.float32), 2, False
+        )
+        b3 = next(iter(dl3))
+        if tuple(b3[1].shape) == (2, 1, 16, 16):
+            msgs.append("  ✓ dataloader dense y->(B,1,H,W)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ dataloader dense {tuple(b3[1].shape)}")
+    except Exception as exc:
+        ok = False
+        msgs.append(f"  ✗ image backbone smoketest failed: {type(exc).__name__}: {exc}")
+    return ok, msgs

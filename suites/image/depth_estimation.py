@@ -9,6 +9,11 @@ Methods
 * ``UNet+GaussianNLL`` — UNet backbone + per-pixel Gaussian NLL
 * ``UNet+Evidential`` — UNet backbone + per-pixel NIG evidential regression
 * ``UNet+MSE`` — UNet backbone + MSE loss (point prediction baseline)
+* ``UNet+MDN_K3`` — UNet + 3-component per-pixel MDN
+* ``UNet+MultiQuantile`` — UNet + 3-quantile head per pixel
+* ``UNet+StudentT`` — UNet + Student-t NLL per pixel (heavy-tailed)
+* ``UNet+Huber`` — UNet + PseudoHuber robust loss per pixel
+* ``UNet+DeepEnsemble_K3`` — 3 UNets + MSE, mean/var across members
 * ``sklearn_RF`` — RandomForestRegressor on flattened pixels (baseline)
 
 Evaluation
@@ -77,6 +82,11 @@ class DepthEstimationSuite(ImageHarnessRunner):
             "UNet+MSE",
             "UNet+GaussianNLL",
             "UNet+Evidential",
+            "UNet+MDN_K3",
+            "UNet+MultiQuantile",
+            "UNet+StudentT",
+            "UNet+Huber",
+            "UNet+DeepEnsemble_K3",
             "sklearn_RF",
         ]
 
@@ -90,6 +100,11 @@ class DepthEstimationSuite(ImageHarnessRunner):
             "UNet+MSE": "Lightweight UNet backbone + MSE loss (point prediction, no uncertainty)",
             "UNet+GaussianNLL": "UNet backbone + per-pixel Gaussian NLL (mean + log-var per pixel)",
             "UNet+Evidential": "UNet backbone + per-pixel NIG evidential regression",
+            "UNet+MDN_K3": "UNet + 3-component per-pixel mixture density network",
+            "UNet+MultiQuantile": "UNet + 3-quantile head per pixel (0.05/0.5/0.95)",
+            "UNet+StudentT": "UNet + Student-t NLL per pixel (heavy-tailed)",
+            "UNet+Huber": "UNet + PseudoHuber robust loss per pixel (point prediction)",
+            "UNet+DeepEnsemble_K3": "3 independent UNets + MSE; mean/var across members",
             "sklearn_RF": "RandomForestRegressor on flattened pixels (100 trees, 10 depth) — point prediction only",
         }
         return notes.get(method, "")
@@ -110,7 +125,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
         train_loader = self._make_train_loader(splits, batch_size=config.batch_size)
 
         # --- UNet-based methods ---
-        if method in ("UNet+MSE", "UNet+GaussianNLL", "UNet+Evidential"):
+        if method.startswith("UNet+"):
             return self._fit_unet_method(method, in_channels, train_loader, config)
 
         # --- sklearn baseline on flattened pixels ---
@@ -138,9 +153,10 @@ class DepthEstimationSuite(ImageHarnessRunner):
         elif method == "UNet+GaussianNLL":
             from torchregress.losses import GaussianNLLLoss
 
-            # 2 output channels: mean + log-variance per pixel
+            # 2 output channels: mean + log-variance per pixel.
+            # split_dim=1: dense layout is (B, 2, H, W), not last-dim.
             model = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
-            _train_image_model(model, GaussianNLLLoss(), train_loader, config)
+            _train_image_model(model, GaussianNLLLoss(split_dim=1), train_loader, config)
             return {"type": "gaussian_nll", "model": model}
 
         # --- UNet+Evidential ---
@@ -152,6 +168,58 @@ class DepthEstimationSuite(ImageHarnessRunner):
             loss_fn = EvidentialRegressionLoss(coeff_nig=0.01)
             self._train_evidential_unet(model, loss_fn, train_loader, config)
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
+
+        # --- UNet+MDN_K3 (per-pixel mixture over scalar depth) ---
+        elif method == "UNet+MDN_K3":
+            from torchregress.losses import MixtureDensityLoss
+
+            loss_fn = MixtureDensityLoss(n_components=3, n_features=1)
+            # MDN head emits (B, out_dim) per location via 1×1 conv path:
+            # reuse UNet with out_channels=out_dim; loss broadcasts over HW.
+            model = self._build_unet(
+                in_channels=in_channels,
+                out_channels=loss_fn.expected_output_size,
+                base_filters=32,
+            )
+            self._train_mdn_unet(model, loss_fn, train_loader, config)
+            return {"type": "mdn", "model": model, "loss_fn": loss_fn}
+
+        # --- UNet+MultiQuantile (3 quantiles per pixel) ---
+        elif method == "UNet+MultiQuantile":
+            from torchregress.losses import MultiQuantileLoss
+
+            quantiles = [0.05, 0.5, 0.95]
+            model = self._build_unet(
+                in_channels=in_channels, out_channels=len(quantiles), base_filters=32
+            )
+            self._train_quantile_unet(
+                model, MultiQuantileLoss(quantiles=quantiles), train_loader, config
+            )
+            return {"type": "multi_quantile", "model": model, "quantiles": quantiles}
+
+        # --- UNet+StudentT / Huber (single-channel point-ish heads) ---
+        elif method == "UNet+StudentT":
+            from torchregress.losses import StudentTLoss
+
+            model = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
+            _train_image_model(model, StudentTLoss(), train_loader, config)
+            return {"type": "mse", "model": model}
+        elif method == "UNet+Huber":
+            from torchregress.losses import PseudoHuberLoss
+
+            model = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
+            _train_image_model(model, PseudoHuberLoss(), train_loader, config)
+            return {"type": "mse", "model": model}
+
+        # --- UNet+DeepEnsemble_K3 ---
+        elif method == "UNet+DeepEnsemble_K3":
+            members = []
+            for _ in range(3):
+                m = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
+                _train_image_model(m, nn.MSELoss(), train_loader, config)
+                m.eval()
+                members.append(m)
+            return {"type": "deep_ensemble", "members": members}
 
         raise ValueError(f"Unknown UNet method: {method}")
 
@@ -222,18 +290,69 @@ class DepthEstimationSuite(ImageHarnessRunner):
                 opt.zero_grad(set_to_none=True)
                 raw = model(X_batch)  # (B, 4, H, W)
 
-                # Apply evidential constraints per-pixel
+                # Apply evidential constraints per-pixel. The loss accepts a
+                # pre-split (gamma, nu, alpha, beta) tuple, which is layout
+                # agnostic — required for dense (B, 1, H, W) targets.
                 gamma = raw[:, 0:1, :, :]
                 nu = F.softplus(raw[:, 1:2, :, :]) + 0.01
                 alpha = F.softplus(raw[:, 2:3, :, :]) + 1.01
                 beta = F.softplus(raw[:, 3:4, :, :]) + 0.01
-                constrained = torch.cat([gamma, nu, alpha, beta], dim=1)
 
-                loss = loss_fn(constrained, y_batch)
+                loss = loss_fn((gamma, nu, alpha, beta), y_batch)
                 loss.backward()
                 opt.step()
 
         model.eval()
+
+    @staticmethod
+    def _train_pixelwise_head(
+        model: nn.Module,
+        loss_fn: nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        config: HarnessConfig,
+    ) -> None:
+        """Train a per-pixel head whose loss expects (B', out_dim)/(B', 1).
+
+        Flattens ``(B, C, H, W)`` → ``(B*H*W, C)`` so scalar losses
+        (MDN, MultiQuantile) work on dense outputs without a custom kernel.
+        """
+        import torch.optim as optim
+
+        opt = optim.Adam(list(model.parameters()), lr=config.lr)
+        device = next(model.parameters()).device
+        loss_fn.to(device)
+        model.train()
+        for _ in range(config.epochs):
+            for batch in train_loader:
+                Xb = batch[0].to(device)
+                yb = batch[1].to(device)  # (B, 1, H, W)
+                opt.zero_grad(set_to_none=True)
+                out = model(Xb)  # (B, C, H, W)
+                b, c, h, w = out.shape
+                out_flat = out.permute(0, 2, 3, 1).reshape(b * h * w, c)
+                y_flat = yb.permute(0, 2, 3, 1).reshape(b * h * w, 1)
+                loss = loss_fn(out_flat, y_flat)
+                loss.backward()
+                opt.step()
+        model.eval()
+
+    def _train_mdn_unet(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        config: HarnessConfig,
+    ) -> None:
+        self._train_pixelwise_head(model, loss_fn, train_loader, config)
+
+    def _train_quantile_unet(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        config: HarnessConfig,
+    ) -> None:
+        self._train_pixelwise_head(model, loss_fn, train_loader, config)
 
     # ------------------------------------------------------------------
     # predict
@@ -259,6 +378,20 @@ class DepthEstimationSuite(ImageHarnessRunner):
         # --- UNet+Evidential ---
         elif model_type == "evidential":
             return self._predict_evidential(model_state["model"], X_test)
+
+        # --- UNet+MDN_K3 ---
+        elif model_type == "mdn":
+            return self._predict_mdn(model_state["model"], model_state["loss_fn"], X_test)
+
+        # --- UNet+MultiQuantile ---
+        elif model_type == "multi_quantile":
+            return self._predict_multi_quantile(
+                model_state["model"], model_state["quantiles"], X_test
+            )
+
+        # --- UNet+DeepEnsemble_K3 ---
+        elif model_type == "deep_ensemble":
+            return self._predict_deep_ensemble(model_state["members"], X_test)
 
         # --- sklearn dense ---
         elif model_type == "sklearn_dense":
@@ -378,6 +511,85 @@ class DepthEstimationSuite(ImageHarnessRunner):
         X_flat = X_test.transpose(0, 2, 3, 1).reshape(-1, C)  # (N*H*W, C)
         y_pred = estimator.predict(X_flat).reshape(-1).astype(np.float32)
         return {"y_pred": y_pred}
+
+    def _predict_mdn(
+        self, model: nn.Module, loss_fn: nn.Module, X_test: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        """UNet+MDN: per-pixel mixture mean + MC quantile intervals, flattened."""
+        device = next(model.parameters()).device
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
+        means, lowers, uppers = [], [], []
+        with torch.no_grad():
+            for (Xb,) in loader:
+                out = model(Xb.to(device))  # (B, C, H, W)
+                b, c, h, w = out.shape
+                flat = out.permute(0, 2, 3, 1).reshape(b * h * w, c)
+                mean, _ = loss_fn.predict_mean_std(flat)
+                mean_np = mean.squeeze(-1).cpu().numpy().reshape(b, h, w)
+                with torch.random.fork_rng(devices=[]):
+                    torch.manual_seed(0)
+                    s = loss_fn.sample(flat, n_samples=64).squeeze(-1).cpu().numpy()
+                if s.ndim == 2 and s.shape[0] == 64:
+                    s = s.T
+                s = s.reshape(b, h, w, -1)
+                means.append(mean_np.reshape(-1))
+                lowers.append(np.quantile(s, 0.05, axis=-1).reshape(-1))
+                uppers.append(np.quantile(s, 0.95, axis=-1).reshape(-1))
+        mean = np.concatenate(means)
+        return {
+            "lower": np.concatenate(lowers),
+            "upper": np.concatenate(uppers),
+            "y_pred": mean,
+            "mean": mean,
+        }
+
+    def _predict_multi_quantile(
+        self, model: nn.Module, quantiles: list[float], X_test: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        device = next(model.parameters()).device
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
+        los, meds, his = [], [], []
+        with torch.no_grad():
+            for (Xb,) in loader:
+                out = model(Xb.to(device)).cpu().numpy()  # (B, 3, H, W)
+                los.append(out[:, 0].reshape(-1))
+                meds.append(out[:, len(quantiles) // 2].reshape(-1))
+                his.append(out[:, -1].reshape(-1))
+        return {
+            "lower": np.concatenate(los),
+            "upper": np.concatenate(his),
+            "y_pred": np.concatenate(meds),
+        }
+
+    def _predict_deep_ensemble(
+        self, members: list[nn.Module], X_test: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        device = next(members[0].parameters()).device
+        loader = _image_to_dataloader(
+            X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
+        )
+        preds = []
+        with torch.no_grad():
+            for m in members:
+                part = []
+                for (Xb,) in loader:
+                    part.append(m(Xb.to(device)).cpu().numpy())
+                preds.append(np.concatenate(part, axis=0))
+        stack = np.stack(preds, axis=0)  # (K, N, 1, H, W)
+        mean = stack.mean(axis=0).reshape(-1)
+        std = stack.std(axis=0).reshape(-1).clip(min=1e-6)
+        z = self.Z_SCORE
+        return {
+            "lower": mean - z * std,
+            "upper": mean + z * std,
+            "y_pred": mean,
+            "mean": mean,
+            "std": std,
+        }
 
     # ------------------------------------------------------------------
     # evaluate — flatten targets to match predictions

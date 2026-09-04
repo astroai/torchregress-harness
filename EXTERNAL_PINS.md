@@ -24,7 +24,8 @@ how to install / re-pin them.
 |---------|--------|--------|------|--------------------|
 | **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `6478f16c9a` | 2026-08-04 | Newest `master`; includes Cross-CQR + Adaptive Conformal Risk Control |
 | **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (tag `v0.13.0`, main HEAD) | `94e511a737` | 2026-07-22 | v0.13.0 regression-routine rework the image suite is written against |
-| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.3.0`) | `df6366e` | 2026-09-03 | Stress-matrix comparator (`luqbox_*` rows); v0.3.0 MLP signature (`n_hidden`, `dropout_p`) is what the adapter is written against |
+| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.3.0`) | `df6366e` | 2026-09-03 | Stress-matrix + image comparator (`luqbox_*` rows); v0.3.0 MLP signature (`n_hidden`, `dropout_p`) is what the adapters are written against |
+| **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 
 ## Install commands
 
@@ -67,6 +68,10 @@ this file.  Rows are produced by:
 - `suites/tabular/stress_matrix.py` → `luqbox_*` methods
   (`MCDropoutRegression` / `DeterministicRegression` wrapped around `LUQMLP`;
   predict mirrors the library's `predict_step`, see `_LUQBOX_PIN` in-file).
+- `suites/image/image_ensembles_uq.py` → `luqbox_*` methods (same LUQ-Box
+  classes on flattened pixels; documented model-family gap vs CNN rows).
+- `suites/image/age_regression.py` → `timm_resnet18+GaussianNLL`
+  (timm backbone, unpretrained; version self-reported).
 
 ## How to bump to a newer commit
 

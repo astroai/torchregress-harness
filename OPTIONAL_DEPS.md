@@ -38,7 +38,7 @@ This pulls in **conformal + bayesian + tweedie + foundation + boosting + image +
 | Tweedie   | `pip install -e ".[tweedie]"`  | `scikit-lego` |
 | Foundation| `pip install -e ".[foundation]"` | `tabpfn`, `tabicl` |
 | Boosting  | `pip install -e ".[boosting]"`   | `lightgbm`, `xgboost` |
-| Image     | `pip install -e ".[image]"`      | `torchvision`, `torch-uncertainty>=0.13.0` (git pin in `EXTERNAL_PINS.md`), `lightning`, `timm`, … |
+| Image     | `pip install -e ".[image]"`      | `torchvision`, `torch-uncertainty>=0.13.0` (git pin in `EXTERNAL_PINS.md`), `lightning`, `lightning-uq-box>=0.3.0` (git pin `v0.3.0`), `timm`, … |
 | Test      | `pip install -e ".[test]"`       | `pytest`, `pytest-cov`, `PyYAML` |
 | Dev       | `pip install -e ".[dev]"`        | `ruff`, `ty` |
 
@@ -66,6 +66,6 @@ pip install -e ".[conformal,bayesian,foundation]"
 | `tweedie` | scikit-lego Tweedie |
 | `foundation` | TabPFN, TabICL |
 | `boosting` | LightGBM, XGBoost robust regression |
-| `image` | torchvision / lightning / timm image suites; torch-uncertainty `torch_uncertainty` row (>=0.13) |
+| `image` | torchvision / lightning / timm image suites; torch-uncertainty `torch_uncertainty` row (>=0.13); lightning-uq-box `luqbox_*` rows (image_ensembles_uq, flattened-pixel comparators); timm `timm_*` rows |
 
 Skipped rows in harness JSON usually mean the optional library is missing — install the matching extra and re-run.

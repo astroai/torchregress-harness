@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Image-parity benchmark for torchregress-harness on CANFAR Skaha headless.
+#
+# Image: astroai/base:latest (per operator instruction — use verbatim even
+# though `canfar image ls` does not list it).
+# Code delivery: GitHub push/pull — this script clones/fetches the pushed
+# REPO_REF with GH_TOKEN, never relying on persistent /arc checkouts.
+#
+# Usage (from the container):
+#   REPO_REF=<branch-or-sha> bash scripts/skaha_image_parity.sh [RUN_ID] [--smoke]
+#   bash scripts/skaha_image_parity.sh img-full-001 main
+#
+# Env:
+#   REPO_REF   git ref to benchmark (required — the pushed PR head)
+#   RUN_ID     unique run suffix (default: YYYYMMDD_HHMMSS)
+#   OUT_ROOT   results root (default: /arc/projects/ots/torchregress-harness/runs)
+#   GH_TOKEN   GitHub token for private clones
+#   REPLICA_ID / REPLICA_COUNT  set by headless replicas — shard suite/dataset
+#   MAPIE_PIN / TU_PIN / LUQBOX_REF  pins (defaults match EXTERNAL_PINS.md)
+set -euo pipefail
+
+RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
+REPO_REF="${2:-${REPO_REF:-main}}"
+SMOKE="${SMOKE:-0}"
+[[ "${3:-}" == "--smoke" ]] && SMOKE=1
+[[ "${1:-}" == "--smoke" ]] && SMOKE=1
+
+MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
+TU_PIN="${TU_PIN:-94e511a737}"
+LUQBOX_REF="${LUQBOX_REF:-v0.3.0}"
+
+export PIXI_HOME="$HOME/.pixi"
+export PIXI_CACHE_DIR="$HOME/.cache/pixi"
+export UV_CACHE_DIR="$HOME/.cache/uv"
+export XDG_CACHE_HOME="$HOME/.cache"
+export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
+export PYTORCH_NVML_BASED_CUDA_CHECK=1
+export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+
+log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+OUT_ROOT="${OUT_ROOT:-/arc/projects/ots/torchregress-harness/runs}"
+OUT_DIR="$OUT_ROOT/img_$RUN_ID"
+mkdir -p "$OUT_DIR"
+
+WORK=/scratch/image-parity
+mkdir -p "$WORK"
+cd "$WORK"
+
+if [ -n "${GH_TOKEN:-}" ]; then
+  GH_BASE="https://x-access-token:${GH_TOKEN}@github.com"
+else
+  GH_BASE="https://github.com"
+fi
+
+for repo in torchregress torchregress-harness; do
+  if [ ! -d "$repo/.git" ]; then
+    log "cloning $repo @ $REPO_REF"
+    git clone --depth 50 "$GH_BASE/sfabbro/$repo.git" "$repo"
+  fi
+  log "fetching $repo ref $REPO_REF"
+  git -C "$repo" fetch origin "$REPO_REF" --depth 20 || git -C "$repo" fetch origin main --depth 20
+  git -C "$repo" checkout FETCH_HEAD
+  git -C "$repo" rev-parse HEAD | tee "$OUT_DIR/${repo}_sha.txt"
+done
+
+cd "$WORK/torchregress-harness"
+log "pixi install"
+pixi install 2>&1 | tail -n 3
+
+log "installing git pins (MAPIE/TU/LUQ-Box + image stack)"
+pixi run pip install -q "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN" || log "MAPIE pin failed (offline?)"
+pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning || log "TU pin failed"
+pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
+
+# Replica sharding: split the suite×dataset matrix across headless replicas.
+ALL_JOBS=(
+  "age_regression synthetic_image_regression"
+  "age_regression imdb_wiki"
+  "depth_estimation synthetic_image_depth"
+  "depth_estimation nyu_depth_v2"
+  "keypoint_regression synthetic_image_keypoint"
+  "keypoint_regression biwi_head_pose"
+  "image_conformal synthetic_image_regression"
+  "image_ensembles_uq synthetic_image_regression"
+  "image_robust synthetic_image_regression"
+  "image_calibration synthetic_image_regression"
+)
+RID="${REPLICA_ID:-0}"
+RCNT="${REPLICA_COUNT:-1}"
+log "replica $RID/$RCNT, n_jobs=${#ALL_JOBS[@]}"
+JOBS=()
+for i in "${!ALL_JOBS[@]}"; do
+  if (( i % RCNT == RID )); then JOBS+=("${ALL_JOBS[$i]}"); fi
+done
+
+EPOCHS=2
+EXTRA_ARGS="--smoke"
+if [[ "$SMOKE" != 1 ]]; then EPOCHS=30; EXTRA_ARGS="--epochs $EPOCHS"; fi
+
+# shellcheck disable=SC2086
+for job in "${JOBS[@]}"; do
+  # shellcheck disable=SC2086
+  suite="${job%% *}"; dataset="${job##* }"
+  log "=== $suite / $dataset ==="
+  pixi run python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+    $EXTRA_ARGS --output "$OUT_DIR/${suite}_${dataset}.json" 2>&1 | tail -n 5 || log "job failed: $job"
+done
+
+log "run complete → $OUT_DIR"
+ls -lh "$OUT_DIR"

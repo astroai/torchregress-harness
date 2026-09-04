@@ -1292,3 +1292,44 @@ Earlier `EvidentialRegressor._predict_diagnostics` hardcoded `confidence=0.9` an
 * `src/harness/wrappers.py` — 4 wrappers, distilled from `suites/tabular/distributional_bins.py` and `suites/tabular/foundation_model.py`.
 * `tests/test_wrappers.py` — 33 smoke + regression tests.
 * `src/harness/__init__.py` — top-level `__all__` exposes the 4 wrappers as `from harness import GaussianNLLRegressor, …`.
+
+---
+
+## 16. IMAGE PARITY TRACK (2026-09-04, benchmark open)
+
+Image suites now cover the full tabular loss ladder on CNN/ResNet/UNet/timm
+backbones; headless GPU numbers pending (`scripts/skaha_image_parity.sh`,
+image `astroai/base:latest`, `REPO_REF` = pushed SHA).
+
+### 16.1 Method matrix
+
+| Suite | torchregress methods | Externals |
+|---|---|---|
+| `age_regression` | CNN+GaussianNLL/MDN_K2/K3/K5/NF/NF_Ensemble_K2/Evidential/MultiQuantile/StudentT/Huber/Barron/MC_Dropout; ResNet+GaussianNLL/MDN_K3/NF/Evidential/MultiQuantile | sklearn_RF/GBR (flattened), torch-uncertainty (>=0.13, git pin), timm_resnet18 |
+| `depth_estimation` | UNet+MSE/GaussianNLL/Evidential/MDN_K3/MultiQuantile/StudentT/Huber/DeepEnsemble_K3 | sklearn_RF (per-pixel) |
+| `keypoint_regression` | CNN+MSE/GaussianNLL/MultivariateGaussian/NF; ResNet+GaussianNLL/MV-Gaussian | sklearn_RF multi-output |
+| `image_conformal` | Split+CNN, CQR+CNN (cal-split, α=0.1) | MAPIE/crepes/torchcp post-hoc (ImportError-gated) |
+| `image_ensembles_uq` | DeepEnsemble_K5, MC_Dropout, SWAG | luqbox_MCDropout/luqbox_GaussianNLL (flattened-pixel comparators, pin v0.3.0) |
+| `image_robust` | MSE/Huber/Barron/Cauchy/LogCosh/DensityWeighted/LDS | LightGBM/XGBoost (flattened, gated) |
+| `image_calibration` | Uncalibrated/VarianceTemperatureScaler/IsotonicMeanCalibrator | — |
+
+### 16.2 Parity ladder (same 4 tiers as tabular §1–§4)
+
+* **Exact (Δ < 1e-3):** Split+CNN ≡ MAPIE/crepes/torchcp post-hoc (residual
+  quantile is algorithmically identical); Uncalibrated ≡ frozen CNN row.
+* **Near/convergence:** CNN+MSE vs TU-MSE; ResNet+GaussianNLL vs
+  TU-GaussianNLL (matched epochs/lr/seed; init delta documented in
+  `method_notes`); LUQ-Box rows vs harness MC-Dropout (matched p=0.5/20
+  passes on flattened pixels — model-family gap vs CNN disclosed).
+* **Algorithmic identity:** CQR+CNN ≡ quantile head + cal correction
+  (same pinball + finite-sample quantile as tabular `conformal.py`).
+* **Ranking:** IntervalScore/Coverage/NLL per suite×dataset (headless GPU
+  artifacts `runs/img_<RUN_ID>/` feed the next regeneration).
+
+### 16.3 Datasets
+
+Smoke/CI: `synthetic_image_regression`, `synthetic_image_depth`,
+`synthetic_image_keypoint`, `biwi_head_pose` (proxy unless `BIWI_ROOT`).
+Nightly/CUDA: `imdb_wiki[_fullres]`, `nyu_depth_v2[_fullres]` with mirror
+fallback + resume (`datasets/README.md`). `--img-size/--pretrained` flags
+in `tools/run_all.py`; `--smoke` stays synthetic+BIWI-subset at 2 epochs.

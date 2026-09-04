@@ -121,8 +121,87 @@ def _make_resnet_backbone(
 
 
 # ---------------------------------------------------------------------------
-# Simple UNet for pixel-level (dense) regression
+# timm backbone — optional, mirrors torchvision ResNet path
 # ---------------------------------------------------------------------------
+
+_TIMM_AVAILABLE: bool
+try:
+    import timm as _timm_mod  # noqa: F401
+
+    _TIMM_AVAILABLE = True
+except ImportError:
+    _TIMM_AVAILABLE = False
+
+
+def _make_timm_backbone(
+    model_name: str = "resnet18",
+    in_channels: int = 3,
+    out_dim: int = 1,
+    pretrained: bool = False,
+) -> nn.Module | None:
+    """Build a timm backbone with a regression head.
+
+    Returns None if timm is not available. ``model_name`` is any timm
+    image-classification model (default ``resnet18`` for parity with the
+    torchvision path). The classification head is replaced with a linear
+    regression head of ``out_dim`` outputs.
+    """
+    if not _TIMM_AVAILABLE:
+        return None
+    import timm
+
+    model = timm.create_model(model_name, pretrained=pretrained, in_chans=in_channels)
+    # Replace classification head: timm models expose get_classifier/setter
+    # conventions that vary; reset_head(num_classes=...) is the portable path.
+    try:
+        model.reset_head(num_classes=out_dim)
+    except Exception:
+        # Fallback for models without reset_head: replace common attrs.
+        for attr in ("fc", "head", "classifier"):
+            if hasattr(model, attr):
+                head = getattr(model, attr)
+                if isinstance(head, nn.Linear):
+                    setattr(model, attr, nn.Linear(head.in_features, out_dim))
+                    break
+                if isinstance(head, nn.Sequential):
+                    # Replace last linear in the head.
+                    for i in range(len(head) - 1, -1, -1):
+                        if isinstance(head[i], nn.Linear):
+                            head[i] = nn.Linear(head[i].in_features, out_dim)
+                            break
+                    break
+    from harness.devices import current_device
+
+    return model.to(current_device())
+
+
+# ---------------------------------------------------------------------------
+# Dropout CNN — for MC-Dropout UQ on images
+# ---------------------------------------------------------------------------
+
+
+class _ImageCNN_Dropout(_ImageCNN):
+    """Lightweight CNN with 2D dropout after each block for MC-Dropout."""
+
+    def __init__(
+        self,
+        in_channels: int = 1,
+        out_dim: int = 1,
+        base_filters: int = 16,
+        dropout_p: float = 0.2,
+    ) -> None:
+        # Build via parent then splice dropout layers into features.
+        super().__init__(in_channels=in_channels, out_dim=out_dim, base_filters=base_filters)
+        self.dropout_p = dropout_p
+        layers: list[nn.Module] = []
+        for mod in self.features:
+            layers.append(mod)
+            if isinstance(mod, nn.ReLU):
+                layers.append(nn.Dropout2d(p=dropout_p))
+        self.features = nn.Sequential(*layers)
+        from harness.devices import current_device
+
+        self.to(current_device())
 
 
 class _UNet(nn.Module):
@@ -205,7 +284,8 @@ def _image_to_dataloader(
     """Convert numpy image array to a PyTorch DataLoader.
 
     X shape: (N, C, H, W) — image tensor in CHW format.
-    y shape: (N,) for scalar, (N, H, W) for dense, or None.
+    y shape: (N,) for scalar, (N, D) for multi-output (keypoint),
+        (N, H, W) for dense, or None.
 
     Returns a DataLoader yielding (X_batch,) or (X_batch, y_batch).
     """
@@ -213,6 +293,9 @@ def _image_to_dataloader(
     if y is not None:
         if y.ndim == 1:
             y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(1)
+        elif y.ndim == 2:
+            # Multi-output (N, D), e.g. keypoint (x, y) pairs — keep 2D.
+            y_t = torch.from_numpy(y).float().to(current_device())
         elif y.ndim == 3:
             # Dense (N, H, W) — keep as 3D for spatial loss functions
             y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(1)  # (N, 1, H, W)
@@ -332,6 +415,36 @@ class ImageHarnessRunner(HarnessRunner):
             base_filters=base_filters,
         )
 
+    @staticmethod
+    def _build_cnn_dropout(
+        in_channels: int,
+        out_dim: int,
+        base_filters: int = 16,
+        dropout_p: float = 0.2,
+    ) -> _ImageCNN_Dropout:
+        """Build a lightweight CNN with MC-Dropout layers."""
+        return _ImageCNN_Dropout(
+            in_channels=in_channels,
+            out_dim=out_dim,
+            base_filters=base_filters,
+            dropout_p=dropout_p,
+        )
+
+    @staticmethod
+    def _build_timm(
+        model_name: str = "resnet18",
+        in_channels: int = 3,
+        out_dim: int = 1,
+        pretrained: bool = False,
+    ) -> nn.Module | None:
+        """Build a timm backbone. Returns None if timm missing."""
+        return _make_timm_backbone(
+            model_name=model_name,
+            in_channels=in_channels,
+            out_dim=out_dim,
+            pretrained=pretrained,
+        )
+
     # ------------------------------------------------------------------
     # Image metadata extraction from splits dict
     # ------------------------------------------------------------------
@@ -371,3 +484,55 @@ class ImageHarnessRunner(HarnessRunner):
             batch_size=batch_size,
             shuffle=False,
         )
+
+
+# ---------------------------------------------------------------------------
+# Image calibration-split + conformal helpers (mirror tabular _backbones)
+# ---------------------------------------------------------------------------
+
+
+def _carve_image_calibration_split(
+    splits: dict[str, Any],
+    cal_fraction: float = 0.2,
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Carve a calibration split off the training set, preserving image shapes.
+
+    Splits ``X_train/y_train`` into ``X_train/y_train`` (fit) +
+    ``X_cal/y_cal`` (calibration), stratified by random permutation only
+    (no label stratification for regression). All image metadata keys
+    (``_image_data``, ``_dense_output``, ``_image_size``, ``_n_channels``)
+    are preserved on the output dict.
+    """
+    import numpy as np
+
+    X_train = np.asarray(splits["X_train"])
+    y_train = np.asarray(splits["y_train"])
+    n = len(X_train)
+    n_cal = max(1, int(n * cal_fraction))
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(n)
+    cal_idx, fit_idx = perm[:n_cal], perm[n_cal:]
+    out = dict(splits)
+    out["X_train"] = X_train[fit_idx]
+    out["y_train"] = y_train[fit_idx]
+    out["X_cal"] = X_train[cal_idx]
+    out["y_cal"] = y_train[cal_idx]
+    # Forward calibration-irrelevant extras if present.
+    for key in ("censoring_train", "exposure_train"):
+        if key in splits:
+            arr = np.asarray(splits[key])
+            out[key] = arr[fit_idx]
+    return out
+
+
+def _conformal_quantile(residuals: np.ndarray, alpha: float = 0.1) -> float:
+    """Finite-sample conformal quantile: ``quantile(resid, ceil((n+1)(1-a))/n)``."""
+    import numpy as np
+
+    r = np.asarray(residuals, dtype=np.float64).ravel()
+    n = len(r)
+    if n == 0:
+        return float("nan")
+    level = float(np.ceil((n + 1) * (1.0 - alpha)) / n)
+    return float(np.quantile(r, min(max(level, 0.0), 1.0)))

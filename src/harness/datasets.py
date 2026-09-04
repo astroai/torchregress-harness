@@ -1355,11 +1355,20 @@ def _load_synthetic_image_depth(
 # ---------------------------------------------------------------------------
 
 _NYU_DEPTH_URL = "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat"
+# Official NYU mirror (used when the horatio host is unreachable).
+_NYU_DEPTH_MIRROR_URLS = (
+    "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat",
+    "https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2/nyu_depth_v2_labeled.mat",
+)
 
 _IMDB_CROP_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/imdb_crop.tar"
 _WIKI_CROP_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/wiki_crop.tar"
 _IMDB_META_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/imdb_meta.tar"
 _WIKI_META_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/wiki_meta.tar"
+# HuggingFace mirror fallback for IMDB-WIKI metadata (ETH mirror 404s
+# wiki_meta.tar as of 2026-08 — PARITY_REPORT header). Tars already cached
+# locally are reused without any download.
+_IMDB_WIKI_HF_MIRROR = "https://huggingface.co/datasets/ashvala/imdb-wiki/resolve/main"
 
 
 def _load_nyu_depth_v2(
@@ -1397,9 +1406,26 @@ def _load_nyu_depth_v2(
     cache_dir = _image_cache_dir()
     mat_path = cache_dir / "nyu_depth_v2_labeled.mat"
 
-    # Download if needed
-    if not mat_path.exists():
-        _download_with_progress(_NYU_DEPTH_URL, mat_path, desc="NYU Depth v2 (.mat)")
+    # Download if needed — try each mirror in order; cached files are reused.
+    if not (mat_path.exists() and mat_path.stat().st_size > 0):
+        last_exc: Exception | None = None
+        for url in _NYU_DEPTH_MIRROR_URLS:
+            try:
+                _download_with_progress(url, mat_path, desc="NYU Depth v2 (.mat)")
+                break
+            except Exception as exc:  # noqa: BLE001 — try next mirror
+                last_exc = exc
+                if mat_path.exists():
+                    try:
+                        mat_path.unlink()
+                    except OSError:
+                        pass
+        else:
+            raise RuntimeError(
+                "NYU Depth v2 download failed from all mirrors "
+                f"({_NYU_DEPTH_MIRROR_URLS}). Last error: {last_exc}. "
+                f"Place nyu_depth_v2_labeled.mat in {cache_dir} manually."
+            ) from last_exc
 
     # Load .mat file
     try:
@@ -1546,16 +1572,36 @@ def _load_imdb_wiki(
     cache_dir = _image_cache_dir()
 
     # -- Step 1: download crop tars and meta tars (if not cached) ------------
+    # Cached tars are reused without download. The ETH Zurich mirror 404s
+    # wiki_meta.tar (2026-08); fall back to the HuggingFace mirror for
+    # metadata before failing. Crop tars (6.6G/774M) are the common case
+    # already cached — only missing files trigger downloads.
     sources = [
-        ("imdb_crop.tar", _IMDB_CROP_URL),
-        ("wiki_crop.tar", _WIKI_CROP_URL),
-        ("imdb_meta.tar", _IMDB_META_URL),
-        ("wiki_meta.tar", _WIKI_META_URL),
+        ("imdb_crop.tar", _IMDB_CROP_URL, None),
+        ("wiki_crop.tar", _WIKI_CROP_URL, None),
+        ("imdb_meta.tar", _IMDB_META_URL, f"{_IMDB_WIKI_HF_MIRROR}/imdb_meta.tar"),
+        ("wiki_meta.tar", _WIKI_META_URL, f"{_IMDB_WIKI_HF_MIRROR}/wiki_meta.tar"),
     ]
-    for fname, url in sources:
+    for fname, url, mirror in sources:
         dest = cache_dir / fname
-        if not dest.exists():
+        if dest.exists() and dest.stat().st_size > 0:
+            continue
+        try:
             _download_with_progress(url, dest, desc=fname)
+        except Exception as exc_primary:  # noqa: BLE001 — mirror fallback
+            if mirror is not None:
+                try:
+                    _download_with_progress(mirror, dest, desc=fname)
+                    continue
+                except Exception:
+                    pass
+            # Metadata tars are optional: a missing wiki_meta only drops the
+            # wiki subset (imdb subset still yields a valid benchmark); crop
+            # tars are mandatory.
+            if fname in ("wiki_meta.tar", "imdb_meta.tar"):
+                print(f"Warning: {fname} unavailable ({exc_primary}); subset may be skipped.")
+                continue
+            raise
 
     # -- Step 2: extract tars (one-time, cached) ----------------------------
     import tarfile
@@ -1565,6 +1611,11 @@ def _load_imdb_wiki(
 
     for fname in ["imdb_crop.tar", "wiki_crop.tar"]:
         tar_path = cache_dir / fname
+        if not tar_path.exists():
+            raise FileNotFoundError(
+                f"IMDB-WIKI: required {fname} missing in {cache_dir}. "
+                "Download it manually or check network access."
+            )
         if not (crop_dir / fname.replace(".tar", "")).is_dir():
             print(f"Extracting {fname} …")
             with tarfile.open(tar_path) as tf:
@@ -1572,6 +1623,11 @@ def _load_imdb_wiki(
 
     for fname in ["imdb_meta.tar", "wiki_meta.tar"]:
         tar_path = cache_dir / fname
+        if not tar_path.exists():
+            # Missing metadata tar (e.g. wiki_meta.tar 404s upstream):
+            # skip extraction; the parse step below skips that subset.
+            print(f"Warning: {fname} not cached — its subset will be skipped.")
+            continue
         if not (meta_dir / fname.replace(".tar", "")).is_dir():
             print(f"Extracting {fname} …")
             with tarfile.open(tar_path) as tf:
@@ -1683,6 +1739,141 @@ def _load_imdb_wiki(
         "_image_data": True,
         "_image_size": img_size,
         "_n_channels": 3,
+    }
+
+
+def _load_biwi_head_pose(
+    n_samples: int = 1000,
+    img_size: int = 64,
+    n_channels: int = 3,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Load BIWI head-pose (multi-target: yaw/pitch/roll) or a proxy.
+
+    Tries ``torchvision.datasets``-style local cache first; BIWI is not
+    distributed with torchvision, so the common path is a synthetic proxy
+    with matching geometry: ``X=(N,3,H,W)`` face-like blobs,
+    ``y=(N,3)`` yaw/pitch/roll in degrees. The proxy preserves the
+    (N,3) multi-output contract so keypoint/multitarget suites run
+    hermetically in CI; headless GPU jobs with the real BIWI tar override
+    via ``BIWI_ROOT`` env (directory of ``*.jpg`` + ``*.txt`` poses).
+    """
+    import os as _os
+
+    biwi_root = _os.environ.get("BIWI_ROOT", "")
+    if biwi_root:
+        root = Path(biwi_root)
+        jpgs = sorted(root.rglob("*.jpg")) + sorted(root.rglob("*.png"))
+        if jpgs:
+            try:
+                from PIL import Image
+
+                imgs, poses = [], []
+                for jp in jpgs[:n_samples]:
+                    txt = jp.with_suffix(".txt")
+                    if not txt.is_file():
+                        continue
+                    pose = np.loadtxt(str(txt), dtype=np.float32).ravel()[:3]
+                    img = Image.open(jp).convert("RGB").resize((img_size, img_size))
+                    arr = np.array(img, dtype=np.float32) / 255.0
+                    imgs.append(arr.transpose(2, 0, 1))
+                    poses.append(pose)
+                    if len(imgs) >= n_samples:
+                        break
+                if imgs:
+                    X = np.stack(imgs).astype(np.float32)
+                    y = np.stack(poses).astype(np.float32)
+                    Xtr, Xte, ytr, yte = train_test_split(
+                        X, y, test_size=test_size, random_state=seed
+                    )
+                    return {
+                        "X_train": Xtr,
+                        "X_test": Xte,
+                        "y_train": ytr,
+                        "y_test": yte,
+                        "_image_data": True,
+                        "_image_size": img_size,
+                        "_n_channels": 3,
+                        "_multi_output": True,
+                        "_skip_y_standardization": True,
+                    }
+            except Exception:
+                pass  # fall through to synthetic proxy
+
+    # Synthetic proxy: correlated yaw/pitch/roll + blob images.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    yaw = rng.uniform(-75, 75, n).astype(np.float32)
+    pitch = (0.5 * yaw + rng.normal(0, 10, n)).astype(np.float32)
+    roll = (0.3 * yaw - 0.2 * pitch + rng.normal(0, 8, n)).astype(np.float32)
+    y = np.column_stack([yaw, pitch, roll]).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, n_channels, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        cx = img_size / 2 + yaw[i] / 75 * img_size * 0.3
+        cy = img_size / 2 + pitch[i] / 60 * img_size * 0.3
+        sigma = img_size / 8
+        blob = np.exp(-((xs - cx) ** 2 + (ys - cy) ** 2) / (2 * sigma**2))
+        for c in range(n_channels):
+            X[i, c] = (blob * (0.6 + 0.1 * c)).astype(np.float32)
+    X += 0.05 * rng.standard_normal(X.shape).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": n_channels,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": not bool(biwi_root),
+    }
+    if not biwi_root:
+        splits["_fallback_reason"] = "BIWI_ROOT unset; synthetic head-pose proxy"
+    return splits
+
+
+def _load_synthetic_image_keypoint(
+    n_samples: int = 800,
+    img_size: int = 64,
+    n_channels: int = 1,
+    n_keypoints: int = 4,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Synthetic keypoint regression: blobs at K joints, y=(N,2K) coords."""
+    rng = np.random.default_rng(seed)
+    K = n_keypoints
+    cx = rng.uniform(img_size * 0.15, img_size * 0.85, (n_samples, K)).astype(np.float32)
+    cy = rng.uniform(img_size * 0.15, img_size * 0.85, (n_samples, K)).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n_samples, n_channels, img_size, img_size), dtype=np.float32)
+    for i in range(n_samples):
+        canvas = np.zeros((img_size, img_size), dtype=np.float32)
+        for k in range(K):
+            canvas += np.exp(-((xs - cx[i, k]) ** 2 + (ys - cy[i, k]) ** 2) / 18.0)
+        for c in range(n_channels):
+            X[i, c] = canvas
+    X += 0.03 * rng.standard_normal(X.shape).astype(np.float32)
+    y = np.concatenate([cx / img_size, cy / img_size], axis=1).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": n_channels,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
     }
 
 
@@ -2094,6 +2285,49 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Default filters: face_score ≥ 2.0, ages 0–100."
         ),
         loader=_registry_loader(_load_imdb_wiki),
+    ),
+    "imdb_wiki_fullres": DatasetInfo(
+        name="imdb_wiki_fullres",
+        category="image",
+        n_features=-1,
+        n_samples=523051,
+        description=(
+            "IMDB-WIKI at 256×256 (full-real nightly/CUDA track). "
+            "Same loader as imdb_wiki with img_size=256."
+        ),
+        loader=_registry_loader(_load_imdb_wiki, img_size=256),
+    ),
+    "nyu_depth_v2_fullres": DatasetInfo(
+        name="nyu_depth_v2_fullres",
+        category="image",
+        n_features=-1,
+        n_samples=1449,
+        description=(
+            "NYU Depth V2 at 256×256 (full-real nightly/CUDA track). "
+            "Same loader as nyu_depth_v2 with img_size=256."
+        ),
+        loader=_registry_loader(_load_nyu_depth_v2, img_size=256),
+    ),
+    "biwi_head_pose": DatasetInfo(
+        name="biwi_head_pose",
+        category="image",
+        n_features=-1,
+        n_samples=1000,
+        description=(
+            "BIWI head-pose multitarget (yaw/pitch/roll, N×3). Real data "
+            "via BIWI_ROOT env; synthetic proxy otherwise (flagged)."
+        ),
+        loader=_registry_loader(_load_biwi_head_pose),
+    ),
+    "synthetic_image_keypoint": DatasetInfo(
+        name="synthetic_image_keypoint",
+        category="image",
+        n_features=-1,
+        n_samples=800,
+        description=(
+            "Synthetic keypoint regression: K Gaussian blobs, y=(N,2K) normalized coordinates."
+        ),
+        loader=_registry_loader(_load_synthetic_image_keypoint),
     ),
     # --- Stress-matrix (suites/tabular/stress_matrix.py) ---
     # Thin registry wrappers over the synthetic stress generators so that
