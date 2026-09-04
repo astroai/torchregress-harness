@@ -85,17 +85,23 @@ pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertai
 pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
 
 # Replica sharding: split the suite×dataset matrix across headless replicas.
+# Tiny variants (*_tiny) are CPU-smoke friendly; full-real sets are nightly.
 ALL_JOBS=(
   "age_regression synthetic_image_regression"
+  "age_regression utkface_age_tiny"
+  "age_regression utkface_age"
+  "age_regression boneage"
   "age_regression imdb_wiki"
   "depth_estimation synthetic_image_depth"
+  "depth_estimation nyu_depth_v2_tiny"
   "depth_estimation nyu_depth_v2"
   "keypoint_regression synthetic_image_keypoint"
+  "keypoint_regression biwi_head_pose_tiny"
   "keypoint_regression biwi_head_pose"
-  "image_conformal synthetic_image_regression"
-  "image_ensembles_uq synthetic_image_regression"
-  "image_robust synthetic_image_regression"
-  "image_calibration synthetic_image_regression"
+  "image_conformal utkface_age_tiny"
+  "image_ensembles_uq utkface_age_tiny"
+  "image_robust utkface_age_tiny"
+  "image_calibration utkface_age_tiny"
 )
 RID="${REPLICA_ID:-0}"
 RCNT="${REPLICA_COUNT:-1}"
@@ -105,8 +111,8 @@ for i in "${!ALL_JOBS[@]}"; do
   if (( i % RCNT == RID )); then JOBS+=("${ALL_JOBS[$i]}"); fi
 done
 
-EPOCHS=2
-EXTRA_ARGS="--smoke"
+EPOCHS=10
+EXTRA_ARGS="--epochs $EPOCHS"
 if [[ "$SMOKE" != 1 ]]; then EPOCHS=30; EXTRA_ARGS="--epochs $EPOCHS"; fi
 
 # shellcheck disable=SC2086
