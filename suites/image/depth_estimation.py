@@ -52,7 +52,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
     regression.
     """
 
-    Z_SCORE = 1.645  # 90% prediction interval
+    ALPHA = 0.1  # nominal miscoverage for 90% intervals
+    Z_SCORE = 1.645  # 90% Gaussian interval (scipy norm.ppf(0.95))
     DENSE_BATCH_SIZE = 16  # smaller batches for 64×64 dense prediction (more memory)
 
     @property
@@ -198,18 +199,20 @@ class DepthEstimationSuite(ImageHarnessRunner):
             return {"type": "multi_quantile", "model": model, "quantiles": quantiles}
 
         # --- UNet+StudentT / Huber (single-channel point-ish heads) ---
+        # NOTE: distinct types (not "mse") so metrics correctly treat these
+        # as point-only and reports don't mislabel them as MSE baselines.
         elif method == "UNet+StudentT":
             from torchregress.losses import StudentTLoss
 
             model = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
             _train_image_model(model, StudentTLoss(), train_loader, config)
-            return {"type": "mse", "model": model}
+            return {"type": "studentt", "model": model}
         elif method == "UNet+Huber":
             from torchregress.losses import PseudoHuberLoss
 
             model = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
             _train_image_model(model, PseudoHuberLoss(), train_loader, config)
-            return {"type": "mse", "model": model}
+            return {"type": "huber", "model": model}
 
         # --- UNet+DeepEnsemble_K3 ---
         elif method == "UNet+DeepEnsemble_K3":
@@ -367,8 +370,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 
-        # --- UNet+MSE ---
-        if model_type == "mse":
+        # --- UNet+MSE / StudentT / Huber (point-only heads) ---
+        if model_type in ("mse", "studentt", "huber"):
             return self._predict_mse(model_state["model"], X_test)
 
         # --- UNet+GaussianNLL ---

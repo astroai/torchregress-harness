@@ -23,6 +23,16 @@ from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 
 # ---------------------------------------------------------------------------
+# Shared image-harness constants — single source of truth (Phase 0)
+# ---------------------------------------------------------------------------
+
+IMAGE_ALPHA = 0.1  # nominal miscoverage for 90% intervals
+IMAGE_Z_SCORE = 1.645  # Gaussian 90% interval (scipy norm.ppf(0.95))
+EVIDENTIAL_COEFF_NIG = 0.01  # NIG regulariser used by all image suites
+EVIDENTIAL_EPS = 0.01  # softplus offset for (nu, beta); alpha uses +1.01
+IMAGE_CAL_FRACTION = 0.2  # default calibration split for conformal suites
+
+# ---------------------------------------------------------------------------
 # CNN backbone — lightweight, reproducible, no pretrained weights
 # ---------------------------------------------------------------------------
 
