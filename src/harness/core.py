@@ -93,13 +93,20 @@ def compute_point_metrics(
     mse = float(np.mean((y_pred_np - y_true_np) ** 2))
     mae = float(np.mean(np.abs(y_pred_np - y_true_np)))
     rmse = float(np.sqrt(mse))
+    medae = float(np.median(np.abs(y_pred_np - y_true_np)))
 
     y_true_mean = float(np.mean(y_true_np))
     ss_res = float(np.sum((y_true_np - y_pred_np) ** 2))
     ss_tot = float(np.sum((y_true_np - y_true_mean) ** 2))
     r2 = (1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
 
-    return {"MSE": mse, "MAE": mae, "RMSE": rmse, "R2": r2}
+    # Pearson correlation (uncertainty-toolbox parity: corr).
+    if len(y_pred_np) >= 2 and np.std(y_pred_np) > 0 and np.std(y_true_np) > 0:
+        corr = float(np.corrcoef(y_pred_np, y_true_np)[0, 1])
+    else:
+        corr = float("nan")
+
+    return {"MSE": mse, "MAE": mae, "RMSE": rmse, "MedAE": medae, "R2": r2, "Corr": corr}
 
 
 def print_fairness_notes(
@@ -137,13 +144,18 @@ def print_comparison_summary(
         "Dataset",
         "RMSE",
         "MAE",
+        "MedAE",
         "R2",
+        "Corr",
         "NLL",
         "CRPS",
+        "Sharpness",
         "Coverage",
         "Width",
         "IntervalScore",
         "ECE",
+        "MACE",
+        "RMSCE",
         # PIT calibration diagnostics (Proposal #9)
         "PIT_Mean",
         "PIT_Std",

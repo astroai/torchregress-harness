@@ -345,7 +345,10 @@ def compute_distribution_metrics(
         )
     )
 
-    return {"NLL": nll, "CRPS": crps}
+    # Sharpness: mean predictive std (uncertainty-toolbox parity).
+    sharpness = float(np.mean(std_np))
+
+    return {"NLL": nll, "CRPS": crps, "Sharpness": sharpness}
 
 
 def compute_calibration_metrics(
@@ -354,6 +357,10 @@ def compute_calibration_metrics(
     """Compute calibration metrics from PIT (Probability Integral Transform) values.
 
     PIT values should be approximately Uniform(0, 1) for a well-calibrated model.
+    Adds uncertainty-toolbox parity metrics:
+    - ECE (legacy equal-mass binning, kept for back-compat)
+    - MACE: mean absolute calibration error vs uniform (equal-width bins)
+    - RMSCE: root-mean-square calibration error vs uniform
     """
     pit = np.asarray(pit_values).ravel()
     n = len(pit)
@@ -361,7 +368,7 @@ def compute_calibration_metrics(
     # ECE via equal-mass binning
     n_bins = min(10, n // 10)
     if n_bins < 2:
-        return {"ECE": float("nan"), "PIT_KS": float("nan")}
+        return {"ECE": float("nan"), "PIT_KS": float("nan"), "MACE": float("nan"), "RMSCE": float("nan")}
 
     bins = np.percentile(pit, np.linspace(0, 100, n_bins + 1))
     ece = 0.0
@@ -378,7 +385,15 @@ def compute_calibration_metrics(
     cdf_uniform = np.linspace(0, 1, n)
     ks = float(np.max(np.abs(sorted_pit - cdf_uniform)))
 
-    return {"ECE": ece, "PIT_KS": ks}
+    # MACE/RMSCE: equal-width bins on [0,1], |empirical mass - 1/B|.
+    n_eq = 10
+    hist, _ = np.histogram(pit, bins=n_eq, range=(0.0, 1.0))
+    freq = hist.astype(float) / max(n, 1)
+    dev = np.abs(freq - 1.0 / n_eq)
+    mace = float(np.mean(dev))
+    rmsce = float(np.sqrt(np.mean(dev**2)))
+
+    return {"ECE": ece, "PIT_KS": ks, "MACE": mace, "RMSCE": rmsce}
 
 
 def compute_all_metrics(
@@ -455,9 +470,14 @@ def compute_all_metrics(
         # Keep ECE parity for downstream metric_order consumers: re-use the
         # legacy calibration binning (still meaningful for PIT diagnostics).
         try:
-            pit_metrics["ECE"] = float(compute_calibration_metrics(pit).get("ECE", float("nan")))
+            cal = compute_calibration_metrics(pit)
+            pit_metrics["ECE"] = float(cal.get("ECE", float("nan")))
+            pit_metrics["MACE"] = float(cal.get("MACE", float("nan")))
+            pit_metrics["RMSCE"] = float(cal.get("RMSCE", float("nan")))
         except Exception:
             pit_metrics["ECE"] = float("nan")
+            pit_metrics["MACE"] = float("nan")
+            pit_metrics["RMSCE"] = float("nan")
         metrics.update(pit_metrics)
 
     return metrics
