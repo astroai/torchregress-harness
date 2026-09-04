@@ -612,7 +612,8 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
 
     Builds CNN/UNet/Dropout-CNN with synthetic (N,C,H,W) input and checks
     output shapes for scalar, multi-output, and dense heads. Deterministic,
-    no training.
+    no training. Also guards backbone hyperparams (base_filters) so silent
+    arch regressions fail fast, mirroring tabular NF[64,64]/SLS[64,4] checks.
     """
     ok = True
     msgs: list[str] = []
@@ -627,6 +628,12 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
         )
 
         cnn = _ImageCNN(in_channels=1, out_dim=2)
+        # Arch guard: default CNN fibres must stay at base_filters=16 → 64-dim head.
+        if cnn.head.in_features != 64:
+            ok = False
+            msgs.append(f"  ✗ _ImageCNN head dim {cnn.head.in_features} != 64 (base_filters regression?)")
+        else:
+            msgs.append("  ✓ _ImageCNN head dim 64 (base_filters=16)")
         x = torch.randn(4, 1, 32, 32)
         out = cnn(x)
         if tuple(out.shape) == (4, 2):
@@ -650,6 +657,36 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
         else:
             ok = False
             msgs.append(f"  ✗ _UNet shape {tuple(out_u.shape)} != (2, 2, 64, 64)")
+        # UNet param guard: base_filters=32 must stay (silent arch change check).
+        n_unet = sum(p.numel() for p in unet.parameters())
+        if n_unet > 1_000_000:
+            msgs.append(f"  ✓ _UNet params {n_unet:,} (>1M, base_filters=32)")
+        else:
+            ok = False
+            msgs.append(f"  ✗ _UNet params {n_unet:,} too small (base_filters regression?)")
+
+        # Shared constants guard: single source of truth in suites.image._base.
+        try:
+            from suites.image._base import (
+                EVIDENTIAL_COEFF_NIG,
+                EVIDENTIAL_EPS,
+                IMAGE_ALPHA,
+                IMAGE_Z_SCORE,
+            )
+
+            if abs(IMAGE_Z_SCORE - 1.645) < 1e-9 and abs(IMAGE_ALPHA - 0.1) < 1e-12:
+                msgs.append("  ✓ image constants ALPHA=0.1/Z=1.645")
+            else:
+                ok = False
+                msgs.append(f"  ✗ image constants drift ALPHA={IMAGE_ALPHA} Z={IMAGE_Z_SCORE}")
+            if abs(EVIDENTIAL_COEFF_NIG - 0.01) < 1e-12 and abs(EVIDENTIAL_EPS - 0.01) < 1e-12:
+                msgs.append("  ✓ evidential constants coeff=0.01/eps=0.01")
+            else:
+                ok = False
+                msgs.append("  ✗ evidential constants drift")
+        except Exception as exc:
+            ok = False
+            msgs.append(f"  ✗ image constants import failed: {exc}")
 
         # Dataloader: scalar / multi-output / dense y layouts.
         dl1 = _image_to_dataloader(
