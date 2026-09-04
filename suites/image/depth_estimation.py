@@ -86,6 +86,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
         return [
             "UNet+MSE",
             "UNet+GaussianNLL",
+            "UNet+BetaNLL",
+            "UNet+FaithfulGaussian",
             "UNet+Evidential",
             "UNet+MDN_K3",
             "UNet+MultiQuantile",
@@ -104,6 +106,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
         notes = {
             "UNet+MSE": "Lightweight UNet backbone + MSE loss (point prediction, no uncertainty)",
             "UNet+GaussianNLL": "UNet backbone + per-pixel Gaussian NLL (mean + log-var per pixel)",
+            "UNet+BetaNLL": "UNet + per-pixel BetaNLL(beta=0.5) anti-collapse variant",
+            "UNet+FaithfulGaussian": "UNet + per-pixel Faithful decoupled Gaussian NLL",
             "UNet+Evidential": "UNet backbone + per-pixel NIG evidential regression",
             "UNet+MDN_K3": "UNet + 3-component per-pixel mixture density network",
             "UNet+MultiQuantile": "UNet + 3-quantile head per pixel (0.05/0.5/0.95)",
@@ -162,6 +166,20 @@ class DepthEstimationSuite(ImageHarnessRunner):
             # split_dim=1: dense layout is (B, 2, H, W), not last-dim.
             model = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
             _train_image_model(model, GaussianNLLLoss(split_dim=1), train_loader, config)
+            return {"type": "gaussian_nll", "model": model}
+
+        # --- UNet+BetaNLL / FaithfulGaussian (same 2ch dense layout) ---
+        elif method == "UNet+BetaNLL":
+            from torchregress.losses import BetaNLLLoss
+
+            model = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
+            _train_image_model(model, BetaNLLLoss(beta=0.5, split_dim=1), train_loader, config)
+            return {"type": "gaussian_nll", "model": model}
+        elif method == "UNet+FaithfulGaussian":
+            from torchregress.losses import FaithfulGaussianLoss
+
+            model = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
+            _train_image_model(model, FaithfulGaussianLoss(split_dim=1), train_loader, config)
             return {"type": "gaussian_nll", "model": model}
 
         # --- UNet+Evidential ---

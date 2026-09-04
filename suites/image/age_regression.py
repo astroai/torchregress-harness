@@ -170,6 +170,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
     def methods(self) -> list[str]:
         methods = [
             "CNN+GaussianNLL",
+            "CNN+BetaNLL",
+            "CNN+FaithfulGaussian",
+            "CNN+PoissonGaussian",
+            "CNN+SLS",
             "CNN+MDN_K2",
             "CNN+MDN_K3",
             "CNN+MDN_K5",
@@ -227,6 +231,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
     def method_notes(self, method: str) -> str:
         notes = {
             "CNN+GaussianNLL": "4-layer CNN backbone + diagonal Gaussian NLL loss",
+            "CNN+BetaNLL": "4-layer CNN + BetaNLL(beta=0.5) anti-collapse variant (same 2-head)",
+            "CNN+FaithfulGaussian": "4-layer CNN + Faithful MSE/NLL-decoupled Gaussian (same 2-head)",
+            "CNN+PoissonGaussian": "4-layer CNN + Poisson-Gaussian imaging-noise NLL (log-lambda head, point)",
+            "CNN+SLS": "4-layer CNN context + SLS min-volume level-set regions (tau=0.9)",
             "CNN+MDN_K2": "4-layer CNN + 2-component MDN (K-sweep minimum)",
             "CNN+MDN_K3": "4-layer CNN backbone + 3-component mixture density network",
             "CNN+MDN_K5": "4-layer CNN + 5-component MDN (K-sweep mid)",
@@ -302,6 +310,54 @@ class AgeRegressionSuite(ImageHarnessRunner):
             model = self._build_cnn(in_channels=in_channels, out_dim=2)
             _train_image_model(model, GaussianNLLLoss(), train_loader, config)
             return {"type": "gaussian_nll", "model": model}
+
+        # --- BetaNLL / FaithfulGaussian (drop-in 2-head anti-collapse variants) ---
+        elif method == "CNN+BetaNLL":
+            from torchregress.losses import BetaNLLLoss
+
+            model = self._build_cnn(in_channels=in_channels, out_dim=2)
+            _train_image_model(model, BetaNLLLoss(beta=0.5), train_loader, config)
+            return {"type": "gaussian_nll", "model": model}
+        elif method == "CNN+FaithfulGaussian":
+            from torchregress.losses import FaithfulGaussianLoss
+
+            model = self._build_cnn(in_channels=in_channels, out_dim=2)
+            _train_image_model(model, FaithfulGaussianLoss(), train_loader, config)
+            return {"type": "gaussian_nll", "model": model}
+
+        # --- PoissonGaussian (imaging shot+readout noise; log-lambda head) ---
+        elif method == "CNN+PoissonGaussian":
+            from torchregress.losses.poisson_gaussian import PoissonGaussianMixtureLoss
+
+            model = self._build_cnn(in_channels=in_channels, out_dim=1)
+            _train_image_model(
+                model, PoissonGaussianMixtureLoss(log_input=True), train_loader, config
+            )
+            return {"type": "poisson_gaussian", "model": model}
+
+        # --- SLS (min-volume level sets on CNN context) ---
+        elif method == "CNN+SLS":
+            from torchregress.losses.sls import SLSLoss
+
+            context_dim = 32
+            model = self._build_cnn(
+                in_channels=in_channels, out_dim=context_dim, base_filters=32
+            )
+            loss_fn = SLSLoss(
+                d=1,
+                context_dim=context_dim,
+                K=1,
+                mode="full",
+                hidden_dim=64,
+                n_transforms=4,
+                tau=0.9,
+                warmup_steps=50,
+            )
+            _train_image_model(
+                model, loss_fn, train_loader, config, loss_params=list(loss_fn.parameters())
+            )
+            model.eval()
+            return {"type": "sls", "model": model, "loss_fn": loss_fn}
 
         # --- MDN K-sweep ---
         elif method in ("CNN+MDN_K2", "CNN+MDN_K3", "CNN+MDN_K5"):
@@ -663,9 +719,17 @@ class AgeRegressionSuite(ImageHarnessRunner):
     ) -> dict[str, np.ndarray]:
         model_type = model_state["type"]
 
-        # --- GaussianNLL (CNN or ResNet) ---
+        # --- GaussianNLL (CNN or ResNet; also BetaNLL/Faithful 2-head rows) ---
         if model_type == "gaussian_nll":
             return self._predict_gaussian_nll(model_state["model"], X_test)
+
+        # --- PoissonGaussian (log-lambda head → point rate) ---
+        elif model_type == "poisson_gaussian":
+            return self._predict_poisson_gaussian(model_state["model"], X_test)
+
+        # --- SLS (boundary-sampled intervals, D=1) ---
+        elif model_type == "sls":
+            return self._predict_sls(model_state["model"], model_state["loss_fn"], X_test)
 
         # --- MDN ---
         elif model_type == "mdn":
@@ -740,6 +804,69 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "mean": mean,
             "std": std,
         }
+
+    def _predict_poisson_gaussian(
+        self,
+        model: nn.Module,
+        X_test: np.ndarray,
+    ) -> dict[str, np.ndarray]:
+        """PoissonGaussian: exp(log-lambda) rate as point prediction.
+
+        Point-only (no calibrated std): the loss models count noise, not a
+        Gaussian predictive, so emitting a Gaussian std would mislabel NLL.
+        """
+        device = next(model.parameters()).device
+        loader = _image_to_dataloader(X_test, y=None, batch_size=32, shuffle=False)
+        preds = []
+        with torch.no_grad():
+            for (X_batch,) in loader:
+                lam = torch.exp(model(X_batch.to(device)).reshape(-1)).clamp_min(1e-8)
+                preds.append(lam.cpu().numpy())
+        y_pred = np.concatenate(preds).reshape(-1)
+        return {"y_pred": y_pred}
+
+    def _predict_sls(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        X_test: np.ndarray,
+        n_samples: int = 500,
+    ) -> dict[str, np.ndarray]:
+        """SLS D=1: boundary-sampled level-set intervals (scalar)."""
+        import torch.nn.functional as F
+
+        frontier = loss_fn.frontier
+        quantile_net = loss_fn.quantile_net
+        flow = frontier.flow
+        model.eval()
+        device = next(model.parameters()).device
+        loader = _image_to_dataloader(X_test, y=None, batch_size=32, shuffle=False)
+        lowers, uppers, means = [], [], []
+        with torch.no_grad():
+            for (Xb,) in loader:
+                context = model(Xb.to(device))  # (B, ctx)
+                q = quantile_net(context)[:, 1]  # (B,) tau-quantile
+                mu, L_params = frontier._get_params(context)  # (B,1),(B,num_L)
+                L_full, _ = frontier._get_L_matrix_and_logdet(L_params)  # (B,1,1)
+                r = torch.randn(n_samples, context.shape[0], 1, device=device)
+                r = F.normalize(r, dim=-1)
+                r = r * torch.sqrt(q).view(1, -1, 1)
+                z = torch.linalg.solve_triangular(
+                    L_full.unsqueeze(0), r.unsqueeze(-1), upper=False
+                ).squeeze(-1)
+                z_flow = z + mu.unsqueeze(0)
+                ctx_rep = (
+                    context.unsqueeze(0).expand(n_samples, -1, -1).reshape(-1, context.shape[-1])
+                )
+                y_s = flow.inverse(z_flow.reshape(-1, 1), ctx_rep).reshape(n_samples, -1)
+                y_np = y_s.cpu().numpy()
+                lowers.append(y_np.min(axis=0))
+                uppers.append(y_np.max(axis=0))
+                means.append(mu.reshape(-1).cpu().numpy())
+        lower = np.concatenate(lowers).reshape(-1)
+        upper = np.concatenate(uppers).reshape(-1)
+        mean = np.concatenate(means).reshape(-1)
+        return {"lower": lower, "upper": upper, "y_pred": mean}
 
     def _predict_mdn(
         self,
