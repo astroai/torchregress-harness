@@ -7,8 +7,7 @@ PARITY_REPORT.md regeneration.
 **Last updated:** 2026-09-03. **Both tracks are closed**: the paper-benchmark
 track (PARITY_REPORT regeneration) finished 2026-08-26, and the stress-matrix
 diversity track finished 2026-09-03 with a fully verified LUQ-box comparator
-re-run. Only one verification session in flight (LUQ-box 3-seed check,
-`bx25d3p3` — see §4).
+re-run. All verification sessions complete — nothing in flight.
 
 ---
 
@@ -81,10 +80,14 @@ Built and hardened across `4bce8ff` → `d6fd67a` (all pushed):
 
 ## 4. Next steps
 
-None outstanding. Optional follow-ups (not scheduled):
+None outstanding. The LUQ-box 3-seed check (session `bx25d3p3`, harness
+`d6fd67a`) **passed**: `test_luqbox_rows_stable_across_seeds`,
+`test_luqbox_mcdropout_has_real_dropout` and
+`test_luqbox_methods_import_gated` all green with pinned LUQ-box v0.3.0 —
+per-seed finite bounded NLL, non-collapsed MC std, MC-dropout means distinct
+from the deterministic sibling on every seed; across seeds no RMSE blow-up
+(max < 3× min) and CV < 0.5. Optional follow-ups (not scheduled):
 
-* Run `test_luqbox_rows_stable_across_seeds` in the seed-check session
-  (`bx25d3p3`) — poll at ~30-min intervals until `Completed`.
 * Full-scale (60-epoch) 3-seed sweep of the LUQ-box rows if the paper needs
   seed-spread error bars for the comparator.
 * Repair the `/arc` clones' git remotes: the embedded `x-access-token` URL on
@@ -122,5 +125,5 @@ bash scripts/skaha_publish_results.sh <RUN_ID>
 | `aljbqdg9` | LUQ-box fix re-run (`stress_luqboxfix20260903`) | Completed; 18/18 OK |
 | `uq83j0wr` / `jyiijcnd` | first fix-run attempt | Deleted — image `openworker:latest` gone from registry |
 | `htze4vvm` | seed check, stale checkout | Deleted — test not in fetched tree (exit 4) |
-| `bx25d3p3` | LUQ-box 3-seed check (`d6fd67a`) | Running — poll ~30 min |
+| `bx25d3p3` | LUQ-box 3-seed check (`d6fd67a`) | Completed — 3 passed (56 min) |
 | earlier probes | image/API validation | Deleted |
