@@ -1,9 +1,9 @@
-# External-library pins (MAPIE / torch-uncertainty)
+# External-library pins (MAPIE / torch-uncertainty / Lightning-UQ-Box)
 
-The harness compares torchregress against **the latest git versions** of MAPIE
-and torch-uncertainty, not stale PyPI releases.  This file records the exact
-commits a paper-grade run must be benchmarked against, and how to install /
-re-pin them.
+The harness compares torchregress against **the latest git versions** of MAPIE,
+torch-uncertainty, and Lightning-UQ-Box, not stale PyPI releases.  This file
+records the exact commits a paper-grade run must be benchmarked against, and
+how to install / re-pin them.
 
 > **Why git, not PyPI?** At the time of writing, PyPI lags upstream:
 >
@@ -24,6 +24,7 @@ re-pin them.
 |---------|--------|--------|------|--------------------|
 | **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `6478f16c9a` | 2026-08-04 | Newest `master`; includes Cross-CQR + Adaptive Conformal Risk Control |
 | **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (tag `v0.13.0`, main HEAD) | `94e511a737` | 2026-07-22 | v0.13.0 regression-routine rework the image suite is written against |
+| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.3.0`) | `df6366e` | 2026-09-03 | Stress-matrix comparator (`luqbox_*` rows); v0.3.0 MLP signature (`n_hidden`, `dropout_p`) is what the adapter is written against |
 
 ## Install commands
 
@@ -34,6 +35,9 @@ pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a"
 # torch-uncertainty from git (v0.13.0 tag = main HEAD)
 pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737"
 pip install lightning   # required by torch-uncertainty routines
+
+# Lightning-UQ-Box (stress-matrix comparator)
+pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@df6366e02055618873f2cc8711b2dbc22e131a12"
 ```
 
 In the pixi env (linux CI box):
@@ -60,6 +64,9 @@ this file.  Rows are produced by:
   API; `mapie.metrics` used for MAPIE's own coverage/width scores).
 - `suites/image/age_regression.py` → `torch_uncertainty` method
   (`RegressionRoutine` with `DistributionNLLLoss`, `dist_family="normal"`).
+- `suites/tabular/stress_matrix.py` → `luqbox_*` methods
+  (`MCDropoutRegression` / `DeterministicRegression` wrapped around `LUQMLP`;
+  predict mirrors the library's `predict_step`, see `_LUQBOX_PIN` in-file).
 
 ## How to bump to a newer commit
 
@@ -74,9 +81,21 @@ this file.  Rows are produced by:
 3. If upstream changed an API, update `suites/tabular/conformal.py` /
    `suites/image/age_regression.py` accordingly and record the new commit here.
 
+## Offline (Skaha) install for Lightning-UQ-Box
+
+Skaha compute nodes cannot reach pypi, so `scripts/skaha_stress_matrix.sh`
+installs the pin from a git clone on `/arc`: package contents are copied into
+site-packages with a hand-written dist-info, plus offline stubs for its
+optional deps (timm, omegaconf, ema_pytorch, …). The copy is idempotent on
+Cavern-backed mounts (`7a46993`).
+
 ## Status of older artifacts
 
 `PARITY_REPORT.md` and `results/` were regenerated on **2026-08-26**
 against the pinned commits above (`6478f16c9a` / `94e511a737`) on the
 CUDA phase and are **fresh** for external-comparison claims. Older
 artifacts (pre-2026-08-04) generated against MAPIE 1.4.1 PyPI are stale.
+
+Stress-matrix artifacts (`results/latest/stress_matrix_luqboxfix.json` and
+the `/arc` runs under `runs/stress_*`) are fresh as of **2026-09-03** against
+the LUQ-box pin `df6366e` (harness `539e3a2`+).
