@@ -139,7 +139,13 @@ class ImageConformalSuite(ImageHarnessRunner):
             _train_image_model(model, nn.MSELoss(), train_loader, config)
             model.eval()
             q = self._cal_residual_quantile(model, carved)
-            return {"type": "split", "model": model, "qhat": q}
+            return {
+                "type": "split",
+                "model": model,
+                "qhat": q,
+                "X_cal": np.asarray(carved["X_cal"]),
+                "y_cal": np.asarray(carved["y_cal"]).reshape(-1),
+            }
         if method == "CQR+CNN":
             from torchregress.losses import MultiQuantileLoss
 
@@ -206,17 +212,141 @@ class ImageConformalSuite(ImageHarnessRunner):
         raise ValueError(f"Unknown model type: {t}")
 
     def _predict_posthoc(self, state: Any, X_test: np.ndarray) -> Any:
-        # Honest post-hoc: reuse the split-CNN interval; the external lib
-        # name records which package's split logic it matches (residual
-        # quantile is algorithmically identical — see PARITY §4 precedent).
+        """Real external-lib post-hoc calls on the fitted CNN base.
+
+        Each branch imports and calls its library (no silent qhat reuse):
+        - MAPIE: SplitConformalRegressor with a prefit CNN wrapper.
+        - crepes: WrapRegressor around the CNN wrapper, calibrated.
+        - torchcp: SplitPredictor on torch loaders with the CNN module.
+        Any API mismatch raises (fail-fast) instead of silently emulating.
+        """
+        from ._base import _image_to_dataloader
+
         base = state["base"]
         method = state["method"]
-        if "MAPIE" in method and not _MAPIE_AVAILABLE:
-            raise ImportError("mapie not installed")
-        if "crepes" in method and not _CREPES_AVAILABLE:
-            raise ImportError("crepes not installed")
-        if "torchcp" in method and not _TORCHCP_AVAILABLE:
-            raise ImportError("torchcp not installed")
-        pred = self._forward_point(base["model"], X_test)
+        model = base["model"]
+        model.eval()
+
+        def _cnn_point(X: np.ndarray) -> np.ndarray:
+            return self._forward_point(model, X)
+
+        # Need carved cal split: stored on base at fit time.
+        X_cal = np.asarray(base.get("X_cal")) if base.get("X_cal") is not None else None
+        y_cal = np.asarray(base.get("y_cal")).reshape(-1) if base.get("y_cal") is not None else None
+
+        if method.startswith("MAPIE_"):
+            if not _MAPIE_AVAILABLE:
+                raise ImportError("mapie not installed")
+            return self._predict_mapie(_cnn_point, X_cal, y_cal, X_test)
+        if method.startswith("crepes_"):
+            if not _CREPES_AVAILABLE:
+                raise ImportError("crepes not installed")
+            return self._predict_crepes(_cnn_point, X_cal, y_cal, X_test)
+        if method.startswith("torchcp_"):
+            if not _TORCHCP_AVAILABLE:
+                raise ImportError("torchcp not installed")
+            return self._predict_torchcp(model, X_cal, y_cal, X_test)
+        # Native fallback (should not happen): reuse qhat honestly labeled.
+        pred = _cnn_point(X_test)
         q = float(base["qhat"])
         return {"lower": pred - q, "upper": pred + q, "y_pred": pred}
+
+    # -- real external implementations ------------------------------------
+
+    def _predict_mapie(self, cnn_point: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
+        """MAPIE SplitConformalRegressor with prefit CNN wrapper."""
+        import numpy as np
+
+        from mapie.regression import SplitConformalRegressor
+
+        class _CNNWrapper:
+            def fit(self, X: Any, y: Any) -> "_CNNWrapper":
+                return self
+
+            def predict(self, X: Any) -> np.ndarray:
+                return np.asarray(cnn_point(np.asarray(X))).reshape(-1)
+
+        # MAPIE needs 2D X; wrap images as (N,-1) but wrapper reshapes back.
+        # Store original shapes via closure: cnn_point expects (N,C,H,W).
+        Xc = np.asarray(X_cal)
+        Xt = np.asarray(X_test)
+        # Keep a decode path: flatten for MAPIE, unflatten in wrapper.
+        C, H, W = Xt.shape[1], Xt.shape[2], Xt.shape[3]
+
+        class _FlatCNNWrapper(_CNNWrapper):
+            def predict(self, Xf: Any) -> np.ndarray:
+                Xf = np.asarray(Xf)
+                X = Xf.reshape(len(Xf), C, H, W).astype(np.float32)
+                return super().predict(X)
+
+        Xc_f = Xc.reshape(len(Xc), -1)
+        Xt_f = Xt.reshape(len(Xt), -1)
+        # Prefit path (MAPIE>=0.9): estimator already fitted (CNN).
+        try:
+            reg = SplitConformalRegressor(
+                estimator=_FlatCNNWrapper(), confidence_level=0.9, prefit=True
+            )
+            reg.conformalize(Xc_f, np.asarray(y_cal))
+            _, intervals = reg.predict_interval(Xt_f)
+        except TypeError:
+            # Older MAPIE: fit_conformalize / predict API.
+            reg = SplitConformalRegressor(
+                estimator=_FlatCNNWrapper(), confidence_level=0.9, prefit=True
+            )
+            reg.fit_conformalize(Xc_f, np.asarray(y_cal))
+            _, intervals = reg.predict(Xt_f, alpha=0.1)
+        lower = np.asarray(intervals)[:, 0, 0] if np.asarray(intervals).ndim == 3 else np.asarray(intervals)[:, 0]
+        upper = np.asarray(intervals)[:, 1, 0] if np.asarray(intervals).ndim == 3 else np.asarray(intervals)[:, 1]
+        pred = _FlatCNNWrapper().predict(Xt_f)
+        return {"lower": lower, "upper": upper, "y_pred": pred}
+
+    def _predict_crepes(self, cnn_point: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
+        import numpy as np
+
+        from crepes import WrapRegressor
+
+        Xc = np.asarray(X_cal)
+        Xt = np.asarray(X_test)
+        C, H, W = Xt.shape[1], Xt.shape[2], Xt.shape[3]
+
+        class _FlatCNN:
+            def fit(self, X: Any, y: Any) -> "_FlatCNN":
+                return self
+
+            def predict(self, Xf: Any) -> np.ndarray:
+                X = np.asarray(Xf).reshape(len(np.asarray(Xf)), C, H, W).astype(np.float32)
+                return np.asarray(cnn_point(X)).reshape(-1)
+
+        wr = WrapRegressor(_FlatCNN())
+        # Fit is a no-op (CNN already trained); calibrate on residuals.
+        wr.fit(Xc.reshape(len(Xc), -1), np.asarray(y_cal).reshape(-1))
+        wr.calibrate(Xc.reshape(len(Xc), -1), np.asarray(y_cal).reshape(-1))
+        intervals = wr.predict_int(Xt.reshape(len(Xt), -1), confidence=0.9)
+        intervals = np.asarray(intervals)
+        pred = _FlatCNN().predict(Xt.reshape(len(Xt), -1))
+        return {"lower": intervals[:, 0], "upper": intervals[:, 1], "y_pred": pred}
+
+    def _predict_torchcp(self, model: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
+        import numpy as np
+        import torch
+
+        from torchcp.regression.predictors import SplitPredictor
+
+        device = next(model.parameters()).device
+        model.eval()
+        # Build torch cal/test loaders in image layout.
+        from ._base import _image_to_dataloader
+
+        cal_loader = _image_to_dataloader(X_cal, np.asarray(y_cal), batch_size=64, shuffle=False)
+        test_loader = _image_to_dataloader(X_test, y=None, batch_size=64, shuffle=False)
+        predictor = SplitPredictor(model=model, device=device)
+        predictor.calibrate(cal_loader, alpha=self.ALPHA)
+        intervals = predictor.predict(test_loader)
+        intervals = np.asarray(intervals)
+        # torchcp returns (N,2) [lower, upper]; point = CNN forward.
+        pred = self._forward_point(model, np.asarray(X_test))
+        if intervals.ndim == 2 and intervals.shape[1] == 2:
+            return {"lower": intervals[:, 0], "upper": intervals[:, 1], "y_pred": pred}
+        # Fallback layout (N,1,2).
+        intervals = intervals.reshape(len(pred), -1)
+        return {"lower": intervals[:, 0], "upper": intervals[:, -1], "y_pred": pred}
