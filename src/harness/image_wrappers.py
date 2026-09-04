@@ -65,9 +65,45 @@ class _ImageRegressorBase:
         return type(self).__name__
 
     def _build_backbone(self, out_dim: int) -> nn.Module:
-        from suites.image._base import _ImageCNN
+        """Build backbone honoring ``self.backbone`` (cnn/resnet/timm).
+
+        - ``cnn`` (default): lightweight ``_ImageCNN`` from scratch.
+        - ``resnet``: torchvision ResNet18 (``TIMM_PRETRAINED=1`` enables
+          ImageNet weights when channels allow).
+        - ``timm:<name>``: any timm model (default resnet18), e.g.
+          ``timm:resnet18`` or ``timm:efficientnet_b0``.
+        Falls back to CNN when the optional dep is missing.
+        """
+        import os as _os
 
         channels = int(self.in_channels)
+        pretrained = _os.environ.get("TIMM_PRETRAINED", "0") == "1"
+        kind = str(self.backbone or "cnn").lower()
+        if kind.startswith("timm"):
+            from suites.image._base import _ImageCNN, _make_timm_backbone
+
+            parts = kind.split(":", 1)
+            model_name = parts[1] if len(parts) == 2 and parts[1] else "resnet18"
+            m = _make_timm_backbone(
+                model_name=model_name,
+                in_channels=channels,
+                out_dim=out_dim,
+                pretrained=pretrained,
+            )
+            if m is not None:
+                return m
+            return _ImageCNN(in_channels=channels, out_dim=out_dim)
+        if kind == "resnet":
+            from suites.image._base import _ImageCNN, _make_resnet_backbone
+
+            m = _make_resnet_backbone(
+                in_channels=channels, out_dim=out_dim, pretrained=pretrained
+            )
+            if m is not None:
+                return m
+            return _ImageCNN(in_channels=channels, out_dim=out_dim)
+        from suites.image._base import _ImageCNN
+
         return _ImageCNN(in_channels=channels, out_dim=out_dim)
 
     def _fit_impl(self, X_t: torch.Tensor, y_t: torch.Tensor, cfg: HarnessConfig) -> None:
@@ -236,9 +272,10 @@ class ImageEvidentialRegressor(_ImageRegressorBase):
     def _fit_impl(self, X_t: torch.Tensor, y_t: torch.Tensor, cfg: HarnessConfig) -> None:
         import torch.nn.functional as F
         import torch.optim as optim
+        from suites.image._base import EVIDENTIAL_COEFF_NIG, EVIDENTIAL_EPS
         from torchregress.losses import EvidentialRegressionLoss
 
-        self._loss_fn = EvidentialRegressionLoss(coeff_nig=0.01)
+        self._loss_fn = EvidentialRegressionLoss(coeff_nig=EVIDENTIAL_COEFF_NIG)
         self._model = self._build_backbone(out_dim=4)
         opt = optim.Adam(list(self._model.parameters()), lr=cfg.lr)
         device = next(self._model.parameters()).device
@@ -251,9 +288,9 @@ class ImageEvidentialRegressor(_ImageRegressorBase):
                 constrained = torch.cat(
                     [
                         raw[:, 0:1],
-                        F.softplus(raw[:, 1:2]) + 0.01,
-                        F.softplus(raw[:, 2:3]) + 1.01,
-                        F.softplus(raw[:, 3:4]) + 0.01,
+                        F.softplus(raw[:, 1:2]) + EVIDENTIAL_EPS,
+                        F.softplus(raw[:, 2:3]) + 1.0 + EVIDENTIAL_EPS,
+                        F.softplus(raw[:, 3:4]) + EVIDENTIAL_EPS,
                     ],
                     dim=1,
                 )
@@ -264,7 +301,7 @@ class ImageEvidentialRegressor(_ImageRegressorBase):
 
     def _predict_diagnostics(self, X: np.ndarray) -> dict[str, np.ndarray]:
         import torch.nn.functional as F
-        from suites.image._base import _image_to_dataloader
+        from suites.image._base import EVIDENTIAL_EPS, _image_to_dataloader
 
         device = next(self._model.parameters()).device
         loader = _image_to_dataloader(X, y=None, batch_size=32, shuffle=False)
@@ -273,9 +310,11 @@ class ImageEvidentialRegressor(_ImageRegressorBase):
             for (xb,) in loader:
                 raw = self._model(xb.to(device))
                 g.append(raw[:, 0].cpu().numpy())
-                nu.append((F.softplus(raw[:, 1:2]) + 0.01).cpu().numpy().reshape(-1))
-                al.append((F.softplus(raw[:, 2:3]) + 1.01).cpu().numpy().reshape(-1))
-                be.append((F.softplus(raw[:, 3:4]) + 0.01).cpu().numpy().reshape(-1))
+                nu.append((F.softplus(raw[:, 1:2]) + EVIDENTIAL_EPS).cpu().numpy().reshape(-1))
+                al.append(
+                    (F.softplus(raw[:, 2:3]) + 1.0 + EVIDENTIAL_EPS).cpu().numpy().reshape(-1)
+                )
+                be.append((F.softplus(raw[:, 3:4]) + EVIDENTIAL_EPS).cpu().numpy().reshape(-1))
         return {
             "gamma": np.concatenate(g).reshape(-1),
             "nu": np.concatenate(nu).reshape(-1),
