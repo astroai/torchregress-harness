@@ -214,3 +214,59 @@ def test_luqbox_mcdropout_has_real_dropout(suite: StressMatrixSuite) -> None:
     m = compute_all_metrics({"mean": mean, "std": std}, yte)
     assert np.isfinite(m["NLL"]), f"NLL not finite: {m['NLL']}"
     assert m["NLL"] < 50.0, f"NLL still diverged: {m['NLL']}"
+
+
+def test_luqbox_rows_stable_across_seeds(suite: StressMatrixSuite) -> None:
+    """LUQ-box comparator rows must be stable and non-degenerate across seeds.
+
+    Single-seed checks can pass by luck: a matrix that looks clean on seed 42
+    may hide a collapsed fit on 43. This runs the two LUQ-box rows on the
+    stress_ood axis for seeds {42, 43, 44} (smoke scale) and asserts, per
+    seed: finite bounded NLL, non-collapsed MC std, and MC-dropout point
+    predictions that differ from the deterministic sibling (the dropout_p=0.0
+    bug made them bit-identical for *every* seed). Across seeds: RMSE must
+    stay in a sane band — no single-seed blow-up, coefficient of variation
+    < 0.5 — so one bad fit cannot masquerade as a clean matrix.
+    """
+    import numpy as np
+    from suites.tabular.stress_matrix import _LUQBOX_AVAILABLE, load_stress_dataset
+
+    from harness.metrics import compute_all_metrics
+
+    if not _LUQBOX_AVAILABLE:
+        pytest.skip("lightning-uq-box not importable in this env (rows degrade to skips)")
+
+    data = load_stress_dataset("stress_ood")
+    luqbox_methods = ("luqbox_MCDropout", "luqbox_GaussianNLL")
+    seeds = (42, 43, 44)
+    rmse: dict[str, list[float]] = {m: [] for m in luqbox_methods}
+
+    for seed in seeds:
+        cfg = HarnessConfig(seed=seed, epochs=2, smoke=True)
+        seed_means: dict[str, np.ndarray] = {}
+        for method in luqbox_methods:
+            model = suite.fit(f"stress_ood/{method}", data, cfg)
+            p = suite.predict(f"stress_ood/{method}", model, data["X_test"], cfg)
+            mean = np.asarray(p["mean"]).reshape(-1)
+            std = np.asarray(p["std"]).reshape(-1)
+            assert len(mean) == len(std) > 0
+            # Non-degenerate uncertainty: std must not sit on the 1e-8 floor.
+            assert float(np.min(std)) > 1e-6, f"{method} seed {seed}: std collapsed"
+            yte = np.asarray(data["y_test"]).reshape(-1)[: len(mean)]
+            m = compute_all_metrics({"mean": mean, "std": std}, yte)
+            assert np.isfinite(m["NLL"]), f"{method} seed {seed}: NLL not finite ({m['NLL']})"
+            assert m["NLL"] < 50.0, f"{method} seed {seed}: NLL diverged ({m['NLL']})"
+            rmse[method].append(m["RMSE"])
+            seed_means[method] = mean
+        # The dropout bug produced bit-identical rows for any seed.
+        assert not np.allclose(seed_means["luqbox_MCDropout"], seed_means["luqbox_GaussianNLL"]), (
+            f"seed {seed}: MCDropout mean identical to GaussianNLL mean"
+        )
+
+    for method, values in rmse.items():
+        arr = np.asarray(values)
+        # No single-seed blow-up: every seed within 3x of the best seed.
+        assert arr.max() < 3.0 * arr.min() + 1e-12, f"{method}: RMSE blow-up across seeds {arr}"
+        # Bounded relative spread across seeds.
+        cv = float(arr.std() / max(arr.mean(), 1e-12))
+        assert cv < 0.5, f"{method}: RMSE CV {cv:.2f} too high across seeds {arr}"
