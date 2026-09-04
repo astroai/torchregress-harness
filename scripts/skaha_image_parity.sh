@@ -3,8 +3,30 @@
 #
 # Image: astroai/base:latest (per operator instruction — use verbatim even
 # though `canfar image ls` does not list it).
-# Code delivery: GitHub push/pull — this script clones/fetches the pushed
-# REPO_REF with GH_TOKEN, never relying on persistent /arc checkouts.
+# Code delivery: /arc mirror preferred (no secrets in the job spec;
+# the operator syncs it from the pushed SHA before launching).
+#
+# LAUNCH NOTE (2026-09-04): `canfar create headless` word-splits CMD args at
+# runtime, so `bash -c "script with spaces"` arrives broken (bash executes
+# only the first word). Also sfabbro/* repos are private → unauthenticated
+# `git clone https://github.com/...` fails in the container. Working launch:
+# a space-free `python3 -c exec(chr(..)+..)` bootstrap that clones from the
+# /arc mirror path and execs this script, e.g. (generated, see bootstrap):
+#   canfar create headless astroai/base:latest --cpu 4 --memory 16 \
+#     --replicas 3 --name torchregress-img-smoke \
+#     --env RUN_ID=img-tiny10-03 --env REPO_REF=main --env SMOKE=1 \
+#     -- python3 -c "$ARG"
+# where $ARG is the exec(chr()+...) payload for:
+#   import subprocess
+#   subprocess.run(["git","clone","-q",
+#     "/arc/projects/ots/torchregress-harness/src/torchregress-harness",
+#     "/scratch/bootstrap-harness"],check=True)
+#   subprocess.run(["bash",
+#     "/scratch/bootstrap-harness/scripts/skaha_image_parity.sh"],check=True)
+# Sync the mirror first:
+#   git -C /arc/projects/ots/torchregress-harness/src/torchregress-harness \
+#     fetch https://github.com/sfabbro/torchregress-harness.git main --depth 20 \
+#     && git -C ... reset --hard FETCH_HEAD   (same for ../torchregress)
 #
 # Usage (from the container):
 #   REPO_REF=<branch-or-sha> bash scripts/skaha_image_parity.sh [RUN_ID] [--smoke]
