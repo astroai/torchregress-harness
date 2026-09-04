@@ -48,13 +48,23 @@ WORK=/scratch/image-parity
 mkdir -p "$WORK"
 cd "$WORK"
 
-if [ -n "${GH_TOKEN:-}" ]; then
-  GH_BASE="https://x-access-token:${GH_TOKEN}@github.com"
-else
-  GH_BASE="https://github.com"
-fi
+ARC_SRC="/arc/projects/ots/torchregress-harness/src"
 
 for repo in torchregress torchregress-harness; do
+  if [ -d "$ARC_SRC/$repo/.git" ]; then
+    # Preferred: operator-synced /arc mirror (no secrets in the job spec;
+    # the operator syncs it from the pushed SHA before launching).
+    log "cloning $repo from /arc mirror"
+    rm -rf "$repo"
+    git clone -q "$ARC_SRC/$repo" "$repo"
+    git -C "$repo" rev-parse HEAD | tee "$OUT_DIR/${repo}_sha.txt"
+    continue
+  fi
+  if [ -n "${GH_TOKEN:-}" ]; then
+    GH_BASE="https://x-access-token:${GH_TOKEN}@github.com"
+  else
+    GH_BASE="https://github.com"
+  fi
   if [ ! -d "$repo/.git" ]; then
     log "cloning $repo @ $REPO_REF"
     git clone --depth 50 "$GH_BASE/sfabbro/$repo.git" "$repo"
