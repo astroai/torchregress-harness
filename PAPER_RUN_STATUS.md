@@ -4,7 +4,11 @@ Live status of the full-paper benchmark against the pinned external libraries
 (MAPIE / torch-uncertainty), run on CANFAR Skaha headless sessions, and of the
 PARITY_REPORT.md regeneration.
 
-**Last updated:** 2026-08-04 (during the run).
+**Last updated:** 2026-09-03. **Both tracks are closed**: the paper-benchmark
+track (PARITY_REPORT regeneration) finished 2026-08-26, and the stress-matrix
+diversity track finished 2026-09-03 with a fully verified LUQ-box comparator
+re-run. Only one verification session in flight (LUQ-box 3-seed check,
+`bx25d3p3` — see §4).
 
 ---
 
@@ -29,84 +33,81 @@ See [`EXTERNAL_PINS.md`](EXTERNAL_PINS.md) for rationale and install commands.
   full benchmark, writes JSON/MD artifacts).
 * `scripts/skaha_publish_results.sh` — emits run artifacts (gzip+base64) through
   the Skaha logs endpoint for retrieval.
-* CANFAR Skaha production (`ws-uv.canfar.net`, image `astroai/openworker:latest`)
-  — compute.  Persistent data lives under `/arc/projects/ots/torchregress-harness/`
-  (the container's `$HOME` is `/arc/home/sfabbro`).
+* CANFAR Skaha production (`ws-uv.canfar.net`, image `astroai/notebook:latest`,
+  headless kind) — compute.  Persistent data lives under
+  `/arc/projects/ots/torchregress-harness/` (the container's `$HOME` is
+  `/arc/home/sfabbro`).
+  **⚠️ `astroai/openworker:latest` — used by every run before 2026-09-03 — was
+  removed from the registry that day** (new sessions die in ImagePullBackOff).
+  `astroai/notebook:latest` is the validated drop-in (runs
+  `stress_luqboxfix20260903` + seed checks used it).
 
-## 3. Current state (2026-08-04)
+## 3. Track status (2026-09-03)
 
-### Done
+### Track 1 — Paper benchmark + PARITY_REPORT: CLOSED (2026-08-26)
 
-1. **Code: MAPIE comparison updated to git main** (commits `ec1e043` → `d9f0ae6`,
-   all pushed to `origin/main`):
-   * `MAPIE_*` rows call the **real** `mapie.regression` API
-     (`SplitConformalRegressor` / `ConformalizedQuantileRegressor`,
-     `fit → conformalize → predict_interval`).
-   * **`MAPIE_CrossCQR+GBR` added** (`CrossConformalizedQuantileRegressor`,
-     `fit_conformalize` over K-fold CV out-of-fold scores on the full train+cal
-     data — no calibration split; gated by `_MAPIE_CROSS_CQR_AVAILABLE`).
-   * **Fixed MAPIE canonical metrics**: git main moved them to
-     `mapie.metrics.regression` with interval-array signatures; the old
-     top-level import was silently swallowed, so `MAPIE_Coverage`/`MAPIE_Width`
-     were missing from every MAPIE row. `_mapie_coverage_and_width` dispatches
-     across both APIs (verified populating).
-2. **Code: torch-uncertainty updated to v0.13.0** (`DistributionNLLLoss`,
-   `{"loc","scale"}` predict parsing, bare-tensor loader, `>=0.13` guard) —
-   part of the earlier `ec1e043` commit.
-3. **Local verification (macOS `.venv`, mapie git pin installed)**: ruff clean;
-   conformal/MAPIE tests pass (incl. the new Cross-CQR helper + metrics guard).
-4. **Skaha plumbing validated**: production server registered in the canfar
-   client, `astroai/openworker:latest` image probed (has python 3.13, git, curl,
-   pixi 0.76), `/arc` mounted + writable, logs endpoint round-trips, `GH_TOKEN`
-   env propagation works, pixi/uv caches redirected to `/arc/home/sfabbro`.
-5. **Full benchmark launched** — session **`nur3clql`** (`bench-paper`, 16 cores
-   / 32 GB), run dir
-   `arc://projects/ots/torchregress-harness/runs/paperbench20260804`.
+`nur3clql` finished all steps; the follow-up conformal-only pass added the
+`MAPIE_CrossCQR+GBR` rows. [`PARITY_REPORT.md`](PARITY_REPORT.md) was fully
+generated on **2026-08-26** against the pinned externals (MAPIE `6478f16c9a`,
+torch-uncertainty `94e511a737`): 943-row / 208-method leaderboard
+(`leaderboard_results.json`) + canonical scenarios on the CUDA phase.
+Exact-match parity with MAPIE and four-way split-conformal agreement
+(torchregress = MAPIE = crepes = torchcp) — see the report header.
 
-### In flight
+### Track 2 — Stress-matrix diversity suite: CLOSED (2026-09-03)
 
-* **Full benchmark session `nur3clql` is Running.**  Step progress so far:
-  1. `run_canonical --scenario mapie_reference` ✅ (artifact written)
-  2. `run_canonical --scenario crepes_reference` ✅
-  3. `leaderboard_conformal.py --epochs 60` ✅ (MAPIE_CQR+GBR ranked #2, IS 124.5k)
-  4. `leaderboard_regression.py` ⏳ (was in the `ordinal` suite at last check)
-  5. `benchmark_pit_ensemble.py --epochs 60` — pending
-  6. `run_all --suites conformal` — pending
-  7. `run_all --suites age_regression` — pending
+Built and hardened across `4bce8ff` → `d6fd67a` (all pushed):
 
-  **Note:** this session launched *before* the Cross-CQR row existed, so its
-  results cover the 3 original MAPIE rows (not `MAPIE_CrossCQR+GBR`).
-
-### Decided (user)
-
-Finish the current run (all non-conformal numbers stay valid), then run a
-**conformal-only pass** on the updated repo so the conformal/MAPIE tables
-include `MAPIE_CrossCQR+GBR`. The PARITY_REPORT.md conformal/MAPIE sections will
-come from that pass; everything else from the current run.
+1. `StressMatrixSuite` (6 axes × method families × metrics) + offline
+   Lightning-UQ-Box install (`4bce8ff`, `cdff7b8`); first full headless run
+   `stress_20260903_011458` exposed six failure modes, all fixed (`07ad839`).
+2. NoisyTargetNLL eval-protocol fix + SAGE tuning (`3b4b156`); 3-seed
+   stability 48/48 rows clean.
+3. LUQ-box comparator rows landed in `stress_20260903_174930` but the
+   MC-dropout row was degenerate (`LUQMLP` default `dropout_p=0.0` → no
+   dropout layers → MC std collapsed to the clip floor, NLL 1.8e15, point
+   metrics bit-identical to the deterministic sibling). Fixed in `539e3a2`
+   (dropout_p=0.5, fit/predict split with honest timing, library-faithful
+   `predict_step` semantics).
+4. **Final full run `stress_luqboxfix20260903`** (session `aljbqdg9`,
+   harness `539e3a2`): **18/18 rows OK, 0 errors, 0 skips**; LUQ-box rows
+   now show non-degenerate uncertainty (MC-dropout NLL 1.07 vs 7.49 for its
+   deterministic sibling on the covariate-shift axis). Artifact:
+   `results/latest/stress_matrix_luqboxfix.json`; narrative in
+   [`EXHAUSTIVE_REPORT.md`](EXHAUSTIVE_REPORT.md) §4.
+5. Regression guards: `tests/test_stress_matrix.py` — 14 tests including
+   `test_luqbox_mcdropout_has_real_dropout` and the 3-seed stability check
+   `test_luqbox_rows_stable_across_seeds` (`d6fd67a`).
 
 ## 4. Next steps
 
-1. Let `nur3clql` finish (monitor `canfar ps` / session logs).
-2. Launch the conformal-only rerun on `/arc` (already at `d9f0ae6`):
-   `bash scripts/skaha_paper_benchmark.sh conformal20260804` after temporarily
-   limiting it to the conformal steps (canonical mapie + leaderboard_conformal),
-   or a small dedicated script.
-3. Fetch artifacts via `scripts/skaha_publish_results.sh` (gzip+base64 through
-   `canfar logs`) and decode into `results/latest/` + a versioned run dir.
-4. Verify `LibraryVersion` on the MAPIE rows shows `… (git 6478f16c9a)`.
-5. Regenerate [`PARITY_REPORT.md`](PARITY_REPORT.md) from the new JSONs
-   (all sections; header date/config/pins updated).
-6. Commit + push results and the updated report.
+None outstanding. Optional follow-ups (not scheduled):
+
+* Run `test_luqbox_rows_stable_across_seeds` in the seed-check session
+  (`bx25d3p3`) — poll at ~30-min intervals until `Completed`.
+* Full-scale (60-epoch) 3-seed sweep of the LUQ-box rows if the paper needs
+  seed-spread error bars for the comparator.
+* Repair the `/arc` clones' git remotes: the embedded `x-access-token` URL on
+  `origin` (upstream astroai) prompts for credentials; headless refresh falls
+  back to the operator-synced checkout (warn-only). Fetch from the local
+  `/scratch/src` clones instead, or reset `origin` to the fork URL.
 
 ## 5. Useful commands
 
 ```bash
-# Monitor the run
+# Monitor sessions
 canfar ps --all
-canfar logs nur3clql            # or: curl https://ws-uv.canfar.net/skaha/v1/session/nur3clql?view=logs
+canfar logs <session-id>       # or: curl https://ws-uv.canfar.net/skaha/v1/session/<id>?view=logs
+canfar events <session-id>     # ImagePullBackOff & friends
 
-# Relaunch the full benchmark (resumable; env cached on /arc)
-bash /arc/projects/ots/torchregress-harness/src/torchregress-harness/scripts/skaha_paper_benchmark.sh <RUN_ID>
+# Relaunch the stress matrix (env cached on /arc; image must exist in the registry)
+CANFAR_TIMEOUT=300 canfar create headless astroai/notebook:latest -n stress-<id> \
+  -c 8 -m 16 -- bash /arc/projects/ots/torchregress-harness/src/torchregress-harness/scripts/skaha_stress_matrix.sh <RUN_ID>
+
+# Sync the /arc harness checkout from the local clone (the /arc origin remote
+# carries an expired embedded token; fetch over the filesystem instead)
+git -C /arc/projects/ots/torchregress-harness/src/torchregress-harness fetch /scratch/src/torchregress-harness main
+git -C /arc/projects/ots/torchregress-harness/src/torchregress-harness reset --hard FETCH_HEAD
 
 # Publish a run's artifacts through the logs endpoint
 bash scripts/skaha_publish_results.sh <RUN_ID>
@@ -116,6 +117,10 @@ bash scripts/skaha_publish_results.sh <RUN_ID>
 
 | Session | Purpose | Status |
 |---|---|---|
-| `nur3clql` | full paper benchmark (16c/32G) | Running |
-| `t3i5osqn` / `frljd6xl` | `/arc` repo pull to Cross-CQR commits | Completed |
+| `nur3clql` | full paper benchmark (16c/32G) | Completed 2026-08; report regenerated 08-26 |
+| `w03k5rek` | first full stress matrix | Completed; run `stress_20260903_011458` |
+| `aljbqdg9` | LUQ-box fix re-run (`stress_luqboxfix20260903`) | Completed; 18/18 OK |
+| `uq83j0wr` / `jyiijcnd` | first fix-run attempt | Deleted — image `openworker:latest` gone from registry |
+| `htze4vvm` | seed check, stale checkout | Deleted — test not in fetched tree (exit 4) |
+| `bx25d3p3` | LUQ-box 3-seed check (`d6fd67a`) | Running — poll ~30 min |
 | earlier probes | image/API validation | Deleted |
