@@ -34,6 +34,8 @@ from harness.core import set_harness_seed
 from harness.runners import HarnessConfig
 
 from ._base import (
+    EVIDENTIAL_COEFF_NIG,
+    EVIDENTIAL_EPS,
     ImageHarnessRunner,
     _image_to_dataloader,
     _train_image_model,
@@ -166,7 +168,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
 
             # 4 output channels: gamma + nu + alpha + beta per pixel
             model = self._build_unet(in_channels=in_channels, out_channels=4, base_filters=32)
-            loss_fn = EvidentialRegressionLoss(coeff_nig=0.01)
+            loss_fn = EvidentialRegressionLoss(coeff_nig=EVIDENTIAL_COEFF_NIG)
             self._train_evidential_unet(model, loss_fn, train_loader, config)
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
 
@@ -297,9 +299,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
                 # pre-split (gamma, nu, alpha, beta) tuple, which is layout
                 # agnostic — required for dense (B, 1, H, W) targets.
                 gamma = raw[:, 0:1, :, :]
-                nu = F.softplus(raw[:, 1:2, :, :]) + 0.01
-                alpha = F.softplus(raw[:, 2:3, :, :]) + 1.01
-                beta = F.softplus(raw[:, 3:4, :, :]) + 0.01
+                nu = F.softplus(raw[:, 1:2, :, :]) + EVIDENTIAL_EPS
+                alpha = F.softplus(raw[:, 2:3, :, :]) + 1.0 + EVIDENTIAL_EPS
+                beta = F.softplus(raw[:, 3:4, :, :]) + EVIDENTIAL_EPS
 
                 loss = loss_fn((gamma, nu, alpha, beta), y_batch)
                 loss.backward()
@@ -384,7 +386,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
 
         # --- UNet+MDN_K3 ---
         elif model_type == "mdn":
-            return self._predict_mdn(model_state["model"], model_state["loss_fn"], X_test)
+            return self._predict_mdn(
+                model_state["model"], model_state["loss_fn"], X_test, seed=config.seed
+            )
 
         # --- UNet+MultiQuantile ---
         elif model_type == "multi_quantile":
@@ -477,9 +481,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
             for (X_batch,) in loader:
                 raw = model(X_batch.to(device))  # (B, 4, H, W)
                 gammas.append(raw[:, 0, :, :].cpu().numpy())
-                nus.append((F.softplus(raw[:, 1, :, :]) + 0.01).cpu().numpy())
-                alphas.append((F.softplus(raw[:, 2, :, :]) + 1.01).cpu().numpy())
-                betas.append((F.softplus(raw[:, 3, :, :]) + 0.01).cpu().numpy())
+                nus.append((F.softplus(raw[:, 1, :, :]) + EVIDENTIAL_EPS).cpu().numpy())
+                alphas.append((F.softplus(raw[:, 2, :, :]) + 1.0 + EVIDENTIAL_EPS).cpu().numpy())
+                betas.append((F.softplus(raw[:, 3, :, :]) + EVIDENTIAL_EPS).cpu().numpy())
 
         gamma = np.concatenate(gammas, axis=0).reshape(-1)
         nu = np.concatenate(nus, axis=0).reshape(-1)
@@ -516,7 +520,11 @@ class DepthEstimationSuite(ImageHarnessRunner):
         return {"y_pred": y_pred}
 
     def _predict_mdn(
-        self, model: nn.Module, loss_fn: nn.Module, X_test: np.ndarray
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        X_test: np.ndarray,
+        seed: int = 0,
     ) -> dict[str, np.ndarray]:
         """UNet+MDN: per-pixel mixture mean + MC quantile intervals, flattened."""
         device = next(model.parameters()).device
@@ -532,7 +540,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
                 mean, _ = loss_fn.predict_mean_std(flat)
                 mean_np = mean.squeeze(-1).cpu().numpy().reshape(b, h, w)
                 with torch.random.fork_rng(devices=[]):
-                    torch.manual_seed(0)
+                    torch.manual_seed(int(seed))
                     s = loss_fn.sample(flat, n_samples=64).squeeze(-1).cpu().numpy()
                 if s.ndim == 2 and s.shape[0] == 64:
                     s = s.T

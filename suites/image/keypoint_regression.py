@@ -56,6 +56,8 @@ class _CholeskyWrapper(nn.Module):
 class KeypointRegressionSuite(ImageHarnessRunner):
     """Multitarget image regression (keypoints / head-pose)."""
 
+    # Shared constants live in ._base; kept as aliases for back-compat.
+    ALPHA = 0.1
     Z_SCORE = 1.645
 
     @property
