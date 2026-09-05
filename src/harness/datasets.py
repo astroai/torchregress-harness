@@ -55,6 +55,8 @@ class SplitMetadata(TypedDict, total=False):
     mask_train: np.ndarray
     mask_test: np.ndarray
     _sparse_depth: bool
+    male_train: np.ndarray
+    male_test: np.ndarray
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -1878,10 +1880,13 @@ def _load_biwi_head_pose(
         "_n_channels": n_channels,
         "_multi_output": True,
         "_skip_y_standardization": True,
-        "_synthetic_fallback": not bool(biwi_root),
+        "_synthetic_fallback": True,
     }
-    if not biwi_root:
-        splits["_fallback_reason"] = "BIWI_ROOT unset; synthetic head-pose proxy"
+    splits["_fallback_reason"] = (
+        "BIWI_ROOT set but unusable; synthetic head-pose proxy"
+        if biwi_root
+        else "BIWI_ROOT unset; synthetic head-pose proxy"
+    )
     return splits
 
 
@@ -2011,10 +2016,13 @@ def _load_utkface_age(
         "_image_size": img_size,
         "_n_channels": 3,
         "_skip_y_standardization": True,
-        "_synthetic_fallback": not bool(root),
+        "_synthetic_fallback": True,
     }
-    if not root:
-        splits["_fallback_reason"] = "UTKFACE_ROOT unset; synthetic age proxy"
+    splits["_fallback_reason"] = (
+        "UTKFACE_ROOT set but unusable; synthetic age proxy"
+        if root
+        else "UTKFACE_ROOT unset; synthetic age proxy"
+    )
     return splits
 
 
@@ -2026,17 +2034,25 @@ def _load_boneage(
 ) -> SplitsDict:
     """Bone-age maturity regression (months) with hermetic fallback.
 
-    Real path: ``BONEAGE_ROOT`` dir with ``boneage-training-dataset.csv``
-    (columns ``id`` + ``boneage`` months) and PNG/JPG hand X-rays.
+    Real path: ``BONEAGE_ROOT`` dir with the Kaggle RSNA layout —
+    ``boneage-training-dataset.csv`` (columns ``id``, ``boneage`` months,
+    optional ``male`` bool) plus PNG/JPG hand X-rays (e.g. extracted
+    ``boneage-training-dataset.zip``; get it via
+    ``kaggle datasets download -d kmader/rsna-bone-age``). Matching is by
+    image stem == ``id`` (also tries ``id.png``-style numeric stems).
     Grayscale-resized to ``img_size``; ``y`` is bone age in months.
+    The ``male`` sidecar, when present, is exposed as ``male_train/test``.
 
     Fallback: single-channel bone-like gradient + blob with
     ``y = 228*brightness + N(0, 6)`` clipped to [0, 228] months (0–19y),
     preserving the (N,1,H,W)→(N,) contract for imbalanced/high-stakes tests.
+    A set-but-unusable ``BONEAGE_ROOT`` still reports
+    ``_synthetic_fallback=True`` (never silently mislabelled).
     """
     import os as _os
 
     root = _os.environ.get("BONEAGE_ROOT", "")
+    used_root = bool(root)
     if root:
         p = Path(root)
         csvs = sorted(p.glob("*.csv"))
@@ -2046,51 +2062,82 @@ def _load_boneage(
 
                 from PIL import Image
 
-                # Find id→boneage mapping in the first csv containing 'boneage'.
-                mapping: dict[str, float] = {}
+                # Find id→(boneage, male) mapping in the first csv with 'boneage'.
+                mapping: dict[str, tuple[float, float | None]] = {}
                 for csv_path in csvs:
                     with open(csv_path, newline="") as fh:
                         reader = _csv.DictReader(fh)
                         if reader.fieldnames and "boneage" in reader.fieldnames:
                             id_key = "id" if "id" in reader.fieldnames else reader.fieldnames[0]
+                            male_key = next(
+                                (
+                                    k
+                                    for k in reader.fieldnames
+                                    if k.lower() in ("male", "sex", "gender")
+                                ),
+                                None,
+                            )
                             for row in reader:
                                 try:
-                                    mapping[str(row[id_key])] = float(row["boneage"])
+                                    male: float | None = None
+                                    if male_key is not None and row[male_key] not in ("", None):
+                                        v = str(row[male_key]).strip().lower()
+                                        male = 1.0 if v in ("1", "true", "m", "male") else 0.0
+                                    mapping[str(row[id_key])] = (float(row["boneage"]), male)
                                 except (ValueError, KeyError):
                                     continue
                             break
                 if mapping:
-                    imgs, ages = [], []
-                    files = sorted(p.rglob("*.png")) + sorted(p.rglob("*.jpg"))
+                    imgs, ages, males = [], [], []
+                    files = (
+                        sorted(p.rglob("*.png"))
+                        + sorted(p.rglob("*.jpg"))
+                        + sorted(p.rglob("*.jpeg"))
+                        + sorted(p.rglob("*.PNG"))
+                        + sorted(p.rglob("*.JPG"))
+                    )
                     rng_pick = np.random.default_rng(seed)
                     order = rng_pick.permutation(len(files))[:n_samples]
                     for idx in order:
                         fp = files[int(idx)]
                         key = fp.stem
                         if key not in mapping:
-                            continue
+                            # Kaggle numeric stems (e.g. '1377.png' vs id 1377).
+                            key = key.lstrip("0") or "0"
+                            if key not in mapping:
+                                continue
                         img = Image.open(fp).convert("L").resize((img_size, img_size))
                         arr = np.array(img, dtype=np.float32) / 255.0
                         imgs.append(arr[None, :, :])
-                        ages.append(mapping[key])
+                        ages.append(mapping[key][0])
+                        males.append(mapping[key][1])
                         if len(imgs) >= n_samples:
                             break
                     if imgs:
                         X = np.stack(imgs).astype(np.float32)
                         y = np.array(ages, dtype=np.float32)
-                        Xtr, Xte, ytr, yte = train_test_split(
-                            X, y, test_size=test_size, random_state=seed
+                        idx_all = np.arange(len(imgs))
+                        itr, ite = train_test_split(
+                            idx_all, test_size=test_size, random_state=seed
                         )
-                        return {
-                            "X_train": Xtr,
-                            "X_test": Xte,
-                            "y_train": ytr,
-                            "y_test": yte,
+                        out: SplitsDict = {
+                            "X_train": X[itr],
+                            "X_test": X[ite],
+                            "y_train": y[itr],
+                            "y_test": y[ite],
                             "_image_data": True,
                             "_image_size": img_size,
                             "_n_channels": 1,
                             "_skip_y_standardization": True,
                         }
+                        if any(m is not None for m in males):
+                            m_arr = np.array(
+                                [m if m is not None else np.nan for m in males],
+                                dtype=np.float32,
+                            )
+                            out["male_train"] = m_arr[itr]
+                            out["male_test"] = m_arr[ite]
+                        return out
             except Exception:
                 pass  # fall through to synthetic proxy
 
@@ -2120,10 +2167,13 @@ def _load_boneage(
         "_image_size": img_size,
         "_n_channels": 1,
         "_skip_y_standardization": True,
-        "_synthetic_fallback": not bool(root),
+        "_synthetic_fallback": True,
     }
-    if not root:
-        splits["_fallback_reason"] = "BONEAGE_ROOT unset; synthetic bone-age proxy"
+    splits["_fallback_reason"] = (
+        "BONEAGE_ROOT set but unusable; synthetic bone-age proxy"
+        if used_root
+        else "BONEAGE_ROOT unset; synthetic bone-age proxy"
+    )
     return splits
 
 
@@ -3665,11 +3715,21 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_features=-1,
         n_samples=1000,
         description=(
-            "Bone-age maturity (months, 0–228). Real RSNA data via "
-            "BONEAGE_ROOT env (csv + hand X-rays); synthetic proxy "
-            "otherwise (flagged). Imbalanced/high-stakes P0 axis."
+            "Bone-age maturity (months, 0–228). Real RSNA/Kaggle data via "
+            "BONEAGE_ROOT env (csv with id+boneage[+male] + hand X-rays); "
+            "synthetic proxy otherwise (flagged). Imbalanced/high-stakes P0 axis."
         ),
         loader=_registry_loader(_load_boneage),
+    ),
+    "boneage_tiny": DatasetInfo(
+        name="boneage_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "Bone-age tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_boneage, n_samples=200, img_size=32),
     ),
     "bbbc_cellcount": DatasetInfo(
         name="bbbc_cellcount",
