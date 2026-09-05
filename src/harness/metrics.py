@@ -368,7 +368,12 @@ def compute_calibration_metrics(
     # ECE via equal-mass binning
     n_bins = min(10, n // 10)
     if n_bins < 2:
-        return {"ECE": float("nan"), "PIT_KS": float("nan"), "MACE": float("nan"), "RMSCE": float("nan")}
+        return {
+            "ECE": float("nan"),
+            "PIT_KS": float("nan"),
+            "MACE": float("nan"),
+            "RMSCE": float("nan"),
+        }
 
     bins = np.percentile(pit, np.linspace(0, 100, n_bins + 1))
     ece = 0.0

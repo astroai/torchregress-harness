@@ -96,9 +96,7 @@ class _ImageRegressorBase:
         if kind == "resnet":
             from suites.image._base import _ImageCNN, _make_resnet_backbone
 
-            m = _make_resnet_backbone(
-                in_channels=channels, out_dim=out_dim, pretrained=pretrained
-            )
+            m = _make_resnet_backbone(in_channels=channels, out_dim=out_dim, pretrained=pretrained)
             if m is not None:
                 return m
             return _ImageCNN(in_channels=channels, out_dim=out_dim)

@@ -631,7 +631,9 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
         # Arch guard: default CNN fibres must stay at base_filters=16 → 64-dim head.
         if cnn.head.in_features != 64:
             ok = False
-            msgs.append(f"  ✗ _ImageCNN head dim {cnn.head.in_features} != 64 (base_filters regression?)")
+            msgs.append(
+                f"  ✗ _ImageCNN head dim {cnn.head.in_features} != 64 (base_filters regression?)"
+            )
         else:
             msgs.append("  ✓ _ImageCNN head dim 64 (base_filters=16)")
         x = torch.randn(4, 1, 32, 32)

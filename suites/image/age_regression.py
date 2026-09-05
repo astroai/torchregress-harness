@@ -353,9 +353,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             from torchregress.losses.sls import SLSLoss
 
             context_dim = 32
-            model = self._build_cnn(
-                in_channels=in_channels, out_dim=context_dim, base_filters=32
-            )
+            model = self._build_cnn(in_channels=in_channels, out_dim=context_dim, base_filters=32)
             loss_fn = SLSLoss(
                 d=1,
                 context_dim=context_dim,
@@ -508,9 +506,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             std = np.zeros_like(y)
             observed = False
         device = current_device()
-        ds = TensorDataset(
-            torch.from_numpy(X).float(), torch.from_numpy(y), torch.from_numpy(std)
-        )
+        ds = TensorDataset(torch.from_numpy(X).float(), torch.from_numpy(y), torch.from_numpy(std))
         loader = DataLoader(ds, batch_size=config.batch_size, shuffle=True)
         # NOTE: batches stay on CPU here; moved per-batch (see _base memory note).
         from torchregress.losses.uncertain_gt import NoisyTargetGaussianNLL

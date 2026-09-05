@@ -149,11 +149,22 @@ ALL_JOBS=(
 )
 RID="${REPLICA_ID:-0}"
 RCNT="${REPLICA_COUNT:-1}"
-log "replica $RID/$RCNT, n_jobs=${#ALL_JOBS[@]}"
+# JOB_FILTER (optional substring, e.g. "bbbc", "appa", "shanghai"): restrict
+# to matching "suite dataset" pairs — one session per dataset policy.
+JOB_FILTER="${JOB_FILTER:-}"
+log "replica $RID/$RCNT, n_jobs=${#ALL_JOBS[@]}, filter='${JOB_FILTER}'"
 JOBS=()
 for i in "${!ALL_JOBS[@]}"; do
-  if (( i % RCNT == RID )); then JOBS+=("${ALL_JOBS[$i]}"); fi
+  if (( i % RCNT == RID )); then
+    if [[ -z "$JOB_FILTER" || "${ALL_JOBS[$i]}" == *"$JOB_FILTER"* ]]; then
+      JOBS+=("${ALL_JOBS[$i]}")
+    fi
+  fi
 done
+if [[ "${#JOBS[@]}" == 0 ]]; then
+  log "FATAL: JOB_FILTER='${JOB_FILTER}' matched no jobs — aborting"
+  exit 4
+fi
 
 EPOCHS=10
 EXTRA_ARGS="--epochs $EPOCHS"

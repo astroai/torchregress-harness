@@ -142,9 +142,7 @@ class CellCountingSuite(ImageHarnessRunner):
             from torchregress.losses.poisson_gaussian import PoissonGaussianMixtureLoss
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
-            _train_image_model(
-                m, PoissonGaussianMixtureLoss(log_input=True), train_loader, config
-            )
+            _train_image_model(m, PoissonGaussianMixtureLoss(log_input=True), train_loader, config)
             return {"type": "log_rate", "model": m}
         raise ValueError(f"Unknown method: {method}")
 

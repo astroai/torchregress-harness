@@ -257,9 +257,7 @@ class KeypointRegressionSuite(ImageHarnessRunner):
                         r = self.LOW_RANK
                         mean = out[:, :D].cpu().numpy()
                         factor = out[:, D : D + D * r].reshape(-1, D, r).cpu().numpy()
-                        diag = (
-                            F.softplus(out[:, D + D * r :]).clamp_min(1e-8).cpu().numpy()
-                        )
+                        diag = F.softplus(out[:, D + D * r :]).clamp_min(1e-8).cpu().numpy()
                         var = np.maximum((factor**2).sum(-1) + diag, 1e-8)
                         means.append(mean)
                         stds.append(np.sqrt(var))

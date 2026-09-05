@@ -54,6 +54,7 @@ class SplitMetadata(TypedDict, total=False):
     count_test: np.ndarray
     mask_train: np.ndarray
     mask_test: np.ndarray
+    _sparse_depth: bool
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -1988,9 +1989,7 @@ def _load_utkface_age(
     n = n_samples
     cx = rng.uniform(0, img_size, n).astype(np.float32)
     cy = rng.uniform(0, img_size, n).astype(np.float32)
-    y = (60.0 * cx / img_size + 40.0 * cy / img_size + rng.normal(0, 3, n)).astype(
-        np.float32
-    )
+    y = (60.0 * cx / img_size + 40.0 * cy / img_size + rng.normal(0, 3, n)).astype(np.float32)
     y = np.clip(y, 0, 100).astype(np.float32)
     ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
     X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
@@ -2053,11 +2052,7 @@ def _load_boneage(
                     with open(csv_path, newline="") as fh:
                         reader = _csv.DictReader(fh)
                         if reader.fieldnames and "boneage" in reader.fieldnames:
-                            id_key = (
-                                "id"
-                                if "id" in reader.fieldnames
-                                else reader.fieldnames[0]
-                            )
+                            id_key = "id" if "id" in reader.fieldnames else reader.fieldnames[0]
                             for row in reader:
                                 try:
                                     mapping[str(row[id_key])] = float(row["boneage"])
@@ -2193,25 +2188,22 @@ def _load_bbbc_cellcount(
         if p.is_file() and _zipfile.is_zipfile(p):
             zip_path = p
         elif p.is_dir():
-            names = sorted(
-                [q.name for q in p.rglob("*.TIF")] + [q.name for q in p.rglob("*.tif")]
-            )
+            names = sorted([q.name for q in p.rglob("*.TIF")] + [q.name for q in p.rglob("*.tif")])
             tmp_dir = p
     if not names and not open_zip:
         if not (zip_path.exists() and zip_path.stat().st_size > 0):
             _download_with_progress(_BBBC005_URL, zip_path, desc="BBBC005 images")
         try:
             open_zip = _zipfile.ZipFile(zip_path)
-            names = sorted(
-                n for n in open_zip.namelist() if n.lower().endswith((".tif", ".tiff"))
-            )
+            names = sorted(n for n in open_zip.namelist() if n.lower().endswith((".tif", ".tiff")))
         except Exception:
             names = []
 
     if names:
         try:
-            from PIL import Image as _Image
             import io as _io
+
+            from PIL import Image as _Image
 
             rng_pick = np.random.default_rng(seed)
             order = rng_pick.permutation(len(names))
@@ -2238,9 +2230,7 @@ def _load_bbbc_cellcount(
             if imgs:
                 X = np.stack(imgs).astype(np.float32)
                 y = np.array(counts, dtype=np.float32)
-                Xtr, Xte, ytr, yte = train_test_split(
-                    X, y, test_size=test_size, random_state=seed
-                )
+                Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, random_state=seed)
                 return {
                     "X_train": Xtr,
                     "X_test": Xte,
@@ -2370,20 +2360,24 @@ def _load_appa_age(
         f_file = _pick("file", "image", "name")
         f_mean = _pick("apparent", "average", "mean")
         f_std = _pick("std", "deviation")
-        f_real = _pick("real")
         if f_file is None or f_mean is None:
             return None
         try:
-            from PIL import Image as _Image
             import io as _io
+
+            from PIL import Image as _Image
 
             imgs, means, stds = [], [], []
             for row in rows:
                 fn = row[f_file].strip()
-                cand_names = [fn + "_face.jpg", fn] if not fn.endswith(".jpg") else [
-                    fn.replace(".jpg", "_face.jpg"),
-                    fn,
-                ]
+                cand_names = (
+                    [fn + "_face.jpg", fn]
+                    if not fn.endswith(".jpg")
+                    else [
+                        fn.replace(".jpg", "_face.jpg"),
+                        fn,
+                    ]
+                )
                 data: bytes | None = None
                 if from_zip is not None:
                     for cn in cand_names:
@@ -2533,9 +2527,7 @@ def _load_appa_age(
     return splits
 
 
-def _density_from_points(
-    points: np.ndarray, h: int, w: int, sigma: float = 4.0
-) -> np.ndarray:
+def _density_from_points(points: np.ndarray, h: int, w: int, sigma: float = 4.0) -> np.ndarray:
     """Render a crowd density map from head points (count = map sum)."""
     from scipy.ndimage import gaussian_filter
 
@@ -2636,8 +2628,6 @@ def _load_shanghai_crowd(
     pairs = _collect(mat_dir) if mat_dir is not None else None
     if pairs is not None:
         try:
-            import io as _io
-
             import scipy.io as _sio
             from PIL import Image as _Image
 
@@ -2760,7 +2750,7 @@ def _load_ixi_brainage(
     root = _os.environ.get("IXI_ROOT", "")
     if root:
         try:
-            import nibabel as _nib
+            import nibabel as _nib  # ty: ignore[unresolved-import]  # optional dep for IXI_ROOT
         except ImportError as exc:
             raise ImportError(
                 "nibabel is required for IXI brain age "
@@ -2792,9 +2782,7 @@ def _load_ixi_brainage(
                         (cols[k] for k in cols if "IXI" in k or "ID" in k or "SUBJECT" in k),
                         df.columns[0],
                     )
-                    age_col = next(
-                        (cols[k] for k in cols if "AGE" in k), df.columns[1]
-                    )
+                    age_col = next((cols[k] for k in cols if "AGE" in k), df.columns[1])
                     for _, row in df.iterrows():
                         try:
                             ages[str(int(row[id_col])).zfill(3)] = float(row[age_col])
@@ -2922,9 +2910,7 @@ def _load_udacity_steering(
                             if not reader.fieldnames:
                                 continue
                         fn = {str(c).lower(): c for c in reader.fieldnames}
-                        f_ang = next(
-                            (fn[k] for k in fn if "steer" in k or "angle" in k), None
-                        )
+                        f_ang = next((fn[k] for k in fn if "steer" in k or "angle" in k), None)
                         f_img = next(
                             (
                                 fn[k]
@@ -3103,7 +3089,9 @@ def _load_kitti_depth(
                     jp, dp = pairs[int(idx)]
                     try:
                         img = _Image.open(jp).convert("RGB").resize((img_size, img_size))
-                        dep = _Image.open(dp).resize((img_size, img_size), _Image.NEAREST)
+                        dep = _Image.open(dp).resize(
+                            (img_size, img_size), _Image.Resampling.NEAREST
+                        )
                     except Exception:
                         continue
                     arr = np.array(img, dtype=np.float32) / 255.0
@@ -3168,7 +3156,12 @@ def _load_kitti_depth(
         Y[i] = depth
         # LiDAR-style sparsity: keep ~15% of pixels (rows-biased scanlines).
         keep = (rng.random((img_size, img_size)) < 0.15).astype(np.float32)
-        keep[::4, :] = np.maximum(keep[::4, :], (rng.random((img_size // 4 + 1, img_size)) < 0.5).astype(np.float32)[: keep[::4, :].shape[0]])
+        keep[::4, :] = np.maximum(
+            keep[::4, :],
+            (rng.random((img_size // 4 + 1, img_size)) < 0.5).astype(np.float32)[
+                : keep[::4, :].shape[0]
+            ],
+        )
         M[i] = keep
     Y = np.where(M > 0, Y, 0).astype(np.float32)
     X_train, X_test, y_train, y_test, mask_train, mask_test = train_test_split(
@@ -3663,9 +3656,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "UTKFace tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
-        ),
+        description=("UTKFace tiny smoke variant: 200 samples at 32×32 for fast CPU debug."),
         loader=_registry_loader(_load_utkface_age, n_samples=200, img_size=32),
     ),
     "boneage": DatasetInfo(
@@ -3698,9 +3689,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."
-        ),
+        description=("BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."),
         loader=_registry_loader(_load_bbbc_cellcount, n_samples=200, img_size=64),
     ),
     "appa_age": DatasetInfo(
@@ -3720,9 +3709,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "APPA-REAL tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
-        ),
+        description=("APPA-REAL tiny smoke variant: 200 samples at 32×32 for fast CPU debug."),
         loader=_registry_loader(_load_appa_age, n_samples=200, img_size=32),
     ),
     "shanghai_crowd": DatasetInfo(
@@ -3742,9 +3729,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=60,
-        description=(
-            "ShanghaiTech tiny smoke variant: 60 samples at 64×64 for fast CPU debug."
-        ),
+        description=("ShanghaiTech tiny smoke variant: 60 samples at 64×64 for fast CPU debug."),
         loader=_registry_loader(_load_shanghai_crowd, n_samples=60, img_size=64),
     ),
     "ixi_brainage": DatasetInfo(
@@ -3765,9 +3750,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=60,
-        description=(
-            "IXI tiny smoke variant: 60 samples at 32×32 for fast CPU debug."
-        ),
+        description=("IXI tiny smoke variant: 60 samples at 32×32 for fast CPU debug."),
         loader=_registry_loader(_load_ixi_brainage, n_samples=60, img_size=32),
     ),
     "udacity_steering": DatasetInfo(
@@ -3788,9 +3771,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "Steering tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
-        ),
+        description=("Steering tiny smoke variant: 200 samples at 32×32 for fast CPU debug."),
         loader=_registry_loader(_load_udacity_steering, n_samples=200, img_size=32),
     ),
     "kitti_depth": DatasetInfo(
@@ -3811,9 +3792,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=60,
-        description=(
-            "KITTI tiny smoke variant: 60 samples at 64×64 for fast CPU debug."
-        ),
+        description=("KITTI tiny smoke variant: 60 samples at 64×64 for fast CPU debug."),
         loader=_registry_loader(_load_kitti_depth, n_samples=60, img_size=64),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(

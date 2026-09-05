@@ -256,7 +256,6 @@ class ImageConformalSuite(ImageHarnessRunner):
     def _predict_mapie(self, cnn_point: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
         """MAPIE SplitConformalRegressor with prefit CNN wrapper."""
         import numpy as np
-
         from mapie.regression import SplitConformalRegressor
 
         class _CNNWrapper:
@@ -295,14 +294,21 @@ class ImageConformalSuite(ImageHarnessRunner):
             )
             reg.fit_conformalize(Xc_f, np.asarray(y_cal))
             _, intervals = reg.predict(Xt_f, alpha=0.1)
-        lower = np.asarray(intervals)[:, 0, 0] if np.asarray(intervals).ndim == 3 else np.asarray(intervals)[:, 0]
-        upper = np.asarray(intervals)[:, 1, 0] if np.asarray(intervals).ndim == 3 else np.asarray(intervals)[:, 1]
+        lower = (
+            np.asarray(intervals)[:, 0, 0]
+            if np.asarray(intervals).ndim == 3
+            else np.asarray(intervals)[:, 0]
+        )
+        upper = (
+            np.asarray(intervals)[:, 1, 0]
+            if np.asarray(intervals).ndim == 3
+            else np.asarray(intervals)[:, 1]
+        )
         pred = _FlatCNNWrapper().predict(Xt_f)
         return {"lower": lower, "upper": upper, "y_pred": pred}
 
     def _predict_crepes(self, cnn_point: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
         import numpy as np
-
         from crepes import WrapRegressor
 
         Xc = np.asarray(X_cal)
@@ -329,7 +335,6 @@ class ImageConformalSuite(ImageHarnessRunner):
     def _predict_torchcp(self, model: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
         import numpy as np
         import torch
-
         from torchcp.regression.predictors import SplitPredictor
 
         device = next(model.parameters()).device

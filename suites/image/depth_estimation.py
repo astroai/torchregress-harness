@@ -141,9 +141,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
 
         # --- UNet-based methods ---
         if method.startswith("UNet+"):
-            return self._fit_unet_method(
-                method, in_channels, train_loader, config, masked=sparse
-            )
+            return self._fit_unet_method(method, in_channels, train_loader, config, masked=sparse)
 
         # --- sklearn baseline on flattened pixels ---
         if method.startswith("sklearn_"):
@@ -163,18 +161,8 @@ class DepthEstimationSuite(ImageHarnessRunner):
 
         device = current_device()
         X_t = torch.from_numpy(np.asarray(splits["X_train"])).float().to(device)
-        y_t = (
-            torch.from_numpy(np.asarray(splits["y_train"]))
-            .float()
-            .to(device)
-            .unsqueeze(1)
-        )
-        m_t = (
-            torch.from_numpy(np.asarray(splits["mask_train"]))
-            .float()
-            .to(device)
-            .unsqueeze(1)
-        )
+        y_t = torch.from_numpy(np.asarray(splits["y_train"])).float().to(device).unsqueeze(1)
+        m_t = torch.from_numpy(np.asarray(splits["mask_train"])).float().to(device).unsqueeze(1)
         return _data.DataLoader(
             _data.TensorDataset(X_t, y_t, m_t), batch_size=batch_size, shuffle=True
         )
@@ -193,12 +181,12 @@ class DepthEstimationSuite(ImageHarnessRunner):
         back to flattened valid-pixel subsets.
         """
         import inspect as _inspect
+
         import torch.optim as optim
 
         accepts_mask = "mask" in _inspect.signature(loss_fn.forward).parameters
         opt = optim.Adam(
-            list(model.parameters())
-            + [p for p in loss_fn.parameters() if p.requires_grad],
+            list(model.parameters()) + [p for p in loss_fn.parameters() if p.requires_grad],
             lr=config.lr,
         )
         device = next(model.parameters()).device
@@ -240,8 +228,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
         import torch.optim as optim
 
         opt = optim.Adam(
-            list(model.parameters())
-            + [p for p in loss_fn.parameters() if p.requires_grad],
+            list(model.parameters()) + [p for p in loss_fn.parameters() if p.requires_grad],
             lr=config.lr,
         )
         device = next(model.parameters()).device
@@ -258,9 +245,21 @@ class DepthEstimationSuite(ImageHarnessRunner):
                     continue
                 if evidential:
                     gamma = out[:, 0:1, :, :].reshape(-1)[valid].unsqueeze(1)
-                    nu = (F.softplus(out[:, 1:2, :, :]) + EVIDENTIAL_EPS).reshape(-1)[valid].unsqueeze(1)
-                    alpha = (F.softplus(out[:, 2:3, :, :]) + 1.0 + EVIDENTIAL_EPS).reshape(-1)[valid].unsqueeze(1)
-                    beta = (F.softplus(out[:, 3:4, :, :]) + EVIDENTIAL_EPS).reshape(-1)[valid].unsqueeze(1)
+                    nu = (
+                        (F.softplus(out[:, 1:2, :, :]) + EVIDENTIAL_EPS)
+                        .reshape(-1)[valid]
+                        .unsqueeze(1)
+                    )
+                    alpha = (
+                        (F.softplus(out[:, 2:3, :, :]) + 1.0 + EVIDENTIAL_EPS)
+                        .reshape(-1)[valid]
+                        .unsqueeze(1)
+                    )
+                    beta = (
+                        (F.softplus(out[:, 3:4, :, :]) + EVIDENTIAL_EPS)
+                        .reshape(-1)[valid]
+                        .unsqueeze(1)
+                    )
                     loss = loss_fn((gamma, nu, alpha, beta), yb.reshape(-1)[valid].unsqueeze(1))
                 else:
                     out_flat = out.permute(0, 2, 3, 1).reshape(b * h * w, c)[valid]
@@ -359,10 +358,18 @@ class DepthEstimationSuite(ImageHarnessRunner):
                 in_channels=in_channels, out_channels=len(quantiles), base_filters=32
             )
             self._train_quantile_unet(
-                model, MultiQuantileLoss(quantiles=quantiles), train_loader, config,
+                model,
+                MultiQuantileLoss(quantiles=quantiles),
+                train_loader,
+                config,
                 masked=masked,
             )
-            return {"type": "multi_quantile", "model": model, "quantiles": quantiles, "sparse": masked}
+            return {
+                "type": "multi_quantile",
+                "model": model,
+                "quantiles": quantiles,
+                "sparse": masked,
+            }
 
         # --- UNet+StudentT / Huber (single-channel point-ish heads) ---
         # NOTE: distinct types (not "mse") so metrics correctly treat these
@@ -578,7 +585,9 @@ class DepthEstimationSuite(ImageHarnessRunner):
         elif model_type == "mdn":
             return _tag(
                 self._predict_mdn(
-                    model_state["model"], model_state["loss_fn"], X_test,
+                    model_state["model"],
+                    model_state["loss_fn"],
+                    X_test,
                     seed=config.seed,
                 )
             )
@@ -586,9 +595,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
         # --- UNet+MultiQuantile ---
         elif model_type == "multi_quantile":
             return _tag(
-                self._predict_multi_quantile(
-                    model_state["model"], model_state["quantiles"], X_test
-                )
+                self._predict_multi_quantile(model_state["model"], model_state["quantiles"], X_test)
             )
 
         # --- UNet+DeepEnsemble_K3 ---
