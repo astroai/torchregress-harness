@@ -7,6 +7,7 @@ torchregress methods against external software on image regression datasets
 
 from .age_regression import AgeRegressionSuite
 from .cell_counting import CellCountingSuite
+from .crowd_counting import CrowdCountingSuite
 from .depth_estimation import DepthEstimationSuite
 from .image_calibration import ImageCalibrationSuite
 from .image_conformal import ImageConformalSuite
@@ -17,6 +18,7 @@ from .keypoint_regression import KeypointRegressionSuite
 __all__ = [
     "AgeRegressionSuite",
     "CellCountingSuite",
+    "CrowdCountingSuite",
     "DepthEstimationSuite",
     "ImageCalibrationSuite",
     "ImageConformalSuite",

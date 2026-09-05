@@ -50,6 +50,8 @@ class SplitMetadata(TypedDict, total=False):
     _observed_std: bool
     y_std_train: np.ndarray
     y_std_test: np.ndarray
+    count_train: np.ndarray
+    count_test: np.ndarray
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -1383,6 +1385,13 @@ _BBBC005_URL = "https://data.broadinstitute.org/bbbc/BBBC005/BBBC005_v1_images.z
 # Verified 2026-09-05: direct zip, no login, 885,442,010 bytes (~845 MB).
 _APPA_URL = "https://data.chalearnlap.cvc.uab.cat/AppaRealAge/appa-real-release.zip"
 
+# ShanghaiTech crowd counting (CVPR 2016; Part-B street scenes default).
+# Verified 2026-09-05: 2024 Dropbox mirror supports direct range download.
+_SHANGHAI_URL = (
+    "https://www.dropbox.com/scl/fi/dkj5kulc9zj0rzesslck8/"
+    "ShanghaiTech_Crowd_Counting_Dataset.zip?rlkey=ymbcj50ac04uvqn8p49j9af5f&dl=1"
+)
+
 
 def _load_nyu_depth_v2(
     n_samples: int = 1449,
@@ -2500,6 +2509,206 @@ def _load_appa_age(
     return splits
 
 
+def _density_from_points(
+    points: np.ndarray, h: int, w: int, sigma: float = 4.0
+) -> np.ndarray:
+    """Render a crowd density map from head points (count = map sum)."""
+    from scipy.ndimage import gaussian_filter
+
+    dens = np.zeros((h, w), dtype=np.float32)
+    if len(points):
+        pts = np.asarray(points, dtype=np.float32)
+        xs = np.clip(pts[:, 0].astype(int), 0, w - 1)
+        ys = np.clip(pts[:, 1].astype(int), 0, h - 1)
+        np.add.at(dens, (ys, xs), 1.0)
+        if sigma > 0:
+            dens = gaussian_filter(dens, sigma=sigma).astype(np.float32)
+    return dens
+
+
+def _load_shanghai_crowd(
+    n_samples: int = 400,
+    img_size: int = 128,
+    part: str = "B",
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """ShanghaiTech crowd counting (density maps + counts).
+
+    Real path: downloads the dataset zip (~1 GB, Dropbox mirror) into the
+    harness image cache, or reuses ``SHANGHAI_ROOT`` (zip or extracted dir).
+    Part B (busy Shanghai streets, 400 train / 316 test) is the default;
+    Part A (congested web images) via ``part='A'``. Head-point ``.mat``
+    annotations become Gaussian density maps (sigma=4 at native scale);
+    images are resized to ``img_size`` with points rescaled accordingly.
+    ``y`` is the density map (N,H,W); ``count_*`` carries the head counts.
+
+    Fallback: synthetic crowd fields with Poisson head counts.
+    """
+    import os as _os
+    import zipfile as _zipfile
+
+    cache_dir = _image_cache_dir()
+    zip_path = cache_dir / "ShanghaiTech_Crowd_Counting_Dataset.zip"
+    root = _os.environ.get("SHANGHAI_ROOT", "")
+
+    def _collect(base: Path) -> tuple[list[Path], list[Path]] | None:
+        part_dir = base / f"part_{part}_final"
+        if not part_dir.is_dir():
+            # Maybe rooted one level deeper (extracted inner folder).
+            subs = [d for d in base.glob(f"part_{part}_final") if d.is_dir()]
+            if not subs:
+                return None
+            part_dir = subs[0]
+        imgs: list[Path] = []
+        for split in ("train_data", "test_data"):
+            d = part_dir / split / "images"
+            if d.is_dir():
+                imgs.extend(sorted(d.glob("*.jpg")))
+        if not imgs:
+            return None
+        return imgs, [part_dir] * len(imgs)
+
+    src_dir: Path | None = None
+    src_zip: _zipfile.ZipFile | None = None
+    if root:
+        p = Path(root)
+        if p.is_file() and _zipfile.is_zipfile(p):
+            try:
+                src_zip = _zipfile.ZipFile(p)
+            except Exception:
+                src_zip = None
+        elif p.is_dir():
+            src_dir = p
+    if src_dir is None and src_zip is None:
+        if not (zip_path.exists() and zip_path.stat().st_size > 0):
+            try:
+                _download_with_progress(_SHANGHAI_URL, zip_path, desc="ShanghaiTech")
+            except Exception:
+                pass
+        if zip_path.exists() and zip_path.stat().st_size > 0:
+            try:
+                src_zip = _zipfile.ZipFile(zip_path)
+            except Exception:
+                src_zip = None
+    # Materialise zip members under cache/shanghai when using a zip source.
+    mat_dir: Path | None = src_dir
+    if src_zip is not None:
+        mat_dir = cache_dir / "shanghai_extract"
+        try:
+            # Extract only Part-B (or requested part) members to bound disk use.
+            wanted = [n for n in src_zip.namelist() if f"part_{part}_final" in n]
+            existing = sum(1 for _ in mat_dir.rglob("*.jpg")) if mat_dir.exists() else 0
+            if existing < 10 and wanted:
+                mat_dir.mkdir(parents=True, exist_ok=True)
+                for n in wanted:
+                    src_zip.extract(n, mat_dir)
+        except Exception:
+            pass
+        try:
+            src_zip.close()
+        except Exception:
+            pass
+    pairs = _collect(mat_dir) if mat_dir is not None else None
+    if pairs is not None:
+        try:
+            import io as _io
+
+            import scipy.io as _sio
+            from PIL import Image as _Image
+
+            imgs_all, counts_all, dens_all = [], [], []
+            rng_pick = np.random.default_rng(seed)
+            order = rng_pick.permutation(len(pairs[0]))[:n_samples]
+            for idx in order:
+                jp = pairs[0][int(idx)]
+                gt = jp.parent.parent / "ground_truth" / f"GT_{jp.stem}.mat"
+                if not gt.is_file():
+                    continue
+                mat = _sio.loadmat(str(gt))
+                try:
+                    pts = np.asarray(mat["image_info"][0, 0][0, 0][0], dtype=np.float32)
+                except Exception:
+                    continue
+                if pts.ndim == 1:
+                    pts = pts.reshape(-1, 2)
+                img = _Image.open(jp).convert("RGB")
+                w0, h0 = img.size
+                img = img.resize((img_size, img_size))
+                sx, sy = img_size / max(w0, 1), img_size / max(h0, 1)
+                pts_s = pts * np.array([sx, sy], dtype=np.float32)
+                dens = _density_from_points(pts_s, img_size, img_size, sigma=4.0)
+                arr = np.array(img, dtype=np.float32) / 255.0
+                imgs_all.append(arr.transpose(2, 0, 1))
+                dens_all.append(dens)
+                counts_all.append(float(len(pts)))
+            if imgs_all:
+                X = np.stack(imgs_all).astype(np.float32)
+                Y = np.stack(dens_all).astype(np.float32)
+                C = np.array(counts_all, dtype=np.float32)
+                Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
+                    X, Y, C, test_size=test_size, random_state=seed
+                )
+                return {
+                    "X_train": Xtr,
+                    "X_test": Xte,
+                    "y_train": Ytr,
+                    "y_test": Yte,
+                    "count_train": Ctr,
+                    "count_test": Cte,
+                    "_image_data": True,
+                    "_image_size": img_size,
+                    "_n_channels": 3,
+                    "_dense_output": True,
+                    "_skip_y_standardization": True,
+                }
+        except Exception:
+            pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: Poisson crowd counts + blob fields.
+    rng = np.random.default_rng(seed)
+    lam = rng.uniform(10, 120, n_samples)
+    counts = rng.poisson(lam).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n_samples, 3, img_size, img_size), dtype=np.float32)
+    Y = np.zeros((n_samples, img_size, img_size), dtype=np.float32)
+    for i in range(n_samples):
+        k = min(int(counts[i]), 200)
+        canvas = np.zeros((img_size, img_size), dtype=np.float32)
+        if k > 0:
+            px = rng.uniform(0, img_size, k)
+            py = rng.uniform(0, img_size, k)
+            for j in range(k):
+                canvas += np.exp(
+                    -((xs - px[j]) ** 2 + (ys - py[j]) ** 2) / (2 * (img_size / 32) ** 2)
+                )
+        Y[i] = canvas.astype(np.float32)
+        shade = 0.4 + 0.4 * rng.random()
+        for c in range(3):
+            X[i, c] = np.clip(canvas * shade + 0.05 * rng.standard_normal(canvas.shape), 0, 1)
+    X = X.astype(np.float32)
+    idx = np.arange(n_samples)
+    Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
+        X, Y, counts, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": Xtr.astype(np.float32),
+        "X_test": Xte.astype(np.float32),
+        "y_train": Ytr.astype(np.float32),
+        "y_test": Yte.astype(np.float32),
+        "count_train": Ctr.astype(np.float32),
+        "count_test": Cte.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_dense_output": True,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "ShanghaiTech unavailable; synthetic crowd proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -3031,6 +3240,28 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "APPA-REAL tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
         ),
         loader=_registry_loader(_load_appa_age, n_samples=200, img_size=32),
+    ),
+    "shanghai_crowd": DatasetInfo(
+        name="shanghai_crowd",
+        category="image",
+        n_features=-1,
+        n_samples=400,
+        description=(
+            "ShanghaiTech Part-B crowd density maps + head counts. Auto-"
+            "downloads the dataset zip (~1 GB Dropbox mirror) or reuses "
+            "SHANGHAI_ROOT; synthetic crowd proxy otherwise (flagged)."
+        ),
+        loader=_registry_loader(_load_shanghai_crowd),
+    ),
+    "shanghai_crowd_tiny": DatasetInfo(
+        name="shanghai_crowd_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=60,
+        description=(
+            "ShanghaiTech tiny smoke variant: 60 samples at 64×64 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_shanghai_crowd, n_samples=60, img_size=64),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",
