@@ -2163,7 +2163,7 @@ def _load_bbbc_cellcount(
             tmp_dir = p
     if not names and not open_zip:
         if not (zip_path.exists() and zip_path.stat().st_size > 0):
-            _download_with_progress(_BBBC_URL, zip_path, desc="BBBC005 images")
+            _download_with_progress(_BBBC005_URL, zip_path, desc="BBBC005 images")
         try:
             open_zip = _zipfile.ZipFile(zip_path)
             names = sorted(
