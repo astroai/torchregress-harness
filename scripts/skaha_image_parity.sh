@@ -138,6 +138,8 @@ ALL_JOBS=(
   "age_regression appa_age"
   "age_regression ixi_brainage_tiny"
   "age_regression ixi_brainage"
+  "image_robust udacity_steering_tiny"
+  "image_robust udacity_steering"
   "image_conformal utkface_age_tiny"
   "image_ensembles_uq utkface_age_tiny"
   "image_robust utkface_age_tiny"

@@ -1399,6 +1399,13 @@ _SHANGHAI_URL = (
 _IXI_T1_URL = "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar"
 _IXI_XLS_URL = "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls"
 
+# Udacity steering (Challenge 2, dashboard-cam + steering angle). Raw data
+# are ROS bags needing the udacity-driving-reader — NOT headless-feasible —
+# so no auto-download: place extracted frames (center/*.jpg) + steering.csv
+# (or SullyChen-style data.txt) under UDACITY_ROOT. Heavily imbalanced
+# (~0 straight-driving bias) by construction.
+_UDACITY_INFO_URL = "https://github.com/udacity/self-driving-car/tree/master/datasets/CH2"
+
 
 def _load_nyu_depth_v2(
     n_samples: int = 1449,
@@ -2864,6 +2871,177 @@ def _load_ixi_brainage(
     return splits
 
 
+def _load_udacity_steering(
+    n_samples: int = 2000,
+    img_size: int = 64,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Udacity dashboard-cam steering-angle regression (radians, ~[-1, 1]).
+
+    Real path: ``UDACITY_ROOT`` with extracted frames — either
+    ``center/*.jpg`` + ``steering.csv``/``interpolated.csv`` (rwightman
+    reader layout; steering column matched case-insensitively, image column
+    matched against frame/filename/image), or SullyChen-style ``data.txt``
+    lines of ``<relpath> <angle>``. Images are RGB-resized to ``img_size``.
+
+    Straight-driving dominates (angle ≈ 0 long tail) — canonical imbalanced
+    scalar testbed alongside brain age.
+
+    Fallback: synthetic perspective roads whose lane curvature sets the
+    steering angle (mechanistic ground truth + matching imbalance).
+    """
+    import csv as _csv
+    import os as _os
+
+    root = _os.environ.get("UDACITY_ROOT", "")
+    if root:
+        try:
+            from PIL import Image as _Image
+
+            base = Path(root)
+            pairs: list[tuple[Path, float]] = []
+            # Layout A: center/*.jpg + steering csv.
+            centers = sorted((base / "center").glob("*.jpg")) if (base / "center").is_dir() else []
+            csvs = sorted(base.glob("*.csv"))
+            if centers and csvs:
+                for csv_path in csvs:
+                    try:
+                        with open(csv_path, newline="") as fh:
+                            reader = _csv.DictReader(fh)
+                            if not reader.fieldnames:
+                                continue
+                        fn = {str(c).lower(): c for c in reader.fieldnames}
+                        f_ang = next(
+                            (fn[k] for k in fn if "steer" in k or "angle" in k), None
+                        )
+                        f_img = next(
+                            (
+                                fn[k]
+                                for k in fn
+                                if "frame" in k or "file" in k or "image" in k or "name" in k
+                            ),
+                            None,
+                        )
+                        if f_ang is None:
+                            continue
+                        with open(csv_path, newline="") as fh:
+                            for row in _csv.DictReader(fh):
+                                try:
+                                    ang = float(row[f_ang])
+                                except (ValueError, TypeError, KeyError):
+                                    continue
+                                if f_img is not None:
+                                    jp = base / "center" / Path(str(row[f_img])).name
+                                    if not jp.is_file():
+                                        jp = base / str(row[f_img])
+                                else:
+                                    continue
+                                if jp.is_file():
+                                    pairs.append((jp, ang))
+                        if pairs:
+                            break
+                    except Exception:
+                        continue
+            # Layout B: data.txt lines "<relpath> <angle>".
+            if not pairs:
+                for txt in ("data.txt", "labels.txt"):
+                    tp = base / txt
+                    if not tp.is_file():
+                        continue
+                    try:
+                        for line in tp.read_text().splitlines():
+                            parts = line.split()
+                            if len(parts) < 2:
+                                continue
+                            try:
+                                ang = float(parts[-1])
+                            except ValueError:
+                                continue
+                            jp = base / parts[0]
+                            if jp.is_file():
+                                pairs.append((jp, ang))
+                    except Exception:
+                        continue
+                    if pairs:
+                        break
+            if pairs:
+                rng_pick = np.random.default_rng(seed)
+                order = rng_pick.permutation(len(pairs))[:n_samples]
+                imgs, angs = [], []
+                for idx in order:
+                    jp, ang = pairs[int(idx)]
+                    try:
+                        img = _Image.open(jp).convert("RGB").resize((img_size, img_size))
+                    except Exception:
+                        continue
+                    arr = np.array(img, dtype=np.float32) / 255.0
+                    imgs.append(arr.transpose(2, 0, 1))
+                    angs.append(float(np.clip(ang, -1.5, 1.5)))
+                    if len(imgs) >= n_samples:
+                        break
+                if imgs:
+                    X = np.stack(imgs).astype(np.float32)
+                    y = np.array(angs, dtype=np.float32)
+                    Xtr, Xte, ytr, yte = train_test_split(
+                        X, y, test_size=test_size, random_state=seed
+                    )
+                    return {
+                        "X_train": Xtr,
+                        "X_test": Xte,
+                        "y_train": ytr,
+                        "y_test": yte,
+                        "_image_data": True,
+                        "_image_size": img_size,
+                        "_n_channels": 3,
+                        "_skip_y_standardization": True,
+                    }
+        except Exception:
+            pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: perspective roads, curvature → steering.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    # Imbalanced: mostly straight (|angle| < 0.1), rare sharp turns.
+    straight = rng.random(n) < 0.8
+    angle = np.where(
+        straight,
+        rng.normal(0, 0.03, n),
+        rng.uniform(-1, 1, n),
+    ).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        horizon = img_size * 0.4
+        curve = angle[i] * img_size * 0.5
+        t = np.clip((ys - horizon) / max(img_size - horizon, 1), 0, 1)
+        lane_c = img_size / 2 + curve * t**2
+        road = np.exp(-((xs - lane_c) ** 2) / (2 * (img_size * 0.08) ** 2))
+        road = np.where(ys > horizon, road, 0.05)
+        sky = np.where(ys <= horizon, 0.5, 0.0)
+        frame = np.clip(road * 0.8 + sky, 0, 1).astype(np.float32)
+        for c in range(3):
+            X[i, c] = frame
+    X += 0.03 * rng.standard_normal(X.shape).astype(np.float32)
+    X = np.clip(X, 0, 1).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, angle, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "UDACITY_ROOT unset; synthetic steering proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -3440,6 +3618,29 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "IXI tiny smoke variant: 60 samples at 32×32 for fast CPU debug."
         ),
         loader=_registry_loader(_load_ixi_brainage, n_samples=60, img_size=32),
+    ),
+    "udacity_steering": DatasetInfo(
+        name="udacity_steering",
+        category="image",
+        n_features=-1,
+        n_samples=2000,
+        description=(
+            "Udacity dashboard-cam steering angle (~[-1, 1] rad). Place "
+            "extracted frames + steering.csv (or data.txt) under "
+            "UDACITY_ROOT (bags need external ROS extraction); synthetic "
+            "curved-road proxy otherwise (flagged). Straight-driving bias."
+        ),
+        loader=_registry_loader(_load_udacity_steering),
+    ),
+    "udacity_steering_tiny": DatasetInfo(
+        name="udacity_steering_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "Steering tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_udacity_steering, n_samples=200, img_size=32),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",

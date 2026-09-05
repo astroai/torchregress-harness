@@ -162,6 +162,8 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "appa_age_tiny",
             "ixi_brainage",
             "ixi_brainage_tiny",
+            "udacity_steering",
+            "udacity_steering_tiny",
             "boneage",
         ]
 

@@ -46,3 +46,7 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   `IXI-T1.tar` + `IXI.xls` under `IXI_ROOT` (server blocks auto-download;
   needs `pip install nibabel openpyxl`); synthetic atrophy-brain proxy
   otherwise. Long-tail ages — imbalanced testbed. Tiny = 60 at 32×32.
+* `udacity_steering[_tiny]` — dashboard-cam steering (~[-1,1] rad). Place
+  extracted `center/*.jpg` + `steering.csv` (or `data.txt`) under
+  `UDACITY_ROOT` (ROS bags need external extraction); synthetic curved-road
+  proxy otherwise. Straight-driving bias. Tiny = 200 at 32×32.
