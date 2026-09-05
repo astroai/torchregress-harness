@@ -162,10 +162,10 @@ class ImageRobustSuite(ImageHarnessRunner):
         import torch
         import torch.optim as optim
         from torch.utils.data import DataLoader
+        from torchregress.losses import FeatureDistributionSmoother
 
         from harness.devices import current_device
-        from suites.image._base import _ImageCNN, _image_to_dataloader
-        from torchregress.losses import FeatureDistributionSmoother
+        from suites.image._base import _image_to_dataloader, _ImageCNN
 
         device = current_device()
         feat_dim = 64  # _ImageCNN(base_filters=16) head dim (validate guard)
@@ -177,12 +177,12 @@ class ImageRobustSuite(ImageHarnessRunner):
         y_tr = np.asarray(splits["y_train"]).reshape(-1)
         fds.fit(torch.from_numpy(y_tr).float().to(device))
         loader = _image_to_dataloader(
-            np.asarray(splits["X_train"]), y_tr.astype(np.float32),
-            batch_size=config.batch_size, shuffle=True,
+            np.asarray(splits["X_train"]),
+            y_tr.astype(np.float32),
+            batch_size=config.batch_size,
+            shuffle=True,
         )
-        opt = optim.Adam(
-            list(backbone.parameters()) + list(head.parameters()), lr=config.lr
-        )
+        opt = optim.Adam(list(backbone.parameters()) + list(head.parameters()), lr=config.lr)
         criterion = nn.MSELoss()
         backbone.train()
         head.train()
