@@ -47,10 +47,14 @@ class CellCountingSuite(ImageHarnessRunner):
         return [
             "CNN+MSE",
             "CNN+Poisson",
+            "CNN+PoissonLR",
             "CNN+ZIP",
             "CNN+NegBin",
             "CNN+GaussianNLL",
             "CNN+PoissonGaussian",
+            "CNN+EnhancedPG_fixed",
+            "CNN+EnhancedPG_learned",
+            "CNN+PoissonGaussianLR",
             "sklearn_RF",
         ]
 
@@ -61,10 +65,14 @@ class CellCountingSuite(ImageHarnessRunner):
         return {
             "CNN+MSE": "CNN + MSE on raw counts (point baseline, misspecified variance)",
             "CNN+Poisson": "CNN log-rate + Poisson deviance (var=mean)",
+            "CNN+PoissonLR": "CNN log-rate + Poisson likelihood-ratio (goodness-of-fit form)",
             "CNN+ZIP": "CNN log-rate + zero-inflation logit (excess-zero counts)",
             "CNN+NegBin": "CNN softplus-mean + learned dispersion (overdispersed counts)",
             "CNN+GaussianNLL": "CNN + diagonal Gaussian NLL (2-head comparison row)",
             "CNN+PoissonGaussian": "CNN log-lambda + shot+readout imaging-noise NLL",
+            "CNN+EnhancedPG_fixed": "CNN + calibrated PG (gain=1, read=2.0, shot=1.0 fixed)",
+            "CNN+EnhancedPG_learned": "CNN + PG with learned gain/shot noise",
+            "CNN+PoissonGaussianLR": "CNN log-lambda + PG likelihood-ratio (diagnostic form)",
             "sklearn_RF": "RandomForestRegressor on flattened pixels — point prediction only",
         }.get(method, "")
 
@@ -113,6 +121,14 @@ class CellCountingSuite(ImageHarnessRunner):
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
             _train_image_model(m, PoissonDevianceLoss(log_input=True), train_loader, config)
             return {"type": "log_rate", "model": m}
+        if method == "CNN+PoissonLR":
+            from torchregress.losses import PoissonLikelihoodRatioLoss
+
+            m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            _train_image_model(
+                m, PoissonLikelihoodRatioLoss(log_input=True), train_loader, config
+            )
+            return {"type": "log_rate", "model": m}
         if method == "CNN+ZIP":
             from torchregress.losses import ZeroInflatedPoissonNLLLoss
 
@@ -143,6 +159,38 @@ class CellCountingSuite(ImageHarnessRunner):
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
             _train_image_model(m, PoissonGaussianMixtureLoss(log_input=True), train_loader, config)
+            return {"type": "log_rate", "model": m}
+        if method == "CNN+EnhancedPG_fixed":
+            from torchregress.losses.poisson_gaussian import EnhancedPoissonGaussianMixtureLoss
+
+            m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            _train_image_model(
+                m,
+                EnhancedPoissonGaussianMixtureLoss(
+                    log_input=True, gain=1.0, offset=0.0, read_noise=2.0, shot_noise=1.0
+                ),
+                train_loader,
+                config,
+            )
+            return {"type": "log_rate", "model": m}
+        if method == "CNN+EnhancedPG_learned":
+            from torchregress.losses.poisson_gaussian import EnhancedPoissonGaussianMixtureLoss
+
+            m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            loss_fn = EnhancedPoissonGaussianMixtureLoss(
+                log_input=True, gain="learn", offset=0.0, read_noise=2.0, shot_noise="learn"
+            )
+            _train_image_model(
+                m, loss_fn, train_loader, config, loss_params=list(loss_fn.parameters())
+            )
+            return {"type": "log_rate", "model": m}
+        if method == "CNN+PoissonGaussianLR":
+            from torchregress.losses.poisson_gaussian import PoissonGaussianLikelihoodRatioLoss
+
+            m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            _train_image_model(
+                m, PoissonGaussianLikelihoodRatioLoss(log_input=True), train_loader, config
+            )
             return {"type": "log_rate", "model": m}
         raise ValueError(f"Unknown method: {method}")
 
