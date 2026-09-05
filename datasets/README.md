@@ -38,3 +38,7 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
 * `appa_age[_tiny]` — APPA-REAL apparent age (mean + observed rater std) via
   auto-download (~845 MB ChaLearn zip, no login) or `APPA_ROOT`;
   synthetic heteroscedastic proxy otherwise. Tiny = 200 at 32×32.
+* `shanghai_crowd[_tiny]` — ShanghaiTech Part-B density maps + counts via
+  auto-download (~1 GB Dropbox mirror) or `SHANGHAI_ROOT` (zip or dir);
+  synthetic crowd proxy otherwise. `y` = density (N,H,W), `count_*` = heads.
+  Tiny = 60 at 64×64.
