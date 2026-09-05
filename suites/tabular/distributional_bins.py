@@ -45,6 +45,31 @@ from suites._backbones import (
 )
 
 # ---------------------------------------------------------------------------
+# Skew/shape family spec: method → (loss class, head width, notes)
+# Widths verified by forward probe; location is column 0 in all layouts.
+# ---------------------------------------------------------------------------
+
+_SKEW_METHODS: dict[str, dict[str, Any]] = {
+    "SkewNormal": {"loss": "SkewNormalNLLLoss", "width": 3, "note": "[ξ,ω,α] skew-normal MLE"},
+    "SkewT": {"loss": "SkewTLoss", "width": 4, "note": "[ξ,ω,α,ν] skew-t MLE"},
+    "BetaRegression": {
+        "loss": "BetaRegressionNLLLoss",
+        "width": 2,
+        "note": "beta MLE on min-max-normalized targets",
+        "normalize01": True,
+    },
+    "JohnsonSU": {"loss": "JohnsonSUNLLLoss", "width": 4, "note": "[ξ,λ,γ,δ] Johnson-SU MLE"},
+    "SinhArcsinh": {"loss": "SinhArcsinhNLLLoss", "width": 4, "note": "sinh-arcsinh MLE"},
+    "GEV": {"loss": "GEVNLLLoss", "width": 3, "note": "[μ,σ,ξ] extreme-value MLE"},
+    "AsymmetricLaplace": {
+        "loss": "AsymmetricLaplaceNLLLoss",
+        "width": 3,
+        "note": "asymmetric-Laplace (quantile-like) MLE",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Interval helpers
 # ---------------------------------------------------------------------------
 
@@ -67,6 +92,25 @@ def _split_cp_intervals(
     residuals = (y_cal - pred_cal).abs()
     q = torch.quantile(residuals, 1.0 - alpha).item()
     return (pred_test - q).cpu().numpy(), (pred_test + q).cpu().numpy()
+
+
+def _skew_cp_intervals(
+    model: nn.Module,
+    X_cal: torch.Tensor,
+    y_cal: torch.Tensor,
+    X_test: torch.Tensor,
+    *,
+    alpha: float = 0.1,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Split-conformal on a distribution head's location column (col 0)."""
+    model.eval()
+    with torch.no_grad():
+        loc_cal = model(X_cal)[:, 0]
+        loc_test = model(X_test)[:, 0]
+    residuals = (y_cal.reshape(-1) - loc_cal.reshape(-1)).abs()
+    q = torch.quantile(residuals, 1.0 - alpha).item()
+    loc = loc_test.reshape(-1).detach().cpu().numpy()
+    return loc - q, loc + q, loc
 
 
 def _bin_metrics(
@@ -157,6 +201,16 @@ class DistributionalBinsSuite(HarnessRunner):
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
+            "SkewNormal",
+            # SkewT parked: _reg_inc_beta backward → inf at x→1 (b<1 boundary),
+            # NaNs any net in ≤2 epochs. Library-side autograd-safe inc_beta
+            # needed first; see T4c notes. Spec stays in _SKEW_METHODS.
+            "BetaRegression",
+            "JohnsonSU",
+            "SinhArcsinh",
+            "GEV",
+            "AsymmetricLaplace",
+            "SQR",
         ]
 
     def library_name(self, method: str) -> str:
@@ -188,12 +242,16 @@ class DistributionalBinsSuite(HarnessRunner):
                 f"{ctx_text} (Proposal #10 {section_text})"
             )
         notes = {
-            "Split_CP": "post-hoc split conformal \u2014 baseline, also defines bins",
-            "GaussianNLL": "diagonal Gaussian NLL \u2192 mean \u00b1 z\u00b7\u03c3 intervals",
-            "NormalizingFlow": "zuko NSF normalizing flow \u2192 sample-based quantile intervals",
-            "MDN_K3": "3-component mixture density network \u2192 sample-based quantile intervals",
-            "Evidential": "NIG evidential regression \u2192 Student-t predictive intervals",
+            "Split_CP": "post-hoc split conformal — baseline, also defines bins",
+            "GaussianNLL": "diagonal Gaussian NLL → mean ± z·σ intervals",
+            "NormalizingFlow": "zuko NSF normalizing flow → sample-based quantile intervals",
+            "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
+            "Evidential": "NIG evidential regression → Student-t predictive intervals",
+            "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
         }
+        if method in _SKEW_METHODS:
+            spec = _SKEW_METHODS[method]
+            return f"{spec['note']} → location ± conformal intervals"
         return notes.get(method, "")
 
     # ------------------------------------------------------------------
@@ -365,6 +423,47 @@ class DistributionalBinsSuite(HarnessRunner):
             model.eval()
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
 
+        # --- Skew/shape NLLs: distribution-MLE head + split-conformal ---
+        # No samplers exist in families.py, so intervals come from conformal
+        # residuals on the location column (honest: likelihood trains the
+        # point, conformal covers the shape misspecification).
+        elif method in _SKEW_METHODS:
+            from torchregress.losses import families as _fam
+
+            spec = _SKEW_METHODS[method]
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            y_min = y_max = None
+            y_tr = y_train
+            if spec.get("normalize01"):
+                y_min = float(y_train.min())
+                y_max = float(y_train.max())
+                span = max(y_max - y_min, 1e-8)
+                # Map into (0, 1) strictly: beta NLL rejects exact 0/1.
+                y_tr = 0.01 + 0.98 * (y_train - y_min) / span
+                y_cal = 0.01 + 0.98 * (y_cal - y_min) / span
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=spec["width"])
+            loss_fn = getattr(_fam, spec["loss"])()
+            _train_one(model, loss_fn, X_train, y_tr, config)
+            model.eval()
+            return {
+                "type": "skew_cp",
+                "model": model,
+                "X_cal": X_cal,
+                "y_cal": y_cal,
+                "y_min": y_min,
+                "y_max": y_max,
+            }
+
+        # --- SQR: 32-level sorted-quantile head (own intervals) ---
+        elif method == "SQR":
+            from torchregress.losses import SQRLoss
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=32)
+            _train_one(model, SQRLoss(), X_train, y_train, config)
+            model.eval()
+            return {"type": "sqr", "model": model}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -391,6 +490,38 @@ class DistributionalBinsSuite(HarnessRunner):
                 X_t,
             )
             return {"lower": lo, "upper": hi}
+
+        # --- Skew/shape NLL + split-conformal on the location column ---
+        elif model_type == "skew_cp":
+            y_min, y_max = model_state.get("y_min"), model_state.get("y_max")
+            lo, hi, loc = _skew_cp_intervals(
+                model,
+                model_state["X_cal"],
+                model_state["y_cal"],
+                X_t,
+            )
+            if y_min is not None:
+                span = max(y_max - y_min, 1e-8)
+
+                def _inv(v: np.ndarray) -> np.ndarray:
+                    return (v - 0.01) / 0.98 * span + y_min  # type: ignore[no-any-return]
+
+                lo, hi, loc = _inv(lo), _inv(hi), _inv(loc)
+            return {"lower": lo, "upper": hi, "y_pred": loc}
+
+        # --- SQR → sorted-level intervals (own quantiles, no conformal) ---
+        elif model_type == "sqr":
+            model.eval()
+            with torch.no_grad():
+                arr = model(X_t).detach().cpu().numpy()  # (N, 32)
+            # Sort levels per row (SQR trains toward monotonicity but smoke
+            # budgets can leave crossings — same treatment as MultiExpectile).
+            arr = np.sort(arr, axis=1)
+
+            def _q(p: float) -> np.ndarray:
+                return arr[:, min(31, int(p * 32))].reshape(-1)
+
+            return {"lower": _q(0.05), "upper": _q(0.95), "y_pred": _q(0.5)}
 
         # --- GaussianNLL → z-score intervals ---
         elif model_type == "gaussian_nll":
