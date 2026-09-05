@@ -55,6 +55,7 @@ class SplitMetadata(TypedDict, total=False):
     mask_train: np.ndarray
     mask_test: np.ndarray
     _sparse_depth: bool
+    _n_real_slides: int
     male_train: np.ndarray
     male_test: np.ndarray
     _fallback_reason: str
@@ -2117,9 +2118,7 @@ def _load_boneage(
                         X = np.stack(imgs).astype(np.float32)
                         y = np.array(ages, dtype=np.float32)
                         idx_all = np.arange(len(imgs))
-                        itr, ite = train_test_split(
-                            idx_all, test_size=test_size, random_state=seed
-                        )
+                        itr, ite = train_test_split(idx_all, test_size=test_size, random_state=seed)
                         out: SplitsDict = {
                             "X_train": X[itr],
                             "X_test": X[ite],
@@ -2436,6 +2435,435 @@ def _load_bbbc_censored(
     }
     splits["_fallback_reason"] = "BBBC005 unavailable; synthetic censored-cell proxy"
     return splits
+
+
+_GDC_FILES_URL = "https://api.gdc.cancer.gov/files"
+_GDC_CASES_URL = "https://api.gdc.cancer.gov/cases"
+_GDC_TILE_META = "https://portal.gdc.cancer.gov/auth/api/v0/tile/metadata"
+_GDC_TILE = "https://portal.gdc.cancer.gov/auth/api/v0/tile"
+
+
+def _prefer_ipv4() -> Any:
+    """Patch socket.getaddrinfo to prefer IPv4 (returning a restore closure).
+
+    Some egress networks blackhole IPv6 TLS handshakes (observed: GDC tile
+    host hangs past all requests timeouts). Preferring AF_INET keeps data
+    loaders functional there; restore afterwards.
+    """
+    import socket as _socket
+
+    orig = _socket.getaddrinfo
+
+    def _patched(host: Any, *args: Any, **kwargs: Any) -> Any:
+        res = orig(host, *args, **kwargs)
+        res.sort(key=lambda r: 0 if r[0] == _socket.AF_INET else 1)
+        return res
+
+    _socket.getaddrinfo = _patched  # type: ignore[assignment]
+
+    def _restore() -> None:
+        _socket.getaddrinfo = orig  # type: ignore[assignment]
+
+    return _restore
+
+
+def _fetch_bytes(
+    session: Any, url: str, cap_mb: float = 8.0, budget_s: float = 20.0
+) -> bytes | None:
+    """GET with hard caps: total bytes + wall-clock budget.
+
+    Uses a ``curl`` subprocess primary: OS-enforced ``--max-time`` kills
+    reliably, unlike in-process socket timeouts (observed: IPv6 TLS
+    blackholes stall ``requests`` past all timeout settings on some
+    egress networks). Falls back to streamed ``requests`` when curl is
+    absent. Returns None on any failure.
+    """
+    import shutil as _shutil
+    import subprocess as _sp
+
+    cap = int(cap_mb * 1024 * 1024)
+    if _shutil.which("curl") is not None:
+        try:
+            pr = _sp.run(
+                ["curl", "-sS", "--max-time", str(int(budget_s)), "--compressed", url],
+                capture_output=True,
+                timeout=budget_s + 10,
+            )
+            if pr.returncode == 0 and 0 < len(pr.stdout) <= cap:
+                return pr.stdout
+            return None
+        except Exception:
+            pass
+    import time as _time
+
+    try:
+        import requests as _rq
+
+        t0 = _time.monotonic()
+        with _rq.get(url, timeout=(5, 15), stream=True) as r:
+            if r.status_code != 200:
+                return None
+            buf = bytearray()
+            for chunk in r.iter_content(65536):
+                buf.extend(chunk)
+                if len(buf) > cap or _time.monotonic() - t0 > budget_s:
+                    return None
+            return bytes(buf)
+    except Exception:
+        return None
+
+
+def _load_tcga_survival(
+    n_samples: int = 200,
+    img_size: int = 128,
+    projects: tuple[str, ...] = ("TCGA-BRCA", "TCGA-LUAD"),
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """TCGA diagnostic-slide thumbnails + overall-survival (right-censored).
+
+    Real path (parallel T2B track): GDC API (open, no key) — ``cases``
+    query over ``projects`` for cases with diagnostic slides and complete
+    survival (``days_to_death``/``days_to_last_follow_up`` + vital_status);
+    slide thumbnails (≤512px) via the GDC tile server (metadata → level →
+    tile stitch, requests+PIL only, no WSI storage, no OpenSlide).
+    ``y`` is overall-survival days; ``censoring`` follows the harness
+    convention (1 = right-censored/alive, 0 = observed/dead).
+
+    Staining/site heterogeneity across projects doubles as an OOD axis.
+
+    Fallback: synthetic lesion fields with Weibull survival times.
+    """
+    import os as _os
+
+    if _os.environ.get("TCGA_OFFLINE", "") == "1":
+        pass  # skip straight to synthetic proxy
+    else:
+        _restore_dns = _prefer_ipv4()
+        try:
+            return _load_tcga_survival_real(
+                n_samples=n_samples,
+                img_size=img_size,
+                projects=projects,
+                test_size=test_size,
+                seed=seed,
+            )
+        except Exception:
+            pass  # fall through to synthetic proxy
+        finally:
+            _restore_dns()
+
+    # Synthetic fallback: lesion fields + Weibull survival.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    burden = rng.uniform(0.05, 0.6, n).astype(np.float32)
+    scale = 2000.0 * np.exp(-3.0 * burden)
+    shape = 1.5
+    t_event = (scale * rng.weibull(shape, n)).astype(np.float32)
+    t_cens = rng.uniform(500, 4000, n).astype(np.float32)
+    observed = np.minimum(t_event, t_cens).astype(np.float32)
+    codes = (t_event > t_cens).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        tissue = 0.6 + 0.1 * rng.standard_normal((img_size, img_size))
+        nl = min(int(1 + burden[i] * 12), 20)
+        lx = rng.uniform(0, img_size, nl)
+        ly = rng.uniform(0, img_size, nl)
+        lesion = np.zeros((img_size, img_size), dtype=np.float32)
+        for j in range(nl):
+            lesion += np.exp(-((xs - lx[j]) ** 2 + (ys - ly[j]) ** 2) / (2 * (img_size / 25) ** 2))
+        frame = np.clip(tissue + np.clip(lesion, 0, 1) * 0.3, 0, 1).astype(np.float32)
+        for c in range(3):
+            X[i, c] = frame
+    X += 0.02 * rng.standard_normal(X.shape).astype(np.float32)
+    X = np.clip(X, 0, 1).astype(np.float32)
+    Xtr, Xte, ytr, yte, ctr, cte = train_test_split(
+        X, observed, codes, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": Xtr.astype(np.float32),
+        "X_test": Xte.astype(np.float32),
+        "y_train": ytr.astype(np.float32),
+        "y_test": yte.astype(np.float32),
+        "censoring_train": ctr.astype(np.float32),
+        "censoring_test": cte.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "GDC unreachable; synthetic survival proxy"
+    return splits
+
+
+def _load_tcga_survival_real(
+    n_samples: int,
+    img_size: int,
+    projects: tuple[str, ...],
+    test_size: float,
+    seed: int,
+) -> SplitsDict:
+    """GDC real path for :func:`_load_tcga_survival` (may raise)."""
+    import io as _io
+    import math as _math
+    import os as _os
+    import time as _time
+
+    import requests as _requests
+    from PIL import Image as _Image
+
+    t_start = _time.monotonic()
+    budget_s = 90.0 + 45.0 * n_samples
+    _dbg0 = __import__("os").environ.get("TCGA_DEBUG", "") == "1"
+
+    def _gdc_post(url: str, payload: dict, timeout: int = 30) -> dict:
+        import json as _json
+        import shutil as _shutil
+        import subprocess as _sp
+
+        # curl-first: OS-enforced timeouts (see _fetch_bytes note).
+        if _shutil.which("curl") is not None:
+            try:
+                pr = _sp.run(
+                    [
+                        "curl",
+                        "-sS",
+                        "--max-time",
+                        str(timeout),
+                        "-X",
+                        "POST",
+                        "-H",
+                        "Content-Type: application/json",
+                        "-d",
+                        _json.dumps(payload),
+                        url,
+                    ],
+                    capture_output=True,
+                    timeout=timeout + 10,
+                )
+                if pr.returncode == 0 and pr.stdout:
+                    return _json.loads(pr.stdout)
+            except Exception:
+                pass
+        last: Exception | None = None
+        for _ in range(3):
+            try:
+                r = _requests.post(url, json=payload, timeout=(10, timeout))
+                r.raise_for_status()
+                return r.json()
+            except Exception as exc:  # noqa: BLE001 — transient egress flakes
+                last = exc
+        raise RuntimeError(f"GDC POST failed 3x: {url}") from last
+
+    # 1) Cases with diagnostic slides in the projects (pages).
+    case_ids: list[str] = []
+    fetched = 0
+    while len(case_ids) < max(n_samples * 4, 200) and fetched < 3000:
+        resp = _gdc_post(
+            _GDC_CASES_URL,
+            {
+                "filters": {
+                    "op": "and",
+                    "content": [
+                        {
+                            "op": "in",
+                            "content": {
+                                "field": "cases.project.project_id",
+                                "value": list(projects),
+                            },
+                        },
+                        {
+                            "op": "=",
+                            "content": {
+                                "field": "files.experimental_strategy",
+                                "value": "Diagnostic Slide",
+                            },
+                        },
+                    ],
+                },
+                "fields": "case_id",
+                "format": "JSON",
+                "size": 500,
+                "from": fetched,
+            },
+        )
+        hits = resp.get("data", {}).get("hits", [])
+        if not hits:
+            break
+        case_ids.extend(h["case_id"] for h in hits if h.get("case_id"))
+        fetched += len(hits)
+    if _dbg0:
+        print(f"[tcga] staged cases={len(case_ids)}")
+    if not case_ids:
+        raise RuntimeError("no slide cases")
+    # 2) Survival join via /analysis/survival (time + censored flag).
+    surv: dict[str, tuple[float, float]] = {}  # case_id -> (days, event)
+    for i in range(0, len(case_ids), 500):
+        chunk = case_ids[i : i + 500]
+        try:
+            sresp = _gdc_post(
+                "https://api.gdc.cancer.gov/analysis/survival",
+                {"caseSet": {"case_ids": chunk}},
+                timeout=60,
+            )
+            for donor in sresp.get("results", [{}])[0].get("donors", []):
+                try:
+                    t = float(donor["time"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                if not np.isfinite(t) or t <= 0:
+                    continue
+                did = donor.get("id")
+                if did:
+                    surv[did] = (t, 0.0 if donor.get("censored") else 1.0)
+        except Exception:
+            continue
+    if _dbg0:
+        print(f"[tcga] survival donors={len(surv)}")
+    if not surv:
+        raise RuntimeError("empty survival join")
+    # 2) Per case: survival target + one diagnostic-slide file id.
+    rng_pick = np.random.default_rng(seed)
+    cids = [c for c in case_ids if c in surv]
+    order = rng_pick.permutation(len(cids))
+    imgs, times, events = [], [], []
+    _debug = _os.environ.get("TCGA_DEBUG", "") == "1"
+    _dbg_shown = 0
+    if _debug:
+        print(f"[tcga] cases={len(case_ids)} surv={len(surv)} cids={len(cids)}")
+    for idx in order:
+        if len(imgs) >= n_samples:
+            break
+        if _time.monotonic() - t_start > budget_s:
+            break  # partial real data beats proxy when sufficient (below)
+        cid = cids[int(idx)]
+        t, e = surv[cid]
+        # Slide file id for this case.
+        try:
+            fresp = _gdc_post(
+                _GDC_FILES_URL,
+                {
+                    "filters": {
+                        "op": "and",
+                        "content": [
+                            {
+                                "op": "=",
+                                "content": {
+                                    "field": "files.experimental_strategy",
+                                    "value": "Diagnostic Slide",
+                                },
+                            },
+                            {"op": "=", "content": {"field": "cases.case_id", "value": cid}},
+                        ],
+                    },
+                    "fields": "file_id",
+                    "format": "JSON",
+                    "size": 5,
+                },
+                timeout=30,
+            )
+            fhits = fresp.get("data", {}).get("hits", [])
+            if not fhits:
+                if _debug and _dbg_shown < 3:
+                    print(f"[tcga] no slide files for case {cid}")
+                    _dbg_shown += 1
+                continue
+            fid = fhits[0]["file_id"]
+        except Exception as exc:
+            if _debug and _dbg_shown < 3:
+                print(f"[tcga] files query failed for case {cid}: {type(exc).__name__}: {exc}")
+                _dbg_shown += 1
+            continue
+        # 3) Thumbnail via tile server (≤512px: fewer tiles, resized
+        # later to img_size; keeps per-slide latency in check).
+        # NOTE: plain session.get can hang on slow-trickling tiles
+        # (timeout= only bounds connect/first-byte gaps), so tiles
+        # go through the capped _fetch_bytes helper below.
+        try:
+            import json as _json
+
+            mraw = _fetch_bytes(None, f"{_GDC_TILE_META}/{fid}", cap_mb=1, budget_s=25)
+            if mraw is None:
+                if _debug and _dbg_shown < 3:
+                    print(f"[tcga] meta fetch failed for {fid}")
+                    _dbg_shown += 1
+                continue
+            md = _json.loads(mraw)
+            W, H = int(md["Width"]), int(md["Height"])
+            ts = int(md.get("TileSize", 512))
+            ov = int(md.get("Overlap", 0))
+            step = max(ts - ov, 1)
+            level = max(0, int(_math.ceil(_math.log2(max(W, H) / 512.0))))
+            tw = -(-W // (2**level))  # ceil-div: thumbnail width at level
+            th = -(-H // (2**level))
+            nx = max(1, -(-tw // step))
+            ny = max(1, -(-th // step))
+            if nx * ny > 25:
+                if _debug and _dbg_shown < 3:
+                    print(f"[tcga] geometry skip {fid}: {W}x{H} level={level} nx={nx} ny={ny}")
+                    _dbg_shown += 1
+                continue  # skip pathological slide geometries
+            canvas = _Image.new("RGB", (nx * step, ny * step), (0, 0, 0))
+            max_x = max_y = 0
+            for ty in range(ny):
+                for tx in range(nx):
+                    raw = _fetch_bytes(
+                        None,
+                        f"{_GDC_TILE}/{fid}?level={level}&x={tx}&y={ty}",
+                        cap_mb=8,
+                        budget_s=20,
+                    )
+                    if raw is None:
+                        continue  # tolerate missing edge tiles; keep partial
+                    try:
+                        tile = _Image.open(_io.BytesIO(raw)).convert("RGB")
+                    except Exception:
+                        continue  # tolerate undecodable edge tiles
+                    canvas.paste(tile, (tx * step, ty * step))
+                    max_x = max(max_x, tx * step + tile.size[0])
+                    max_y = max(max_y, ty * step + tile.size[1])
+            if max_x == 0 or max_y == 0:
+                if _debug and _dbg_shown < 3:
+                    print(f"[tcga] stitch failed {fid}: max=({max_x},{max_y})")
+                    _dbg_shown += 1
+                continue
+            canvas = canvas.crop((0, 0, max_x, max_y)).resize((img_size, img_size))
+        except Exception as exc:
+            if _debug and _dbg_shown < 3:
+                print(f"[tcga] tile block failed {fid}: {type(exc).__name__}: {exc}")
+                _dbg_shown += 1
+            continue
+        arr = np.array(canvas, dtype=np.float32) / 255.0
+        imgs.append(arr.transpose(2, 0, 1))
+        times.append(t)
+        events.append(e)
+    # Partial acceptance: flaky egress may cap the harvest; use what we
+    # have when sufficient for a split, else raise → synthetic fallback.
+    # Threshold scales with the request (tiny smokes ask for few slides).
+    if len(imgs) >= min(n_samples, 8) and len(imgs) >= 2:
+        X = np.stack(imgs).astype(np.float32)
+        T = np.array(times, dtype=np.float32)
+        E = np.array(events, dtype=np.float32)
+        C = (1.0 - E).astype(np.float32)  # harness: 1 = censored
+        Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
+            X, T, C, test_size=test_size, random_state=seed
+        )
+        return {
+            "X_train": Xtr,
+            "X_test": Xte,
+            "y_train": Ytr,
+            "y_test": Yte,
+            "censoring_train": Ctr,
+            "censoring_test": Cte,
+            "_image_data": True,
+            "_image_size": img_size,
+            "_n_channels": 3,
+            "_skip_y_standardization": True,
+            "_n_real_slides": len(imgs),
+        }
+    raise RuntimeError(f"only {len(imgs)} slides harvested")
 
 
 def _load_appa_age(
@@ -3827,9 +4255,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "Bone-age tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
-        ),
+        description=("Bone-age tiny smoke variant: 200 samples at 32×32 for fast CPU debug."),
         loader=_registry_loader(_load_boneage, n_samples=200, img_size=32),
     ),
     "bbbc_cellcount": DatasetInfo(
@@ -3850,9 +4276,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."
-        ),
+        description=("BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."),
         loader=_registry_loader(_load_bbbc_cellcount, n_samples=200, img_size=64),
     ),
     "bbbc_censored": DatasetInfo(
@@ -3872,10 +4296,29 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=(
-            "BBBC-censored tiny smoke variant: 200 samples at 32×32."
-        ),
+        description=("BBBC-censored tiny smoke variant: 200 samples at 32×32."),
         loader=_registry_loader(_load_bbbc_censored, n_samples=200, img_size=32),
+    ),
+    "tcga_survival": DatasetInfo(
+        name="tcga_survival",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "TCGA diagnostic-slide thumbnails + overall survival "
+            "(right-censored) via the open GDC API + tile server "
+            "(BRCA/LUAD); synthetic Weibull-lesion proxy otherwise "
+            "(flagged). Set TCGA_OFFLINE=1 to force the proxy."
+        ),
+        loader=_registry_loader(_load_tcga_survival),
+    ),
+    "tcga_survival_tiny": DatasetInfo(
+        name="tcga_survival_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=40,
+        description=("TCGA tiny smoke variant: 40 samples at 64×64 (proxy-first)."),
+        loader=_registry_loader(_load_tcga_survival, n_samples=40, img_size=64),
     ),
     "appa_age": DatasetInfo(
         name="appa_age",

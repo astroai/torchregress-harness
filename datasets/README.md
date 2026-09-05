@@ -55,3 +55,11 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   (no auto-download: raw RGB is ~175 GB); synthetic sparse-street proxy
   otherwise (mask path exercised). `y` = depth (N,H,W, 0 = invalid),
   `mask_*` = valid maps. Tiny = 60 at 64×64.
+* `bbbc_censored[_tiny]` — BBBC005 counts with detection-limit
+  right-censoring (`censoring_train/test`); synthetic censored proxy
+  otherwise. Tiny = 200 at 32×32.
+* `tcga_survival[_tiny]` — TCGA slide thumbnails (≤512px via GDC tile
+  server, BRCA/LUAD) + overall-survival days with censoring codes, via the
+  open GDC API (no key; `TCGA_OFFLINE=1` forces proxy). Flaky egress is
+  handled (curl-first, retries, budgets, partial harvest); synthetic
+  Weibull-lesion proxy otherwise. Tiny = 40 at 64×64.

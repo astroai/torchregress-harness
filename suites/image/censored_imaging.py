@@ -48,9 +48,7 @@ def _train_censored_image(
 
     y_2d = y if y.dim() >= 2 else y.unsqueeze(1)
     c_2d = censoring if censoring.dim() >= 2 else censoring.unsqueeze(1)
-    loader = DataLoader(
-        TensorDataset(X, y_2d, c_2d), batch_size=config.batch_size, shuffle=True
-    )
+    loader = DataLoader(TensorDataset(X, y_2d, c_2d), batch_size=config.batch_size, shuffle=True)
     optimizer = Adam(model.parameters(), lr=config.lr)
     model.train()
     for _ in range(config.epochs):
@@ -77,7 +75,12 @@ class CensoredImagingSuite(ImageHarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["bbbc_censored", "bbbc_censored_tiny"]
+        return [
+            "bbbc_censored",
+            "bbbc_censored_tiny",
+            "tcga_survival",
+            "tcga_survival_tiny",
+        ]
 
     def methods(self) -> list[str]:
         m = ["MSE", "CensoredGaussianNLL", "CensoredQuantile", "AFT"]
