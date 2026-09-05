@@ -46,6 +46,7 @@ class SplitMetadata(TypedDict, total=False):
     _multi_output: bool
     _skip_y_standardization: bool
     _synthetic_fallback: bool
+    _count_data: bool
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -1370,6 +1371,15 @@ _WIKI_META_URL = "https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/static/wik
 # locally are reused without any download.
 _IMDB_WIKI_HF_MIRROR = "https://huggingface.co/datasets/ashvala/imdb-wiki/resolve/main"
 
+# BBBC005 synthetic cell counting (Broad Bioimage Benchmark Collection,
+# CC-BY). 19.2k 696×520 8-bit TIFs, counts 1–100 encoded in filenames.
+# Verified 2026-09-05: HTTP 200, 1,882,973,059 bytes (~1.8 GB).
+_BBBC005_URL = "https://data.broadinstitute.org/bbbc/BBBC005/BBBC005_v1_images.zip"
+
+# APPA-REAL apparent age (ChaLearn LAP, 7,591 faces + ~250k votes).
+# Verified 2026-09-05: direct zip, no login, 885,442,010 bytes (~845 MB).
+_APPA_URL = "https://data.chalearnlap.cvc.uab.cat/AppaRealAge/appa-real-release.zip"
+
 
 def _load_nyu_depth_v2(
     n_samples: int = 1449,
@@ -2086,6 +2096,171 @@ def _load_boneage(
     return splits
 
 
+def _parse_bbbc_count(stem: str) -> int | None:
+    """Extract the cell count from a BBBC005 filename stem.
+
+    Canonical rule (deepchem): third underscore-part, first char stripped,
+    e.g. ``..._C12_...`` → 12. Falls back to the first ``[A-Za-z](digits)``
+    group, then to the largest integer in the name.
+    """
+    import re as _re
+
+    parts = stem.split("_")
+    if len(parts) >= 3:
+        try:
+            return int(parts[2][1:])
+        except (ValueError, IndexError):
+            pass
+    m = _re.search(r"[A-Za-z](\d+)", stem)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            pass
+    ints = [int(x) for x in _re.findall(r"\d+", stem)]
+    return max(ints) if ints else None
+
+
+def _load_bbbc_cellcount(
+    n_samples: int = 2000,
+    img_size: int = 128,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """BBBC005 fluorescence-microscopy cell counting (scalar counts).
+
+    Real path: downloads ``BBBC005_v1_images.zip`` (~1.8 GB, Broad mirror,
+    CC-BY) into the harness image cache, or reuses ``BBBC_ROOT`` (zip file
+    or extracted dir). Grayscale 696×520 TIFs resized to ``img_size``;
+    ``y`` is the filename-encoded cell count (1–100, float32).
+
+    Poisson-native data: variance grows with the count, so this is the
+    canonical image testbed for count losses (Poisson/NegBin/ZIP) and the
+    Poisson-Gaussian imaging-noise loss.
+
+    Fallback: synthetic cell-blob fields with Poisson-drawn counts.
+    Counts are never standardized (``_skip_y_standardization``) — count
+    losses require raw non-negative targets.
+    """
+    import os as _os
+    import zipfile as _zipfile
+
+    cache_dir = _image_cache_dir()
+    zip_path = cache_dir / "BBBC005_v1_images.zip"
+    root = _os.environ.get("BBBC_ROOT", "")
+
+    names: list[str] = []
+    open_zip: _zipfile.ZipFile | None = None
+    tmp_dir: Path | None = None
+    if root:
+        p = Path(root)
+        if p.is_file() and _zipfile.is_zipfile(p):
+            zip_path = p
+        elif p.is_dir():
+            names = sorted(
+                [q.name for q in p.rglob("*.TIF")] + [q.name for q in p.rglob("*.tif")]
+            )
+            tmp_dir = p
+    if not names and not open_zip:
+        if not (zip_path.exists() and zip_path.stat().st_size > 0):
+            _download_with_progress(_BBBC_URL, zip_path, desc="BBBC005 images")
+        try:
+            open_zip = _zipfile.ZipFile(zip_path)
+            names = sorted(
+                n for n in open_zip.namelist() if n.lower().endswith((".tif", ".tiff"))
+            )
+        except Exception:
+            names = []
+
+    if names:
+        try:
+            from PIL import Image as _Image
+            import io as _io
+
+            rng_pick = np.random.default_rng(seed)
+            order = rng_pick.permutation(len(names))
+            imgs, counts = [], []
+            for idx in order:
+                if len(imgs) >= n_samples:
+                    break
+                nm = names[int(idx)]
+                cnt = _parse_bbbc_count(Path(nm).stem)
+                if cnt is None:
+                    continue
+                if open_zip is not None:
+                    with open_zip.open(nm) as fh:
+                        img = _Image.open(_io.BytesIO(fh.read())).convert("L")
+                else:
+                    assert tmp_dir is not None
+                    img = _Image.open(tmp_dir / nm).convert("L")
+                img = img.resize((img_size, img_size))
+                arr = np.array(img, dtype=np.float32) / 255.0
+                imgs.append(arr[None, :, :])
+                counts.append(float(cnt))
+            if open_zip is not None:
+                open_zip.close()
+            if imgs:
+                X = np.stack(imgs).astype(np.float32)
+                y = np.array(counts, dtype=np.float32)
+                Xtr, Xte, ytr, yte = train_test_split(
+                    X, y, test_size=test_size, random_state=seed
+                )
+                return {
+                    "X_train": Xtr,
+                    "X_test": Xte,
+                    "y_train": ytr,
+                    "y_test": yte,
+                    "_image_data": True,
+                    "_image_size": img_size,
+                    "_n_channels": 1,
+                    "_skip_y_standardization": True,
+                    "_count_data": True,
+                }
+        except Exception:
+            try:
+                if open_zip is not None:
+                    open_zip.close()
+            except Exception:
+                pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: Poisson counts + cell-blob fields.
+    rng = np.random.default_rng(seed)
+    lam = rng.uniform(5, 60, n_samples)
+    y = rng.poisson(lam).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n_samples, 1, img_size, img_size), dtype=np.float32)
+    for i in range(n_samples):
+        canvas = np.zeros((img_size, img_size), dtype=np.float32)
+        k = min(int(y[i]), 120)
+        if k > 0:
+            px = rng.uniform(0, img_size, k)
+            py = rng.uniform(0, img_size, k)
+            for j in range(k):
+                canvas += np.exp(
+                    -((xs - px[j]) ** 2 + (ys - py[j]) ** 2) / (2 * (img_size / 40) ** 2)
+                )
+        X[i, 0] = np.clip(canvas, 0, 1).astype(np.float32)
+    X += 0.02 * rng.standard_normal(X.shape).astype(np.float32)
+    X = np.clip(X, 0, 1).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 1,
+        "_skip_y_standardization": True,
+        "_count_data": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "BBBC005 unavailable; synthetic cell-count proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -2572,6 +2747,29 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "otherwise (flagged). Imbalanced/high-stakes P0 axis."
         ),
         loader=_registry_loader(_load_boneage),
+    ),
+    "bbbc_cellcount": DatasetInfo(
+        name="bbbc_cellcount",
+        category="image",
+        n_features=-1,
+        n_samples=2000,
+        description=(
+            "BBBC005 fluorescence-microscopy cell counts (1–100). Auto-"
+            "downloads the Broad zip (~1.8 GB) or reuses BBBC_ROOT; "
+            "synthetic Poisson-blob proxy otherwise (flagged). Counts are "
+            "never standardized — canonical count-loss testbed."
+        ),
+        loader=_registry_loader(_load_bbbc_cellcount),
+    ),
+    "bbbc_cellcount_tiny": DatasetInfo(
+        name="bbbc_cellcount_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_bbbc_cellcount, n_samples=200, img_size=64),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",
