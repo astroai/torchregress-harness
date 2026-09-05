@@ -150,8 +150,7 @@ class TweedieSuite(HarnessRunner):
             # Warped-target rows: loss warps internally; predict inverts.
             if y_train_np.min() < 0:
                 raise ValueError(
-                    f"{method} requires non-negative targets "
-                    f"(min={y_train_np.min():.2f})."
+                    f"{method} requires non-negative targets (min={y_train_np.min():.2f})."
                 )
             X = torch.from_numpy(X_train_np).float().to(current_device())
             y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
