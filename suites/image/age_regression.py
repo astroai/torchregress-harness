@@ -279,7 +279,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
         # --- CNN-based methods ---
         if method.startswith("CNN+"):
-            return self._fit_cnn_method(method, in_channels, train_loader, config)
+            return self._fit_cnn_method(method, in_channels, train_loader, config, splits)
 
         # --- ResNet-based methods ---
         if method.startswith("ResNet+"):
@@ -305,6 +305,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
         in_channels: int,
         train_loader: torch.utils.data.DataLoader,
         config: HarnessConfig,
+        splits: dict[str, np.ndarray] | None = None,
     ) -> dict[str, Any]:
         """Fit a CNN-based method."""
         # --- GaussianNLL ---
@@ -341,7 +342,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
         # --- ObservedStdNLL (APPA-REAL rater std as target variance) ---
         elif method == "CNN+ObservedStdNLL":
-            return self._fit_observed_std(splits, in_channels, config)
+            return self._fit_observed_std(splits or {}, in_channels, config)
 
         # --- SLS (min-volume level sets on CNN context) ---
         elif method == "CNN+SLS":
@@ -429,56 +430,6 @@ class AgeRegressionSuite(ImageHarnessRunner):
             members.append((model, loss_fn))
             return {"type": "nflow_ensemble", "members": members}
 
-    def _fit_observed_std(
-        self,
-        splits: dict[str, np.ndarray],
-        in_channels: int,
-        config: HarnessConfig,
-    ) -> dict[str, Any]:
-        """Train NoisyTargetGaussianNLL on observed rater std (APPA-REAL).
-
-        Falls back to plain GaussianNLL when the dataset carries no
-        ``y_std_train`` (all non-APPA sets): same 2-head layout, so the
-        predict path is shared.
-        """
-        import torch.optim as optim
-        from torch.utils.data import DataLoader, TensorDataset
-
-        from harness.devices import current_device
-
-        X = np.asarray(splits["X_train"])
-        y = np.asarray(splits["y_train"]).reshape(-1, 1).astype(np.float32)
-        if splits.get("y_std_train") is not None:
-            std = np.asarray(splits["y_std_train"]).reshape(-1, 1).astype(np.float32)
-            observed = True
-        else:
-            std = np.zeros_like(y)
-            observed = False
-        device = current_device()
-        ds = TensorDataset(
-            torch.from_numpy(X).float(), torch.from_numpy(y), torch.from_numpy(std)
-        )
-        loader = DataLoader(ds, batch_size=config.batch_size, shuffle=True)
-        # NOTE: batches stay on CPU here; moved per-batch (see _base memory note).
-        from torchregress.losses.uncertain_gt import NoisyTargetGaussianNLL
-
-        model = self._build_cnn(in_channels=in_channels, out_dim=2)
-        loss_fn = NoisyTargetGaussianNLL()
-        loss_fn.to(device)
-        model.train()
-        opt = optim.Adam(model.parameters(), lr=config.lr)
-        for _ in range(config.epochs):
-            for Xb, yb, sb in loader:
-                Xb, yb, sb = Xb.to(device), yb.to(device), sb.to(device)
-                opt.zero_grad(set_to_none=True)
-                out = model(Xb)
-                tvar = (sb**2) if observed else None
-                loss = loss_fn(out, yb, target_variance=tvar)
-                loss.backward()
-                opt.step()
-        model.eval()
-        return {"type": "gaussian_nll", "model": model}
-
         # --- Evidential ---
         elif method == "CNN+Evidential":
             from torchregress.losses import EvidentialRegressionLoss
@@ -526,6 +477,56 @@ class AgeRegressionSuite(ImageHarnessRunner):
             return {"type": "mc_dropout", "model": model, "n_passes": 20}
 
         raise ValueError(f"Unknown CNN method: {method}")
+
+    def _fit_observed_std(
+        self,
+        splits: dict[str, np.ndarray],
+        in_channels: int,
+        config: HarnessConfig,
+    ) -> dict[str, Any]:
+        """Train NoisyTargetGaussianNLL on observed rater std (APPA-REAL).
+
+        Falls back to unweighted NLL when the dataset carries no
+        ``y_std_train`` (all non-APPA sets): same 2-head layout, so the
+        predict path is shared.
+        """
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, TensorDataset
+
+        from harness.devices import current_device
+
+        X = np.asarray(splits["X_train"])
+        y = np.asarray(splits["y_train"]).reshape(-1, 1).astype(np.float32)
+        if splits.get("y_std_train") is not None:
+            std = np.asarray(splits["y_std_train"]).reshape(-1, 1).astype(np.float32)
+            observed = True
+        else:
+            std = np.zeros_like(y)
+            observed = False
+        device = current_device()
+        ds = TensorDataset(
+            torch.from_numpy(X).float(), torch.from_numpy(y), torch.from_numpy(std)
+        )
+        loader = DataLoader(ds, batch_size=config.batch_size, shuffle=True)
+        # NOTE: batches stay on CPU here; moved per-batch (see _base memory note).
+        from torchregress.losses.uncertain_gt import NoisyTargetGaussianNLL
+
+        model = self._build_cnn(in_channels=in_channels, out_dim=2)
+        loss_fn = NoisyTargetGaussianNLL()
+        loss_fn.to(device)
+        model.train()
+        opt = optim.Adam(model.parameters(), lr=config.lr)
+        for _ in range(config.epochs):
+            for Xb, yb, sb in loader:
+                Xb, yb, sb = Xb.to(device), yb.to(device), sb.to(device)
+                opt.zero_grad(set_to_none=True)
+                out = model(Xb)
+                tvar = (sb**2) if observed else None
+                loss = loss_fn(out, yb, target_variance=tvar)
+                loss.backward()
+                opt.step()
+        model.eval()
+        return {"type": "gaussian_nll", "model": model}
 
     def _fit_resnet_method(
         self,
