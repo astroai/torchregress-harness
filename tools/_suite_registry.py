@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from suites.image.age_regression import AgeRegressionSuite
 from suites.image.cell_counting import CellCountingSuite
+from suites.image.censored_imaging import CensoredImagingSuite
 from suites.image.crowd_counting import CrowdCountingSuite
 from suites.image.depth_estimation import DepthEstimationSuite
 from suites.image.image_calibration import ImageCalibrationSuite
@@ -55,6 +56,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "r2c_conformal": R2CConformalSuite,
     "age_regression": AgeRegressionSuite,
     "cell_counting": CellCountingSuite,
+    "censored_imaging": CensoredImagingSuite,
     "crowd_counting": CrowdCountingSuite,
     "depth_estimation": DepthEstimationSuite,
     "keypoint_regression": KeypointRegressionSuite,

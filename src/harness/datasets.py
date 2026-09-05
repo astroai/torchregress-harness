@@ -2202,6 +2202,81 @@ def _parse_bbbc_count(stem: str) -> int | None:
     return max(ints) if ints else None
 
 
+def _read_bbbc_images(
+    n_samples: int, img_size: int, seed: int
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Read (images, counts) from the BBBC005 source, or None if unavailable.
+
+    Source resolution: ``BBBC_ROOT`` (zip or dir) else the cached
+    ``BBBC005_v1_images.zip`` (downloaded on demand). Returns
+    ``X:(N,1,H,W)`` float32 in [0,1] and ``y:(N,)`` filename counts.
+    """
+    import os as _os
+    import zipfile as _zipfile
+
+    cache_dir = _image_cache_dir()
+    zip_path = cache_dir / "BBBC005_v1_images.zip"
+    root = _os.environ.get("BBBC_ROOT", "")
+
+    names: list[str] = []
+    open_zip: _zipfile.ZipFile | None = None
+    tmp_dir: Path | None = None
+    if root:
+        p = Path(root)
+        if p.is_file() and _zipfile.is_zipfile(p):
+            zip_path = p
+        elif p.is_dir():
+            names = sorted([q.name for q in p.rglob("*.TIF")] + [q.name for q in p.rglob("*.tif")])
+            tmp_dir = p
+    if not names and open_zip is None:
+        if not (zip_path.exists() and zip_path.stat().st_size > 0):
+            _download_with_progress(_BBBC005_URL, zip_path, desc="BBBC005 images")
+        try:
+            open_zip = _zipfile.ZipFile(zip_path)
+            names = sorted(n for n in open_zip.namelist() if n.lower().endswith((".tif", ".tiff")))
+        except Exception:
+            names = []
+    if not names:
+        return None
+    try:
+        import io as _io
+
+        from PIL import Image as _Image
+
+        rng_pick = np.random.default_rng(seed)
+        order = rng_pick.permutation(len(names))
+        imgs, counts = [], []
+        for idx in order:
+            if len(imgs) >= n_samples:
+                break
+            nm = names[int(idx)]
+            cnt = _parse_bbbc_count(Path(nm).stem)
+            if cnt is None:
+                continue
+            if open_zip is not None:
+                with open_zip.open(nm) as fh:
+                    img = _Image.open(_io.BytesIO(fh.read())).convert("L")
+            else:
+                assert tmp_dir is not None
+                img = _Image.open(tmp_dir / nm).convert("L")
+            img = img.resize((img_size, img_size))
+            arr = np.array(img, dtype=np.float32) / 255.0
+            imgs.append(arr[None, :, :])
+            counts.append(float(cnt))
+        if open_zip is not None:
+            open_zip.close()
+        if not imgs:
+            return None
+        return np.stack(imgs).astype(np.float32), np.array(counts, dtype=np.float32)
+    except Exception:
+        try:
+            if open_zip is not None:
+                open_zip.close()
+        except Exception:
+            pass
+        return None
+
+
 def _load_bbbc_cellcount(
     n_samples: int = 2000,
     img_size: int = 128,
@@ -2223,81 +2298,21 @@ def _load_bbbc_cellcount(
     Counts are never standardized (``_skip_y_standardization``) — count
     losses require raw non-negative targets.
     """
-    import os as _os
-    import zipfile as _zipfile
-
-    cache_dir = _image_cache_dir()
-    zip_path = cache_dir / "BBBC005_v1_images.zip"
-    root = _os.environ.get("BBBC_ROOT", "")
-
-    names: list[str] = []
-    open_zip: _zipfile.ZipFile | None = None
-    tmp_dir: Path | None = None
-    if root:
-        p = Path(root)
-        if p.is_file() and _zipfile.is_zipfile(p):
-            zip_path = p
-        elif p.is_dir():
-            names = sorted([q.name for q in p.rglob("*.TIF")] + [q.name for q in p.rglob("*.tif")])
-            tmp_dir = p
-    if not names and not open_zip:
-        if not (zip_path.exists() and zip_path.stat().st_size > 0):
-            _download_with_progress(_BBBC005_URL, zip_path, desc="BBBC005 images")
-        try:
-            open_zip = _zipfile.ZipFile(zip_path)
-            names = sorted(n for n in open_zip.namelist() if n.lower().endswith((".tif", ".tiff")))
-        except Exception:
-            names = []
-
-    if names:
-        try:
-            import io as _io
-
-            from PIL import Image as _Image
-
-            rng_pick = np.random.default_rng(seed)
-            order = rng_pick.permutation(len(names))
-            imgs, counts = [], []
-            for idx in order:
-                if len(imgs) >= n_samples:
-                    break
-                nm = names[int(idx)]
-                cnt = _parse_bbbc_count(Path(nm).stem)
-                if cnt is None:
-                    continue
-                if open_zip is not None:
-                    with open_zip.open(nm) as fh:
-                        img = _Image.open(_io.BytesIO(fh.read())).convert("L")
-                else:
-                    assert tmp_dir is not None
-                    img = _Image.open(tmp_dir / nm).convert("L")
-                img = img.resize((img_size, img_size))
-                arr = np.array(img, dtype=np.float32) / 255.0
-                imgs.append(arr[None, :, :])
-                counts.append(float(cnt))
-            if open_zip is not None:
-                open_zip.close()
-            if imgs:
-                X = np.stack(imgs).astype(np.float32)
-                y = np.array(counts, dtype=np.float32)
-                Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, random_state=seed)
-                return {
-                    "X_train": Xtr,
-                    "X_test": Xte,
-                    "y_train": ytr,
-                    "y_test": yte,
-                    "_image_data": True,
-                    "_image_size": img_size,
-                    "_n_channels": 1,
-                    "_skip_y_standardization": True,
-                    "_count_data": True,
-                }
-        except Exception:
-            try:
-                if open_zip is not None:
-                    open_zip.close()
-            except Exception:
-                pass  # fall through to synthetic proxy
+    got = _read_bbbc_images(n_samples, img_size, seed)
+    if got is not None:
+        X, y = got
+        Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, random_state=seed)
+        return {
+            "X_train": Xtr,
+            "X_test": Xte,
+            "y_train": ytr,
+            "y_test": yte,
+            "_image_data": True,
+            "_image_size": img_size,
+            "_n_channels": 1,
+            "_skip_y_standardization": True,
+            "_count_data": True,
+        }
 
     # Synthetic fallback: Poisson counts + cell-blob fields.
     rng = np.random.default_rng(seed)
@@ -2334,6 +2349,92 @@ def _load_bbbc_cellcount(
         "_synthetic_fallback": True,
     }
     splits["_fallback_reason"] = "BBBC005 unavailable; synthetic cell-count proxy"
+    return splits
+
+
+def _load_bbbc_censored(
+    n_samples: int = 1000,
+    img_size: int = 64,
+    censor_rate: float = 0.3,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """BBBC005 cell counts with detection-limit right-censoring.
+
+    Real path: same BBBC005 source as :func:`_load_bbbc_cellcount`
+    (cached zip or ``BBBC_ROOT``). Counts above the ``(1-censor_rate)``
+    quantile are right-censored: ``y_obs = min(count, threshold)``,
+    ``censoring = (count > threshold)``. Mirrors the tabular
+    ``synthetic_censored`` semantics on real pixels — the detection-limit
+    censoring of real microscopy.
+
+    Fallback: synthetic censored cell-blob fields (censoring path exercised).
+    """
+    got = _read_bbbc_images(max(n_samples, 200), img_size, seed)
+    if got is not None:
+        X, y_true = got
+        rng = np.random.default_rng(seed)
+        order = rng.permutation(len(X))[:n_samples]
+        X, y_true = X[order], y_true[order]
+        threshold = float(np.quantile(y_true, 1.0 - censor_rate))
+        y_obs = np.minimum(y_true, threshold).astype(np.float32)
+        codes = (y_true > threshold).astype(np.float32)
+        Xtr, Xte, ytr, yte, ctr, cte = train_test_split(
+            X, y_obs, codes, test_size=test_size, random_state=seed
+        )
+        return {
+            "X_train": Xtr,
+            "X_test": Xte,
+            "y_train": ytr,
+            "y_test": yte,
+            "censoring_train": ctr,
+            "censoring_test": cte,
+            "_image_data": True,
+            "_image_size": img_size,
+            "_n_channels": 1,
+            "_skip_y_standardization": True,
+            "_count_data": True,
+        }
+    # Synthetic fallback: censored cell-blob fields.
+    rng = np.random.default_rng(seed)
+    lam = rng.uniform(5, 60, n_samples)
+    y_true = rng.poisson(lam).astype(np.float32)
+    threshold = float(np.quantile(y_true, 1.0 - censor_rate))
+    y_obs = np.minimum(y_true, threshold).astype(np.float32)
+    codes = (y_true > threshold).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n_samples, 1, img_size, img_size), dtype=np.float32)
+    for i in range(n_samples):
+        canvas = np.zeros((img_size, img_size), dtype=np.float32)
+        k = min(int(y_true[i]), 120)
+        if k > 0:
+            px = rng.uniform(0, img_size, k)
+            py = rng.uniform(0, img_size, k)
+            for j in range(k):
+                canvas += np.exp(
+                    -((xs - px[j]) ** 2 + (ys - py[j]) ** 2) / (2 * (img_size / 40) ** 2)
+                )
+        X[i, 0] = np.clip(canvas, 0, 1).astype(np.float32)
+    X += 0.02 * rng.standard_normal(X.shape).astype(np.float32)
+    X = np.clip(X, 0, 1).astype(np.float32)
+    Xtr, Xte, ytr, yte, ctr, cte = train_test_split(
+        X, y_obs, codes, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": Xtr.astype(np.float32),
+        "X_test": Xte.astype(np.float32),
+        "y_train": ytr.astype(np.float32),
+        "y_test": yte.astype(np.float32),
+        "censoring_train": ctr.astype(np.float32),
+        "censoring_test": cte.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 1,
+        "_skip_y_standardization": True,
+        "_count_data": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "BBBC005 unavailable; synthetic censored-cell proxy"
     return splits
 
 
@@ -3749,8 +3850,32 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         category="image",
         n_features=-1,
         n_samples=200,
-        description=("BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."),
+        description=(
+            "BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."
+        ),
         loader=_registry_loader(_load_bbbc_cellcount, n_samples=200, img_size=64),
+    ),
+    "bbbc_censored": DatasetInfo(
+        name="bbbc_censored",
+        category="image",
+        n_features=-1,
+        n_samples=1000,
+        description=(
+            "BBBC005 counts with detection-limit right-censoring "
+            "(censoring_train/test codes). Real pixels via the BBBC005 "
+            "source; synthetic censored proxy otherwise (flagged)."
+        ),
+        loader=_registry_loader(_load_bbbc_censored),
+    ),
+    "bbbc_censored_tiny": DatasetInfo(
+        name="bbbc_censored_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "BBBC-censored tiny smoke variant: 200 samples at 32×32."
+        ),
+        loader=_registry_loader(_load_bbbc_censored, n_samples=200, img_size=32),
     ),
     "appa_age": DatasetInfo(
         name="appa_age",
