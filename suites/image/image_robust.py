@@ -50,6 +50,8 @@ class ImageRobustSuite(ImageHarnessRunner):
             "imdb_wiki",
             "utkface_age",
             "utkface_age_tiny",
+            "ixi_brainage",
+            "ixi_brainage_tiny",
             "boneage",
         ]
 

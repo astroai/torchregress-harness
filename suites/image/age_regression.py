@@ -160,6 +160,8 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "utkface_age_tiny",
             "appa_age",
             "appa_age_tiny",
+            "ixi_brainage",
+            "ixi_brainage_tiny",
             "boneage",
         ]
 

@@ -1392,6 +1392,13 @@ _SHANGHAI_URL = (
     "ShanghaiTech_Crowd_Counting_Dataset.zip?rlkey=ymbcj50ac04uvqn8p49j9af5f&dl=1"
 )
 
+# IXI brain age (T1, ~600 healthy subjects, CC BY-SA 3.0, DLTK age stats:
+# mean 47.4 ± 16.8, range 20–82). NOTE: the IC download server 403s
+# automated clients (verified 2026-09-05), so headless auto-download is NOT
+# attempted — place IXI-T1.tar (or extracted dir) + IXI.xls under IXI_ROOT.
+_IXI_T1_URL = "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar"
+_IXI_XLS_URL = "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls"
+
 
 def _load_nyu_depth_v2(
     n_samples: int = 1449,
@@ -2709,6 +2716,154 @@ def _load_shanghai_crowd(
     return splits
 
 
+def _load_ixi_brainage(
+    n_samples: int = 400,
+    img_size: int = 64,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """IXI T1 brain-age regression (scalar years, 20–82).
+
+    Real path: ``IXI_ROOT`` containing ``IXI-T1.tar`` (or an extracted dir
+    of ``*.nii.gz``) plus ``IXI.xls`` demographics. Uses the mid-axial
+    slice of each T1 volume, resized to ``img_size``; ``y`` is age in years.
+    Requires ``nibabel`` + ``openpyxl``/``xlrd`` (optional harness deps —
+    install with ``pip install nibabel openpyxl``; a friendly ImportError
+    otherwise). The IC download server blocks automated clients, so no
+    headless auto-download is attempted — stage the files manually.
+
+    Long-tail ages (few 70+ subjects) make this the canonical imbalanced
+    image testbed (LDS/DensityWeighted/BalancedMSE).
+
+    Fallback: synthetic atrophy brains — ventricle size grows with age
+    (mechanistic ground truth: y = age, ventricle radius ∝ age).
+    """
+    import os as _os
+
+    root = _os.environ.get("IXI_ROOT", "")
+    if root:
+        try:
+            import nibabel as _nib
+        except ImportError as exc:
+            raise ImportError(
+                "nibabel is required for IXI brain age "
+                "(pip install nibabel). Set IXI_ROOT or unset it for the proxy."
+            ) from exc
+        try:
+            p = Path(root)
+            tar = p / "IXI-T1.tar" if p.is_dir() else (p if p.suffix == ".tar" else None)
+            workdir = p
+            if tar is not None and tar.is_file():
+                import tarfile as _tarfile
+
+                workdir = p / "IXI-T1-extract" if p.is_dir() else p.parent / "IXI-T1-extract"
+                if not any(workdir.glob("*.nii.gz")):
+                    workdir.mkdir(parents=True, exist_ok=True)
+                    with _tarfile.open(tar) as tf:
+                        tf.extractall(workdir)
+            niis = sorted(workdir.glob("*.nii.gz")) or sorted(workdir.rglob("*.nii.gz"))
+            # IXI.xls → subject id → age.
+            ages: dict[str, float] = {}
+            xls = p / "IXI.xls" if p.is_dir() else p.parent / "IXI.xls"
+            if xls.is_file():
+                try:
+                    import pandas as _pd
+
+                    df = _pd.read_excel(xls, engine=None)
+                    cols = {str(c).upper(): c for c in df.columns}
+                    id_col = next(
+                        (cols[k] for k in cols if "IXI" in k or "ID" in k or "SUBJECT" in k),
+                        df.columns[0],
+                    )
+                    age_col = next(
+                        (cols[k] for k in cols if "AGE" in k), df.columns[1]
+                    )
+                    for _, row in df.iterrows():
+                        try:
+                            ages[str(int(row[id_col])).zfill(3)] = float(row[age_col])
+                        except (ValueError, TypeError):
+                            continue
+                except Exception:
+                    pass
+            if niis:
+                try:
+                    from PIL import Image as _Image
+
+                    rng_pick = np.random.default_rng(seed)
+                    order = rng_pick.permutation(len(niis))[:n_samples]
+                    imgs, y = [], []
+                    for idx in order:
+                        fp = niis[int(idx)]
+                        sid = "".join(ch for ch in fp.stem.split(".")[0] if ch.isdigit())[-3:]
+                        if sid not in ages:
+                            continue
+                        vol = np.asarray(_nib.load(str(fp)).get_fdata(), dtype=np.float32)
+                        z = vol.shape[2] // 2  # mid-axial slice
+                        sl = vol[:, :, z]
+                        lo, hi = float(np.percentile(sl, 1)), float(np.percentile(sl, 99))
+                        sl = np.clip((sl - lo) / max(hi - lo, 1e-6), 0, 1)
+                        img = _Image.fromarray((sl * 255).astype(np.uint8)).resize(
+                            (img_size, img_size)
+                        )
+                        arr = np.array(img, dtype=np.float32) / 255.0
+                        imgs.append(arr[None, :, :])
+                        y.append(ages[sid])
+                        if len(imgs) >= n_samples:
+                            break
+                    if imgs:
+                        X = np.stack(imgs).astype(np.float32)
+                        yy = np.array(y, dtype=np.float32)
+                        Xtr, Xte, ytr, yte = train_test_split(
+                            X, yy, test_size=test_size, random_state=seed
+                        )
+                        return {
+                            "X_train": Xtr,
+                            "X_test": Xte,
+                            "y_train": ytr,
+                            "y_test": yte,
+                            "_image_data": True,
+                            "_image_size": img_size,
+                            "_n_channels": 1,
+                            "_skip_y_standardization": True,
+                        }
+                except Exception:
+                    pass  # fall through to synthetic proxy
+        except Exception:
+            pass  # fall through to synthetic proxy (tar/xls/nibabel issues)
+
+    # Synthetic fallback: atrophy brains (ventricles grow with age).
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    age = rng.uniform(20, 82, n).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    cx = img_size / 2
+    X = np.zeros((n, 1, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        skull_r = img_size * 0.42
+        skull = np.exp(-((np.sqrt((xs - cx) ** 2 + (ys - cx) ** 2) - skull_r) ** 2) / 8.0)
+        vent_r = img_size * (0.04 + 0.10 * (age[i] - 20) / 62)  # atrophy
+        vent = np.exp(-((xs - cx) ** 2 + (ys - cx) ** 2) / (2 * vent_r**2))
+        brain = np.clip(skull * 0.5 + 0.5 - vent * 0.6, 0, 1)
+        X[i, 0] = (brain + 0.03 * rng.standard_normal(brain.shape)).astype(np.float32)
+    X = np.clip(X, 0, 1).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, age, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 1,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "IXI_ROOT unset; synthetic atrophy-brain proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -3262,6 +3417,29 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "ShanghaiTech tiny smoke variant: 60 samples at 64×64 for fast CPU debug."
         ),
         loader=_registry_loader(_load_shanghai_crowd, n_samples=60, img_size=64),
+    ),
+    "ixi_brainage": DatasetInfo(
+        name="ixi_brainage",
+        category="image",
+        n_features=-1,
+        n_samples=400,
+        description=(
+            "IXI T1 brain age (20–82y, mid-axial slices). Stage IXI-T1.tar + "
+            "IXI.xls under IXI_ROOT (no auto-download: server blocks bots); "
+            "synthetic atrophy-brain proxy otherwise (flagged). Long-tail "
+            "ages — canonical imbalanced image testbed."
+        ),
+        loader=_registry_loader(_load_ixi_brainage),
+    ),
+    "ixi_brainage_tiny": DatasetInfo(
+        name="ixi_brainage_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=60,
+        description=(
+            "IXI tiny smoke variant: 60 samples at 32×32 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_ixi_brainage, n_samples=60, img_size=32),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",

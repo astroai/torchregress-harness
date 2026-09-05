@@ -42,3 +42,7 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   auto-download (~1 GB Dropbox mirror) or `SHANGHAI_ROOT` (zip or dir);
   synthetic crowd proxy otherwise. `y` = density (N,H,W), `count_*` = heads.
   Tiny = 60 at 64×64.
+* `ixi_brainage[_tiny]` — IXI T1 mid-axial slices (20–82y). Stage
+  `IXI-T1.tar` + `IXI.xls` under `IXI_ROOT` (server blocks auto-download;
+  needs `pip install nibabel openpyxl`); synthetic atrophy-brain proxy
+  otherwise. Long-tail ages — imbalanced testbed. Tiny = 60 at 32×32.
