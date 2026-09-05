@@ -52,6 +52,8 @@ class SplitMetadata(TypedDict, total=False):
     y_std_test: np.ndarray
     count_train: np.ndarray
     count_test: np.ndarray
+    mask_train: np.ndarray
+    mask_test: np.ndarray
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -1405,6 +1407,14 @@ _IXI_XLS_URL = "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IX
 # (or SullyChen-style data.txt) under UDACITY_ROOT. Heavily imbalanced
 # (~0 straight-driving bias) by construction.
 _UDACITY_INFO_URL = "https://github.com/udacity/self-driving-car/tree/master/datasets/CH2"
+
+# KITTI depth prediction (93k annotated maps + raw LiDAR/RGB, CC BY-NC-SA).
+# Annotated zip alone is 14 GB and RGB lives in per-drive raw zips
+# (~175 GB total) — over any sane headless auto-download. NO auto-download:
+# stage torch-uncertainty KITTIDepth layout (train/val with leftImg8bit +
+# leftDepth uint16 PNGs, depth = px/256 m) under KITTI_ROOT, e.g. via
+# torch_uncertainty.datasets.KITTIDepth(root, download=True, remove_unused=True).
+_KITTI_DEPTH_URL = "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_depth_annotated.zip"
 
 
 def _load_nyu_depth_v2(
@@ -3042,6 +3052,147 @@ def _load_udacity_steering(
     return splits
 
 
+def _load_kitti_depth(
+    n_samples: int = 1000,
+    img_size: int = 128,
+    max_depth: float = 80.0,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """KITTI outdoor driving depth (sparse LiDAR, metres).
+
+    Real path: ``KITTI_ROOT`` with torch-uncertainty KITTIDepth layout —
+    ``train/{leftImg8bit,leftDepth}`` + ``val/...`` of paired ``*.png``
+    (depth uint16, metres = px/256). RGB resized to ``img_size``; depth
+    resized nearest; invalid pixels (≤0 or >max_depth) are 0 with
+    ``mask_*`` float maps (1 = valid). ``_sparse_depth`` flags the
+    masked-dense contract for suites (masked losses, valid-only metrics).
+
+    No auto-download: RGB requires per-drive raw zips (~175 GB total).
+    Stage once via ``torch_uncertainty.datasets.KITTIDepth(root,
+    download=True, remove_unused=True)`` or mirror the layout manually.
+
+    Fallback: synthetic street scenes with LiDAR-style sparse sampling
+    (valid-pixel mask included, so the masked path is exercised in CI).
+    """
+    import os as _os
+
+    root = _os.environ.get("KITTI_ROOT", "")
+    if root:
+        try:
+            from PIL import Image as _Image
+
+            base = Path(root)
+            # Accept both <root>/{train,val} and <root>/KITTIDepth/{train,val}.
+            cand = base if (base / "train").is_dir() else base / "KITTIDepth"
+            pairs: list[tuple[Path, Path]] = []
+            for split in ("train", "val"):
+                img_d = cand / split / "leftImg8bit"
+                dep_d = cand / split / "leftDepth"
+                if not (img_d.is_dir() and dep_d.is_dir()):
+                    continue
+                for jp in sorted(img_d.glob("*.png")):
+                    dp = dep_d / (jp.stem + ".png")
+                    if dp.is_file():
+                        pairs.append((jp, dp))
+            if pairs:
+                rng_pick = np.random.default_rng(seed)
+                order = rng_pick.permutation(len(pairs))[:n_samples]
+                Xs, Ys, Ms = [], [], []
+                for idx in order:
+                    jp, dp = pairs[int(idx)]
+                    try:
+                        img = _Image.open(jp).convert("RGB").resize((img_size, img_size))
+                        dep = _Image.open(dp).resize((img_size, img_size), _Image.NEAREST)
+                    except Exception:
+                        continue
+                    arr = np.array(img, dtype=np.float32) / 255.0
+                    d = np.array(dep, dtype=np.float32) / 256.0
+                    m = ((d > 0) & (d <= max_depth)).astype(np.float32)
+                    d = np.where(m > 0, d, 0.0).astype(np.float32)
+                    if m.sum() < 100:
+                        continue
+                    Xs.append(arr.transpose(2, 0, 1))
+                    Ys.append(d)
+                    Ms.append(m)
+                    if len(Xs) >= n_samples:
+                        break
+                if Xs:
+                    X = np.stack(Xs).astype(np.float32)
+                    Y = np.stack(Ys).astype(np.float32)
+                    M = np.stack(Ms).astype(np.float32)
+                    Xtr, Xte, Ytr, Yte, Mtr, Mte = train_test_split(
+                        X, Y, M, test_size=test_size, random_state=seed
+                    )
+                    return {
+                        "X_train": Xtr,
+                        "X_test": Xte,
+                        "y_train": Ytr,
+                        "y_test": Yte,
+                        "mask_train": Mtr,
+                        "mask_test": Mte,
+                        "_image_data": True,
+                        "_image_size": img_size,
+                        "_n_channels": 3,
+                        "_dense_output": True,
+                        "_sparse_depth": True,
+                        "_skip_y_standardization": True,
+                    }
+        except Exception:
+            pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: street gradient + boxes, sparse LiDAR mask.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
+    Y = np.zeros((n, img_size, img_size), dtype=np.float32)
+    M = np.zeros((n, img_size, img_size), dtype=np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    for i in range(n):
+        horizon = img_size * rng.uniform(0.3, 0.5)
+        depth = np.where(
+            ys > horizon,
+            5 + 60 * (ys - horizon) / max(img_size - horizon, 1),
+            80.0,
+        ).astype(np.float32)
+        # Foreground boxes (cars) at random depths.
+        for _ in range(int(rng.integers(1, 4))):
+            x0 = rng.uniform(0, img_size * 0.7)
+            y0 = rng.uniform(horizon, img_size * 0.8)
+            bw, bh = rng.uniform(8, 24), rng.uniform(6, 18)
+            box = (np.abs(xs - x0) < bw) & (np.abs(ys - y0) < bh)
+            depth = np.where(box, rng.uniform(5, 30), depth)
+        shade = np.clip(1 - depth / 90, 0.1, 1).astype(np.float32)
+        for c in range(3):
+            X[i, c] = np.clip(shade + 0.03 * rng.standard_normal(shade.shape), 0, 1)
+        Y[i] = depth
+        # LiDAR-style sparsity: keep ~15% of pixels (rows-biased scanlines).
+        keep = (rng.random((img_size, img_size)) < 0.15).astype(np.float32)
+        keep[::4, :] = np.maximum(keep[::4, :], (rng.random((img_size // 4 + 1, img_size)) < 0.5).astype(np.float32)[: keep[::4, :].shape[0]])
+        M[i] = keep
+    Y = np.where(M > 0, Y, 0).astype(np.float32)
+    X_train, X_test, y_train, y_test, mask_train, mask_test = train_test_split(
+        X, Y, M, test_size=test_size, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "mask_train": mask_train.astype(np.float32),
+        "mask_test": mask_test.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_dense_output": True,
+        "_sparse_depth": True,
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "KITTI_ROOT unset; synthetic sparse-depth proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -3641,6 +3792,29 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Steering tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
         ),
         loader=_registry_loader(_load_udacity_steering, n_samples=200, img_size=32),
+    ),
+    "kitti_depth": DatasetInfo(
+        name="kitti_depth",
+        category="image",
+        n_features=-1,
+        n_samples=1000,
+        description=(
+            "KITTI outdoor driving depth (sparse LiDAR, 0–80m, masks). Stage "
+            "torch-uncertainty KITTIDepth layout under KITTI_ROOT (no "
+            "auto-download: raw RGB is ~175 GB); synthetic sparse-street "
+            "proxy otherwise (flagged, mask path exercised)."
+        ),
+        loader=_registry_loader(_load_kitti_depth),
+    ),
+    "kitti_depth_tiny": DatasetInfo(
+        name="kitti_depth_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=60,
+        description=(
+            "KITTI tiny smoke variant: 60 samples at 64×64 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_kitti_depth, n_samples=60, img_size=64),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",

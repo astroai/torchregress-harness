@@ -140,6 +140,8 @@ ALL_JOBS=(
   "age_regression ixi_brainage"
   "image_robust udacity_steering_tiny"
   "image_robust udacity_steering"
+  "depth_estimation kitti_depth_tiny"
+  "depth_estimation kitti_depth"
   "image_conformal utkface_age_tiny"
   "image_ensembles_uq utkface_age_tiny"
   "image_robust utkface_age_tiny"

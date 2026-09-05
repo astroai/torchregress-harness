@@ -50,3 +50,8 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   extracted `center/*.jpg` + `steering.csv` (or `data.txt`) under
   `UDACITY_ROOT` (ROS bags need external extraction); synthetic curved-road
   proxy otherwise. Straight-driving bias. Tiny = 200 at 32×32.
+* `kitti_depth[_tiny]` — KITTI outdoor driving depth (sparse LiDAR, 0–80m,
+  masks). Stage torch-uncertainty KITTIDepth layout under `KITTI_ROOT`
+  (no auto-download: raw RGB is ~175 GB); synthetic sparse-street proxy
+  otherwise (mask path exercised). `y` = depth (N,H,W, 0 = invalid),
+  `mask_*` = valid maps. Tiny = 60 at 64×64.
