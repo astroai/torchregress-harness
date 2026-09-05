@@ -47,6 +47,9 @@ class SplitMetadata(TypedDict, total=False):
     _skip_y_standardization: bool
     _synthetic_fallback: bool
     _count_data: bool
+    _observed_std: bool
+    y_std_train: np.ndarray
+    y_std_test: np.ndarray
     _fallback_reason: str
     _image_data: bool
     _image_size: int
@@ -2261,6 +2264,242 @@ def _load_bbbc_cellcount(
     return splits
 
 
+def _load_appa_age(
+    n_samples: int = 4000,
+    img_size: int = 64,
+    seed: int = 42,
+    **kwargs: Any,
+) -> SplitsDict:
+    """APPA-REAL apparent age with observed rater disagreement.
+
+    Real path: downloads ``appa-real-release.zip`` (~845 MB, ChaLearn LAP,
+    direct link, no login) into the harness image cache, or reuses
+    ``APPA_ROOT`` (zip or extracted dir). Prefers cropped ``*_face.jpg``
+    faces; ``y`` is the apparent-age mean and ``y_std_*`` the per-image
+    rater std from ``gt_avg_*.csv`` (official train+valid → train pool,
+    test → test). Cap with ``n_samples`` (stratified per split).
+
+    The observed std is the aleatoric gold standard: methods that accept
+    ``target_variance`` (e.g. NoisyTargetGaussianNLL) train on it; others
+    train on the mean. ``_observed_std`` flags the metadata.
+
+    Fallback: synthetic faces with heteroscedastic rater noise.
+    """
+    import csv as _csv
+    import os as _os
+    import zipfile as _zipfile
+
+    cache_dir = _image_cache_dir()
+    zip_path = cache_dir / "appa-real-release.zip"
+    root = _os.environ.get("APPA_ROOT", "")
+
+    def _read_split(
+        base: Path, split: str, from_zip: _zipfile.ZipFile | None
+    ) -> tuple[list, list, list] | None:
+        # gt_avg_<split>.csv summaries: n_ratings, apparent mean/std, real age.
+        avg_name = f"gt_avg_{'train' if split == 'train' else split}.csv"
+        if split == "valid":
+            avg_name = "gt_avg_valid.csv"
+        rows: list[dict[str, str]] = []
+        try:
+            if from_zip is not None:
+                candidates = [n for n in from_zip.namelist() if n.endswith(avg_name)]
+                if not candidates:
+                    return None
+                import io as _io
+
+                with from_zip.open(candidates[0]) as fh:
+                    text = _io.TextIOWrapper(fh).read()
+                rows = list(_csv.DictReader(text.splitlines()))
+            else:
+                cands = sorted(base.rglob(avg_name))
+                if not cands:
+                    return None
+                with open(cands[0], newline="") as fh:
+                    rows = list(_csv.DictReader(fh))
+        except Exception:
+            return None
+        if not rows:
+            return None
+        fieldnames = list(rows[0].keys())
+        lower = {f.lower(): f for f in fieldnames}
+
+        def _pick(*names: str) -> str | None:
+            for nm in names:
+                if nm in lower:
+                    return lower[nm]
+            for f in fieldnames:
+                fl = f.lower()
+                if any(nm in fl for nm in names):
+                    return f
+            return None
+
+        f_file = _pick("file", "image", "name")
+        f_mean = _pick("apparent", "average", "mean")
+        f_std = _pick("std", "deviation")
+        f_real = _pick("real")
+        if f_file is None or f_mean is None:
+            return None
+        try:
+            from PIL import Image as _Image
+            import io as _io
+
+            imgs, means, stds = [], [], []
+            for row in rows:
+                fn = row[f_file].strip()
+                cand_names = [fn + "_face.jpg", fn] if not fn.endswith(".jpg") else [
+                    fn.replace(".jpg", "_face.jpg"),
+                    fn,
+                ]
+                data: bytes | None = None
+                if from_zip is not None:
+                    for cn in cand_names:
+                        hits = [n for n in from_zip.namelist() if n.endswith(cn)]
+                        if hits:
+                            with from_zip.open(hits[0]) as fh:
+                                data = fh.read()
+                            break
+                else:
+                    for cn in cand_names:
+                        hits = sorted(base.rglob(cn))
+                        if hits:
+                            data = hits[0].read_bytes()
+                            break
+                if data is None:
+                    continue
+                try:
+                    mu = float(row[f_mean])
+                except ValueError:
+                    continue
+                try:
+                    sd = float(row[f_std]) if f_std else 0.0
+                except ValueError:
+                    sd = 0.0
+                img = _Image.open(_io.BytesIO(data)).convert("RGB").resize((img_size, img_size))
+                arr = np.array(img, dtype=np.float32) / 255.0
+                imgs.append(arr.transpose(2, 0, 1))
+                means.append(mu)
+                stds.append(max(sd, 0.0))
+            if not imgs:
+                return None
+            return imgs, means, stds
+        except Exception:
+            return None
+
+    Xtr_all: list = []
+    ytr_all: list = []
+    str_all: list = []
+    Xte: list = []
+    yte: list = []
+    ste: list = []
+    used_real = False
+    # Resolve source: APPA_ROOT dir/zip, else cached/downloaded zip.
+    src_dir: Path | None = None
+    src_zip: _zipfile.ZipFile | None = None
+    if root:
+        p = Path(root)
+        if p.is_file() and _zipfile.is_zipfile(p):
+            try:
+                src_zip = _zipfile.ZipFile(p)
+            except Exception:
+                src_zip = None
+        elif p.is_dir():
+            src_dir = p
+    if src_dir is None and src_zip is None:
+        if not (zip_path.exists() and zip_path.stat().st_size > 0):
+            try:
+                _download_with_progress(_APPA_URL, zip_path, desc="APPA-REAL")
+            except Exception:
+                zip_path = cache_dir / "appa-real-release.zip"  # partial cleanup best-effort
+        if zip_path.exists() and zip_path.stat().st_size > 0:
+            try:
+                src_zip = _zipfile.ZipFile(zip_path)
+            except Exception:
+                src_zip = None
+    base_arg: Any = src_dir if src_dir is not None else Path(".")
+    for split, is_test in (("train", False), ("valid", False), ("test", True)):
+        got = _read_split(base_arg, split, src_zip)
+        if got is None:
+            continue
+        used_real = True
+        imgs, means, stds = got
+        if is_test:
+            Xte.extend(imgs)
+            yte.extend(means)
+            ste.extend(stds)
+        else:
+            Xtr_all.extend(imgs)
+            ytr_all.extend(means)
+            str_all.extend(stds)
+    try:
+        if src_zip is not None:
+            src_zip.close()
+    except Exception:
+        pass
+    if used_real and Xtr_all and Xte:
+        rng = np.random.default_rng(seed)
+        # Cap per split deterministically.
+        n_tr = min(len(Xtr_all), int(n_samples * 0.8))
+        n_te = min(len(Xte), n_samples - n_tr)
+        idx_tr = rng.choice(len(Xtr_all), n_tr, replace=False)
+        idx_te = rng.choice(len(Xte), n_te, replace=False)
+        X_train = np.stack([Xtr_all[i] for i in idx_tr]).astype(np.float32)
+        y_train = np.array([ytr_all[i] for i in idx_tr], dtype=np.float32)
+        y_std_train = np.array([str_all[i] for i in idx_tr], dtype=np.float32)
+        X_test = np.stack([Xte[i] for i in idx_te]).astype(np.float32)
+        y_test = np.array([yte[i] for i in idx_te], dtype=np.float32)
+        y_std_test = np.array([ste[i] for i in idx_te], dtype=np.float32)
+        return {
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "y_std_train": y_std_train,
+            "y_std_test": y_std_test,
+            "_image_data": True,
+            "_image_size": img_size,
+            "_n_channels": 3,
+            "_skip_y_standardization": True,
+            "_observed_std": True,
+        }
+
+    # Synthetic fallback: heteroscedastic apparent-age judgements.
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    age = rng.uniform(5, 85, n).astype(np.float32)
+    rater_std = (1.5 + 0.08 * np.abs(age - 35)).astype(np.float32)
+    y = (age + rng.normal(0, 1, n)).astype(np.float32)
+    y_std = np.abs(rater_std + rng.normal(0, 0.5, n)).astype(np.float32)
+    ys, xs = np.mgrid[0:img_size, 0:img_size].astype(np.float32)
+    X = np.zeros((n, 3, img_size, img_size), dtype=np.float32)
+    for i in range(n):
+        cx = img_size / 2 + (y[i] - 45) / 80 * img_size * 0.3
+        sigma = img_size / 8
+        blob = np.exp(-((xs - cx) ** 2 + (ys - img_size / 2) ** 2) / (2 * sigma**2))
+        for c in range(3):
+            X[i, c] = (blob * (0.6 + 0.1 * c)).astype(np.float32)
+    X += 0.05 * rng.standard_normal(X.shape).astype(np.float32)
+    X_train, X_test, y_train, y_test, y_std_train, y_std_test = train_test_split(
+        X, y, y_std, test_size=0.2, random_state=seed
+    )
+    splits: SplitsDict = {
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "y_std_train": y_std_train.astype(np.float32),
+        "y_std_test": y_std_test.astype(np.float32),
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_observed_std": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "APPA-REAL unavailable; synthetic apparent-age proxy"
+    return splits
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -2770,6 +3009,28 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "BBBC005 tiny smoke variant: 200 samples at 64×64 for fast CPU debug."
         ),
         loader=_registry_loader(_load_bbbc_cellcount, n_samples=200, img_size=64),
+    ),
+    "appa_age": DatasetInfo(
+        name="appa_age",
+        category="image",
+        n_features=-1,
+        n_samples=4000,
+        description=(
+            "APPA-REAL apparent age (mean + observed rater std, 7.5k faces). "
+            "Auto-downloads the ChaLearn zip (~845 MB, no login) or reuses "
+            "APPA_ROOT; synthetic heteroscedastic proxy otherwise (flagged)."
+        ),
+        loader=_registry_loader(_load_appa_age),
+    ),
+    "appa_age_tiny": DatasetInfo(
+        name="appa_age_tiny",
+        category="image",
+        n_features=-1,
+        n_samples=200,
+        description=(
+            "APPA-REAL tiny smoke variant: 200 samples at 32×32 for fast CPU debug."
+        ),
+        loader=_registry_loader(_load_appa_age, n_samples=200, img_size=32),
     ),
     "nyu_depth_v2_tiny": DatasetInfo(
         name="nyu_depth_v2_tiny",

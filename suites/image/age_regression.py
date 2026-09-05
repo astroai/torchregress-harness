@@ -158,6 +158,8 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "imdb_wiki_fullres",
             "utkface_age",
             "utkface_age_tiny",
+            "appa_age",
+            "appa_age_tiny",
             "boneage",
         ]
 
@@ -173,6 +175,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+BetaNLL",
             "CNN+FaithfulGaussian",
             "CNN+PoissonGaussian",
+            "CNN+ObservedStdNLL",
             "CNN+SLS",
             "CNN+MDN_K2",
             "CNN+MDN_K3",
@@ -234,6 +237,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+BetaNLL": "4-layer CNN + BetaNLL(beta=0.5) anti-collapse variant (same 2-head)",
             "CNN+FaithfulGaussian": "4-layer CNN + Faithful MSE/NLL-decoupled Gaussian (same 2-head)",
             "CNN+PoissonGaussian": "4-layer CNN + Poisson-Gaussian imaging-noise NLL (log-lambda head, point)",
+            "CNN+ObservedStdNLL": "4-layer CNN + NoisyTarget NLL on observed rater std (APPA-REAL aleatoric gold)",
             "CNN+SLS": "4-layer CNN context + SLS min-volume level-set regions (tau=0.9)",
             "CNN+MDN_K2": "4-layer CNN + 2-component MDN (K-sweep minimum)",
             "CNN+MDN_K3": "4-layer CNN backbone + 3-component mixture density network",
@@ -335,6 +339,10 @@ class AgeRegressionSuite(ImageHarnessRunner):
             )
             return {"type": "poisson_gaussian", "model": model}
 
+        # --- ObservedStdNLL (APPA-REAL rater std as target variance) ---
+        elif method == "CNN+ObservedStdNLL":
+            return self._fit_observed_std(splits, in_channels, config)
+
         # --- SLS (min-volume level sets on CNN context) ---
         elif method == "CNN+SLS":
             from torchregress.losses.sls import SLSLoss
@@ -417,9 +425,59 @@ class AgeRegressionSuite(ImageHarnessRunner):
                     config,
                     loss_params=list(flow.parameters()),
                 )
-                model.eval()
-                members.append((model, loss_fn))
+            model.eval()
+            members.append((model, loss_fn))
             return {"type": "nflow_ensemble", "members": members}
+
+    def _fit_observed_std(
+        self,
+        splits: dict[str, np.ndarray],
+        in_channels: int,
+        config: HarnessConfig,
+    ) -> dict[str, Any]:
+        """Train NoisyTargetGaussianNLL on observed rater std (APPA-REAL).
+
+        Falls back to plain GaussianNLL when the dataset carries no
+        ``y_std_train`` (all non-APPA sets): same 2-head layout, so the
+        predict path is shared.
+        """
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, TensorDataset
+
+        from harness.devices import current_device
+
+        X = np.asarray(splits["X_train"])
+        y = np.asarray(splits["y_train"]).reshape(-1, 1).astype(np.float32)
+        if splits.get("y_std_train") is not None:
+            std = np.asarray(splits["y_std_train"]).reshape(-1, 1).astype(np.float32)
+            observed = True
+        else:
+            std = np.zeros_like(y)
+            observed = False
+        device = current_device()
+        ds = TensorDataset(
+            torch.from_numpy(X).float(), torch.from_numpy(y), torch.from_numpy(std)
+        )
+        loader = DataLoader(ds, batch_size=config.batch_size, shuffle=True)
+        # NOTE: batches stay on CPU here; moved per-batch (see _base memory note).
+        from torchregress.losses.uncertain_gt import NoisyTargetGaussianNLL
+
+        model = self._build_cnn(in_channels=in_channels, out_dim=2)
+        loss_fn = NoisyTargetGaussianNLL()
+        loss_fn.to(device)
+        model.train()
+        opt = optim.Adam(model.parameters(), lr=config.lr)
+        for _ in range(config.epochs):
+            for Xb, yb, sb in loader:
+                Xb, yb, sb = Xb.to(device), yb.to(device), sb.to(device)
+                opt.zero_grad(set_to_none=True)
+                out = model(Xb)
+                tvar = (sb**2) if observed else None
+                loss = loss_fn(out, yb, target_variance=tvar)
+                loss.backward()
+                opt.step()
+        model.eval()
+        return {"type": "gaussian_nll", "model": model}
 
         # --- Evidential ---
         elif method == "CNN+Evidential":

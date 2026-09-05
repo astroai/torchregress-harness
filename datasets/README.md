@@ -32,3 +32,9 @@ Real image sets cache under `$TORCHREGRESS_HARNESS_CACHE`
   env (csv + X-rays); synthetic gradient+blob proxy otherwise.
   Imbalanced/high-stakes P0 axis.
 * `nyu_depth_v2[_tiny|_fullres]` — tiny = 50 samples at 64×64 for CPU smoke.
+* `bbbc_cellcount[_tiny]` — BBBC005 microscopy counts (1–100) via auto-download
+  (~1.8 GB Broad zip) or `BBBC_ROOT` (zip or dir); synthetic Poisson-blob
+  proxy otherwise. Counts never standardized. Tiny = 200 at 64×64.
+* `appa_age[_tiny]` — APPA-REAL apparent age (mean + observed rater std) via
+  auto-download (~845 MB ChaLearn zip, no login) or `APPA_ROOT`;
+  synthetic heteroscedastic proxy otherwise. Tiny = 200 at 32×32.

@@ -98,8 +98,18 @@ for repo in torchregress torchregress-harness; do
 done
 
 cd "$WORK/torchregress-harness"
-log "pixi install"
-pixi install 2>&1 | tail -n 3
+log "pixi install (3 attempts; transient mirror timeouts are common)"
+for attempt in 1 2 3; do
+  if pixi install 2>&1 | tail -n 3; then
+    break
+  fi
+  log "pixi install attempt $attempt failed; retrying in 30s"
+  sleep 30
+  if [[ "$attempt" == 3 ]]; then
+    log "FATAL: pixi install failed 3x — aborting (infra, not code)"
+    exit 3
+  fi
+done
 
 log "installing git pins (MAPIE/TU/LUQ-Box + image stack)"
 pixi run pip install -q "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN" || log "MAPIE pin failed (offline?)"
@@ -120,6 +130,10 @@ ALL_JOBS=(
   "keypoint_regression synthetic_image_keypoint"
   "keypoint_regression biwi_head_pose_tiny"
   "keypoint_regression biwi_head_pose"
+  "cell_counting bbbc_cellcount_tiny"
+  "cell_counting bbbc_cellcount"
+  "age_regression appa_age_tiny"
+  "age_regression appa_age"
   "image_conformal utkface_age_tiny"
   "image_ensembles_uq utkface_age_tiny"
   "image_robust utkface_age_tiny"
