@@ -125,9 +125,7 @@ class CellCountingSuite(ImageHarnessRunner):
             from torchregress.losses import PoissonLikelihoodRatioLoss
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
-            _train_image_model(
-                m, PoissonLikelihoodRatioLoss(log_input=True), train_loader, config
-            )
+            _train_image_model(m, PoissonLikelihoodRatioLoss(log_input=True), train_loader, config)
             return {"type": "log_rate", "model": m}
         if method == "CNN+ZIP":
             from torchregress.losses import ZeroInflatedPoissonNLLLoss
