@@ -159,8 +159,12 @@ ALL_JOBS=(
   "image_robust utkface_age_tiny"
   "image_calibration utkface_age_tiny"
 )
-RID="${REPLICA_ID:-0}"
+RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"
+# Platform replica IDs are 1-indexed (single sessions report 1/1);
+# normalize to 0-indexed shards (a lone session takes shard 0 = all jobs).
+RID=$(( (RID_RAW - 1) % RCNT ))
+if [[ "$RID" -lt 0 ]]; then RID=0; fi
 # JOB_FILTER (optional substring, e.g. "bbbc", "appa", "shanghai"): restrict
 # to matching "suite dataset" pairs — one session per dataset policy.
 JOB_FILTER="${JOB_FILTER:-}"
