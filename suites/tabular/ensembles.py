@@ -118,6 +118,10 @@ class EnsemblesSuite(HarnessRunner):
         "MDNEnsemble",
         "LaplaceMAP",
         "Snapshot",
+        "MultiSWAG",
+        "BinnedPDFEnsemble",
+        "HeteroscedasticLaplace",
+        "VIDS",
     ]
 
     _SKLEARN_METHODS: list[str] = [
@@ -142,6 +146,10 @@ class EnsemblesSuite(HarnessRunner):
             "MDNEnsemble": "3× MDN heads (K=2) → mixture-mean point prediction",
             "LaplaceMAP": "MAP MLP + FullNetworkLaplace post-hoc (mean, var, intervals)",
             "Snapshot": "cyclical snapshots (3) → mean/var predictive intervals",
+            "MultiSWAG": "3× heteroscedastic SWAGs → mean/epistemic/aleatoric split",
+            "BinnedPDFEnsemble": "2× binned-PDF heads → ensemble mean/var over 10 bins",
+            "HeteroscedasticLaplace": "last-layer Laplace on frozen MSE features (tuple head)",
+            "VIDS": "adaptive-prior VI (bootstrap environments) → mean/std intervals",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
             "sklearn_BaggingRegressor": "Bagging(DecisionTreeRegressor, n=100)",
@@ -288,6 +296,131 @@ class EnsemblesSuite(HarnessRunner):
                 sn.fit(loader, epochs=config.epochs, device=str(current_device()))
                 return {"type": "snapshot", "model": sn}
 
+            elif method == "MultiSWAG":
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble.swag import MultiSWAG
+                from torchregress.losses import BetaNLLLoss
+
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                mswag = MultiSWAG(_MLP(in_dim, hidden, out_dim=2), n_models=3, max_num_models=8)
+                # Per-member seeds: re-init each SWAG base before training.
+                for k, swag in enumerate(mswag.swag_models):
+                    set_harness_seed(config.seed + k * 1000 + 7)
+                    for mod in swag.base_model.modules() if hasattr(swag, "base_model") else []:
+                        if isinstance(mod, nn.Linear):
+                            mod.reset_parameters()
+                for k, swag in enumerate(mswag.swag_models):
+                    set_harness_seed(config.seed + k * 1000 + 7)
+                    base = swag.base_model if hasattr(swag, "base_model") else None
+                    trainable = base if base is not None else mswag
+                    opt = optim.Adam(
+                        (
+                            trainable.parameters()
+                            if hasattr(trainable, "parameters")
+                            else mswag.parameters()
+                        ),
+                        lr=config.lr,
+                    )
+                    loss_fn = BetaNLLLoss(beta=0.5)
+                    dev = current_device()
+                    if base is not None:
+                        base.to(dev)
+                    else:
+                        mswag.to(dev)
+                    for _ in range(config.epochs):
+                        for Xb, yb in loader:
+                            Xb, yb = Xb.to(dev), yb.to(dev)
+                            opt.zero_grad(set_to_none=True)
+                            out = (base if base is not None else mswag)(Xb)
+                            BetaNLLLoss(beta=0.5)(out, yb).backward()
+                            opt.step()
+                    # Collect the trained weights into this member's SWAG.
+                    try:
+                        swag.collect_model(base if base is not None else mswag)
+                    except Exception:
+                        pass
+                mswag.eval()
+                return {"type": "multiswag", "model": mswag}
+
+            elif method == "BinnedPDFEnsemble":
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import BinnedPDFEnsembleModel
+
+                n_bins = 10
+                y_np = np.asarray(y_train_np).reshape(-1)
+                edges = np.quantile(y_np, np.linspace(0, 1, n_bins + 1)).astype(np.float32)
+                be = BinnedPDFEnsembleModel(
+                    _MLP, ensemble_size=2, in_dim=in_dim, hidden=hidden, out_dim=n_bins
+                )
+                # CrossEntropy needs class indices: reuse the quantile bins.
+                y_idx = torch.from_numpy(
+                    np.clip(np.digitize(y_np, edges) - 1, 0, n_bins - 1)
+                ).long()
+                loader = DataLoader(
+                    TensorDataset(torch.from_numpy(X_train_np).float(), y_idx),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                be.fit(loader, nn.CrossEntropyLoss(), epochs=config.epochs, verbose=False)
+                # Store binning for expected-value predict.
+                qs = np.linspace(0, 1, n_bins + 1)
+                centers = ((np.quantile(y_np, qs)[:-1] + np.quantile(y_np, qs)[1:]) / 2.0).astype(
+                    np.float32
+                )
+                return {
+                    "type": "binnedpdf",
+                    "model": be,
+                    "centers": torch.from_numpy(centers).float(),
+                }
+
+            elif method == "HeteroscedasticLaplace":
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.algorithms import HeteroscedasticLaplaceRegressor
+
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                base = _MLP(in_dim, hidden, out_dim=hidden)
+
+                class _TupleHead(nn.Module):
+                    """Two-head with the .linear attribute HLAX requires."""
+
+                    def __init__(self, d: int) -> None:
+                        super().__init__()
+                        self.linear = nn.Linear(d, 2)
+
+                    def forward(self, x: torch.Tensor) -> Any:
+                        o = self.linear(x)
+                        return o[:, 0:1], o[:, 1:2]
+
+                hl = HeteroscedasticLaplaceRegressor(base, _TupleHead(hidden))
+                hl.fit(loader, lr=config.lr, epochs=config.epochs)
+                return {"type": "hlaplace", "model": hl}
+
+            elif method == "VIDS":
+                from torchregress.algorithms.adaptive_prior_vi import VIDSRegressor
+
+                vids = VIDSRegressor(in_dim, target_dim=1)
+                vids.fit(
+                    torch.from_numpy(X_train_np).float().to(current_device()),
+                    torch.from_numpy(y_train_np).float().unsqueeze(1).to(current_device()),
+                    epochs=config.epochs,
+                )
+                return {"type": "vids", "model": vids}
+
             else:
                 raise ValueError(f"Unknown method: {method}")
 
@@ -420,6 +553,111 @@ class EnsemblesSuite(HarnessRunner):
                 )
             mean_np = np.asarray(mean).reshape(-1)
             std_np = np.sqrt(np.asarray(var).reshape(-1).clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: MultiSWAG → mean/epistemic/aleatoric split ---
+        elif model_type == "multiswag":
+            mswag = model_state["model"]
+            mswag.eval()
+            with torch.no_grad():
+                mean, epi, alea = mswag.predict_with_uncertainty(
+                    torch.from_numpy(X_test).float().to(current_device()), n_samples=10
+                )
+            mean_np = np.asarray(mean.detach().cpu()).reshape(-1)
+            std_np = np.sqrt(
+                (
+                    np.asarray(epi.detach().cpu()).reshape(-1)
+                    + np.asarray(alea.detach().cpu()).reshape(-1)
+                ).clip(min=1e-12)
+            )
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: BinnedPDFEnsemble → expected value over bins ---
+        elif model_type == "binnedpdf":
+            be = model_state["model"]
+            centers = model_state["centers"].to(current_device())
+            be.eval()
+            with torch.no_grad():
+                dist = be.predict(torch.from_numpy(X_test).float().to(current_device()))
+            # predict() → {probabilities, mean, variance} over bin support.
+            probs = dist["probabilities"]
+            mean_np = (probs @ centers.reshape(-1)).reshape(-1).detach().cpu().numpy()
+            if "variance" in dist and dist["variance"] is not None:
+                std_np = np.sqrt(np.asarray(dist["variance"]).reshape(-1).clip(min=1e-12))
+            else:
+                var_np = (probs * (centers.reshape(-1) - mean_np.reshape(-1, 1)) ** 2).sum(-1)
+                std_np = np.sqrt(np.asarray(var_np).clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: HeteroscedasticLaplace → PredictiveBatch ---
+        elif model_type == "hlaplace":
+            hl = model_state["model"]
+            with torch.no_grad():
+                pb = hl.predict_distribution(torch.from_numpy(X_test).float().to(current_device()))
+
+            def _field(name: str) -> Any:
+                if hasattr(pb, "items"):
+                    try:
+                        return dict(pb.items()).get(name)
+                    except Exception:
+                        pass
+                return getattr(pb, name, None)
+
+            mean_t = _field("mean")
+            if mean_t is None:
+                mean_t = _field("loc")
+            std_t = _field("std")
+            if std_t is None and _field("variance") is not None:
+                std_t = torch.sqrt(_field("variance").clamp_min(1e-12))
+            if std_t is None and _field("scale") is not None:
+                std_t = _field("scale") * np.sqrt(2.0)
+            mean_np = np.asarray(mean_t).reshape(-1)
+            std_np = (
+                np.asarray(std_t).reshape(-1) if std_t is not None else np.full_like(mean_np, 0.1)
+            )
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: VIDS → PredictiveBatch mean/std ---
+        elif model_type == "vids":
+            vids = model_state["model"]
+            with torch.no_grad():
+                pb = vids.predict_distribution(
+                    torch.from_numpy(X_test).float().to(current_device())
+                )
+            mean_np = np.asarray(pb.mean).reshape(-1)
+            std_np = (
+                np.asarray(pb.std).reshape(-1)
+                if getattr(pb, "std", None) is not None
+                else np.full_like(mean_np, 0.1)
+            )
             z = 1.645
             return {
                 "lower": mean_np - z * std_np,
