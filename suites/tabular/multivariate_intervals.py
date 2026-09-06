@@ -270,6 +270,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
         return [
             "GaussianNLL",
             "MultivariateGaussian",
+            "WassersteinBound",
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
@@ -307,6 +308,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
         notes = {
             "GaussianNLL": "diagonal Gaussian NLL \u2192 marginal \u03bc \u00b1 z\u00b7\u03c3 intervals per output dim",
             "MultivariateGaussian": "full-covariance Gaussian NLL via Cholesky factor \u2192 marginal std from cov diagonal",
+            "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
             "NormalizingFlow": "zuko NSF flow \u2192 sample-based quantile intervals per output dim",
             "SLS": "Super-Level-Set regression \u2192 boundary sampling + inverse flow \u2192 marginal intervals per output dim",
         }
@@ -358,6 +360,44 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config)
             model.eval()
             return {"type": "multivariate_gaussian", "model": model, "n_features": D}
+
+        # --- WassersteinBound: supervised mean + diagonal variance ---
+        # Target variances come from neighborhood covariance pseudo-labels
+        # (empirical-Bayes supervision for the covariance head).
+        elif method == "WassersteinBound":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+
+            from torchregress.algorithms.covariance_pseudo_labels import (
+                NeighborhoodCovariancePseudoLabeler,
+            )
+            from torchregress.losses.gaussian_wasserstein import GaussianWassersteinBoundLoss
+
+            with torch.no_grad():
+                pseudo = NeighborhoodCovariancePseudoLabeler().fit_predict(X, y)
+            # (N, D, D) or (N, D) → diagonal variances.
+            tgt_var = (
+                pseudo.diagonal(dim1=-2, dim2=-1) if pseudo.dim() == 3 else pseudo
+            ).clamp_min(1e-6)
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=2 * D)
+            loss_fn = GaussianWassersteinBoundLoss(covariance_parameterization="diagonal")
+            loader = DataLoader(
+                TensorDataset(X, y, tgt_var), batch_size=config.batch_size, shuffle=True
+            )
+            opt = optim.Adam(model.parameters(), lr=config.lr)
+            model.train()
+            for _ in range(config.epochs):
+                for Xb, yb, vb in loader:
+                    opt.zero_grad(set_to_none=True)
+                    out = model(Xb)
+                    import torch.nn.functional as F
+
+                    pred_var = F.softplus(out[:, D:]).clamp_min(1e-6)
+                    loss = loss_fn(out[:, :D], yb, pred_var, vb)
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            return {"type": "wasserstein", "model": model, "n_features": D}
 
         # --- NormalizingFlow ---
         elif method == "NormalizingFlow":
@@ -485,6 +525,31 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- WassersteinBound → marginal intervals from var head ---
+        elif model_type == "wasserstein":
+            import torch.nn.functional as F
+
+            model = model_state["model"]
+            model.eval()
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                mean = out[:, :D].detach().cpu().numpy()
+                std = np.sqrt(
+                    F.softplus(out[:, D:]).clamp_min(1e-8).detach().cpu().numpy()
+                )
+            lower = mean - z_score * std
+            upper = mean + z_score * std
+            return {
+                "lower": lower.reshape(-1),
+                "upper": upper.reshape(-1),
+                "y_pred": mean.reshape(-1),
+                "mean": mean.reshape(-1),
+                "std": std.reshape(-1),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
