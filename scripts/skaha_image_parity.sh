@@ -59,12 +59,18 @@ export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
 export PYTORCH_NVML_BASED_CUDA_CHECK=1
 export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+# Plain output: the `canfar logs` renderer crashes on ANSI/box-drawing.
+export NO_COLOR=1
+export TERM=dumb
+export PIXI_NO_PROGRESS=1
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 OUT_ROOT="${OUT_ROOT:-/arc/projects/ots/torchregress-harness/runs}"
 OUT_DIR="$OUT_ROOT/img_$RUN_ID"
 mkdir -p "$OUT_DIR"
+# Persist everything to /arc (survives session cleanup + broken renderers).
+exec > >(tee "$OUT_DIR/run.log") 2>&1
 
 WORK=/scratch/image-parity
 mkdir -p "$WORK"
