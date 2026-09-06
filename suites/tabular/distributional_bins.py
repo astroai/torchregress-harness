@@ -201,6 +201,8 @@ class DistributionalBinsSuite(HarnessRunner):
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
+            "MC_CP",
+            "SLS_CP",
             "SkewNormal",
             # SkewT parked: _reg_inc_beta backward → inf at x→1 (b<1 boundary),
             # NaNs any net in ≤2 epochs. Library-side autograd-safe inc_beta
@@ -247,6 +249,8 @@ class DistributionalBinsSuite(HarnessRunner):
             "NormalizingFlow": "zuko NSF normalizing flow → sample-based quantile intervals",
             "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
             "Evidential": "NIG evidential regression → Student-t predictive intervals",
+            "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
+            "SLS_CP": "SLS frontier (d=1) + SLSConformal grid predictor",
             "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
         }
         if method in _SKEW_METHODS:
@@ -423,6 +427,72 @@ class DistributionalBinsSuite(HarnessRunner):
             model.eval()
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
 
+        # --- MonteCarloCP: NF samples + MonteCarloConformal (mean center) ---
+        elif method == "MC_CP":
+            from torchregress.losses.conformal import MonteCarloConformal
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(flow.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                cal_samples = loss_fn.sample(model(X_cal), n_samples=256).squeeze(-1)
+            predictor = MonteCarloConformal(alpha=0.1)
+            # mc_samples layout is [n_samples, batch, ...] → transpose (N, S).
+            predictor.calibrate(cal_samples.detach().T, y_cal.reshape(-1))
+            return {"type": "mc_cp", "model": model, "flow": loss_fn, "predictor": predictor}
+
+        # --- SLS_CP: SLS frontier (d=1) + SLSConformal grid predictor ---
+        elif method == "SLS_CP":
+            from torchregress.losses.conformal import SLSConformal
+            from torchregress.losses.sls import SLSLoss
+
+            context_dim = hidden
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = SLSLoss(
+                d=1,
+                context_dim=context_dim,
+                K=1,
+                mode="full",
+                hidden_dim=64,
+                n_transforms=4,
+                tau=0.9,
+                warmup_steps=50,
+            )
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(loss_fn.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                ctx_cal = model(X_cal)
+            predictor = SLSConformal(loss_fn, alpha=0.1)
+            predictor.calibrate(ctx_cal.detach(), y_cal.reshape(-1, 1))
+            y_min = float(y_train.min())
+            y_max = float(y_train.max())
+            pad = max(y_max - y_min, 1e-3) * 0.1
+            return {
+                "type": "sls_cp",
+                "model": model,
+                "predictor": predictor,
+                "y_min": y_min - pad,
+                "y_max": y_max + pad,
+            }
+
         # --- Skew/shape NLLs: distribution-MLE head + split-conformal ---
         # No samplers exist in families.py, so intervals come from conformal
         # residuals on the location column (honest: likelihood trains the
@@ -490,6 +560,45 @@ class DistributionalBinsSuite(HarnessRunner):
                 X_t,
             )
             return {"lower": lo, "upper": hi}
+
+        # --- MonteCarloCP → sample-based conformal intervals ---
+        elif model_type == "mc_cp":
+            model = model_state["model"]
+            flow_loss = model_state["flow"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                samples = flow_loss.sample(model(X_t), n_samples=256).squeeze(-1)
+                samples_np = samples.detach().cpu().numpy()
+            lo, hi = predictor.predict_interval(samples.T)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": samples_np,
+            }
+
+        # --- SLS_CP → calibrated grid level-set intervals (d=1) ---
+        elif model_type == "sls_cp":
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                ctx = model(X_t)
+            lo, hi = predictor.predict_interval_from_grid(
+                ctx, model_state["y_min"], model_state["y_max"]
+            )
+            import numpy as _np
+
+            lo_np = _np.asarray(lo.detach().cpu()).reshape(-1)
+            hi_np = _np.asarray(hi.detach().cpu()).reshape(-1)
+            return {
+                "lower": lo_np,
+                "upper": hi_np,
+                "y_pred": ((lo_np + hi_np) / 2.0).reshape(-1),
+            }
 
         # --- Skew/shape NLL + split-conformal on the location column ---
         elif model_type == "skew_cp":

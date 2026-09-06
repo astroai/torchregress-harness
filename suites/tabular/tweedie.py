@@ -84,9 +84,17 @@ class TweedieSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         # Linear + LBFGS parity variants (match statsmodels GLM)
-        linear_methods = ["Tweedie_Linear", "CompoundPoisson_Linear"]
+        linear_methods = ["Tweedie_Linear", "CompoundPoisson_Linear", "Gamma_Linear"]
         # MLP + Adam variants (original)
-        mlp_methods = ["Tweedie", "CompoundPoisson", "LogT", "BoxCox", "SqrtT"]
+        mlp_methods = [
+            "Tweedie",
+            "CompoundPoisson",
+            "Gamma",
+            "InverseGaussian",
+            "LogT",
+            "BoxCox",
+            "SqrtT",
+        ]
         methods = linear_methods + mlp_methods
         if _STATSMODELS_AVAILABLE:
             methods.append("statsmodels_GLM")
@@ -112,8 +120,16 @@ class TweedieSuite(HarnessRunner):
         X_train_np = splits["X_train"]
         y_train_np = splits["y_train"]
 
-        if method in ("Tweedie", "CompoundPoisson", "Tweedie_Linear", "CompoundPoisson_Linear"):
-            # Tweedie / compound Poisson require non-negative targets
+        if method in (
+            "Tweedie",
+            "CompoundPoisson",
+            "Tweedie_Linear",
+            "CompoundPoisson_Linear",
+            "Gamma",
+            "Gamma_Linear",
+            "InverseGaussian",
+        ):
+            # Tweedie family / fixed-p factories require non-negative targets
             if y_train_np.min() < 0:
                 raise ValueError(
                     f"{method} requires non-negative targets "
@@ -126,7 +142,15 @@ class TweedieSuite(HarnessRunner):
             y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             p_power = float(splits.get("p_power", 1.5))
-            if "Tweedie" in method:
+            if method.startswith("Gamma"):
+                from torchregress.losses import GammaLoss
+
+                loss_fn = GammaLoss()
+            elif method == "InverseGaussian":
+                from torchregress.losses import InverseGaussianLoss
+
+                loss_fn = InverseGaussianLoss()
+            elif "Tweedie" in method:
                 loss_fn = TweedieLoss(p=p_power)
             else:
                 loss_fn = CompoundPoissonLoss(p=p_power)
@@ -241,6 +265,12 @@ class TweedieSuite(HarnessRunner):
             return "MLP + torchregress.TweedieLoss on log-mean"
         elif method == "CompoundPoisson":
             return "MLP + torchregress.CompoundPoissonLoss on log-mean"
+        elif method == "Gamma":
+            return "MLP + GammaLoss factory (Tweedie p=2) on log-mean"
+        elif method == "Gamma_Linear":
+            return "linear model + GammaLoss via LBFGS"
+        elif method == "InverseGaussian":
+            return "MLP + InverseGaussianLoss factory (Tweedie p=3) on log-mean"
         elif method == "LogT":
             return "MLP + LogTransformLoss (log warp + MSE, inverted at predict)"
         elif method == "BoxCox":

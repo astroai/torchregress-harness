@@ -751,6 +751,8 @@ class ConformalSuite(HarnessRunner):
             "Zoo_Prevalence",
             "Zoo_Local",
             "Zoo_UACQR",
+            "Zoo_CVPlus",
+            "Zoo_EnbPI",
         ]
         if _TABICL_AVAILABLE:
             methods.append("Split+TabICL")
@@ -799,6 +801,8 @@ class ConformalSuite(HarnessRunner):
             "Zoo_Prevalence": "torchregress PrevalenceAdjustedCP (group-adjusted) on MLP base",
             "Zoo_Local": "torchregress LocalConformal (kernel-weighted, x-passed) on MLP base",
             "Zoo_UACQR": "torchregress UACQR (band-normalized) on MLP base",
+            "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
+            "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
             "Split+Linear": "single linear layer + ConformalLoss(split); matched-capacity baseline",
             "Split+Linear(post-hoc)": "single linear layer + MSE → post-hoc residual calibration; parity with MAPIE/crepes/torchcp",
@@ -909,9 +913,10 @@ class ConformalSuite(HarnessRunner):
             }
 
         # --- torchregress predictor zoo: post-hoc classes on an MLP base ---
-        # All six share calibrate(y_pred_cal, target_cal) + predict_interval
-        # (Local also takes x=). Fail-fast: no silent qhat reuse.
-        elif method.startswith("Zoo_"):
+        # Six share calibrate(y_pred_cal, target_cal) + predict_interval
+        # (Local also takes x=). CVPlus/EnbPI need refit loops → own branch
+        # below. Fail-fast: no silent qhat reuse.
+        elif method.startswith("Zoo_") and method not in ("Zoo_CVPlus", "Zoo_EnbPI"):
             from torchregress.losses.conformal import (
                 UACQR,
                 DensityConformal,
@@ -1004,6 +1009,65 @@ class ConformalSuite(HarnessRunner):
                 "alpha": alpha,
             }
 
+        # --- torchregress predictor zoo: CVPlus (K-fold refits) + EnbPI ---
+        # JackknifePlus is CVPlus with K=n (alias in the library) — no
+        # separate row: LOO refits don't scale; the K=5 row covers the API.
+        elif method in ("Zoo_CVPlus", "Zoo_EnbPI"):
+            from torchregress.losses.conformal import CVPlus, EnsembleBatchCP
+
+            n_folds, n_boot = 5, 5
+            members: list[nn.Module] = []
+            if method == "Zoo_CVPlus":
+                fold_id = torch.remainder(
+                    torch.randperm(
+                        X_train.shape[0], generator=torch.Generator().manual_seed(config.seed)
+                    ),
+                    n_folds,
+                ).to(dev)
+                oof = torch.empty_like(y_train)
+                for k in range(n_folds):
+                    mk = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+                    tr = fold_id != k
+                    _train_one(mk, nn.MSELoss(), X_train[tr], y_train[tr], config)
+                    mk.eval()
+                    with torch.no_grad():
+                        oof[~tr] = mk(X_train[~tr]).detach()
+                    members.append(mk)
+                predictor = CVPlus(alpha=alpha)
+                predictor.calibrate_ensemble(oof.detach(), y_train, fold_id)
+            else:
+                # True out-of-bag: per-sample mean over members whose
+                # bootstrap excluded it; ensemble-mean fallback if none did.
+                n = X_train.shape[0]
+                gen = torch.Generator().manual_seed(config.seed)
+                oob_sum = torch.zeros_like(y_train)
+                oob_cnt = torch.zeros_like(y_train)
+                for _ in range(n_boot):
+                    idx = torch.randint(0, n, (n,), generator=gen)
+                    mb = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+                    _train_one(mb, nn.MSELoss(), X_train[idx], y_train[idx], config)
+                    mb.eval()
+                    members.append(mb)
+                    seen = torch.zeros(n, dtype=torch.bool)
+                    seen[idx] = True
+                    with torch.no_grad():
+                        pred_all = mb(X_train).detach()
+                    oob_sum[~seen] += pred_all[~seen]
+                    oob_cnt[~seen] += 1.0
+                with torch.no_grad():
+                    ens_mean = torch.stack([m(X_train).detach() for m in members], dim=0).mean(
+                        dim=0
+                    )
+                oob_pred = torch.where(oob_cnt > 0, oob_sum / oob_cnt.clamp_min(1.0), ens_mean)
+                predictor = EnsembleBatchCP(alpha=alpha)
+                predictor.calibrate(oob_pred.detach(), y_train)
+            return {
+                "type": "zoo_members",
+                "members": members,
+                "predictor": predictor,
+                "alpha": alpha,
+            }
+
         # --- External: run the fit-half here and carry the fitted predictor ---
         # (conformalization/calibration) through the state dict, so predict()
         # performs only inference and runner train_s/eval_s timings are truthful.
@@ -1086,6 +1150,26 @@ class ConformalSuite(HarnessRunner):
             return {
                 "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
                 "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+            }
+        elif model_type == "zoo_members":
+            # CVPlus takes the member stack [K, B, 1]; EnbPI the mean.
+            from torchregress.losses.conformal import CVPlus
+
+            members = model_state["members"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                stack = torch.stack([m(X_test_t) for m in members], dim=0)
+            import numpy as _np
+
+            if isinstance(predictor, CVPlus):
+                lo, hi = predictor.predict_interval(stack)
+            else:
+                lo, hi = predictor.predict_interval(stack.mean(dim=0))
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+                "y_pred": _np.asarray(stack.mean(dim=0).detach().cpu()).reshape(-1),
             }
         elif model_type == "zoo":
             model = model_state["model"]
