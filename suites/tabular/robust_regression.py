@@ -31,6 +31,7 @@ from torchregress.losses import (
     CauchyLoss,
     CharbonnierLoss,
     CVaRLoss,
+    ExpectileCrossoverLoss,
     ExpectileLoss,
     LogCoshLoss,
     MultiExpectileLoss,
@@ -182,6 +183,7 @@ class RobustRegressionSuite(HarnessRunner):
                 "sklearn_QuantileRegressor",  # sklearn: QuantileRegressor via LP
                 "MultiExpectile",  # torchregress: MLP 3-expectile head (MLP-only)
                 "QuantileCrossover",  # torchregress: 3-quantile head + crossing penalty
+                "ExpectileCrossover",  # torchregress: 3-expectile head + crossing penalty
             ]
         )
         if _STATSMODELS_AVAILABLE:
@@ -214,6 +216,8 @@ class RobustRegressionSuite(HarnessRunner):
             return "MLP 3-expectile head [0.1,0.5,0.9] — median point + outer interval"
         if method == "QuantileCrossover":
             return "MLP 3-quantile head + crossing penalty — ordered intervals"
+        if method == "ExpectileCrossover":
+            return "MLP 3-expectile head + crossing penalty — ordered expectiles"
         if method.endswith("_Linear"):
             base = method[:-7]  # strip "_Linear" suffix
             if base in _TORCHREGRESS_LOSSES:
@@ -284,6 +288,32 @@ class RobustRegressionSuite(HarnessRunner):
             model = _MLP(in_dim, hidden, out_dim=3)
             loss_fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9])
             _train_one(model, loss_fn, X, y, config, loss_params=loss_fn.parameters())
+            model.eval()
+
+            return {"type": "multi_expectile", "model": model}
+
+        # --- Torchregress: ExpectileCrossover (MLP 3-head + crossing penalty) ---
+        elif method == "ExpectileCrossover":
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+
+            in_dim = X.shape[1]
+            hidden = _hidden_size(in_dim)
+            model = _MLP(in_dim, hidden, out_dim=3)
+            # Crossover expects [B, K, F]; the MLP emits [B, K] (F=1).
+            base = ExpectileCrossoverLoss(expectiles=[0.1, 0.5, 0.9])
+
+            class _UnsqueezeLast(torch.nn.Module):
+                def forward(
+                    self,
+                    y_pred: torch.Tensor,
+                    target: torch.Tensor,
+                    **kwargs: Any,
+                ) -> torch.Tensor:
+                    return base(y_pred.unsqueeze(-1), target, **kwargs)
+
+            loss_fn = _UnsqueezeLast()
+            _train_one(model, loss_fn, X, y, config)
             model.eval()
 
             return {"type": "multi_expectile", "model": model}
