@@ -203,6 +203,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "Evidential",
             "MC_CP",
             "SLS_CP",
+            "CTI",
             "SkewNormal",
             "SkewT",
             "BetaRegression",
@@ -249,6 +250,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "Evidential": "NIG evidential regression → Student-t predictive intervals",
             "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
             "SLS_CP": "SLS frontier (d=1) + SLSConformal grid predictor",
+            "CTI": "NSF flow density + Conformal Thresholded Intervals (level sets)",
             "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
         }
         if method in _SKEW_METHODS:
@@ -491,6 +493,43 @@ class DistributionalBinsSuite(HarnessRunner):
                 "y_max": y_max + pad,
             }
 
+        # --- CTI: NF density + Conformal Thresholded Intervals ---
+        elif method == "CTI":
+            from torchregress.losses.conformal import CTI
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(flow.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                log_dens_cal = loss_fn.log_prob(model(X_cal), y_cal)
+            predictor = CTI(alpha=0.1)
+            predictor.calibrate(log_dens_cal.detach(), y_cal.reshape(-1))
+            y_min = float(y_train.min())
+            y_max = float(y_train.max())
+            pad = max(y_max - y_min, 1e-3) * 0.1
+            return {
+                "type": "cti",
+                "model": model,
+                "flow": loss_fn,
+                "predictor": predictor,
+                "y_min": y_min - pad,
+                "y_max": y_max + pad,
+            }
+
         # --- Skew/shape NLLs: distribution-MLE head + split-conformal ---
         # No samplers exist in families.py, so intervals come from conformal
         # residuals on the location column (honest: likelihood trains the
@@ -597,6 +636,42 @@ class DistributionalBinsSuite(HarnessRunner):
                 "upper": hi_np,
                 "y_pred": ((lo_np + hi_np) / 2.0).reshape(-1),
             }
+
+        # --- CTI → density level-set intervals from the NF ---
+        elif model_type == "cti":
+            model = model_state["model"]
+            flow_loss = model_state["flow"]
+            predictor = model_state["predictor"]
+            model.eval()
+
+            def _density_fn(y_grid: torch.Tensor, xb: torch.Tensor) -> torch.Tensor:
+                # (G,) grid × (B, f) inputs → (B, G) log-densities.
+                with torch.no_grad():
+                    ctx = model(xb)
+                    B = ctx.shape[0]
+                    G = y_grid.numel()
+                    ctx_rep = ctx.unsqueeze(1).expand(-1, G, -1).reshape(B * G, -1)
+                    y_rep = y_grid.reshape(1, -1, 1).expand(B, -1, -1).reshape(B * G, 1)
+                    return flow_loss.log_prob(ctx_rep, y_rep).reshape(B, G)
+
+            lo, hi = predictor.predict_intervals_from_density(
+                _density_fn, X_t, model_state["y_min"], model_state["y_max"]
+            )
+            import numpy as _np
+
+            lo_np = _np.asarray(lo.detach().cpu()).reshape(-1)
+            hi_np = _np.asarray(hi.detach().cpu()).reshape(-1)
+            with torch.no_grad():
+                mean_np = (
+                    flow_loss.sample(model(X_t), n_samples=64)
+                    .squeeze(-1)
+                    .mean(dim=1)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .reshape(-1)
+                )
+            return {"lower": lo_np, "upper": hi_np, "y_pred": mean_np}
 
         # --- Skew/shape NLL + split-conformal on the location column ---
         elif model_type == "skew_cp":
