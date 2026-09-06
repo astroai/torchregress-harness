@@ -272,6 +272,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MultivariateGaussian",
             "WassersteinBound",
             "MultiTargetCP",
+            "MVScore",
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
@@ -310,6 +311,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "GaussianNLL": "diagonal Gaussian NLL \u2192 marginal \u03bc \u00b1 z\u00b7\u03c3 intervals per output dim",
             "MultivariateGaussian": "full-covariance Gaussian NLL via Cholesky factor \u2192 marginal std from cov diagonal",
             "MultiTargetCP": "per-dimension conformal thresholds on a point MLP",
+            "MVScore": "Mahalanobis-score conformal regions (bounding-box intervals)",
             "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
             "NormalizingFlow": "zuko NSF flow \u2192 sample-based quantile intervals per output dim",
             "SLS": "Super-Level-Set regression \u2192 boundary sampling + inverse flow \u2192 marginal intervals per output dim",
@@ -362,6 +364,32 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config)
             model.eval()
             return {"type": "multivariate_gaussian", "model": model, "n_features": D}
+
+        # --- MVScore: Mahalanobis-score conformal regions on an MV base ---
+        # Region {y : (y-mu)^T Sigma^-1 (y-mu) <= r}; reported as the
+        # bounding box mu ± sqrt(r * diag(Sigma)) per dim (conservative).
+        elif method == "MVScore":
+            from torchregress.losses import MultivariateGaussianLoss
+            from torchregress.losses.conformal import MultivariateScoreConformal
+
+            n_params = D + D * (D + 1) // 2
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=n_params)
+            mv_loss = MultivariateGaussianLoss(n_features=D)
+            loss_fn = _CholeskyGaussianLossWrapper(D, mv_loss)
+            _train_one(model, loss_fn, X, y, config)
+            model.eval()
+            n = X.shape[0]
+            n_cal = max(10, n // 5)
+            gen = torch.Generator(device="cpu").manual_seed(config.seed)
+            perm = torch.randperm(n, generator=gen)
+            Xc, yc = X[perm[:n_cal]], y[perm[:n_cal]]
+            with torch.no_grad():
+                out_c = model(Xc)
+                mu_c = out_c[:, :D]
+                cov_c = _covariance_from_cholesky_params(out_c[:, D:], D)
+            predictor = MultivariateScoreConformal(alpha=0.1)
+            predictor.calibrate(mu_c.detach(), cov_c.detach(), yc)
+            return {"type": "mvscore", "model": model, "predictor": predictor, "n_features": D}
 
         # --- MultiTargetCP: per-dimension conformal on a point MLP ---
         elif method == "MultiTargetCP":
@@ -613,6 +641,30 @@ class MultivariateIntervalsSuite(HarnessRunner):
             return {
                 "lower": lo_np.reshape(-1),
                 "upper": hi_np.reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (N, D),
+            }
+
+        # --- MVScore → ellipsoid bounding-box intervals ---
+        elif model_type == "mvscore":
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                mean = out[:, :D]
+                cov = _covariance_from_cholesky_params(out[:, D:], D)
+            r = predictor.region_radius()
+            r_val = float(r.detach().cpu()) if isinstance(r, torch.Tensor) else float(r)
+            var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8)
+            half = np.sqrt(r_val * var.detach().cpu().numpy())
+            mean_np = mean.detach().cpu().numpy()
+            N = len(X_test)
+            return {
+                "lower": (mean_np - half).reshape(-1),
+                "upper": (mean_np + half).reshape(-1),
                 "y_pred": mean_np.reshape(-1),
                 "_multi_output": True,
                 "_n_features": D,
