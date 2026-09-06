@@ -153,6 +153,8 @@ ALL_JOBS=(
   "censored_imaging tcga_survival_tiny"
   "censored_imaging tcga_survival"
   "image_conformal utkface_age_tiny"
+  "conformal diabetes"
+  "conformal california_housing"
   "image_ensembles_uq utkface_age_tiny"
   "image_robust utkface_age_tiny"
   "image_calibration utkface_age_tiny"
