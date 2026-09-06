@@ -90,6 +90,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
             "UNet+GaussianNLL",
             "UNet+BetaNLL",
             "UNet+FaithfulGaussian",
+            "UNet+CRPS",
             "UNet+Evidential",
             "UNet+MDN_K3",
             "UNet+MultiQuantile",
@@ -110,6 +111,7 @@ class DepthEstimationSuite(ImageHarnessRunner):
             "UNet+GaussianNLL": "UNet backbone + per-pixel Gaussian NLL (mean + log-var per pixel)",
             "UNet+BetaNLL": "UNet + per-pixel BetaNLL(beta=0.5) anti-collapse variant",
             "UNet+FaithfulGaussian": "UNet + per-pixel Faithful decoupled Gaussian NLL",
+            "UNet+CRPS": "UNet + per-pixel Gaussian CRPS (tail-robust proper score)",
             "UNet+Evidential": "UNet backbone + per-pixel NIG evidential regression",
             "UNet+MDN_K3": "UNet + 3-component per-pixel mixture density network",
             "UNet+MultiQuantile": "UNet + 3-quantile head per pixel (0.05/0.5/0.95)",
@@ -319,6 +321,17 @@ class DepthEstimationSuite(ImageHarnessRunner):
                 self._train_masked(model, FaithfulGaussianLoss(split_dim=1), train_loader, config)
             else:
                 _train_image_model(model, FaithfulGaussianLoss(split_dim=1), train_loader, config)
+            return {"type": "gaussian_nll", "model": model, "sparse": masked}
+
+        # --- UNet+CRPS (same 2ch dense layout) ---
+        elif method == "UNet+CRPS":
+            from torchregress.losses import GaussianCRPSLoss
+
+            model = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
+            if masked:
+                self._train_masked(model, GaussianCRPSLoss(split_dim=1), train_loader, config)
+            else:
+                _train_image_model(model, GaussianCRPSLoss(split_dim=1), train_loader, config)
             return {"type": "gaussian_nll", "model": model, "sparse": masked}
 
         # --- UNet+Evidential ---

@@ -178,6 +178,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+GaussianNLL",
             "CNN+BetaNLL",
             "CNN+FaithfulGaussian",
+            "CNN+CRPS",
             "CNN+PoissonGaussian",
             "CNN+ObservedStdNLL",
             "CNN+SLS",
@@ -240,6 +241,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+GaussianNLL": "4-layer CNN backbone + diagonal Gaussian NLL loss",
             "CNN+BetaNLL": "4-layer CNN + BetaNLL(beta=0.5) anti-collapse variant (same 2-head)",
             "CNN+FaithfulGaussian": "4-layer CNN + Faithful MSE/NLL-decoupled Gaussian (same 2-head)",
+            "CNN+CRPS": "4-layer CNN + Gaussian CRPS (proper score, tail-robust NLL alternative)",
             "CNN+PoissonGaussian": "4-layer CNN + Poisson-Gaussian imaging-noise NLL (log-lambda head, point)",
             "CNN+ObservedStdNLL": "4-layer CNN + NoisyTarget NLL on observed rater std (APPA-REAL aleatoric gold)",
             "CNN+SLS": "4-layer CNN context + SLS min-volume level-set regions (tau=0.9)",
@@ -318,6 +320,14 @@ class AgeRegressionSuite(ImageHarnessRunner):
 
             model = self._build_cnn(in_channels=in_channels, out_dim=2)
             _train_image_model(model, GaussianNLLLoss(), train_loader, config)
+            return {"type": "gaussian_nll", "model": model}
+
+        # --- CRPS (same 2-head layout as GaussianNLL) ---
+        elif method == "CNN+CRPS":
+            from torchregress.losses import GaussianCRPSLoss
+
+            model = self._build_cnn(in_channels=in_channels, out_dim=2)
+            _train_image_model(model, GaussianCRPSLoss(), train_loader, config)
             return {"type": "gaussian_nll", "model": model}
 
         # --- BetaNLL / FaithfulGaussian (drop-in 2-head anti-collapse variants) ---
