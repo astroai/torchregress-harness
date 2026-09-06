@@ -276,6 +276,9 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
+            # SLS_lowrank parked: low_rank frontier internals differ
+            # (tuple-structured params); boundary-sampling predict path
+            # only supports full mode. Re-enable with predict support.
         ]
 
     def library_name(self, method: str) -> str:
