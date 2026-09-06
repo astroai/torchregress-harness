@@ -98,15 +98,15 @@ for repo in torchregress torchregress-harness; do
 done
 
 cd "$WORK/torchregress-harness"
-log "pixi install (3 attempts; transient mirror timeouts are common)"
-for attempt in 1 2 3; do
-  if pixi install 2>&1 | tail -n 3; then
+log "pixi install (5 attempts; transient mirror timeouts are common)"
+for attempt in 1 2 3 4 5; do
+  if pixi install 2>&1 | tee "$OUT_DIR/pixi_install_attempt${attempt}.log" | tail -n 3; then
     break
   fi
-  log "pixi install attempt $attempt failed; retrying in 30s"
-  sleep 30
-  if [[ "$attempt" == 3 ]]; then
-    log "FATAL: pixi install failed 3x — aborting (infra, not code)"
+  log "pixi install attempt $attempt failed; retrying in 60s"
+  sleep 60
+  if [[ "$attempt" == 5 ]]; then
+    log "FATAL: pixi install failed 5x — aborting (infra, not code)"
     exit 3
   fi
 done
