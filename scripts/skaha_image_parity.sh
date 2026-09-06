@@ -62,7 +62,7 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 # Plain output: the `canfar logs` renderer crashes on ANSI/box-drawing.
 export NO_COLOR=1
 export TERM=dumb
-export PIXI_NO_PROGRESS=1
+export PIXI_NO_PROGRESS=true
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
