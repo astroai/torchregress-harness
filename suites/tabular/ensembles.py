@@ -115,6 +115,9 @@ class EnsemblesSuite(HarnessRunner):
         "DeepEnsemble_MSE",
         "DeepEnsemble_GaussianNLL",
         "DeepEnsemble_MultiQuantile",
+        "MDNEnsemble",
+        "LaplaceMAP",
+        "Snapshot",
     ]
 
     _SKLEARN_METHODS: list[str] = [
@@ -136,6 +139,9 @@ class EnsemblesSuite(HarnessRunner):
             "DeepEnsemble_MSE": f"{_N_ENSEMBLE}× MLP + MSE → mean of point predictions",
             "DeepEnsemble_GaussianNLL": f"{_N_ENSEMBLE}× MLP + BetaNLL → mixture mean & std",
             "DeepEnsemble_MultiQuantile": f"{_N_ENSEMBLE}× MLP + MultiQuantile → mean of quantiles",
+            "MDNEnsemble": "3× MDN heads (K=2) → mixture-mean point prediction",
+            "LaplaceMAP": "MAP MLP + FullNetworkLaplace post-hoc (mean, var, intervals)",
+            "Snapshot": "cyclical snapshots (3) → mean/var predictive intervals",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
             "sklearn_BaggingRegressor": "Bagging(DecisionTreeRegressor, n=100)",
@@ -203,6 +209,84 @@ class EnsemblesSuite(HarnessRunner):
                     model.eval()
                     models.append(model)
                 return {"type": "multiquantile", "models": models, "quantiles": [0.1, 0.5, 0.9]}
+
+            elif method == "MDNEnsemble":
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import MDNEnsembleModel
+                from torchregress.losses import MixtureDensityLoss
+
+                mdn_loss = MixtureDensityLoss(n_components=2, n_features=1)
+                ens = MDNEnsembleModel(
+                    _MLP,
+                    ensemble_size=3,
+                    n_components=2,
+                    n_features=1,
+                    in_dim=in_dim,
+                    hidden=hidden,
+                    out_dim=mdn_loss.expected_output_size,
+                )
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                ens.fit(
+                    loader,
+                    mdn_loss,
+                    epochs=config.epochs,
+                    verbose=False,
+                    device=str(current_device()),
+                )
+                return {"type": "mdn_ensemble", "model": ens, "loss_fn": mdn_loss}
+            elif method == "LaplaceMAP":
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import FullNetworkLaplace
+
+                model = _MLP(in_dim, hidden, out_dim=1)
+                opt = optim.Adam(model.parameters(), lr=config.lr)
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                model.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(current_device()), yb.to(current_device())
+                        opt.zero_grad(set_to_none=True)
+                        nn.MSELoss()(model(Xb), yb).backward()
+                        opt.step()
+                model.eval()
+                lap = FullNetworkLaplace(model.to(current_device()))
+                lap.fit(loader, nn.MSELoss(reduction="none"))
+                return {"type": "laplace", "model": lap, "base": model}
+
+            elif method == "Snapshot":
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import SnapshotEnsemble
+
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                sn = SnapshotEnsemble(
+                    _MLP(in_dim, hidden, out_dim=1),
+                    n_snapshots=3,
+                    cycle_epochs=max(1, config.epochs // 3),
+                )
+                sn.fit(loader, epochs=config.epochs, device=str(current_device()))
+                return {"type": "snapshot", "model": sn}
 
             else:
                 raise ValueError(f"Unknown method: {method}")
@@ -288,6 +372,62 @@ class EnsemblesSuite(HarnessRunner):
             med = np.stack(meds, axis=0).mean(axis=0)
             hi = np.stack(his, axis=0).mean(axis=0)
             return {"y_pred": med, "lower": lo, "upper": hi}
+
+        # --- torchregress: MDNEnsemble → mixture-mean point prediction ---
+        elif model_type == "mdn_ensemble":
+            ens = model_state["model"]
+            loss_fn = model_state["loss_fn"]
+            ens.eval()
+            with torch.no_grad():
+                out = ens(torch.from_numpy(X_test).float().to(current_device()))
+                # Forward returns (ensemble, N, out_dim) member params.
+                if isinstance(out, torch.Tensor) and out.dim() == 3:
+                    means = []
+                    for k in range(out.shape[0]):
+                        mk, _ = loss_fn.predict_mean_std(out[k])
+                        means.append(mk.reshape(-1).detach().cpu().numpy())
+                    y_pred = np.stack(means, axis=0).mean(axis=0)
+                else:
+                    y_pred = out.reshape(-1).detach().cpu().numpy()
+            return {"y_pred": y_pred}
+
+        # --- torchregress: LaplaceMAP → posterior mean/var + intervals ---
+        # Point prediction is the MAP (base net); the Laplace posterior only
+        # supplies the variance — its MC mean is unstable at smoke budgets.
+        elif model_type == "laplace":
+            lap = model_state["model"]
+            base = model_state["base"]
+            Xt = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                mean_np = base(Xt).reshape(-1).detach().cpu().numpy()
+                _, var = lap.predict_with_uncertainty(Xt)
+            std_np = np.sqrt(var.reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: Snapshot → snapshot mean/var intervals ---
+        elif model_type == "snapshot":
+            sn = model_state["model"]
+            with torch.no_grad():
+                mean, var = sn.predict_with_uncertainty(
+                    torch.from_numpy(X_test).float().to(current_device())
+                )
+            mean_np = np.asarray(mean).reshape(-1)
+            std_np = np.sqrt(np.asarray(var).reshape(-1).clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
 
         # --- sklearn ensembles ---
         elif model_type == "sklearn":

@@ -367,7 +367,6 @@ class MultivariateIntervalsSuite(HarnessRunner):
         elif method == "WassersteinBound":
             import torch.optim as optim
             from torch.utils.data import DataLoader, TensorDataset
-
             from torchregress.algorithms.covariance_pseudo_labels import (
                 NeighborhoodCovariancePseudoLabeler,
             )
@@ -539,9 +538,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             with torch.no_grad():
                 out = model(torch.from_numpy(X_test).float().to(current_device()))
                 mean = out[:, :D].detach().cpu().numpy()
-                std = np.sqrt(
-                    F.softplus(out[:, D:]).clamp_min(1e-8).detach().cpu().numpy()
-                )
+                std = np.sqrt(F.softplus(out[:, D:]).clamp_min(1e-8).detach().cpu().numpy())
             lower = mean - z_score * std
             upper = mean + z_score * std
             return {
