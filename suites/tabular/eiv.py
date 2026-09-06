@@ -44,11 +44,16 @@ from torchregress.losses import (
     FunctionalEIVLoss,
     GaussianNLLLoss,
     InputNoiseAugmentationLoss,
+    LatentMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
     WeightedMSELoss,
 )
-from torchregress.losses.eiv import NoisyInputPredictor
+from torchregress.losses.eiv import (
+    InputNoiseBinnedPDFLoss,
+    InputNoiseMDNLoss,
+    NoisyInputPredictor,
+)
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
@@ -165,6 +170,20 @@ def _eiv_predict(
             X = torch.from_numpy(X_np).float().to(current_device())
             return noisy_pred(X).squeeze(-1).detach().cpu().numpy()
 
+    if model_type == "mdn_eiv":
+        loss_fn = model_state["loss_fn"]
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float().to(current_device())
+            mean, _ = loss_fn.predict_mean_std(m(X))
+            return mean.squeeze(-1).detach().cpu().numpy()
+
+    if model_type == "binned_eiv":
+        centers = model_state["centers"].to(current_device())
+        with torch.no_grad():
+            X = torch.from_numpy(X_np).float().to(current_device())
+            probs = torch.softmax(m(X), dim=-1)
+            return (probs @ centers).squeeze(-1).detach().cpu().numpy()
+
     # Torch models
     with torch.no_grad():
         X = torch.from_numpy(X_np).float().to(current_device())
@@ -218,6 +237,9 @@ class EIVSuite(HarnessRunner):
             "ODR",
             "EnsembleEIV",
             "InputNoiseMC",
+            "InputNoiseMDN",
+            "InputNoiseBinnedPDF",
+            "LatentMarginalization",
             "MSE_NoisyPredict",
             "LatentNN",
             "NoiseAware",
@@ -428,6 +450,85 @@ class EIVSuite(HarnessRunner):
                 base_loss=WeightedMSELoss(),
                 sigma_x=sigma_x,
                 n_samples=20,
+            )
+            _train_eiv(model, loss_fn, X, y, config)
+            result = {"type": "torch", "model": model}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
+
+        elif method == "InputNoiseMDN":
+            # MDN head under input-noise marginalization (multimodal EIV).
+            from torchregress.losses import MixtureDensityLoss
+
+            mdn = MixtureDensityLoss(n_components=3, n_features=out_dim)
+            model = _MLP(in_dim, hidden, out_dim=mdn.expected_output_size)
+            loss_fn = InputNoiseMDNLoss(
+                model=model,
+                n_components=3,
+                n_features=out_dim,
+                sigma_x=sigma_x,
+            )
+            _train_eiv(model, loss_fn, X, y, config)
+            result = {"type": "mdn_eiv", "model": model, "loss_fn": mdn}
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
+
+        elif method == "InputNoiseBinnedPDF":
+            # Binned-PDF marginalization over an ordinal head: discretize
+            # targets into quantile bins, train class logits under noise.
+            # (No local torch import: module-global torch must win.)
+            n_bins = 10
+            y_np = np.asarray(splits["y_train"]).reshape(-1)
+            edges = np.quantile(y_np, np.linspace(0, 1, n_bins + 1)).astype(np.float32)
+            edges[0], edges[-1] = -np.inf, np.inf
+            centers = (
+                (
+                    np.quantile(y_np, np.linspace(0, 1, n_bins + 1))[:-1]
+                    + np.quantile(y_np, np.linspace(0, 1, n_bins + 1))[1:]
+                )
+                / 2.0
+            ).astype(np.float32)
+            model = _MLP(in_dim, hidden, n_bins)
+            loss_fn = InputNoiseBinnedPDFLoss(model=model, sigma_x=sigma_x)
+            dev = current_device()
+            y_idx = torch.from_numpy(np.clip(np.digitize(y_np, edges) - 1, 0, n_bins - 1)).long()
+            loader = DataLoader(
+                TensorDataset(torch.from_numpy(np.asarray(splits["X_train"])).float(), y_idx),
+                batch_size=config.batch_size,
+                shuffle=True,
+            )
+            opt = torch.optim.Adam(model.parameters(), lr=config.lr)
+            model.train()
+            for _ in range(config.epochs):
+                for Xb, yb in loader:
+                    opt.zero_grad(set_to_none=True)
+                    loss = loss_fn(Xb.to(dev), yb.to(dev))
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            result = {
+                "type": "binned_eiv",
+                "model": model,
+                "centers": torch.from_numpy(centers).float(),
+            }
+            if _X_test_true is not None:
+                result["_X_test_true"] = _X_test_true
+            return result
+
+        elif method == "LatentMarginalization":
+            # Analytic marginalization over latent clean inputs (Gaussian).
+            # Prior moments from the noisy train inputs (empirical Bayes).
+            model = _MLP(in_dim, hidden, out_dim)
+            prior_mean = X.mean(dim=0)
+            prior_cov = torch.diag(X.var(dim=0, unbiased=False).clamp_min(1e-6))
+            loss_fn = LatentMarginalizationLoss(
+                model=model,
+                base_loss=WeightedMSELoss(),
+                prior_mean=prior_mean,
+                prior_cov=prior_cov,
+                sigma_u=sigma_x,
             )
             _train_eiv(model, loss_fn, X, y, config)
             result = {"type": "torch", "model": model}
@@ -877,6 +978,13 @@ class EIVSuite(HarnessRunner):
             ),
             "InputNoiseMC": (
                 "MLP + InputNoiseMarginalizationLoss(MSE) — proper MC marginalisation over input noise"
+            ),
+            "InputNoiseMDN": ("MDN head + InputNoiseMDNLoss — multimodal EIV marginalization"),
+            "InputNoiseBinnedPDF": (
+                "MLP + InputNoiseBinnedPDFLoss — nonparametric binned-PDF marginalization"
+            ),
+            "LatentMarginalization": (
+                "MLP + LatentMarginalizationLoss — analytic Gaussian marginalization"
             ),
             "MSE_NoisyPredict": (
                 "MSE-trained MLP + NoisyInputPredictor — MC averaging at inference time only"
