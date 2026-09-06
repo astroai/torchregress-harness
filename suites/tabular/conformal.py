@@ -750,6 +750,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_Density",
             "Zoo_Prevalence",
             "Zoo_Local",
+            "Zoo_LocalMAD",
             "Zoo_UACQR",
             "Zoo_CVPlus",
             "Zoo_EnbPI",
@@ -801,6 +802,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_Prevalence": "torchregress PrevalenceAdjustedCP (group-adjusted) on MLP base",
             "Zoo_Local": "torchregress LocalConformal (kernel-weighted, x-passed) on MLP base",
             "Zoo_UACQR": "torchregress UACQR (band-normalized) on MLP base",
+            "Zoo_LocalMAD": "torchregress LocalConformalMAD (MAD-scaled) on Gaussian base",
             "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
             "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
@@ -914,9 +916,13 @@ class ConformalSuite(HarnessRunner):
 
         # --- torchregress predictor zoo: post-hoc classes on an MLP base ---
         # Six share calibrate(y_pred_cal, target_cal) + predict_interval
-        # (Local also takes x=). CVPlus/EnbPI need refit loops → own branch
-        # below. Fail-fast: no silent qhat reuse.
-        elif method.startswith("Zoo_") and method not in ("Zoo_CVPlus", "Zoo_EnbPI"):
+        # (Local also takes x=). CVPlus/EnbPI/LocalMAD need refit loops or
+        # special bases → own branches below. Fail-fast: no silent qhat reuse.
+        elif method.startswith("Zoo_") and method not in (
+            "Zoo_CVPlus",
+            "Zoo_EnbPI",
+            "Zoo_LocalMAD",
+        ):
             from torchregress.losses.conformal import (
                 UACQR,
                 DensityConformal,
@@ -1068,6 +1074,35 @@ class ConformalSuite(HarnessRunner):
                 "alpha": alpha,
             }
 
+        # --- torchregress: LocalConformalMAD on a Gaussian base ---
+        elif method == "Zoo_LocalMAD":
+            from torchregress.losses import GaussianNLLLoss
+            from torchregress.losses.conformal import LocalConformalMAD
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
+            _train_one(model, GaussianNLLLoss(), X_train, y_train, config)
+            model.eval()
+            with torch.no_grad():
+                out_cal = model(X_cal)
+                mad_cal = torch.exp(out_cal[:, 1:2]).sqrt().clamp_min(1e-6)
+            mu = X_train.mean(dim=0, keepdim=True)
+            sd = X_train.std(dim=0, keepdim=True).clamp_min(1e-8)
+            with torch.no_grad():
+                d = torch.cdist(((X_cal - mu) / sd)[:256], ((X_cal - mu) / sd)[:256])
+                bw = float(torch.quantile(d, 0.9).clamp_min(0.5))
+            predictor = LocalConformalMAD(alpha=alpha, bandwidth=bw)
+            with torch.no_grad():
+                p_cal = model(X_cal)[:, 0:1]
+            predictor.calibrate(p_cal, y_cal, x=(X_cal - mu) / sd, mad=mad_cal)
+            return {
+                "type": "zoo_localmad",
+                "model": model,
+                "predictor": predictor,
+                "kernel_mu": mu,
+                "kernel_sd": sd,
+                "alpha": alpha,
+            }
+
         # --- External: run the fit-half here and carry the fitted predictor ---
         # (conformalization/calibration) through the state dict, so predict()
         # performs only inference and runner train_s/eval_s timings are truthful.
@@ -1183,6 +1218,25 @@ class ConformalSuite(HarnessRunner):
                 lo, hi = predictor.predict_interval(p_test, x=(X_test_t - mu) / sd)
             else:
                 lo, hi = predictor.predict_interval(p_test)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+            }
+        elif model_type == "zoo_localmad":
+            import torch.nn.functional as _F
+
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                out = model(X_test_t)
+                p_test = out[:, 0:1]
+                mad_test = torch.exp(out[:, 1:2]).sqrt().clamp_min(1e-6)
+            mu = model_state["kernel_mu"].to(X_test_t.device)
+            sd = model_state["kernel_sd"].to(X_test_t.device)
+            lo, hi = predictor.predict_interval(p_test, x=(X_test_t - mu) / sd, mad=mad_test)
             import numpy as _np
 
             return {

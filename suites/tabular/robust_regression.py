@@ -30,11 +30,14 @@ from torchregress.losses import (
     BarronLoss,
     CauchyLoss,
     CharbonnierLoss,
+    CVaRLoss,
     ExpectileLoss,
     LogCoshLoss,
     MultiExpectileLoss,
     MultiQuantileLoss,
     PseudoHuberLoss,
+    QuantileCrossoverLoss,
+    QuantileLoss,
     TukeyBiweightLoss,
     WeightedHuberLoss,
     WeightedL1Loss,
@@ -103,6 +106,14 @@ _TORCHREGRESS_LOSSES: dict[str, tuple] = {
         lambda: PseudoHuberLoss(delta=1.0, reduction="mean"),
         "smooth Huber approximation",
     ),
+    "CVaR": (
+        lambda: CVaRLoss(alpha=0.1, base_loss="mse", reduction="mean"),
+        "mean over worst-10% sample losses (tail-risk)",
+    ),
+    "Quantile05": (
+        lambda: QuantileLoss(quantile=0.5, reduction="mean"),
+        "single-quantile pinball τ=0.5 (median)",
+    ),
     "Expectile01": (
         lambda: ExpectileLoss(expectile=0.1, reduction="mean"),
         "asymmetric L2, τ=0.1 (ALS family)",
@@ -170,6 +181,7 @@ class RobustRegressionSuite(HarnessRunner):
                 "Quantile_Linear",  # torchregress: _Linear + MultiQuantileLoss via LBFGS
                 "sklearn_QuantileRegressor",  # sklearn: QuantileRegressor via LP
                 "MultiExpectile",  # torchregress: MLP 3-expectile head (MLP-only)
+                "QuantileCrossover",  # torchregress: 3-quantile head + crossing penalty
             ]
         )
         if _STATSMODELS_AVAILABLE:
@@ -200,6 +212,8 @@ class RobustRegressionSuite(HarnessRunner):
             return "linear median regression via linear programming (solver=highs)"
         if method == "MultiExpectile":
             return "MLP 3-expectile head [0.1,0.5,0.9] — median point + outer interval"
+        if method == "QuantileCrossover":
+            return "MLP 3-quantile head + crossing penalty — ordered intervals"
         if method.endswith("_Linear"):
             base = method[:-7]  # strip "_Linear" suffix
             if base in _TORCHREGRESS_LOSSES:
@@ -255,6 +269,20 @@ class RobustRegressionSuite(HarnessRunner):
             hidden = _hidden_size(in_dim)
             model = _MLP(in_dim, hidden, out_dim=3)
             loss_fn = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9])
+            _train_one(model, loss_fn, X, y, config, loss_params=loss_fn.parameters())
+            model.eval()
+
+            return {"type": "multi_expectile", "model": model}
+
+        # --- Torchregress: QuantileCrossover (MLP 3-head + crossing penalty) ---
+        elif method == "QuantileCrossover":
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+
+            in_dim = X.shape[1]
+            hidden = _hidden_size(in_dim)
+            model = _MLP(in_dim, hidden, out_dim=3)
+            loss_fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9])
             _train_one(model, loss_fn, X, y, config, loss_params=loss_fn.parameters())
             model.eval()
 

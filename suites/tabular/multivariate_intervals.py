@@ -271,6 +271,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "GaussianNLL",
             "MultivariateGaussian",
             "WassersteinBound",
+            "MultiTargetCP",
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
@@ -308,6 +309,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
         notes = {
             "GaussianNLL": "diagonal Gaussian NLL \u2192 marginal \u03bc \u00b1 z\u00b7\u03c3 intervals per output dim",
             "MultivariateGaussian": "full-covariance Gaussian NLL via Cholesky factor \u2192 marginal std from cov diagonal",
+            "MultiTargetCP": "per-dimension conformal thresholds on a point MLP",
             "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
             "NormalizingFlow": "zuko NSF flow \u2192 sample-based quantile intervals per output dim",
             "SLS": "Super-Level-Set regression \u2192 boundary sampling + inverse flow \u2192 marginal intervals per output dim",
@@ -360,6 +362,29 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config)
             model.eval()
             return {"type": "multivariate_gaussian", "model": model, "n_features": D}
+
+        # --- MultiTargetCP: per-dimension conformal on a point MLP ---
+        elif method == "MultiTargetCP":
+            from torchregress.losses.conformal import MultiTargetConformal
+
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=D)
+            _train_one(model, nn.MSELoss(), X, y, config)
+            model.eval()
+            n = X.shape[0]
+            n_cal = max(10, n // 5)
+            gen = torch.Generator(device="cpu").manual_seed(config.seed)
+            perm = torch.randperm(n, generator=gen)
+            Xc, yc = X[perm[:n_cal]], y[perm[:n_cal]]
+            with torch.no_grad():
+                p_cal = model(Xc)
+            predictor = MultiTargetConformal(alpha=0.1)
+            predictor.calibrate(p_cal.detach(), yc)
+            return {
+                "type": "multitarget_cp",
+                "model": model,
+                "predictor": predictor,
+                "n_features": D,
+            }
 
         # --- WassersteinBound: supervised mean + diagonal variance ---
         # Target variances come from neighborhood covariance pseudo-labels
@@ -569,6 +594,29 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- MultiTargetCP → per-dimension conformal intervals ---
+        elif model_type == "multitarget_cp":
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+            lo, hi = predictor.predict_interval(out)
+            import numpy as _np
+
+            lo_np = _np.asarray(lo.detach().cpu())
+            hi_np = _np.asarray(hi.detach().cpu())
+            mean_np = _np.asarray(out.detach().cpu())
+            N = len(X_test)
+            return {
+                "lower": lo_np.reshape(-1),
+                "upper": hi_np.reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (N, D),
             }
 
         # --- NormalizingFlow → sample-based quantile intervals ---
