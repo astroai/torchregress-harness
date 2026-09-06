@@ -204,9 +204,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "MC_CP",
             "SLS_CP",
             "SkewNormal",
-            # SkewT parked: _reg_inc_beta backward → inf at x→1 (b<1 boundary),
-            # NaNs any net in ≤2 epochs. Library-side autograd-safe inc_beta
-            # needed first; see T4c notes. Spec stays in _SKEW_METHODS.
+            "SkewT",
             "BetaRegression",
             "JohnsonSU",
             "SinhArcsinh",
