@@ -24,9 +24,11 @@ from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
+from suites.tabular.label_shift import LabelShiftSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
+from suites.tabular.ppi import PPISuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
@@ -51,7 +53,9 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "uq": UQSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
     "ordinal": OrdinalSuite,
+    "ppi": PPISuite,
     "missing_data": MissingDataSuite,
+    "label_shift": LabelShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
     "pzflow_parity": PzflowParitySuite,

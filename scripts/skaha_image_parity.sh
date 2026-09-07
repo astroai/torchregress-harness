@@ -168,6 +168,10 @@ ALL_JOBS=(
   "eiv synthetic_eiv"
   "censored synthetic_censored"
   "ordinal synthetic_ordinal"
+  "ppi diabetes"
+  "ppi california_housing"
+  "label_shift diabetes"
+  "label_shift california_housing"
   "missing_data diabetes"
   "missing_data california_housing"
 )

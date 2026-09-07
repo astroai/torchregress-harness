@@ -126,6 +126,10 @@ class EnsemblesSuite(HarnessRunner):
         "BatchEnsemble",
         "MeanOnlyBatchEnsemble",
         "Stacking",
+        "HeteroscedasticEnsemble",
+        "MCDropoutWrapper",
+        "BBB",
+        "HeteroscedasticBNN",
     ]
 
     _SKLEARN_METHODS: list[str] = [
@@ -158,6 +162,10 @@ class EnsemblesSuite(HarnessRunner):
             "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
             "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only — expect undercoverage: no aleatoric term)",
             "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta-learner",
+            "HeteroscedasticEnsemble": "native hetero ensemble (3× Gaussian heads) → epi+alea split",
+            "MCDropoutWrapper": "MC-Dropout wrapper over dropout MLP (20 draws) → mean/std",
+            "BBB": "Bayes-by-Backprop VI (ELBO) → posterior MC mean/std",
+            "HeteroscedasticBNN": "BBB + variance head → epi/alea decomposition",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
             "sklearn_BaggingRegressor": "Bagging(DecisionTreeRegressor, n=100)",
@@ -556,6 +564,128 @@ class EnsemblesSuite(HarnessRunner):
                 meta.eval()
                 return {"type": "stacking", "model": StackingEnsemble(bases, meta)}
 
+            elif method == "HeteroscedasticEnsemble":
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import HeteroscedasticEnsembleModel
+                from torchregress.losses import GaussianNLLLoss
+
+                ens = HeteroscedasticEnsembleModel(
+                    _MLP,
+                    ensemble_size=3,
+                    device=str(current_device()),
+                    in_dim=in_dim,
+                    hidden=hidden,
+                    out_dim=2,
+                )
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                ens.fit(
+                    loader,
+                    GaussianNLLLoss(),
+                    epochs=config.epochs,
+                    verbose=False,
+                    device=str(current_device()),
+                )
+                ens.eval()
+                return {"type": "heteroensemble", "model": ens}
+
+            elif method == "MCDropoutWrapper":
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import MCDropoutWrapper
+
+                dev = current_device()
+
+                class _DropoutMLP(nn.Module):
+                    def __init__(self, d_in: int, d_h: int) -> None:
+                        super().__init__()
+                        self.net = nn.Sequential(
+                            nn.Linear(d_in, d_h),
+                            nn.ReLU(),
+                            nn.Dropout(0.2),
+                            nn.Linear(d_h, d_h),
+                            nn.ReLU(),
+                            nn.Dropout(0.2),
+                            nn.Linear(d_h, 1),
+                        )
+
+                    def forward(self, x: torch.Tensor) -> torch.Tensor:
+                        return self.net(x)
+
+                base = _DropoutMLP(in_dim, hidden).to(dev)
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                opt = optim.Adam(base.parameters(), lr=config.lr)
+                base.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        nn.MSELoss()(base(Xb), yb).backward()
+                        opt.step()
+                base.eval()
+                wrapped = MCDropoutWrapper(base, n_samples=20)
+                return {"type": "mcdropoutwrapper", "model": wrapped}
+
+            elif method in ("BBB", "HeteroscedasticBNN"):
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import (
+                    BayesianNeuralNetwork,
+                    HeteroscedasticBNN,
+                )
+                from torchregress.losses import GaussianNLLLoss
+
+                dev = current_device()
+                hetero = method == "HeteroscedasticBNN"
+                model = (
+                    HeteroscedasticBNN(input_dim=in_dim, hidden_dims=[hidden], output_dim=1)
+                    if hetero
+                    else BayesianNeuralNetwork(input_dim=in_dim, hidden_dims=[hidden], output_dim=1)
+                )
+                model.to(dev)
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                opt = optim.Adam(model.parameters(), lr=config.lr)
+                n_data = len(X_train_np)
+                gnll = GaussianNLLLoss()
+                model.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        if hetero:
+                            mean, log_var = model(Xb)
+                            flat = torch.cat([mean, log_var], dim=-1)
+                            loss = gnll(flat, yb) + model.kl_divergence() / n_data
+                        else:
+                            loss = model.elbo_loss(model(Xb), yb, n_data)
+                        loss.backward()
+                        opt.step()
+                model.eval()
+                return {
+                    "type": "heterobnn" if hetero else "bbb",
+                    "model": model,
+                }
+
             else:
                 raise ValueError(f"Unknown method: {method}")
 
@@ -849,7 +979,6 @@ class EnsemblesSuite(HarnessRunner):
                 "mean": mean_np,
                 "std": std_np,
             }
-
         # --- torchregress: StackingEnsemble → meta-learner point prediction ---
         elif model_type == "stacking":
             st = model_state["model"]
@@ -858,5 +987,61 @@ class EnsemblesSuite(HarnessRunner):
                 out = st(torch.from_numpy(X_test).float().to(next(st.parameters()).device))
             y_pred = out.reshape(-1).detach().cpu().numpy()
             return {"y_pred": y_pred}
+
+        # --- torchregress: HeteroscedasticEnsemble → epi+alea intervals ---
+        elif model_type == "heteroensemble":
+            ens = model_state["model"]
+            ens.eval()
+            dev = next(ens.parameters()).device
+            with torch.no_grad():
+                d = ens.predict(torch.from_numpy(X_test).float().to(dev))
+            mean_np = d["mean"].reshape(-1).detach().cpu().numpy()
+            std_np = np.sqrt(d["variance"].reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: MCDropoutWrapper / BBB → posterior MC mean/std ---
+        elif model_type in ("mcdropoutwrapper", "bbb"):
+            mc = model_state["model"]
+            mc.eval()
+            dev = next(mc.parameters()).device
+            Xt = torch.from_numpy(X_test).float().to(dev)
+            with torch.no_grad():
+                mean_t, std_t = mc.predict_with_uncertainty(Xt)
+            mean_np = mean_t.reshape(-1).detach().cpu().numpy()
+            std_np = std_t.reshape(-1).detach().cpu().numpy().clip(min=1e-6)
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: HeteroscedasticBNN → epi/alea decomposition ---
+        elif model_type == "heterobnn":
+            hb = model_state["model"]
+            hb.eval()
+            dev = next(hb.parameters()).device
+            Xt = torch.from_numpy(X_test).float().to(dev)
+            with torch.no_grad():
+                mean_t, alea_t, _epi_t = hb.predict_with_decomposition(Xt)
+            mean_np = mean_t.reshape(-1).detach().cpu().numpy()
+            std_np = np.sqrt(alea_t.reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
 
         raise ValueError(f"Unknown model type: {model_type}")
