@@ -167,6 +167,8 @@ ALL_JOBS=(
   "multivariate_intervals synthetic_multivariate"
   "eiv synthetic_eiv"
   "censored synthetic_censored"
+  "missing_data diabetes"
+  "missing_data california_housing"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"
