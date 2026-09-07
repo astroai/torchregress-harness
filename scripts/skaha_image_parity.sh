@@ -167,6 +167,7 @@ ALL_JOBS=(
   "multivariate_intervals synthetic_multivariate"
   "eiv synthetic_eiv"
   "censored synthetic_censored"
+  "ordinal synthetic_ordinal"
   "missing_data diabetes"
   "missing_data california_housing"
 )

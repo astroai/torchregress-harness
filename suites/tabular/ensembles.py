@@ -443,19 +443,25 @@ class EnsemblesSuite(HarnessRunner):
                     shuffle=True,
                 )
                 model = _MLP(in_dim, hidden, out_dim=1)
+                # lr probe (diabetes, 2ep): 1e-3 learns too slowly, 0.1 NaNs;
+                # 1e-2 converges without NaN. Sampling is mandatory (see below).
                 opt = IVON(
                     model.parameters(),
-                    lr=config.lr,
+                    lr=0.01,
                     ess=float(len(X_train_np)),
                 )
                 dev = current_device()
                 model.to(dev)
                 model.train()
+                # IVON requires sampled training forwards (posterior-sampled
+                # weights); deterministic forwards leave the Hessian estimate
+                # degenerate and the loss flat. Per library docstring.
                 for _ in range(config.epochs):
                     for Xb, yb in loader:
                         Xb, yb = Xb.to(dev), yb.to(dev)
-                        opt.zero_grad(set_to_none=True)
-                        nn.MSELoss()(model(Xb), yb).backward()
+                        with opt.sampled_params(train=True):
+                            opt.zero_grad(set_to_none=True)
+                            nn.MSELoss()(model(Xb), yb).backward()
                         opt.step()
                 model.eval()
                 return {"type": "ivon", "model": model, "opt": opt}
@@ -531,14 +537,21 @@ class EnsemblesSuite(HarnessRunner):
                     _train_one(m, nn.MSELoss(), X_t, y_t, config)
                     m.eval()
                     bases.append(m)
-                # Linear meta-learner on frozen base predictions (train-split).
+                # Linear meta-learner on HELD-OUT base predictions (last 20%
+                # of train) — fitting the meta on train preds overfits
+                # (Stacking RMSE 63 vs ~52 bases at 30ep).
+                n_meta = max(16, len(X_t) // 5)
+                X_meta = torch.cat([b(X_t[-n_meta:]).detach() for b in bases], dim=-1)
                 meta = nn.Linear(3, 1).to(current_device())
+                # Linear probing to convergence (trivial cost); smoke budgets
+                # (2 steps) cannot fit even 4 params otherwise.
                 _train_one(
                     meta,
                     nn.MSELoss(),
-                    torch.cat([b(X_t).detach() for b in bases], dim=-1),
-                    y_t,
+                    X_meta,
+                    y_t[-n_meta:],
                     config,
+                    epochs=max(config.epochs, 200),
                 )
                 meta.eval()
                 return {"type": "stacking", "model": StackingEnsemble(bases, meta)}

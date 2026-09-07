@@ -138,16 +138,19 @@ class CellCountingSuite(ImageHarnessRunner):
         if method == "CNN+NegBin":
             from torchregress.losses import NegativeBinomialNLLLoss
 
+            # Log-link (raw out → exp inside the loss), mirroring the stable
+            # Poisson rows: softplus-mean optimization diverges on BBBC
+            # (RMSE 1e7+ at 30ep), exp-link does not.
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
             nb_loss = NegativeBinomialNLLLoss(learn_theta=True)
             _train_image_model(
                 m,
-                _SoftplusMeanWrapper(nb_loss),
+                _ExpMeanWrapper(nb_loss),
                 train_loader,
                 config,
                 loss_params=[nb_loss.log_theta],
             )
-            return {"type": "negbin", "model": m}
+            return {"type": "log_rate", "model": m}
         if method == "CNN+GaussianNLL":
             from torchregress.losses import GaussianNLLLoss
 
@@ -238,8 +241,6 @@ class CellCountingSuite(ImageHarnessRunner):
                     outs.append(torch.exp(out.reshape(-1)).clamp_min(0).cpu().numpy())
                 elif t == "zip":
                     outs.append(torch.exp(out[:, 0]).clamp_min(0).cpu().numpy())
-                elif t == "negbin":
-                    outs.append(torch.nn.functional.softplus(out.reshape(-1)).cpu().numpy())
                 else:  # point
                     outs.append(out.reshape(-1).cpu().numpy())
         y_pred = np.concatenate(outs).reshape(-1).astype(np.float32)
@@ -268,3 +269,14 @@ class _SoftplusMeanWrapper(nn.Module):
         import torch.nn.functional as F
 
         return self.base(F.softplus(y_pred), target)
+
+
+class _ExpMeanWrapper(nn.Module):
+    """Log-link wrapper: exp(CNN out) → count-mean loss (stable on BBBC)."""
+
+    def __init__(self, base: nn.Module) -> None:
+        super().__init__()
+        self.base = base
+
+    def forward(self, y_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return self.base(torch.exp(y_pred).clamp_max(1e6), target)
