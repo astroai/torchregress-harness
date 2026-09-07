@@ -213,6 +213,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "GEV",
             "AsymmetricLaplace",
             "SQR",
+            "RandomPartition",
         ]
 
     def library_name(self, method: str) -> str:
@@ -254,6 +255,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "CTI": "NSF flow density + Conformal Thresholded Intervals (level sets)",
             "ContrastiveFlow": "NSF + in-batch negative contexts (contrastive shaping)",
             "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
+            "RandomPartition": "3× binned heads on jittered partitions → CDF-average mean/var",
         }
         if method in _SKEW_METHODS:
             spec = _SKEW_METHODS[method]
@@ -610,6 +612,60 @@ class DistributionalBinsSuite(HarnessRunner):
             model.eval()
             return {"type": "sqr", "model": model}
 
+        # --- RandomPartition: M members on jittered target partitions ---
+        # CDF-space averaging onto the union grid; per-member CE training
+        # (members have incompatible out-dims, so no shared-target .fit).
+        elif method == "RandomPartition":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.ensemble import RandomPartitionEnsembleModel
+
+            n_members, n_bins = 3, 8
+            dev = current_device()
+            y_np = y_train.reshape(-1).detach().cpu().numpy().astype(np.float64)
+            y_lo, y_hi = float(y_np.min()), float(y_np.max())
+            span = max(y_hi - y_lo, 1e-3)
+            rng = np.random.default_rng(config.seed)
+            member_edges = []
+            for _ in range(n_members):
+                e = np.quantile(y_np, np.linspace(0, 1, n_bins + 1))
+                e[1:-1] = e[1:-1] + rng.normal(0, 0.01 * span, n_bins - 1)
+                e = np.clip(np.sort(e), y_lo, y_hi)
+                e[0] = y_lo - 1e-6 * span
+                e[-1] = y_hi + 1e-6 * span
+                member_edges.append(torch.from_numpy(e.astype(np.float32)))
+            ens = RandomPartitionEnsembleModel(
+                _MLP,
+                ensemble_size=n_members,
+                device=str(dev),
+                member_bin_edges=member_edges,
+                in_dim=in_dim,
+                hidden=hidden,
+                out_dim=n_bins,
+            )
+            ens.to(dev)
+            ce = nn.CrossEntropyLoss()
+            for k, member in enumerate(ens.models):
+                y_idx = torch.from_numpy(
+                    np.clip(np.digitize(y_np, member_edges[k].numpy()) - 1, 0, n_bins - 1)
+                ).long()
+                loader = DataLoader(
+                    TensorDataset(torch.from_numpy(splits["X_train"]).float(), y_idx),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                opt = optim.Adam(member.parameters(), lr=config.lr)
+                member.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        ce(member(Xb), yb).backward()
+                        opt.step()
+                member.eval()
+            ens.eval()
+            return {"type": "randompartition", "model": ens}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -755,6 +811,23 @@ class DistributionalBinsSuite(HarnessRunner):
                 # Gaussian-PIT branch (norm.cdf).
                 "mean": mean,
                 "std": std,
+            }
+
+        # --- RandomPartition → CDF-average mean/var intervals ---
+        elif model_type == "randompartition":
+            ens = model_state["model"]
+            ens.eval()
+            dev = next(ens.parameters()).device
+            with torch.no_grad():
+                d = ens.predict(torch.from_numpy(X_test).float().to(dev))
+            mean_np = np.asarray(d["mean"]).reshape(-1)
+            std_np = np.sqrt(np.asarray(d["variance"]).reshape(-1).clip(min=1e-12))
+            return {
+                "lower": mean_np - _Z_SCORE * std_np,
+                "upper": mean_np + _Z_SCORE * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
             }
 
         # --- NormalizingFlow → sample quantile intervals ---

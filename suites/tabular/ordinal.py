@@ -104,7 +104,13 @@ class OrdinalSuite(HarnessRunner):
         return []
 
     def methods(self) -> list[str]:
-        methods = ["MSE", "OrdinalCrossEntropy", "CumulativeLink", "CORAL"]
+        methods = [
+            "MSE",
+            "OrdinalCrossEntropy",
+            "CumulativeLink",
+            "CORAL",
+            "CumulativeLinkEnsemble",
+        ]
         if _CORAL_PYTORCH_AVAILABLE:
             methods.append("CORN")
         if _MORD_AVAILABLE:
@@ -170,6 +176,38 @@ class OrdinalSuite(HarnessRunner):
             model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes - 1)
             _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
+
+        elif method == "CumulativeLinkEnsemble":
+            # 3× cumulative-link heads; PMF-space averaging via support moments.
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.ensemble import CumulativeLinkEnsembleModel
+
+            ens = CumulativeLinkEnsembleModel(
+                _MLP,
+                ensemble_size=3,
+                device=str(current_device()),
+                in_dim=in_dim,
+                hidden=_ordinal_hidden,
+                out_dim=n_classes - 1,
+                support_values=torch.arange(n_classes, dtype=torch.float32),
+            )
+            loader = DataLoader(
+                TensorDataset(
+                    torch.from_numpy(X_train_np).float(),
+                    torch.from_numpy(y_train_np).long(),
+                ),
+                batch_size=config.batch_size,
+                shuffle=True,
+            )
+            ens.fit(
+                loader,
+                CumulativeLinkLoss(),
+                epochs=_ordinal_epochs,
+                verbose=False,
+                device=str(current_device()),
+            )
+            ens.eval()
+            return {"type": "cumlink_ensemble", "model": ens, "n_classes": n_classes}
 
         elif method == "CORAL":
             # CORAL: shared-weight backbone + monotonic-bias CORAL head.
@@ -265,6 +303,15 @@ class OrdinalSuite(HarnessRunner):
             probs = np.asarray(m.predict(X_test))
             y_pred = probs.argmax(axis=1).astype(np.int64)
 
+        elif model_type == "cumlink_ensemble":
+            # Ensemble PMF mean over class support → rounded class prediction.
+            m.eval()
+            with torch.no_grad():
+                d = m.predict(torch.from_numpy(X_test).float().to(current_device()))
+            y_pred = (
+                d["mean"].reshape(-1).round().clamp(0, n_classes - 1).long().detach().cpu().numpy()
+            )
+
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
@@ -304,6 +351,9 @@ class OrdinalSuite(HarnessRunner):
             ),
             "CumulativeLink": (
                 "MLP + CumulativeLinkLoss — K-1 binary classifiers on cumulative logits"
+            ),
+            "CumulativeLinkEnsemble": (
+                "3× cumulative-link MLPs — PMF-space averaging + support-moment classes"
             ),
             "CORAL": (
                 "MLP + CORALHead + CORALLoss — shared-weight monotonic-bias head "

@@ -123,6 +123,9 @@ class EnsemblesSuite(HarnessRunner):
         "HeteroscedasticLaplace",
         "VIDS",
         "IVON",
+        "BatchEnsemble",
+        "MeanOnlyBatchEnsemble",
+        "Stacking",
     ]
 
     _SKLEARN_METHODS: list[str] = [
@@ -152,6 +155,9 @@ class EnsemblesSuite(HarnessRunner):
             "HeteroscedasticLaplace": "last-layer Laplace on frozen MSE features (tuple head)",
             "VIDS": "adaptive-prior VI (bootstrap environments) → mean/std intervals",
             "IVON": "natural-gradient VI optimizer + posterior MC sampling",
+            "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
+            "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only)",
+            "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta-learner",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
             "sklearn_BaggingRegressor": "Bagging(DecisionTreeRegressor, n=100)",
@@ -454,6 +460,89 @@ class EnsemblesSuite(HarnessRunner):
                 model.eval()
                 return {"type": "ivon", "model": model, "opt": opt}
 
+            elif method in ("BatchEnsemble", "MeanOnlyBatchEnsemble"):
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.ensemble import (
+                    BatchEnsembleMLPBackbone,
+                    BatchEnsembleRegressor,
+                )
+                from torchregress.losses import GaussianNLLLoss
+
+                hetero = method == "BatchEnsemble"
+                n_members = 4
+                dev = current_device()
+                bb = BatchEnsembleMLPBackbone(in_dim, hidden, ensemble_size=n_members)
+                model = BatchEnsembleRegressor(
+                    bb,
+                    feature_dim=bb.feature_dim,
+                    output_dim=1,
+                    ensemble_size=n_members,
+                    heteroscedastic=hetero,
+                    device=str(dev),
+                )
+                model.to(dev)
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                opt = optim.Adam(model.parameters(), lr=config.lr)
+                loss_fn = GaussianNLLLoss()
+                mse = nn.MSELoss()
+                model.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        out = model(Xb)
+                        if hetero:
+                            B = Xb.shape[0]
+                            flat = torch.cat(
+                                [
+                                    out["means"].reshape(B * n_members, 1),
+                                    out["log_vars"].reshape(B * n_members, 1),
+                                ],
+                                dim=-1,
+                            )
+                            loss = loss_fn(flat, yb.repeat_interleave(n_members, dim=0))
+                        else:
+                            loss = mse(
+                                out["means"],
+                                yb.reshape(-1, 1, 1).expand(-1, n_members, -1),
+                            )
+                        loss.backward()
+                        opt.step()
+                model.eval()
+                return {"type": "batchensemble", "model": model}
+
+            elif method == "Stacking":
+                from torchregress.ensemble import StackingEnsemble
+
+                X_t = torch.from_numpy(X_train_np).float().to(current_device())
+                y_t = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+                bases = []
+                for k in range(3):
+                    set_harness_seed(config.seed + 100 * k + 11)
+                    m = _MLP(in_dim, hidden, out_dim=1)
+                    _train_one(m, nn.MSELoss(), X_t, y_t, config)
+                    m.eval()
+                    bases.append(m)
+                # Linear meta-learner on frozen base predictions (train-split).
+                meta = nn.Linear(3, 1).to(current_device())
+                _train_one(
+                    meta,
+                    nn.MSELoss(),
+                    torch.cat([b(X_t).detach() for b in bases], dim=-1),
+                    y_t,
+                    config,
+                )
+                meta.eval()
+                return {"type": "stacking", "model": StackingEnsemble(bases, meta)}
+
             else:
                 raise ValueError(f"Unknown method: {method}")
 
@@ -728,6 +817,33 @@ class EnsemblesSuite(HarnessRunner):
         elif model_type == "sklearn":
             est = model_state["model"]
             y_pred = est.predict(X_test).reshape(-1)
+            return {"y_pred": y_pred}
+
+        # --- torchregress: BatchEnsemble / MeanOnly → predict() mean/variance ---
+        elif model_type == "batchensemble":
+            be = model_state["model"]
+            be.eval()
+            dev = next(be.parameters()).device
+            with torch.no_grad():
+                d = be.predict(torch.from_numpy(X_test).float().to(dev))
+            mean_np = d["mean"].reshape(-1).detach().cpu().numpy()
+            std_np = np.sqrt(d["variance"].reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: StackingEnsemble → meta-learner point prediction ---
+        elif model_type == "stacking":
+            st = model_state["model"]
+            st.eval()
+            with torch.no_grad():
+                out = st(torch.from_numpy(X_test).float().to(next(st.parameters()).device))
+            y_pred = out.reshape(-1).detach().cpu().numpy()
             return {"y_pred": y_pred}
 
         raise ValueError(f"Unknown model type: {model_type}")

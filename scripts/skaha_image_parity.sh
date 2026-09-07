@@ -199,6 +199,9 @@ if [[ "$SMOKE" != 1 ]]; then EPOCHS=30; EXTRA_ARGS="--epochs $EPOCHS"; fi
 
 # shellcheck disable=SC2086
 for job in "${JOBS[@]}"; do
+  # Defensive: re-anchor the project dir per job (a prior job must never be
+  # able to leave us in a cwd where pixi cannot find pixi.toml).
+  cd "$WORK/torchregress-harness"
   # shellcheck disable=SC2086
   suite="${job%% *}"; dataset="${job##* }"
   log "=== $suite / $dataset ==="

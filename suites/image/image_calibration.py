@@ -108,7 +108,7 @@ class ImageCalibrationSuite(ImageHarnessRunner):
             for (xb,) in loader:
                 out = model(xb.to(device))
                 means.append(out[:, 0].cpu().numpy())
-                stds.append(np.sqrt(np.exp(out[:, 1]).clamp_min(1e-8).cpu().numpy()))
+                stds.append(torch.sqrt(torch.exp(out[:, 1]).clamp_min(1e-8)).cpu().numpy())
         return np.concatenate(means), np.concatenate(stds)
 
     def predict(self, method: str, state: Any, X_test: np.ndarray, config: HarnessConfig) -> Any:

@@ -139,11 +139,13 @@ class CellCountingSuite(ImageHarnessRunner):
             from torchregress.losses import NegativeBinomialNLLLoss
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            nb_loss = NegativeBinomialNLLLoss(learn_theta=True)
             _train_image_model(
                 m,
-                _SoftplusMeanWrapper(NegativeBinomialNLLLoss(learn_theta=True)),
+                _SoftplusMeanWrapper(nb_loss),
                 train_loader,
                 config,
+                loss_params=[nb_loss.log_theta],
             )
             return {"type": "negbin", "model": m}
         if method == "CNN+GaussianNLL":
@@ -217,7 +219,7 @@ class CellCountingSuite(ImageHarnessRunner):
                 for (xb,) in loader:
                     out = model(xb.to(device))
                     means.append(out[:, 0].cpu().numpy())
-                    stds.append(np.sqrt(np.exp(out[:, 1]).clamp_min(1e-8).cpu().numpy()))
+                    stds.append(torch.sqrt(torch.exp(out[:, 1]).clamp_min(1e-8)).cpu().numpy())
             mean = np.concatenate(means).reshape(-1)
             std = np.concatenate(stds).reshape(-1)
             z = 1.645

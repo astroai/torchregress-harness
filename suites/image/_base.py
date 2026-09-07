@@ -357,6 +357,7 @@ def _train_image_model(
             out = model(X_batch)
             loss = loss_fn(out, y_batch)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(params, 1.0)
             opt.step()
 
     model.eval()
