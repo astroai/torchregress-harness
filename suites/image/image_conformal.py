@@ -495,16 +495,24 @@ class ImageConformalSuite(ImageHarnessRunner):
         Xc_f = Xc.reshape(len(Xc), -1)
         Xt_f = Xt.reshape(len(Xt), -1)
         # Prefit path (MAPIE>=0.9): estimator already fitted (CNN).
+        # conformity_score="absolute" must be explicit: the pinned MAPIE
+        # default resolves inconsistently in prefit mode (tabular precedent).
         try:
             reg = SplitConformalRegressor(
-                estimator=_FlatCNNWrapper(), confidence_level=0.9, prefit=True
+                estimator=_FlatCNNWrapper(),
+                confidence_level=0.9,
+                conformity_score="absolute",
+                prefit=True,
             )
             reg.conformalize(Xc_f, np.asarray(y_cal))
             _, intervals = reg.predict_interval(Xt_f)
         except TypeError:
             # Older MAPIE: fit_conformalize / predict API.
             reg = SplitConformalRegressor(
-                estimator=_FlatCNNWrapper(), confidence_level=0.9, prefit=True
+                estimator=_FlatCNNWrapper(),
+                confidence_level=0.9,
+                conformity_score="absolute",
+                prefit=True,
             )
             reg.fit_conformalize(Xc_f, np.asarray(y_cal))
             _, intervals = reg.predict(Xt_f, alpha=0.1)

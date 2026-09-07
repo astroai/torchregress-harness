@@ -156,7 +156,7 @@ class EnsemblesSuite(HarnessRunner):
             "VIDS": "adaptive-prior VI (bootstrap environments) → mean/std intervals",
             "IVON": "natural-gradient VI optimizer + posterior MC sampling",
             "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
-            "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only)",
+            "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only — expect undercoverage: no aleatoric term)",
             "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta-learner",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",

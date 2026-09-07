@@ -174,21 +174,35 @@ class ImageEnsemblesUQSuite(ImageHarnessRunner):
         Xt = torch.from_numpy(Ftr)
         yt = torch.from_numpy(ytr)
         ds = torch.utils.data.TensorDataset(Xt, yt)
-        dl = torch.utils.data.DataLoader(ds, batch_size=config.batch_size, shuffle=True)
         dropout_p = 0.5 if method == "luqbox_MCDropout" else 0.0
         import lightning as pl
 
+        # LUQ-Box v0.3.0 MLP signature (mirrors the working stress_matrix
+        # comparator): n_inputs / n_hidden-list / n_outputs=2 (mean, logvar
+        # for the NLL head). Dict batches with input/target keys.
         base = LUQMLP(
-            input_dim=in_dim,
-            n_hidden=2,
-            hidden_dim=64,
-            dropout_p=dropout_p,
+            n_inputs=in_dim,
+            n_outputs=2,
+            n_hidden=[64, 64],
             activation_fn=_nn.ReLU(),
+            dropout_p=dropout_p,
         )
         mod = (
             MCDropoutRegression(model=base, num_mc_samples=20, loss_fn=LUQNLL())
             if method == "luqbox_MCDropout"
             else DeterministicRegression(model=base, loss_fn=LUQNLL())
+        )
+
+        def _collate(
+            samples: list[tuple[torch.Tensor, torch.Tensor]],
+        ) -> dict[str, torch.Tensor]:
+            return {
+                "input": torch.stack([s[0] for s in samples]),
+                "target": torch.stack([s[1] for s in samples]),
+            }
+
+        dl = torch.utils.data.DataLoader(
+            ds, batch_size=config.batch_size, shuffle=True, collate_fn=_collate
         )
         trainer = pl.Trainer(
             max_epochs=min(config.epochs, 10),
@@ -312,15 +326,25 @@ class ImageEnsemblesUQSuite(ImageHarnessRunner):
             for (xb,) in dl:
                 if isinstance(mod, MCDropoutRegression):
                     mod.model.train()  # activate_dropout semantics
-                    preds = torch.stack([mod.model(xb)[0] for _ in range(20)], dim=0)
+                    # (S, N, 2): MC draws of (mean, logvar) NLL head.
+                    preds = torch.stack([mod.model(xb) for _ in range(20)], dim=0)
                     mod.model.eval()
-                    means.append(preds.mean(0).reshape(-1).cpu().numpy())
-                    stds.append(preds.std(0).reshape(-1).cpu().numpy().clip(min=1e-6))
+                    draw_means = preds[:, :, 0]
+                    draw_sigmas = torch.exp(0.5 * preds[:, :, 1])
+                    m = draw_means.mean(0)
+                    # Kendall et al. 2017 Eq. 9: aleatoric + epistemic.
+                    v = (draw_sigmas**2).mean(0) + (draw_means**2).mean(0) - m**2
+                    means.append(m.reshape(-1).cpu().numpy())
+                    stds.append(torch.sqrt(v.clamp_min(1e-12)).reshape(-1).cpu().numpy())
                 else:
                     out = mod.model(xb)
-                    loc = out[0] if isinstance(out, (tuple, list)) else out
-                    means.append(np.asarray(loc.cpu()).reshape(-1))
-                    stds.append(np.full_like(means[-1], 0.1))
+                    loc = out[:, 0] if out.dim() == 2 else out.reshape(-1)
+                    means.append(loc.reshape(-1).cpu().numpy())
+                    if out.dim() == 2 and out.shape[1] > 1:
+                        s = torch.exp(0.5 * out[:, 1]).reshape(-1).cpu().numpy()
+                    else:
+                        s = np.full_like(means[-1], 0.1)
+                    stds.append(s)
         mean = np.concatenate(means)
         std = np.concatenate(stds)
         return {
