@@ -754,6 +754,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_UACQR",
             "Zoo_CVPlus",
             "Zoo_EnbPI",
+            "Zoo_NexCP",
         ]
         if _TABICL_AVAILABLE:
             methods.append("Split+TabICL")
@@ -802,6 +803,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_Prevalence": "torchregress PrevalenceAdjustedCP (group-adjusted) on MLP base",
             "Zoo_Local": "torchregress LocalConformal (kernel-weighted, x-passed) on MLP base",
             "Zoo_UACQR": "torchregress UACQR (band-normalized) on MLP base",
+            "Zoo_NexCP": "torchregress NonExchangeableCP (recency-weighted threshold) on MLP base",
             "Zoo_LocalMAD": "torchregress LocalConformalMAD (MAD-scaled) on Gaussian base",
             "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
             "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
@@ -922,6 +924,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_CVPlus",
             "Zoo_EnbPI",
             "Zoo_LocalMAD",
+            "Zoo_NexCP",
         ):
             from torchregress.losses.conformal import (
                 UACQR,
@@ -1074,6 +1077,29 @@ class ConformalSuite(HarnessRunner):
                 "alpha": alpha,
             }
 
+        # --- torchregress: NonExchangeableCP (recency-weighted threshold) ---
+        # No time-series suite exists yet: simulate drift by recency weights
+        # w_i ∝ exp(λ·i/n) on cal order (documented stand-in; a future
+        # time-series suite should supply real timestamps).
+        elif method == "Zoo_NexCP":
+            from torchregress.losses.conformal import NonExchangeableConformalRegressor
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+            _train_one(model, nn.MSELoss(), X_train, y_train, config)
+            model.eval()
+            with torch.no_grad():
+                resid = (model(X_cal).reshape(-1) - y_cal.reshape(-1)).abs()
+            n_cal = resid.numel()
+            order = torch.arange(n_cal, device=resid.device, dtype=resid.dtype)
+            w = torch.exp(2.0 * order / max(n_cal, 1))
+            predictor = NonExchangeableConformalRegressor(alpha=alpha)
+            predictor.calibrate(resid.detach(), w.detach())
+            return {
+                "type": "nexcp",
+                "model": model,
+                "threshold": predictor.threshold_,
+            }
+
         # --- torchregress: LocalConformalMAD on a Gaussian base ---
         elif method == "Zoo_LocalMAD":
             from torchregress.losses import GaussianNLLLoss
@@ -1186,6 +1212,16 @@ class ConformalSuite(HarnessRunner):
                 "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
                 "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
             }
+        elif model_type == "nexcp":
+            import numpy as _np
+
+            model = model_state["model"]
+            thr = model_state["threshold"]
+            thr_val = float(thr.detach().cpu()) if isinstance(thr, torch.Tensor) else float(thr)
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                pred = model(X_test_t).reshape(-1).detach().cpu().numpy()
+            return {"lower": pred - thr_val, "upper": pred + thr_val, "y_pred": pred}
         elif model_type == "zoo_members":
             # CVPlus takes the member stack [K, B, 1]; EnbPI the mean.
             from torchregress.losses.conformal import CVPlus

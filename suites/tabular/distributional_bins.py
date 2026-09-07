@@ -204,6 +204,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "MC_CP",
             "SLS_CP",
             "CTI",
+            "ContrastiveFlow",
             "SkewNormal",
             "SkewT",
             "BetaRegression",
@@ -251,6 +252,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
             "SLS_CP": "SLS frontier (d=1) + SLSConformal grid predictor",
             "CTI": "NSF flow density + Conformal Thresholded Intervals (level sets)",
+            "ContrastiveFlow": "NSF + in-batch negative contexts (contrastive shaping)",
             "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
         }
         if method in _SKEW_METHODS:
@@ -492,6 +494,43 @@ class DistributionalBinsSuite(HarnessRunner):
                 "y_min": y_min - pad,
                 "y_max": y_max + pad,
             }
+
+        # --- ContrastiveFlow: NF + in-batch negative contexts ---
+        # Negatives are rolled-batch contexts (standard in-batch contrastive
+        # practice, documented — no external simulator needed).
+        elif method == "ContrastiveFlow":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.losses.nflows import ContrastiveFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = ContrastiveFlowLoss(flow=flow)
+            loader = DataLoader(
+                TensorDataset(X_train, y_train), batch_size=config.batch_size, shuffle=True
+            )
+            opt = optim.Adam(list(model.parameters()) + list(flow.parameters()), lr=config.lr)
+            device = next(model.parameters()).device
+            loss_fn.to(device)
+            model.train()
+            for _ in range(config.epochs):
+                for Xb, yb in loader:
+                    Xb, yb = Xb.to(device), yb.to(device)
+                    opt.zero_grad(set_to_none=True)
+                    ctx = model(Xb)
+                    neg = torch.roll(ctx.detach(), shifts=1, dims=0)
+                    loss = loss_fn(ctx, yb, negative_context=neg.unsqueeze(1))
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            return {"type": "nflow", "model": model, "flow": loss_fn}
 
         # --- CTI: NF density + Conformal Thresholded Intervals ---
         elif method == "CTI":
