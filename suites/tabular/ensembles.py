@@ -122,6 +122,7 @@ class EnsemblesSuite(HarnessRunner):
         "BinnedPDFEnsemble",
         "HeteroscedasticLaplace",
         "VIDS",
+        "IVON",
     ]
 
     _SKLEARN_METHODS: list[str] = [
@@ -150,6 +151,7 @@ class EnsemblesSuite(HarnessRunner):
             "BinnedPDFEnsemble": "2× binned-PDF heads → ensemble mean/var over 10 bins",
             "HeteroscedasticLaplace": "last-layer Laplace on frozen MSE features (tuple head)",
             "VIDS": "adaptive-prior VI (bootstrap environments) → mean/std intervals",
+            "IVON": "natural-gradient VI optimizer + posterior MC sampling",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
             "sklearn_BaggingRegressor": "Bagging(DecisionTreeRegressor, n=100)",
@@ -421,6 +423,37 @@ class EnsemblesSuite(HarnessRunner):
                 )
                 return {"type": "vids", "model": vids}
 
+            elif method == "IVON":
+                import torch.optim as optim
+                from torch.utils.data import DataLoader, TensorDataset
+                from torchregress.algorithms.ivon import IVON
+
+                loader = DataLoader(
+                    TensorDataset(
+                        torch.from_numpy(X_train_np).float(),
+                        torch.from_numpy(y_train_np).float().unsqueeze(1),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                model = _MLP(in_dim, hidden, out_dim=1)
+                opt = IVON(
+                    model.parameters(),
+                    lr=config.lr,
+                    ess=float(len(X_train_np)),
+                )
+                dev = current_device()
+                model.to(dev)
+                model.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        nn.MSELoss()(model(Xb), yb).backward()
+                        opt.step()
+                model.eval()
+                return {"type": "ivon", "model": model, "opt": opt}
+
             else:
                 raise ValueError(f"Unknown method: {method}")
 
@@ -658,6 +691,30 @@ class EnsemblesSuite(HarnessRunner):
                 if getattr(pb, "std", None) is not None
                 else np.full_like(mean_np, 0.1)
             )
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+            }
+
+        # --- torchregress: IVON → posterior MC sampling ---
+        # One-shot sampled_params context per draw (S=20); mean/var over draws.
+        elif model_type == "ivon":
+            ivon_model = model_state["model"]
+            ivon_opt = model_state["opt"]
+            ivon_model.eval()
+            draws = []
+            with torch.no_grad():
+                Xt = torch.from_numpy(X_test).float().to(current_device())
+                for _ in range(20):
+                    with ivon_opt.sampled_params(train=False):
+                        draws.append(ivon_model(Xt).detach().cpu().numpy())
+            stack = np.stack(draws, axis=0)
+            mean_np = stack.mean(axis=0).reshape(-1)
+            std_np = stack.std(axis=0).reshape(-1).clip(min=1e-6)
             z = 1.645
             return {
                 "lower": mean_np - z * std_np,
