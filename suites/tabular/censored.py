@@ -200,7 +200,10 @@ class CensoredSuite(HarnessRunner):
             df = pd.DataFrame(X_train_np, columns=feature_cols)
             df["duration"] = y_pos
             df["event"] = event.ravel()
-            aft = LogNormalAFTFitter()
+            # penalizer: unpenalized MLE explodes under heavy censoring
+            # (hdfail 94%: expectation RMSE 99066); median is the skew-robust
+            # point prediction for log-normal survival times.
+            aft = LogNormalAFTFitter(penalizer=0.1)
             aft.fit(df, duration_col="duration", event_col="event")
             return {
                 "type": "lifelines",
@@ -230,7 +233,7 @@ class CensoredSuite(HarnessRunner):
             feature_cols = model_state["feature_cols"]
             y_shift = model_state.get("y_shift", 0.0)
             df_test = pd.DataFrame(X_test, columns=feature_cols)
-            y_pred = np.asarray(m.predict_expectation(df_test), dtype=np.float64)
+            y_pred = np.asarray(m.predict_median(df_test), dtype=np.float64)
             if y_shift != 0.0:
                 y_pred = y_pred - y_shift
             return {"y_pred": y_pred}

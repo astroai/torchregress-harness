@@ -187,6 +187,13 @@ class LabelShiftSuite(HarnessRunner):
         elif method == "BBSE":
             y_train = np.asarray(predictions["y_train"]).reshape(-1)
             p_src = np.asarray(predictions["p_src"]).reshape(-1)
+            if y_scaler is not None:
+                # Source quantities must live in the same (native) space as
+                # the inverse-transformed target quantities above — mixing
+                # standardized source with native target silently degenerates
+                # EM to uniform weights.
+                y_train = y_scaler.inverse_transform(y_train.reshape(-1, 1)).ravel()
+                p_src = y_scaler.inverse_transform(p_src.reshape(-1, 1)).ravel()
             est = BinnedLabelShiftEstimator(n_bins=10, method="em")
             est.fit(y_train, p_src, y_pred[tgt_idx])
             w_est = np.asarray(est.sample_weights(y_true[tgt_idx]), dtype=np.float64).reshape(-1)
