@@ -122,7 +122,7 @@ class CensoredSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_censored"]
+        return ["synthetic_censored", "survset_hdfail"]
 
     @property
     def canonical_scenarios(self) -> list[str]:

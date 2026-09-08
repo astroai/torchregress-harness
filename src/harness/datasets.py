@@ -337,6 +337,67 @@ def _load_synthetic_censored(
     }
 
 
+def _load_survset_hdfail(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Backblaze hard-drive failure survival (SurvSet ``hdfail``, 52k drives).
+
+    Real right-censored time-to-event data: days-to-failure with temperature +
+    drive model/firmware codes. From the SurvSet time-to-event repository
+    (Drysdale 2022, compiled from R survival packages + modern sources) —
+    a credible modern survival benchmark, no simulation. ``event=1`` means
+    failure observed; censoring codes follow the harness convention
+    (1 = right-censored). Falls back to synthetic censored data if the
+    GitHub fetch fails.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.preprocessing import OneHotEncoder
+        from SurvSet.data import SurvLoader
+
+        d = SurvLoader().load_dataset(ds_name="hdfail")
+        df, _ = d.values()
+        y_time = df["time"].to_numpy(dtype=np.float64)
+        event = df["event"].to_numpy(dtype=np.float64)
+        codes = (1.0 - event).astype(np.float32)  # 1 = right-censored
+        feat_cols = [c for c in df.columns if c not in ("pid", "event", "time")]
+        num_cols = [c for c in feat_cols if c.startswith("num_")]
+        cat_cols = [c for c in feat_cols if c.startswith("fac_")]
+        X_num = df[num_cols].to_numpy(dtype=np.float64)
+        ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+        X_cat = ohe.fit_transform(df[cat_cols].astype(str))
+        X = np.hstack([X_num, X_cat])
+        y = y_time
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y, codes = X[idx], y[idx], codes[idx]
+    except Exception:
+        synth = _load_synthetic_censored(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "SurvSet hdfail fetch failed"
+        return synth
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    _, _, codes_train, codes_test = train_test_split(
+        X, codes, test_size=test_size, random_state=seed
+    )
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "censoring_train": codes_train.astype(np.float32),
+        "censoring_test": codes_test.astype(np.float32),
+        "_skip_y_standardization": True,
+    }
+
+
 def _load_synthetic_multivariate(
     n_samples: int = 2000,
     n_features: int = 8,
@@ -815,6 +876,195 @@ def _load_insurance_claims(
         "exposure_train": exp_train.astype(np.float32),
         "exposure_test": exp_test.astype(np.float32),
         "_skip_y_standardization": True,  # Tweedie claim counts — preserve zero-inflation
+    }
+
+
+def _fetch_folktables_xy(seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+    """Shared ACS 2018 CA fetch + encoding → (X features, continuous PINCP)."""
+    import folktables
+    import pandas as pd
+    from sklearn.preprocessing import OneHotEncoder
+
+    root = str(_image_cache_dir() / "folktables")
+    ds = folktables.ACSDataSource(
+        survey_year="2018", horizon="1-Year", survey="person", root_dir=root
+    )
+    acs = ds.get_data(states=["CA"], download=True)
+    df = acs.copy()
+    filt = (df["AGEP"] > 16) & (df["WKHP"] > 0) & (df["PINCP"] >= 100)
+    df = df.loc[filt].reset_index(drop=True)
+    y = df["PINCP"].to_numpy(dtype=np.float64)
+    low_card = ["COW", "SCHL", "MAR", "SEX", "RAC1P", "RELP"]
+    high_card = ["OCCP", "POBP"]
+    numeric = ["AGEP", "WKHP"]
+    X_num = df[numeric].to_numpy(dtype=np.float64)
+    X_high = df[high_card].apply(lambda s: pd.Categorical(s).codes).to_numpy(dtype=np.float64)
+    ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+    X_cat = ohe.fit_transform(df[low_card].astype(str))
+    return np.hstack([X_num, X_high, X_cat]), y
+
+
+def _load_folktables_income(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """US Census income regression (Folktables ACS 2018, California).
+
+    Same cohort definition as the published ACSIncome task (Ding et al.,
+    NeurIPS 2021 Datasets & Benchmarks: age>16, worked>0h, income>=100)
+    but with CONTINUOUS personal income (PINCP) instead of the $50k binary
+    label — a modern, large-scale regression benchmark straight from the
+    prediction-powered inference literature's home turf. Downloads ACS PUMS
+    microdata via the folktables package (cached under the harness cache);
+    falls back to California Housing if the fetch fails.
+
+    Categorical codes: low-cardinality one-hot (COW/SCHL/MAR/SEX/RAC1P/RELP),
+    high-cardinality ordinal (OCCP/POBP); numeric AGEP/WKHP; all standardized.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.preprocessing import StandardScaler
+
+        X, y = _fetch_folktables_xy(seed)
+
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        from sklearn.datasets import fetch_california_housing
+
+        data = fetch_california_housing()
+        X, y = data.data.astype(np.float64), data.target.astype(np.float64)
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "Folktables ACS fetch failed"
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
+def _load_folktables_decile(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """US Census income-BRACKET ordinal task (Folktables ACS 2018, California).
+
+    Same cohort/features as :func:`_load_folktables_income`, but the target
+    is the income DECILE (0-9, ordered) — a real ordinal task with natural
+    class imbalance (credit-band style). ``n_classes=10`` rides in splits
+    for the ordinal suite. Falls back to synthetic ordinal data if the
+    fetch fails.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.preprocessing import StandardScaler
+
+        X, y_cont = _fetch_folktables_xy(seed)
+        edges = np.quantile(y_cont, np.linspace(0, 1, 11))
+        edges[0] -= 1.0
+        edges[-1] += 1.0
+        y = np.clip(np.digitize(y_cont, edges) - 1, 0, 9).astype(np.float64)
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        synth = _load_synthetic_ordinal(n_samples=n_samples, n_classes=10, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "Folktables ACS fetch failed"
+        return synth
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.int64),
+        "y_test": y_test.astype(np.int64),
+        "n_classes": 10,
+        "_skip_y_standardization": True,  # class labels — never standardize
+    }
+
+
+def _load_energy_efficiency(
+    n_samples: int = 768,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """UCI Energy Efficiency (Tsanas & Xifara, 2012): heating/cooling loads.
+
+    768 buildings × 8 features → 2 targets (Y1 heating, Y2 cooling). The
+    standard real-data benchmark for MULTI-TARGET regression. Reads
+    ENB2012_data.xlsx (double header row) via openpyxl, cached under the
+    harness cache; falls back to synthetic multivariate data if the fetch
+    fails. ``n_targets=2`` rides in splits for the MV suite.
+    """
+    splits: SplitMetadata = {}
+    try:
+        import pandas as pd
+        from sklearn.preprocessing import StandardScaler
+
+        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00242/ENB2012_data.xlsx"
+        path = _image_cache_dir() / "ENB2012_data.xlsx"
+        if not (path.exists() and path.stat().st_size > 0):
+            import urllib.request
+
+            urllib.request.urlretrieve(url, path)
+        df = pd.read_excel(path, engine="openpyxl")
+        # Flatten possible multi-row header; keep numeric columns only.
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [" ".join(str(c) for c in col).strip() for col in df.columns]
+        num = df.apply(pd.to_numeric, errors="coerce")
+        num = num.dropna(axis=1, how="all")
+        arr = num.to_numpy(dtype=np.float64)
+        X, y = arr[:, :8], arr[:, 8:10]
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        synth = _load_synthetic_multivariate(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "UCI Energy Efficiency fetch failed"
+        return synth
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "n_targets": 2,
+        "_multi_output": True,
+        "_skip_y_standardization": True,  # preserve (N, D) shape for multi-output
     }
 
 
@@ -3859,6 +4109,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         description="Synthetic right-censored targets at 70th percentile of true values.",
         loader=_registry_loader(_load_synthetic_censored),
     ),
+    "survset_hdfail": DatasetInfo(
+        name="survset_hdfail",
+        category="tabular",
+        n_features=41,
+        n_samples=52422,
+        description=(
+            "Backblaze hard-drive failure survival (SurvSet hdfail): real "
+            "right-censored days-to-failure + drive telemetry codes."
+        ),
+        loader=_registry_loader(_load_survset_hdfail, n_samples=20000),
+    ),
     "synthetic_ordinal": DatasetInfo(
         name="synthetic_ordinal",
         category="synthetic",
@@ -4008,6 +4269,40 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "prediction.  Canonical crepes conformal prediction example."
         ),
         loader=_registry_loader(_load_house_sales, n_samples=20000),
+    ),
+    "folktables_income": DatasetInfo(
+        name="folktables_income",
+        category="tabular",
+        n_features=70,
+        n_samples=150000,
+        description=(
+            "US Census income regression (Folktables ACS 2018 CA): "
+            "continuous PINCP on the published ACSIncome cohort "
+            "(Ding et al., NeurIPS 2021). Modern large-scale benchmark."
+        ),
+        loader=_registry_loader(_load_folktables_income, n_samples=20000),
+    ),
+    "folktables_decile": DatasetInfo(
+        name="folktables_decile",
+        category="tabular",
+        n_features=70,
+        n_samples=150000,
+        description=(
+            "US Census income-BRACKET ordinal task (Folktables ACS 2018 CA): "
+            "income decile 0-9, ordered, naturally imbalanced."
+        ),
+        loader=_registry_loader(_load_folktables_decile, n_samples=20000),
+    ),
+    "energy_efficiency": DatasetInfo(
+        name="energy_efficiency",
+        category="tabular",
+        n_features=8,
+        n_samples=768,
+        description=(
+            "UCI Energy Efficiency (Tsanas & Xifara 2012): heating/cooling "
+            "loads. Standard real-data MULTI-TARGET regression benchmark."
+        ),
+        loader=_registry_loader(_load_energy_efficiency),
     ),
     "make_regression_synthetic": DatasetInfo(
         name="make_regression_synthetic",

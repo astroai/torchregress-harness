@@ -49,12 +49,14 @@ class MissingDataSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["diabetes", "california_housing"]
+        return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["CompleteCase", "PropensityWeighted", "OracleIPW"]
+        return ["CompleteCase", "PropensityWeighted", "OracleIPW", "sklearn_IPW"]
 
     def library_name(self, method: str) -> str:
+        if method.startswith("sklearn_"):
+            return "sklearn"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
@@ -62,6 +64,7 @@ class MissingDataSuite(HarnessRunner):
             "CompleteCase": "MLP + MSE on observed targets only (selection-bias baseline)",
             "PropensityWeighted": "MLP + PropensityWeightedLoss with estimated propensities",
             "OracleIPW": "MLP + PropensityWeightedLoss with TRUE propensities (upper bound)",
+            "sklearn_IPW": "sklearn LogisticRegression propensity + Ridge IPW (external)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -105,6 +108,13 @@ class MissingDataSuite(HarnessRunner):
             )
             model.eval()
             return {"type": "point", "model": model}
+        if method == "sklearn_IPW":
+            from sklearn.linear_model import Ridge
+
+            w = 1.0 / np.clip(est_prop.astype(np.float64), 0.01, None)
+            reg = Ridge(alpha=1.0)
+            reg.fit(Xo, yo, sample_weight=w)
+            return {"type": "sklearn", "model": reg}
         if method in ("PropensityWeighted", "OracleIPW"):
             model = _MLP(in_dim, hidden, out_dim=1)
             prop = (
@@ -150,6 +160,11 @@ class MissingDataSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         del method, config
+        if model_state.get("type") == "sklearn":
+            pred = np.asarray(
+                model_state["model"].predict(np.asarray(X_test)), dtype=np.float64
+            ).reshape(-1)
+            return {"y_pred": pred}
         m = model_state["model"]
         with torch.no_grad():
             pred = (

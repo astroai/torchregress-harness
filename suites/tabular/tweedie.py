@@ -75,7 +75,7 @@ class TweedieSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_tweedie"]
+        return ["synthetic_tweedie", "insurance_claims"]
 
     @property
     def canonical_scenarios(self) -> list[str]:

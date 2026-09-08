@@ -97,7 +97,7 @@ class OrdinalSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_ordinal"]
+        return ["synthetic_ordinal", "folktables_decile"]
 
     @property
     def canonical_scenarios(self) -> list[str]:

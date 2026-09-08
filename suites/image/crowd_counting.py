@@ -43,16 +43,17 @@ class CrowdCountingSuite(ImageHarnessRunner):
         return ["shanghai_crowd", "shanghai_crowd_tiny"]
 
     def methods(self) -> list[str]:
-        return ["UNet+MSE", "UNet+Huber", "UNet+GaussianNLL"]
+        return ["UNet+MSE", "UNet+Huber", "UNet+GaussianNLL", "sklearn_RF"]
 
     def library_name(self, method: str) -> str:
-        return "torchregress"
+        return "scikit-learn" if method.startswith("sklearn_") else "torchregress"
 
     def method_notes(self, method: str) -> str:
         return {
             "UNet+MSE": "UNet density map + MSE (point baseline)",
             "UNet+Huber": "UNet density map + PseudoHuber (robust to congested outliers)",
             "UNet+GaussianNLL": "UNet 2ch density mean+logvar per pixel",
+            "sklearn_RF": "RF count regressor → uniform maps (count metrics honest; no spatial model)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -68,6 +69,17 @@ class CrowdCountingSuite(ImageHarnessRunner):
         set_harness_seed(config.seed)
         in_channels, _, _ = self._image_shape(splits)
         train_loader = self._make_train_loader(splits, batch_size=config.batch_size)
+        if method == "sklearn_RF":
+            from sklearn.ensemble import RandomForestRegressor
+
+            Xf = np.asarray(splits["X_train"]).reshape(len(splits["X_train"]), -1)
+            # Train on counts (density sums); predict uniform maps below.
+            ytr = np.asarray(splits["y_train"]).reshape(len(splits["X_train"]), -1).sum(axis=1)
+            est = RandomForestRegressor(
+                n_estimators=50, max_depth=12, random_state=config.seed, n_jobs=-1
+            )
+            est.fit(Xf, ytr)
+            return {"type": "sklearn", "estimator": est}
         if method == "UNet+MSE":
             m = self._build_unet(in_channels=in_channels, out_channels=1, base_filters=32)
             _train_image_model(m, nn.MSELoss(), train_loader, config)
@@ -98,6 +110,24 @@ class CrowdCountingSuite(ImageHarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
         t = model_state["type"]
+        if t == "sklearn":
+            X_list = list(np.asarray(X_test, dtype=object))
+            Xf = np.stack([np.asarray(x).reshape(-1) for x in X_list], axis=0).astype(np.float64)
+            counts = np.clip(
+                np.asarray(model_state["estimator"].predict(Xf), dtype=np.float64).reshape(-1),
+                0,
+                None,
+            )
+            # Uniform maps sized per image (variable resolutions possible).
+            dens_list = []
+            for c, x in zip(counts, X_list):
+                xa = np.asarray(x)
+                hw = int(np.prod(xa.shape[-2:])) if xa.ndim >= 3 else 1
+                dens_list.append(np.full(hw, c / max(hw, 1)))
+            # Pad to rectangular for the artifact contract.
+            max_hw = max(len(d) for d in dens_list)
+            dens = np.stack([np.pad(d, (0, max_hw - len(d))) for d in dens_list], axis=0)
+            return {"y_pred": dens.reshape(-1), "_density": dens}
         model = model_state["model"]
         device = next(model.parameters()).device
         loader = _image_to_dataloader(

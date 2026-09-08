@@ -21,6 +21,13 @@ from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 
+try:
+    import ppi_py as _ppi_py
+
+    _PPI_PY_AVAILABLE = True
+except ImportError:
+    _PPI_PY_AVAILABLE = False
+
 _N_LABELED = 64
 
 
@@ -37,12 +44,17 @@ class PPISuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["diabetes", "california_housing"]
+        return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["Classical", "PPI_Mean", "PPI_Quantile"]
+        methods = ["Classical", "PPI_Mean", "PPI_Quantile"]
+        if _PPI_PY_AVAILABLE:
+            methods += ["PPI_py_Mean", "PPI_py_Quantile"]
+        return methods
 
     def library_name(self, method: str) -> str:
+        if method.startswith("PPI_py_"):
+            return "ppi_py"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
@@ -50,6 +62,8 @@ class PPISuite(HarnessRunner):
             "Classical": "labeled-only mean/median CIs (no model, no PPI)",
             "PPI_Mean": "ppi_mean_ci: rectified mean + bootstrap CI",
             "PPI_Quantile": "ppi_quantile_ci (q=0.5): rectified median + CI",
+            "PPI_py_Mean": "OFFICIAL ppi_py ppi_mean_ci (PPI++ power tuning, external)",
+            "PPI_py_Quantile": "OFFICIAL ppi_py ppi_quantile_ci (external)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -119,6 +133,9 @@ class PPISuite(HarnessRunner):
             ppi_quantile_ci,
         )
 
+        if method.startswith("PPI_py_") and not _PPI_PY_AVAILABLE:
+            raise ImportError("ppi-python not installed")
+
         y_pred = np.asarray(predictions["y_pred"]).reshape(-1)
         y_true = np.asarray(y_test).reshape(-1)
         # Native data scale (custom evaluates must inverse-transform).
@@ -137,15 +154,23 @@ class PPISuite(HarnessRunner):
         p_l = torch.from_numpy(y_pred[lab_idx].astype(np.float64))
         p_u = torch.from_numpy(y_pred[unl_mask].astype(np.float64))
         cfg = PPIConfig(alpha=0.1, n_boot=500, seed=config.seed)
+        # Official-package arrays for the PPI_py_* rows (same split).
+        Y_official = y_true[lab_idx]
+        Ph_official = y_pred[lab_idx]
+        Pu_official = y_pred[unl_mask]
 
         out: dict[str, float] = {"RMSE": rmse}
-        if method in ("Classical", "PPI_Mean"):
+        if method in ("Classical", "PPI_Mean", "PPI_py_Mean"):
             true_mean = float(y_true.mean())
             if method == "Classical":
                 se = float(y_l.double().std() / np.sqrt(n_lab))
                 lo = float(y_l.mean()) - 1.645 * se
                 hi = float(y_l.mean()) + 1.645 * se
                 est = float(y_l.mean())
+            elif method == "PPI_py_Mean":
+                lo_a, hi_a = _ppi_py.ppi_mean_ci(Y_official, Ph_official, Pu_official, alpha=0.1)
+                lo, hi = float(np.ravel(lo_a)[0]), float(np.ravel(hi_a)[0])
+                est = float((lo + hi) / 2)
             else:
                 res = ppi_mean_ci(y_l, p_l, p_u, config=cfg)
                 est, lo, hi = res["estimate"], res["ci_lower"], res["ci_upper"]
@@ -156,11 +181,15 @@ class PPISuite(HarnessRunner):
                     "Covers": float(lo <= true_mean <= hi),
                 }
             )
-        if method in ("Classical", "PPI_Quantile"):
+        if method in ("Classical", "PPI_Quantile", "PPI_py_Quantile"):
             true_med = float(np.median(y_true))
             if method == "Classical":
                 qs = np.quantile(y_l.numpy(), [0.05, 0.5, 0.95])
                 est, lo, hi = float(qs[1]), float(qs[0]), float(qs[2])
+            elif method == "PPI_py_Quantile":
+                ci = _ppi_py.ppi_quantile_ci(Y_official, Ph_official, Pu_official, 0.5, alpha=0.1)
+                lo, hi = float(np.ravel(ci)[0]), float(np.ravel(ci)[-1])
+                est = float((lo + hi) / 2)
             else:
                 res = ppi_quantile_ci(y_l, p_l, p_u, q=0.5, config=cfg)
                 est, lo, hi = res["estimate"], res["ci_lower"], res["ci_upper"]

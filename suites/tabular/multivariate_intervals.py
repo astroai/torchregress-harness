@@ -252,6 +252,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "synthetic_mv_gaussian",
             "synthetic_mv_nongaussian",
             "synthetic_mv_bimodal",
+            "energy_efficiency",
         ]
 
     # ------------------------------------------------------------------
@@ -337,11 +338,15 @@ class MultivariateIntervalsSuite(HarnessRunner):
         y_train_np = splits["y_train"]  # may be (N*D,) after harness standardization
         in_dim = X_train_np.shape[1]
         hidden = _hidden_size(in_dim)
-        D = self._N_FEATURES
 
-        # Reshape flattened targets back to (N, D)
+        # Reshape flattened targets back to (N, D). D comes from the
+        # target shape when 2D, else the n_targets split tag (energy=2),
+        # else the synthetic default (3).
         if y_train_np.ndim == 1:
+            D = int(splits.get("n_targets", self._N_FEATURES))
             y_train_np = y_train_np.reshape(-1, D)
+        else:
+            D = int(y_train_np.shape[1])
 
         X = torch.from_numpy(X_train_np).float().to(current_device())
         y = torch.from_numpy(y_train_np).float().to(current_device())

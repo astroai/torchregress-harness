@@ -44,6 +44,13 @@ from suites._backbones import (
     _train_one,
 )
 
+try:
+    from crepes import ConformalRegressor as _CrepesRegressor
+
+    _CREPES_AVAILABLE = True
+except ImportError:
+    _CREPES_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Skew/shape family spec: method → (loss class, head width, notes)
 # Widths verified by forward probe; location is column 0 in all layouts.
@@ -194,7 +201,7 @@ class DistributionalBinsSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def methods(self) -> list[str]:
-        return [
+        methods = [
             "Split_CP",
             "GaussianNLL",
             "NormalizingFlow",
@@ -215,8 +222,13 @@ class DistributionalBinsSuite(HarnessRunner):
             "SQR",
             "RandomPartition",
         ]
+        if _CREPES_AVAILABLE:
+            methods.append("crepes_CQR")
+        return methods
 
     def library_name(self, method: str) -> str:
+        if method.startswith("crepes_"):
+            return "crepes"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
@@ -256,6 +268,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "ContrastiveFlow": "NSF + in-batch negative contexts (contrastive shaping)",
             "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
             "RandomPartition": "3× binned heads on jittered partitions → CDF-average mean/var",
+            "crepes_CQR": "sklearn quantile GBRs + crepes score calibration (external)",
         }
         if method in _SKEW_METHODS:
             spec = _SKEW_METHODS[method]
@@ -612,8 +625,29 @@ class DistributionalBinsSuite(HarnessRunner):
             model.eval()
             return {"type": "sqr", "model": model}
 
-        # --- RandomPartition: M members on jittered target partitions ---
-        # CDF-space averaging onto the union grid; per-member CE training
+        # --- crepes_CQR: sklearn quantile GBRs + crepes calibration ---
+        elif method == "crepes_CQR":
+            from sklearn.ensemble import GradientBoostingRegressor
+
+            if not _CREPES_AVAILABLE:
+                raise ImportError("crepes not installed")
+            alpha = 0.1
+            Xc = np.asarray(splits["X_cal"])
+            yc = np.asarray(splits["y_cal"]).reshape(-1)
+            lo = GradientBoostingRegressor(
+                loss="quantile", alpha=alpha / 2, random_state=config.seed
+            )
+            hi = GradientBoostingRegressor(
+                loss="quantile", alpha=1.0 - alpha / 2, random_state=config.seed
+            )
+            lo.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
+            hi.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
+            score = np.maximum(lo.predict(Xc) - yc, yc - hi.predict(Xc))
+            cr = _CrepesRegressor()
+            cr.fit(score)
+            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr}
+
+        # --- RandomPartition: M members on jittered target partitions ---        # CDF-space averaging onto the union grid; per-member CE training
         # (members have incompatible out-dims, so no shared-target .fit).
         elif method == "RandomPartition":
             import torch.optim as optim
@@ -799,6 +833,26 @@ class DistributionalBinsSuite(HarnessRunner):
                 return arr[:, min(31, int(p * 32))].reshape(-1)
 
             return {"lower": _q(0.05), "upper": _q(0.95), "y_pred": _q(0.5)}
+
+        # --- crepes_CQR → calibrated quantile intervals ---
+        elif model_type == "crepes_cqr":
+            lo_m, hi_m, cr = (
+                model_state["lo"],
+                model_state["hi"],
+                model_state["cr"],
+            )
+            q_lo = lo_m.predict(np.asarray(X_test)).reshape(-1)
+            q_hi = hi_m.predict(np.asarray(X_test)).reshape(-1)
+            # crepes ConformalRegressor only emits symmetric intervals; with
+            # CQR conformity scores fitted above, predict_int on zeros gives
+            # exactly ±Q (finite-sample corrected), applied to each quantile.
+            iv = np.asarray(cr.predict_int(np.zeros(len(q_lo)), confidence=0.9))
+            lo_np, hi_np = q_lo + iv[:, 0], q_hi + iv[:, 1]
+            return {
+                "lower": lo_np,
+                "upper": hi_np,
+                "y_pred": (lo_np + hi_np) / 2,
+            }
 
         # --- GaussianNLL → z-score intervals ---
         elif model_type == "gaussian_nll":

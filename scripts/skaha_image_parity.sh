@@ -121,6 +121,13 @@ log "installing git pins (MAPIE/TU/LUQ-Box + image stack)"
 pixi run pip install -q "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN" || log "MAPIE pin failed (offline?)"
 pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning || log "TU pin failed"
 pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
+log "installing comparator/data deps (lifelines/crepes/survset/folktables/openpyxl)"
+pixi run pip install -q lifelines crepes survset folktables openpyxl || log "comparator deps failed (offline?)"
+# ppi-python pulls numba (~slow); only sessions that run ppi jobs need it.
+if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *ppi* ]]; then
+  log "installing ppi-python (official PPI comparator)"
+  pixi run pip install -q ppi-python || log "ppi-python failed (offline?)"
+fi
 
 # Replica sharding: split the suite×dataset matrix across headless replicas.
 # Tiny variants (*_tiny) are CPU-smoke friendly; full-real sets are nightly.
@@ -161,19 +168,26 @@ ALL_JOBS=(
   "robust_regression synthetic_outliers"
   "robust_regression california_housing"
   "tweedie synthetic_tweedie"
+  "tweedie insurance_claims"
   "distributional_bins diabetes"
   "distributional_bins california_housing"
   "ensembles diabetes"
   "multivariate_intervals synthetic_multivariate"
+  "multivariate_intervals energy_efficiency"
   "eiv synthetic_eiv"
   "censored synthetic_censored"
+  "censored survset_hdfail"
   "ordinal synthetic_ordinal"
+  "ordinal folktables_decile"
   "ppi diabetes"
   "ppi california_housing"
+  "ppi folktables_income"
   "label_shift diabetes"
   "label_shift california_housing"
+  "label_shift folktables_income"
   "missing_data diabetes"
   "missing_data california_housing"
+  "missing_data folktables_income"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"

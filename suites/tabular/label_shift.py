@@ -53,12 +53,14 @@ class LabelShiftSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["diabetes", "california_housing"]
+        return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["Unweighted", "BBSE", "Oracle"]
+        return ["Unweighted", "BBSE", "Oracle", "DomainClassifier"]
 
     def library_name(self, method: str) -> str:
+        if method == "DomainClassifier":
+            return "sklearn"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
@@ -66,6 +68,7 @@ class LabelShiftSuite(HarnessRunner):
             "Unweighted": "no correction — biased target-risk baseline",
             "BBSE": "BinnedLabelShiftEstimator (EM) weights from source + target preds",
             "Oracle": "TRUE importance weights (upper bound)",
+            "DomainClassifier": "sklearn domain classifier density-ratio weights (external)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -106,6 +109,7 @@ class LabelShiftSuite(HarnessRunner):
             "model": model,
             "y_train": np.asarray(y_train_np).reshape(-1),
             "p_src": p_src,
+            "X_train": np.asarray(X_train_np, dtype=np.float64),
         }
 
     # ------------------------------------------------------------------
@@ -121,7 +125,7 @@ class LabelShiftSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        del method, config
+        del config
         m = model_state["model"]
         with torch.no_grad():
             pred = (
@@ -131,11 +135,27 @@ class LabelShiftSuite(HarnessRunner):
                 .cpu()
                 .numpy()
             )
-        return {
+        out: dict[str, np.ndarray] = {
             "y_pred": pred,
             "y_train": np.asarray(model_state["y_train"]).reshape(-1),
             "p_src": np.asarray(model_state["p_src"]).reshape(-1),
         }
+        if method == "DomainClassifier":
+            # Discriminative density-ratio (Bickel et al. 2009): P(target|x)
+            # odds from a source-vs-target domain classifier (external).
+            from sklearn.linear_model import LogisticRegression
+
+            X_te = np.asarray(X_test, dtype=np.float64)
+            X_tr = np.asarray(model_state["X_train"], dtype=np.float64)
+            n_tr = min(len(X_tr), 2000)
+            n_te = min(len(X_te), 2000)
+            Xd = np.vstack([X_tr[:n_tr], X_te[:n_te]])
+            yd = np.concatenate([np.zeros(n_tr), np.ones(n_te)]).astype(int)
+            clf = LogisticRegression(max_iter=1000).fit(Xd, yd)
+            p = clf.predict_proba(X_te)[:, 1]
+            w_dom = (p / np.clip(1.0 - p, 1e-3, None)).astype(np.float64)
+            out["w_dom"] = w_dom / max(w_dom.mean(), 1e-12)
+        return out
 
     # ------------------------------------------------------------------
     # evaluate — seeded shift target + per-method weights + metrics
@@ -170,6 +190,10 @@ class LabelShiftSuite(HarnessRunner):
             est = BinnedLabelShiftEstimator(n_bins=10, method="em")
             est.fit(y_train, p_src, y_pred[tgt_idx])
             w_est = np.asarray(est.sample_weights(y_true[tgt_idx]), dtype=np.float64).reshape(-1)
+            w_est = w_est / max(w_est.mean(), 1e-12)
+        elif method == "DomainClassifier":
+            w_all = np.asarray(predictions["w_dom"], dtype=np.float64).reshape(-1)
+            w_est = w_all[tgt_idx]
             w_est = w_est / max(w_est.mean(), 1e-12)
         else:
             raise ValueError(f"Unknown method: {method}")
