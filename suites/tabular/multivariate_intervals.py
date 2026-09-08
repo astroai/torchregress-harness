@@ -52,6 +52,9 @@ class _MultiOutputMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden, out_dim),
         )
+        # Any-device support (matches _MLP): predict paths send inputs to
+        # current_device(), so the module must live there too.
+        self.to(current_device())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
@@ -353,7 +356,7 @@ def _sls_predict_intervals(
             L_full, _ = frontier._get_L_matrix_and_logdet(L_params)  # (N, D, D)
 
         # Sample random unit directions on the sphere, scale to boundary
-        r = torch.randn(n_samples, N, D)
+        r = torch.randn(n_samples, N, D, device=L_full.device)
         r = F.normalize(r, dim=-1)
         r = r * torch.sqrt(q).view(1, -1, 1)  # (S, N, D) — boundary of ellipsoid
 
@@ -443,6 +446,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MDN",
             "MultiQuantile",
             "HeteroEnsembleCov",
+            "TICovariance",
         ]
 
     def library_name(self, method: str) -> str:
@@ -487,6 +491,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MDN": "multivariate mixture (3 full-cov Gaussians) → sampled intervals + full scoring",
             "MultiQuantile": "marginal 10/50/90% quantiles per dim → own intervals (no joint samples)",
             "HeteroEnsembleCov": "heteroscedastic ensemble → full epi+alea covariance → marginals + samples",
+            "TICovariance": "Taylor-induced covariance head (ICML24) → Jacobian/Hessian-tied full cov",
         }
         return notes.get(method, "")
 
@@ -833,6 +838,37 @@ class MultivariateIntervalsSuite(HarnessRunner):
             ens.eval()
             return {"type": "heteroenscov", "model": ens, "n_features": D}
 
+        # --- TICovariance: Taylor-induced covariance (TIC-TAC, ICML 2024) ---
+        elif method == "TICovariance":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.algorithms.tictac import TaylorInducedCovarianceHead
+            from torchregress.losses import MultivariateGaussianLoss
+
+            dev = current_device()
+            base = _MultiOutputMLP(in_dim, hidden, out_dim=D).to(dev)
+            head = TaylorInducedCovarianceHead(base, target_dim=D).to(dev)
+            mv_loss = MultivariateGaussianLoss(n_features=D).to(dev)
+            loader = DataLoader(
+                TensorDataset(
+                    torch.from_numpy(X_train_np).float(),
+                    torch.from_numpy(y_train_np).float(),
+                ),
+                batch_size=config.batch_size,
+                shuffle=True,
+            )
+            opt = optim.Adam(list(base.parameters()) + list(head.parameters()), lr=config.lr)
+            head.train()
+            for _ in range(config.epochs):
+                for Xb, yb in loader:
+                    Xb, yb = Xb.to(dev), yb.to(dev)
+                    opt.zero_grad(set_to_none=True)
+                    mean, cov = head(Xb)
+                    mv_loss(mean, yb, covariance_matrices=cov).backward()
+                    opt.step()
+            head.eval()
+            return {"type": "ticovariance", "model": head, "n_features": D}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -995,6 +1031,28 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 d = ens.predict_full_covariance(torch.from_numpy(X_test).float().to(dev))
             mean_np = d["mean"].reshape(-1, D).detach().cpu().numpy().astype(np.float64)
             cov_np = d["total_covariance"].detach().cpu().numpy().astype(np.float64)
+            std_np = np.sqrt(np.diagonal(cov_np, axis1=-2, axis2=-1).clip(min=1e-12))
+            lower = mean_np - z_score * std_np
+            upper = mean_np + z_score * std_np
+            return {
+                "lower": lower.reshape(-1),
+                "upper": upper.reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "samples": _full_gaussian_samples(mean_np, cov_np, config.seed),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- TICovariance → Taylor-induced full-covariance intervals ---
+        elif model_type == "ticovariance":
+            head = model_state["model"]
+            head.eval()
+            dev = next(head.parameters()).device
+            with torch.no_grad():
+                mean_t, cov_t = head(torch.from_numpy(X_test).float().to(dev))
+            mean_np = mean_t.reshape(-1, D).detach().cpu().numpy().astype(np.float64)
+            cov_np = cov_t.detach().cpu().numpy().astype(np.float64)
             std_np = np.sqrt(np.diagonal(cov_np, axis1=-2, axis2=-1).clip(min=1e-12))
             lower = mean_np - z_score * std_np
             upper = mean_np + z_score * std_np

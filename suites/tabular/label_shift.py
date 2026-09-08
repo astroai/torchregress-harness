@@ -1,11 +1,14 @@
-"""Label-shift suite — importance weighting under target shift.
+"""Label-shift + covariate-shift suite — importance weighting under shift.
 
-Protocol: an MLP point model trains on the source (train split). The TARGET
-is a label-shifted resample of test (P(select) logistic in standardized y,
-known true weights). Rows: Unweighted (biased baseline), BBSE (binned
-label-shift weight estimates from source labels + target predictions), Oracle
-(true weights, upper bound). Metrics: weight-recovery RMSE plus weighted MAE
-on the shifted target.
+LABEL-shift protocol: an MLP point model trains on the source (train split).
+The TARGET is a label-shifted resample of test (P(select) logistic in
+standardized y, known true weights). Rows: Unweighted, BBSE, Oracle,
+DomainClassifier. Metrics: weight-recovery RMSE + weighted MAE.
+
+COVARIATE-shift protocol (WeightedCP rows): the target is resampled by
+P(select) logistic in X (known shift on features). A split-CP baseline vs
+the WeightedConformalRegressionAdapter (classifier density-ratio weighted
+calibration). Metrics: coverage/width on the shifted target.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
 
 _SHIFT_STRENGTH = 1.5
+_COV_SHIFT_STRENGTH = 1.0
 
 
 def _shift_target(
@@ -40,6 +44,23 @@ def _shift_target(
     return tgt_idx, w_true.astype(np.float64)
 
 
+def _covariate_shift_target(
+    X_test: np.ndarray, seed: int, strength: float = _COV_SHIFT_STRENGTH
+) -> tuple[np.ndarray, np.ndarray]:
+    """Covariate-shifted target resample + normalized true weights."""
+    rng = np.random.default_rng(seed + 999)
+    Xs = (X_test - X_test.mean(axis=0)) / (X_test.std(axis=0) + 1e-12)
+    w = rng.normal(0, 1, Xs.shape[1])
+    w /= np.linalg.norm(w) + 1e-12
+    sel_prob = 1.0 / (1.0 + np.exp(-strength * (Xs @ w)))
+    sel_prob = sel_prob / sel_prob.sum()
+    n_tgt = len(X_test)
+    tgt_idx = rng.choice(n_tgt, size=n_tgt, replace=True, p=sel_prob)
+    w_true = sel_prob[tgt_idx] / (1.0 / n_tgt)
+    w_true = w_true / w_true.mean()
+    return tgt_idx, w_true.astype(np.float64)
+
+
 class LabelShiftSuite(HarnessRunner):
     """Unweighted vs BBSE vs oracle weighting under label shift."""
 
@@ -49,14 +70,21 @@ class LabelShiftSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Label shift: unweighted vs BBSE vs oracle importance weights"
+        return "Label/covariate shift: importance weights + weighted conformal"
 
     @property
     def supported_datasets(self) -> list[str]:
         return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["Unweighted", "BBSE", "Oracle", "DomainClassifier"]
+        return [
+            "Unweighted",
+            "BBSE",
+            "Oracle",
+            "DomainClassifier",
+            "SplitCP",
+            "WeightedCP",
+        ]
 
     def library_name(self, method: str) -> str:
         if method == "DomainClassifier":
@@ -69,6 +97,8 @@ class LabelShiftSuite(HarnessRunner):
             "BBSE": "BinnedLabelShiftEstimator (EM) weights from source + target preds",
             "Oracle": "TRUE importance weights (upper bound)",
             "DomainClassifier": "sklearn domain classifier density-ratio weights (external)",
+            "SplitCP": "split conformal on source cal — undercovers shifted target",
+            "WeightedCP": "WeightedConformalRegressionAdapter (density-ratio CP)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -81,7 +111,6 @@ class LabelShiftSuite(HarnessRunner):
         splits: dict[str, np.ndarray],
         config: HarnessConfig,
     ) -> dict[str, Any]:
-        del method
         set_harness_seed(config.seed)
         X_train_np = splits["X_train"]
         y_train_np = splits["y_train"]
@@ -104,13 +133,40 @@ class LabelShiftSuite(HarnessRunner):
                 .cpu()
                 .numpy()
             )
-        return {
+        state: dict[str, Any] = {
             "type": "point",
             "model": model,
             "y_train": np.asarray(y_train_np).reshape(-1),
             "p_src": p_src,
             "X_train": np.asarray(X_train_np, dtype=np.float64),
         }
+        # Stash target-scale stats so CP intervals can be inverse-transformed
+        # to native units in predict() (same scale discipline as BBSE above).
+        _ysc = splits.get("_y_scaler")
+        if _ysc is not None:
+            state["y_smean"] = float(np.asarray(_ysc.mean_).reshape(-1)[0])
+            state["y_sscale"] = float(np.asarray(_ysc.scale_).reshape(-1)[0])
+        else:
+            state["y_smean"] = 0.0
+            state["y_sscale"] = 1.0
+        if method in ("SplitCP", "WeightedCP"):
+            # Calibration split = last 20% of train (residuals + features).
+            n_cal = max(16, len(X_train_np) // 5)
+            X_cal = np.asarray(X_train_np)[-n_cal:]
+            y_cal = np.asarray(y_train_np).reshape(-1)[-n_cal:]
+            with torch.no_grad():
+                p_cal = (
+                    model(torch.from_numpy(X_cal).float().to(current_device()))
+                    .reshape(-1)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+            state["X_cal"] = X_cal.astype(np.float64)
+            state["y_cal"] = y_cal.astype(np.float64)
+            state["p_cal"] = p_cal.astype(np.float64)
+            state["resid_cal"] = np.abs(y_cal - p_cal).astype(np.float64)
+        return state
 
     # ------------------------------------------------------------------
     # predict — per-row preds + source passthrough. All shift logic lives
@@ -125,7 +181,6 @@ class LabelShiftSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        del config
         m = model_state["model"]
         with torch.no_grad():
             pred = (
@@ -140,6 +195,35 @@ class LabelShiftSuite(HarnessRunner):
             "y_train": np.asarray(model_state["y_train"]).reshape(-1),
             "p_src": np.asarray(model_state["p_src"]).reshape(-1),
         }
+        if method in ("SplitCP", "WeightedCP"):
+            # Covariate-shifted target (seeded — identical across methods).
+            X_te = np.asarray(X_test, dtype=np.float64)
+            cov_idx, _ = _covariate_shift_target(X_te, config.seed)
+            out["cov_tgt_idx"] = cov_idx.astype(np.float64)
+            smean = float(model_state.get("y_smean", 0.0))
+            sscale = float(model_state.get("y_sscale", 1.0))
+            if method == "SplitCP":
+                q = float(np.quantile(model_state["resid_cal"], 0.9))
+                out["lower"] = (pred - q).astype(np.float64) * sscale + smean
+                out["upper"] = (pred + q).astype(np.float64) * sscale + smean
+            else:
+                from torchregress.test_time.ot_conformal import (
+                    WeightedConformalRegressionAdapter,
+                )
+
+                adapter = WeightedConformalRegressionAdapter(alpha=0.1)
+                adapter.calibrate(
+                    torch.from_numpy(np.asarray(model_state["p_cal"]).astype(np.float32)),
+                    torch.from_numpy(np.asarray(model_state["y_cal"]).astype(np.float32)),
+                    torch.from_numpy(np.asarray(model_state["X_cal"]).astype(np.float32)),
+                    torch.from_numpy(X_te.astype(np.float32)),
+                )
+                lo_t, hi_t = adapter.predict_interval(
+                    torch.from_numpy(pred.astype(np.float32)),
+                    torch.from_numpy(X_te.astype(np.float32)),
+                )
+                out["lower"] = np.asarray(lo_t, dtype=np.float64).reshape(-1) * sscale + smean
+                out["upper"] = np.asarray(hi_t, dtype=np.float64).reshape(-1) * sscale + smean
         if method == "DomainClassifier":
             # Discriminative density-ratio (Bickel et al. 2009): P(target|x)
             # odds from a source-vs-target domain classifier (external).
@@ -202,6 +286,16 @@ class LabelShiftSuite(HarnessRunner):
             w_all = np.asarray(predictions["w_dom"], dtype=np.float64).reshape(-1)
             w_est = w_all[tgt_idx]
             w_est = w_est / max(w_est.mean(), 1e-12)
+        elif method in ("SplitCP", "WeightedCP"):
+            cov_idx = np.asarray(predictions["cov_tgt_idx"]).reshape(-1).astype(int)
+            lo = np.asarray(predictions["lower"]).reshape(-1)[cov_idx]
+            hi = np.asarray(predictions["upper"]).reshape(-1)[cov_idx]
+            yt = y_true[cov_idx]
+            return {
+                "ShiftCoverage": float(np.mean((yt >= lo) & (yt <= hi))),
+                "ShiftWidth": float(np.mean(hi - lo)),
+                "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
+            }
         else:
             raise ValueError(f"Unknown method: {method}")
         w_mae = float(np.sum(w_est * err) / max(w_est.sum(), 1e-12))

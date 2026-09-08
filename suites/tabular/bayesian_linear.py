@@ -77,6 +77,7 @@ class BayesianLinearSuite(HarnessRunner):
             "BLR_Linear",  # torchregress — parity against sklearn
             "sklearn_BayesianRidge",  # sklearn — ground truth
             "BayesianLinearHead",  # torchregress — RBF kernel
+            "RecursiveBayesianHead",  # torchregress — streaming partial_fit
         ]
         if _BOTORCH_AVAILABLE:
             methods.append("BoTorch_SingleTaskGP")
@@ -164,6 +165,30 @@ class BayesianLinearSuite(HarnessRunner):
                 result["y_mean"] = y_mean
             return result
 
+        elif method == "RecursiveBayesianHead":
+            # Streaming protocol: fit on the first half, partial_fit the
+            # second — the raison d'être of the recursive head. Same RBF
+            # setup as BayesianLinearHead for comparability.
+            from torchregress.test_time import RecursiveBayesianHead
+
+            X_t = torch.from_numpy(X).float().to(current_device())
+            y_t = torch.from_numpy(y).float().to(current_device()).unsqueeze(-1)
+            n_half = max(1, len(X_t) // 2)
+            head = RecursiveBayesianHead(
+                in_features=in_dim,
+                fit_intercept=True,
+                prior_precision=10.0,
+                noise_variance=1.0,
+                auto_noise=True,
+                rbf_centers=20,
+            ).fit(X_t[:n_half], y_t[:n_half])
+            head.partial_fit(X_t[n_half:], y_t[n_half:])
+            return {
+                "type": "blr",
+                "head": head,
+                "X_test_np": splits["X_test"],
+            }
+
         elif method == "sklearn_BayesianRidge":
             sk_br = BayesianRidge(fit_intercept=True)
             sk_br.fit(X, y)
@@ -199,7 +224,7 @@ class BayesianLinearSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        if method in ("BLR_Linear", "BayesianLinearHead"):
+        if method in ("BLR_Linear", "BayesianLinearHead", "RecursiveBayesianHead"):
             head = model["head"]
             X_t = torch.from_numpy(X_test).float().to(current_device())
 
@@ -250,6 +275,8 @@ class BayesianLinearSuite(HarnessRunner):
             return "conjugate Bayesian linear regression (ARD priors)"
         elif method == "BayesianLinearHead":
             return "BLR with RBF(20) kernel, γ auto-tuned, auto_noise"
+        elif method == "RecursiveBayesianHead":
+            return "RBF BLR via fit(half) + partial_fit(half) streaming"
         elif method == "BoTorch_SingleTaskGP":
             return "GP hyperparameter marginal-likelihood fit; capacity not matched"
         return ""
