@@ -128,10 +128,16 @@ if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *ppi* ]]; then
   log "installing ppi-python (official PPI comparator)"
   pixi run pip install -q ppi-python || log "ppi-python failed (offline?)"
 fi
-# JAX + pzflow (photo-z flows); only pzflow-parity sessions need them.
-if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *pzflow* ]]; then
+# JAX + pzflow (photo-z flows); only flow-parity sessions need them.
+if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *pzflow* || "${JOB_FILTER}" == *sbi* ]]; then
   log "installing JAX + pzflow (flow parity)"
   pixi run pip install -q "jax[cpu]" pzflow || log "jax/pzflow failed (offline?)"
+fi
+# SBI stack (sbibm tasks + sbi NPE + pyro); only sbi-parity sessions.
+if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *sbi* ]]; then
+  log "installing SBI stack (sbibm/sbi/pyro)"
+  pixi run pip install -q --no-deps sbibm pyro-ppl future || log "sbibm failed (offline?)"
+  pixi run pip install -q sbi || log "sbi failed (offline?)"
 fi
 
 # Replica sharding: split the suite×dataset matrix across headless replicas.
@@ -196,6 +202,8 @@ ALL_JOBS=(
   "pzflow_parity synthetic_cond_gaussian"
   "pzflow_parity synthetic_cond_nongaussian"
   "pzflow_parity pzflow_galaxies"
+  "pzflow_parity energy_efficiency"
+  "sbi_parity sbibm_twomoons"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"

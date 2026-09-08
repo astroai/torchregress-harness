@@ -337,6 +337,64 @@ def _load_synthetic_censored(
     }
 
 
+def _load_sbibm_twomoons(
+    n_samples: int = 10000,
+    n_observations: int = 3,
+    seed: int = 42,
+) -> SplitsDict:
+    """sbibm Two Moons (Lueckmann et al., NeurIPS 2021 SBI benchmark).
+
+    Bimodal 2-D posterior p(theta | x) from a fast simulator — the field
+    standard for flexible conditional densities, with REFERENCE posterior
+    samples for C2ST comparison. Train = prior simulations (x → theta);
+    test = benchmark observations; ``reference`` carries reference posterior
+    draws per observation. Seeded via torch+numpy.
+    """
+    splits: SplitMetadata = {}
+    try:
+        import sbibm
+        import torch
+
+        torch.manual_seed(seed)
+        rng = np.random.default_rng(seed)
+        task = sbibm.get_task("two_moons")
+        theta = torch.as_tensor(
+            np.asarray(task.get_prior()(num_samples=n_samples)), dtype=torch.float32
+        )
+        x = torch.as_tensor(np.asarray(task.get_simulator()(theta)), dtype=torch.float32)
+        X = x.numpy().astype(np.float32)
+        y = theta.numpy().astype(np.float32)
+        obs, ref = [], []
+        for k in range(1, n_observations + 1):
+            o = np.asarray(task.get_observation(num_observation=k), dtype=np.float32)
+            r = np.asarray(
+                task.get_reference_posterior_samples(num_observation=k),
+                dtype=np.float32,
+            )
+            obs.append(o.reshape(-1))
+            ref.append(r)
+        X_test = np.stack(obs, axis=0).astype(np.float32)
+        # Point target = reference posterior mean (diagnostic only).
+        y_test = np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32)
+        _ = rng  # simulator seeding via torch/pyro above
+    except Exception:
+        synth = _load_synthetic_cond_nongaussian(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "sbibm two_moons unavailable"
+        return synth
+
+    return {
+        **splits,
+        "X_train": X,
+        "y_train": y,
+        "X_test": X_test,
+        "y_test": y_test,
+        "reference": ref,
+        "n_targets": y.shape[1],
+        "_skip_y_standardization": True,  # simulator + reference in native units
+    }
+
+
 def _load_pzflow_galaxies(
     n_samples: int = 20000,
     test_size: float = 0.3,
@@ -4170,6 +4228,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "right-censored days-to-failure + drive telemetry codes."
         ),
         loader=_registry_loader(_load_survset_hdfail, n_samples=20000),
+    ),
+    "sbibm_twomoons": DatasetInfo(
+        name="sbibm_twomoons",
+        category="synthetic",
+        n_features=2,
+        n_samples=10000,
+        description=(
+            "sbibm Two Moons (NeurIPS 2021 SBI benchmark): bimodal 2-D "
+            "posterior with reference samples for C2ST."
+        ),
+        loader=_registry_loader(_load_sbibm_twomoons, n_samples=10000),
     ),
     "pzflow_galaxies": DatasetInfo(
         name="pzflow_galaxies",

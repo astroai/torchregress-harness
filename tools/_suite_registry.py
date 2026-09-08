@@ -32,6 +32,7 @@ from suites.tabular.ppi import PPISuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
+from suites.tabular.sbi_parity import SBIParitySuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.stress_matrix import StressMatrixSuite
 from suites.tabular.tweedie import TweedieSuite
@@ -54,6 +55,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "multivariate_intervals": MultivariateIntervalsSuite,
     "ordinal": OrdinalSuite,
     "ppi": PPISuite,
+    "sbi_parity": SBIParitySuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
