@@ -173,6 +173,8 @@ ALL_JOBS=(
   "image_conformal utkface_age_tiny"
   "conformal diabetes"
   "conformal california_housing"
+  "bayesian_linear diabetes"
+  "bayesian_linear california_housing"
   "image_ensembles_uq utkface_age_tiny"
   "image_robust utkface_age_tiny"
   "image_calibration utkface_age_tiny"
