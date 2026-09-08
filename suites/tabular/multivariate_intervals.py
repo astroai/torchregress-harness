@@ -62,6 +62,54 @@ class _MultiOutputMLP(nn.Module):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Predictive sampling helpers (energy / variogram scoring)
+# ---------------------------------------------------------------------------
+
+_N_SCORING_SAMPLES = 256
+
+
+def _seeded_rng(seed: int) -> np.random.Generator:
+    return np.random.default_rng(seed)
+
+
+def _diag_gaussian_samples(
+    mean: np.ndarray, std: np.ndarray, seed: int, n: int = _N_SCORING_SAMPLES
+) -> np.ndarray:
+    """Draw [S, N, D] samples from a diagonal Gaussian (seeded)."""
+    rng = _seeded_rng(seed)
+    z = rng.standard_normal((n,) + mean.shape).astype(np.float64)
+    return mean.astype(np.float64)[None] + std.astype(np.float64)[None] * z
+
+
+def _full_gaussian_samples(
+    mean: np.ndarray, cov: np.ndarray, seed: int, n: int = _N_SCORING_SAMPLES
+) -> np.ndarray:
+    """Draw [S, N, D] samples from full-covariance Gaussians (seeded)."""
+    rng = _seeded_rng(seed)
+    N, D = mean.shape
+    out = np.empty((n, N, D), dtype=np.float64)
+    for i in range(N):
+        try:
+            L = np.linalg.cholesky(cov[i] + 1e-8 * np.eye(D))
+        except np.linalg.LinAlgError:
+            L = np.sqrt(np.diag(cov[i]).clip(min=1e-8)) * np.eye(D)
+        out[:, i, :] = mean[i] + rng.standard_normal((n, D)) @ L.T
+    return out
+
+
+def _to_scoring_samples(
+    arr: np.ndarray, n_points: int, seed: int, n: int = _N_SCORING_SAMPLES
+) -> np.ndarray:
+    """Normalize flow samples to [S, N, D] with a seeded S-subsample."""
+    a = np.asarray(arr, dtype=np.float64)
+    if a.ndim == 3 and a.shape[0] == n_points:
+        a = np.swapaxes(a, 0, 1)  # (N, S, D) → (S, N, D)
+    if a.shape[0] > n:
+        a = a[_seeded_rng(seed).choice(a.shape[0], size=n, replace=False)]
+    return a
+
+
 def _gaussian_nll_multi_predict(
     model: nn.Module,
     X: np.ndarray,
@@ -149,6 +197,72 @@ class _CholeskyGaussianLossWrapper(nn.Module):
         return self.loss_fn(mean, target, covariance_matrices=cov)
 
 
+class _LowRankGaussianLossWrapper(nn.Module):
+    """Wraps LowRankGaussianLoss for use with _train_one.
+
+    Splits raw model output into mean + factor + diag (mirrors the
+    keypoint-regression image adapter).
+    """
+
+    def __init__(self, D: int, rank: int, loss_fn: nn.Module) -> None:
+        super().__init__()
+        self.D = D
+        self.rank = rank
+        self.loss_fn = loss_fn
+
+    def forward(self, raw: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        import torch.nn.functional as F
+
+        D, r = self.D, self.rank
+        mean = raw[:, :D]
+        factor = raw[:, D : D + D * r].reshape(-1, D, r)
+        diag = F.softplus(raw[:, D + D * r :]) + 1e-4
+        return self.loss_fn(mean, target, cov_factor=factor, cov_diag=diag)
+
+
+def _mv_full_params(model: nn.Module, X: np.ndarray, D: int) -> tuple[np.ndarray, np.ndarray]:
+    """Raw (mean, full covariance) from a Cholesky-parameterized MV model."""
+    model.eval()
+    with torch.no_grad():
+        raw = model(torch.from_numpy(X).float().to(current_device()))
+        mean = raw[:, :D].detach().cpu().numpy().astype(np.float64)
+        cov = (
+            _covariance_from_cholesky_params(raw[:, D:], D)
+            .detach()
+            .cpu()
+            .numpy()
+            .astype(np.float64)
+        )
+    return mean, cov
+
+
+def _lowrank_gaussian_predict(
+    model: nn.Module, X: np.ndarray, D: int, rank: int, seed: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Mean/std + factor-model samples from a low-rank Gaussian head."""
+    import torch.nn.functional as F
+
+    model.eval()
+    with torch.no_grad():
+        raw = model(torch.from_numpy(X).float().to(current_device()))
+        mean_t = raw[:, :D]
+        factor = raw[:, D : D + D * rank].reshape(-1, D, rank)
+        diag = F.softplus(raw[:, D + D * rank :]) + 1e-4
+        var = (factor.pow(2).sum(-1) + diag).clamp_min(1e-8)
+        mean = mean_t.detach().cpu().numpy().astype(np.float64)
+        std = torch.sqrt(var).detach().cpu().numpy().astype(np.float64)
+        # Factor sampling: y = mean + F @ z_r + sqrt(diag) * z_d.
+        rng = np.random.default_rng(seed)
+        S = _N_SCORING_SAMPLES
+        F_np = factor.detach().cpu().numpy().astype(np.float64)
+        d_np = diag.detach().cpu().numpy().astype(np.float64)
+        N = mean.shape[0]
+        z_r = rng.standard_normal((S, N, rank))
+        z_d = rng.standard_normal((S, N, D))
+        samples = mean[None] + (F_np[None] * z_r[:, :, None, :]).sum(-1) + np.sqrt(d_np)[None] * z_d
+    return mean, std, samples
+
+
 # ---------------------------------------------------------------------------
 # SLS (Super-Level-Set) helpers — boundary sampling + inverse flow
 # ---------------------------------------------------------------------------
@@ -189,7 +303,16 @@ def _sls_predict_intervals(
         q_vals = quantile_net(context)  # (N, 3)
         q = q_vals[:, 1]  # (N,) — the tau-quantile threshold
         mu, L_params = frontier._get_params(context)  # (N, D), (N, num_L)
-        L_full, _ = frontier._get_L_matrix_and_logdet(L_params)  # (N, D, D)
+        if getattr(frontier, "mode", "full") == "low_rank":
+            # Low-rank frontier returns (diag, factor): materialize the dense
+            # covariance and Cholesky it — exact, trivial cost at small D —
+            # then run the identical triangular-solve path below.
+            (D_diag, V), _ = frontier._get_L_matrix_and_logdet(L_params)
+            cov = torch.diag_embed(D_diag) + V @ V.transpose(-1, -2)
+            jitter = 1e-6 * torch.eye(cov.shape[-1], device=cov.device)
+            L_full = torch.linalg.cholesky(cov + jitter)
+        else:
+            L_full, _ = frontier._get_L_matrix_and_logdet(L_params)  # (N, D, D)
 
         # Sample random unit directions on the sphere, scale to boundary
         r = torch.randn(n_samples, N, D)
@@ -271,15 +394,14 @@ class MultivariateIntervalsSuite(HarnessRunner):
         return [
             "GaussianNLL",
             "MultivariateGaussian",
+            "LowRankGaussian",
             "WassersteinBound",
             "MultiTargetCP",
             "MVScore",
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
-            # SLS_lowrank parked: low_rank frontier internals differ
-            # (tuple-structured params); boundary-sampling predict path
-            # only supports full mode. Re-enable with predict support.
+            "SLS_lowrank",
         ]
 
     def library_name(self, method: str) -> str:
@@ -312,13 +434,15 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 f"of Proposal #10 ensemble remedy ({ctx_text}; {section_text})"
             )
         notes = {
-            "GaussianNLL": "diagonal Gaussian NLL \u2192 marginal \u03bc \u00b1 z\u00b7\u03c3 intervals per output dim",
-            "MultivariateGaussian": "full-covariance Gaussian NLL via Cholesky factor \u2192 marginal std from cov diagonal",
+            "GaussianNLL": "diagonal Gaussian NLL → marginal μ ± z·σ intervals per output dim",
+            "MultivariateGaussian": "full-covariance Gaussian NLL via Cholesky factor → marginal std from cov diagonal",
+            "LowRankGaussian": "low-rank + diag Gaussian NLL (factor samples) → scalable MV",
             "MultiTargetCP": "per-dimension conformal thresholds on a point MLP",
             "MVScore": "Mahalanobis-score conformal regions (bounding-box intervals)",
             "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
-            "NormalizingFlow": "zuko NSF flow \u2192 sample-based quantile intervals per output dim",
-            "SLS": "Super-Level-Set regression \u2192 boundary sampling + inverse flow \u2192 marginal intervals per output dim",
+            "NormalizingFlow": "zuko NSF flow → sample-based quantile intervals per output dim",
+            "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
+            "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
         }
         return notes.get(method, "")
 
@@ -372,6 +496,23 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config)
             model.eval()
             return {"type": "multivariate_gaussian", "model": model, "n_features": D}
+
+        # --- LowRankGaussian: factor + diag covariance (scalable MV) ---
+        elif method == "LowRankGaussian":
+            from torchregress.losses import LowRankGaussianLoss
+
+            rank = min(2, D)
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=D + D * rank + D)
+            lr_loss = LowRankGaussianLoss()
+            loss_fn = _LowRankGaussianLossWrapper(D, rank, lr_loss)
+            _train_one(model, loss_fn, X, y, config)
+            model.eval()
+            return {
+                "type": "lowrank_gaussian",
+                "model": model,
+                "n_features": D,
+                "rank": rank,
+            }
 
         # --- MVScore: Mahalanobis-score conformal regions on an MV base ---
         # Region {y : (y-mu)^T Sigma^-1 (y-mu) <= r}; reported as the
@@ -553,6 +694,34 @@ class MultivariateIntervalsSuite(HarnessRunner):
             model.eval()
             return {"type": "sls", "model": model, "loss_fn": loss_fn, "n_features": D}
 
+        # --- SLS_lowrank: low-rank frontier (scalable SLS) ---
+        elif method == "SLS_lowrank":
+            from torchregress.losses.sls import SLSLoss
+
+            context_dim = hidden
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=context_dim)
+            loss_fn = SLSLoss(
+                d=D,
+                context_dim=context_dim,
+                K=1,
+                mode="low_rank",
+                rank=min(2, D),
+                hidden_dim=64,
+                n_transforms=4,
+                tau=0.9,
+                warmup_steps=50,
+            )
+            _train_one(
+                model,
+                loss_fn,
+                X,
+                y,
+                config,
+                loss_params=list(loss_fn.parameters()),
+            )
+            model.eval()
+            return {"type": "sls", "model": model, "loss_fn": loss_fn, "n_features": D}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -585,6 +754,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "samples": _diag_gaussian_samples(mean, std, config.seed),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -608,6 +778,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "y_pred": mean.reshape(-1),
                 "mean": mean.reshape(-1),
                 "std": std.reshape(-1),
+                "samples": _diag_gaussian_samples(mean, std, config.seed),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -627,6 +798,31 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "samples": _full_gaussian_samples(
+                    *_mv_full_params(model_state["model"], X_test, D),
+                    config.seed,
+                ),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- LowRankGaussian → marginal intervals + factor samples ---
+        elif model_type == "lowrank_gaussian":
+            mean, std, samples = _lowrank_gaussian_predict(
+                model_state["model"],
+                X_test,
+                D,
+                model_state["rank"],
+                config.seed,
+            )
+            lower = mean - z_score * std
+            upper = mean + z_score * std
+            return {
+                "lower": lower.reshape(-1),
+                "upper": upper.reshape(-1),
+                "y_pred": mean.reshape(-1),
+                "samples": samples,
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -701,6 +897,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "samples": _to_scoring_samples(samples_np, len(X_test), config.seed),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -741,6 +938,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "samples": _to_scoring_samples(pooled, len(X_test), config.seed),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -804,6 +1002,24 @@ class MultivariateIntervalsSuite(HarnessRunner):
             # Per-dimension coverage
             for d in range(D):
                 metrics[f"Coverage_D{d}"] = float(np.mean(in_interval[:, d]))
+
+            # Proper scoring rules for distribution-valued forecasts
+            # (Gneiting & Raftery 2007; Scheuerer & Hamill 2015). Only rows
+            # emitting predictive "samples" [S, N, D] qualify — conformal/SLS
+            # rows output regions, not distributions, and honestly skip these.
+            if "samples" in predictions:
+                from torchregress.metrics import energy_score, variogram_score
+
+                samp = np.asarray(predictions["samples"], dtype=np.float64)
+                if samp.ndim == 3 and samp.shape[0] == N and samp.shape[1] != N:
+                    samp = np.swapaxes(samp, 0, 1)
+                try:
+                    metrics["EnergyScore"] = float(energy_score(samp, y_true.astype(np.float64)))
+                    metrics["VariogramScore"] = float(
+                        variogram_score(samp, y_true.astype(np.float64))
+                    )
+                except Exception:
+                    pass
 
             return metrics
 
