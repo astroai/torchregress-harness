@@ -67,7 +67,7 @@ class CellCountingSuite(ImageHarnessRunner):
             "CNN+Poisson": "CNN log-rate + Poisson deviance (var=mean)",
             "CNN+PoissonLR": "CNN log-rate + Poisson likelihood-ratio (goodness-of-fit form)",
             "CNN+ZIP": "CNN log-rate + zero-inflation logit (excess-zero counts)",
-            "CNN+NegBin": "CNN softplus-mean + learned dispersion (overdispersed counts)",
+            "CNN+NegBin": "CNN log-link + NB NLL with learned dispersion (overdispersed counts)",
             "CNN+GaussianNLL": "CNN + diagonal Gaussian NLL (2-head comparison row)",
             "CNN+PoissonGaussian": "CNN log-lambda + shot+readout imaging-noise NLL",
             "CNN+EnhancedPG_fixed": "CNN + calibrated PG (gain=1, read=2.0, shot=1.0 fixed)",

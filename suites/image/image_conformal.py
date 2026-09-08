@@ -477,7 +477,9 @@ class ImageConformalSuite(ImageHarnessRunner):
                 return self
 
             def predict(self, X: Any) -> np.ndarray:
-                return np.asarray(cnn_point(np.asarray(X))).reshape(-1)
+                # float64: MAPIE's consistency check (estimation roundtrip
+                # within machine eps) fails on float32 wrapper outputs.
+                return np.asarray(cnn_point(np.asarray(X)), dtype=np.float64).reshape(-1)
 
         # MAPIE needs 2D X; wrap images as (N,-1) but wrapper reshapes back.
         # Store original shapes via closure: cnn_point expects (N,C,H,W).
@@ -497,6 +499,8 @@ class ImageConformalSuite(ImageHarnessRunner):
         # Prefit path (MAPIE>=0.9): estimator already fitted (CNN).
         # conformity_score="absolute" must be explicit: the pinned MAPIE
         # default resolves inconsistently in prefit mode (tabular precedent).
+        # y_cal float64 to match the wrapper (consistency eps).
+        y_cal64 = np.asarray(y_cal, dtype=np.float64).reshape(-1)
         try:
             reg = SplitConformalRegressor(
                 estimator=_FlatCNNWrapper(),
@@ -504,7 +508,7 @@ class ImageConformalSuite(ImageHarnessRunner):
                 conformity_score="absolute",
                 prefit=True,
             )
-            reg.conformalize(Xc_f, np.asarray(y_cal))
+            reg.conformalize(Xc_f, y_cal64)
             _, intervals = reg.predict_interval(Xt_f)
         except TypeError:
             # Older MAPIE: fit_conformalize / predict API.
@@ -514,7 +518,7 @@ class ImageConformalSuite(ImageHarnessRunner):
                 conformity_score="absolute",
                 prefit=True,
             )
-            reg.fit_conformalize(Xc_f, np.asarray(y_cal))
+            reg.fit_conformalize(Xc_f, y_cal64)
             _, intervals = reg.predict(Xt_f, alpha=0.1)
         lower = (
             np.asarray(intervals)[:, 0, 0]

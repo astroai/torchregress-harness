@@ -161,7 +161,7 @@ class EnsemblesSuite(HarnessRunner):
             "IVON": "natural-gradient VI optimizer + posterior MC sampling",
             "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
             "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only — expect undercoverage: no aleatoric term)",
-            "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta-learner",
+            "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta on held-out slice (trails proper-CV sklearn stacking)",
             "HeteroscedasticEnsemble": "native hetero ensemble (3× Gaussian heads) → epi+alea split",
             "MCDropoutWrapper": "MC-Dropout wrapper over dropout MLP (20 draws) → mean/std",
             "BBB": "Bayes-by-Backprop VI (ELBO) → posterior MC mean/std",
