@@ -128,6 +128,11 @@ if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *ppi* ]]; then
   log "installing ppi-python (official PPI comparator)"
   pixi run pip install -q ppi-python || log "ppi-python failed (offline?)"
 fi
+# JAX + pzflow (photo-z flows); only pzflow-parity sessions need them.
+if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *pzflow* ]]; then
+  log "installing JAX + pzflow (flow parity)"
+  pixi run pip install -q "jax[cpu]" pzflow || log "jax/pzflow failed (offline?)"
+fi
 
 # Replica sharding: split the suite×dataset matrix across headless replicas.
 # Tiny variants (*_tiny) are CPU-smoke friendly; full-real sets are nightly.
@@ -188,6 +193,9 @@ ALL_JOBS=(
   "missing_data diabetes"
   "missing_data california_housing"
   "missing_data folktables_income"
+  "pzflow_parity synthetic_cond_gaussian"
+  "pzflow_parity synthetic_cond_nongaussian"
+  "pzflow_parity pzflow_galaxies"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"

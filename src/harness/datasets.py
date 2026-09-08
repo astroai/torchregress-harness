@@ -337,6 +337,57 @@ def _load_synthetic_censored(
     }
 
 
+def _load_pzflow_galaxies(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Photo-z galaxy photometry (pzflow bundled LSST-DESC example sample).
+
+    100k galaxies with ugrizy magnitudes + spectroscopic redshift. Features
+    are the standard photo-z set (5 adjacent colors + i-band magnitude);
+    target is redshift (multimodal posteriors — the flexible-PDF showcase).
+    Ships inside the pzflow package (no download/auth). Falls back to the
+    synthetic non-Gaussian conditional if pzflow is unavailable.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from pzflow.examples import get_galaxy_data
+        from sklearn.preprocessing import StandardScaler
+
+        data = get_galaxy_data()
+        bands = ["u", "g", "r", "i", "z", "y"]
+        mags = data[bands].to_numpy(dtype=np.float64)
+        colors = np.stack([mags[:, i] - mags[:, i + 1] for i in range(5)], axis=1)
+        X = np.hstack([colors, mags[:, 3:4]])  # 5 colors + i mag
+        y = data["redshift"].to_numpy(dtype=np.float64)
+        keep = np.isfinite(X).all(axis=1) & np.isfinite(y)
+        X, y = X[keep], y[keep]
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        synth = _load_synthetic_cond_nongaussian(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "pzflow galaxy data unavailable"
+        return synth
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
 def _load_survset_hdfail(
     n_samples: int = 20000,
     test_size: float = 0.3,
@@ -4119,6 +4170,18 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "right-censored days-to-failure + drive telemetry codes."
         ),
         loader=_registry_loader(_load_survset_hdfail, n_samples=20000),
+    ),
+    "pzflow_galaxies": DatasetInfo(
+        name="pzflow_galaxies",
+        category="tabular",
+        n_features=6,
+        n_samples=100000,
+        description=(
+            "Photo-z galaxy photometry (pzflow bundled LSST-DESC sample): "
+            "redshift from ugrizy (5 colors + i mag). Real flexible-PDF "
+            "benchmark — redshift posteriors are multimodal."
+        ),
+        loader=_registry_loader(_load_pzflow_galaxies, n_samples=20000),
     ),
     "synthetic_ordinal": DatasetInfo(
         name="synthetic_ordinal",

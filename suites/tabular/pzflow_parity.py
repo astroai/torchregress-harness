@@ -131,6 +131,7 @@ class PzflowParitySuite(HarnessRunner):
         return [
             "synthetic_cond_gaussian",
             "synthetic_cond_nongaussian",
+            "pzflow_galaxies",
         ]
 
     # ------------------------------------------------------------------
@@ -297,7 +298,7 @@ class PzflowParitySuite(HarnessRunner):
             y_pred = samples_np.mean(axis=0)
             lo = np.quantile(samples_np, alpha / 2, axis=0)
             hi = np.quantile(samples_np, 1.0 - alpha / 2, axis=0)
-            return {"lower": lo, "upper": hi, "y_pred": y_pred}
+            return {"lower": lo, "upper": hi, "y_pred": y_pred, "samples": samples_np.T}
 
         # --- pzflow NSF ---
         elif model_type == "pzflow_nsf":
@@ -312,7 +313,7 @@ class PzflowParitySuite(HarnessRunner):
             lo = np.quantile(samples, alpha / 2, axis=0)
             hi = np.quantile(samples, 1.0 - alpha / 2, axis=0)
             y_pred = samples.mean(axis=0)
-            return {"lower": lo, "upper": hi, "y_pred": y_pred}
+            return {"lower": lo, "upper": hi, "y_pred": y_pred, "samples": samples.T}
 
         raise ValueError(f"Unknown model type: {model_type}")
 
@@ -338,6 +339,21 @@ class PzflowParitySuite(HarnessRunner):
         predictions["_lo_raw"] = lo
         predictions["_hi_raw"] = hi
         predictions["_y_true_raw"] = y_true
+
+        # PIT uniformity (sample-rank PIT → KS vs Uniform): the core
+        # flexible-PDF diagnostic — calibrated densities give uniform PIT.
+        if "samples" in predictions:
+            try:
+                samp = np.asarray(predictions["samples"], dtype=np.float64)
+                if samp.ndim != 2 or samp.shape[0] != y_true.shape[0]:
+                    samp = np.asarray(samp).reshape(y_true.shape[0], -1)
+                ranks = (samp <= y_true.reshape(-1, 1)).mean(axis=1)
+                ranks = np.clip(ranks, 1e-6, 1 - 1e-6)
+                grid = np.linspace(0, 1, 101)
+                ecdf = np.searchsorted(np.sort(ranks), grid, side="right") / len(ranks)
+                metrics["PIT_KS"] = float(np.max(np.abs(ecdf - grid)))
+            except Exception:
+                pass
 
         return metrics
 
