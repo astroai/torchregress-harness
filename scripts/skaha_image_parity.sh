@@ -120,7 +120,7 @@ done
 log "installing git pins (MAPIE/TU/LUQ-Box + image stack)"
 pixi run pip install -q "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN" || log "MAPIE pin failed (offline?)"
 pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning || log "TU pin failed"
-pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
+pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests nibabel || log "LUQ/timm stack failed"
 log "installing comparator/data deps (lifelines/crepes/survset/folktables/openpyxl)"
 pixi run pip install -q lifelines crepes survset folktables openpyxl || log "comparator deps failed (offline?)"
 log "installing h5py (GalaxiesML HDF5)"

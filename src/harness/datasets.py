@@ -4290,6 +4290,157 @@ def _load_shanghai_crowd(
     return splits
 
 
+def _staged_roots(explicit: str, dirname: str) -> tuple[list[Path], bool]:
+    """Candidate roots for a manually staged corpus, in priority order.
+
+    Returns ``(roots, explicit_set)``: ``roots[0]`` is the explicit env-var
+    root when set, followed by the shared ``staged/<dirname>`` mirrors on
+    scratch and on the ARC project allocation (CANFAR-visible). Callers try
+    each root in order; when ``explicit_set`` is true and no root yields
+    usable pairs, the loader must raise instead of silently substituting a
+    synthetic proxy.
+    """
+    roots: list[Path] = []
+    if explicit:
+        roots.append(Path(explicit))
+    cache = Path(
+        os.environ.get(
+            "TORCHREGRESS_HARNESS_CACHE",
+            "/scratch/torchregress-harness-cache",
+        )
+    )
+    roots.append(cache / "staged" / dirname)
+    # Override the CANFAR-visible project mirror (tests, alternate mounts).
+    arc_base = Path(
+        os.environ.get(
+            "TORCHREGRESS_HARNESS_STAGED_ROOT",
+            "/arc/projects/ots/torchregress-harness/datasets/staged",
+        )
+    )
+    roots.append(arc_base / dirname)
+    return roots, bool(explicit)
+
+
+def _read_ixi_staged_subjects(base: Path) -> list[tuple[Path, float]]:
+    """(volume path, age) pairs from a staged IXI mirror (``subjects.csv``).
+
+    Expected layout (e.g. the Kaggle preprocessed-IXI mirror): a
+    ``subjects.csv`` with ``age`` and ``registered_mni`` columns, the latter
+    holding paths to MNI-registered T1 volumes (``.nii`` or ``.nii.gz``)
+    relative to the mirror root. Returns [] when the layout is absent.
+    """
+    try:
+        import pandas as _pd
+    except ImportError:
+        return []
+    csv_paths = [
+        base / "subjects.csv",
+        base / "T1w_Processed_IXI_with_csv" / "IXI" / "subjects.csv",
+    ]
+    nested_ixi = base / "T1w_Processed_IXI_with_csv" / "IXI"
+    pairs: list[tuple[Path, float]] = []
+    seen: set[str] = set()
+    for csv_path in csv_paths:
+        if not csv_path.is_file():
+            continue
+        try:
+            df = _pd.read_csv(csv_path)
+        except Exception:
+            continue
+        cols = {str(c).lower(): c for c in df.columns}
+        age_col = next((cols[k] for k in cols if k == "age"), None)
+        path_col = next(
+            (cols[k] for k in cols if "mni" in k or "path" in k or "file" in k or "volume" in k),
+            None,
+        )
+        if age_col is None or path_col is None:
+            continue
+        anchor = csv_path.parent  # staged mirrors nest volumes under the CSV dir
+        for _, row in df.iterrows():
+            try:
+                age = float(row[age_col])
+            except (ValueError, TypeError):
+                continue
+            # The staged mirror marks unknown ages with -1.0 — drop them.
+            if not np.isfinite(age) or not 0.0 < age < 120.0:
+                continue
+            rel = str(row[path_col])
+            cand: Path | None = None
+            spellings = [rel]
+            # Staged mirrors may store uncompressed .nii where the manifest
+            # lists .nii.gz (and vice versa) — probe both spellings.
+            if rel.endswith(".nii.gz"):
+                spellings.append(rel[: -len(".gz")])
+            elif rel.endswith(".nii"):
+                spellings.append(rel + ".gz")
+            for root in (anchor, nested_ixi, base):
+                for spelling in spellings:
+                    probe = root / spelling
+                    if probe.is_file():
+                        cand = probe
+                        break
+                if cand is not None:
+                    break
+            if cand is not None and str(cand) not in seen:
+                seen.add(str(cand))
+                pairs.append((cand, age))
+    return pairs
+
+
+def _ixi_volumes_to_splits(
+    pairs: list[tuple[Path, float]],
+    n_samples: int,
+    img_size: int,
+    test_size: float,
+    seed: int,
+) -> SplitsDict | None:
+    """Mid-axial slices of staged T1 volumes → image splits (None if empty)."""
+    if not pairs:
+        return None
+    try:
+        import nibabel as _nib  # ty: ignore[unresolved-import]  # optional dep for staged IXI
+    except ImportError as exc:
+        raise ImportError("nibabel is required for IXI brain age (pip install nibabel).") from exc
+    from PIL import Image as _Image
+
+    rng_pick = np.random.default_rng(seed)
+    order = rng_pick.permutation(len(pairs))[:n_samples]
+    imgs, y = [], []
+    for idx in order:
+        fp, age = pairs[int(idx)]
+        try:
+            vol = np.asarray(_nib.load(str(fp)).get_fdata(), dtype=np.float32)
+        except Exception:
+            continue
+        if vol.ndim != 3 or min(vol.shape) < 8:
+            continue
+        z = vol.shape[2] // 2  # mid-axial slice
+        sl = vol[:, :, z]
+        lo, hi = float(np.percentile(sl, 1)), float(np.percentile(sl, 99))
+        sl = np.clip((sl - lo) / max(hi - lo, 1e-6), 0, 1)
+        img = _Image.fromarray((sl * 255).astype(np.uint8)).resize((img_size, img_size))
+        arr = np.array(img, dtype=np.float32) / 255.0
+        imgs.append(arr[None, :, :])
+        y.append(float(age))
+        if len(imgs) >= n_samples:
+            break
+    if len(imgs) < 8:
+        return None
+    X = np.stack(imgs).astype(np.float32)
+    yy = np.array(y, dtype=np.float32)
+    Xtr, Xte, ytr, yte = train_test_split(X, yy, test_size=test_size, random_state=seed)
+    return {
+        "X_train": Xtr,
+        "X_test": Xte,
+        "y_train": ytr,
+        "y_test": yte,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 1,
+        "_skip_y_standardization": True,
+    }
+
+
 def _load_ixi_brainage(
     n_samples: int = 400,
     img_size: int = 64,
@@ -4306,6 +4457,11 @@ def _load_ixi_brainage(
     otherwise). The IC download server blocks automated clients, so no
     headless auto-download is attempted — stage the files manually.
 
+    Staged-mirror path: ``subjects.csv`` + MNI-registered volumes under the
+    shared ``staged/ixi`` cache mirror (scratch, or the ARC project
+    allocation on CANFAR). An explicitly set but unusable ``IXI_ROOT``
+    raises instead of silently falling back to the synthetic proxy.
+
     Long-tail ages (few 70+ subjects) make this the canonical imbalanced
     image testbed (LDS/DensityWeighted/BalancedMSE).
 
@@ -4315,6 +4471,17 @@ def _load_ixi_brainage(
     import os as _os
 
     root = _os.environ.get("IXI_ROOT", "")
+    staged, explicit = _staged_roots(root, "ixi")
+    for base in staged:
+        splits = _ixi_volumes_to_splits(
+            _read_ixi_staged_subjects(base), n_samples, img_size, test_size, seed
+        )
+        if splits is not None:
+            return splits
+    if explicit:
+        raise RuntimeError(
+            f"IXI_ROOT={root!r} yielded no usable T1 volumes; refusing synthetic fallback."
+        )
     if root:
         try:
             import nibabel as _nib  # ty: ignore[unresolved-import]  # optional dep for IXI_ROOT
@@ -4436,6 +4603,119 @@ def _load_ixi_brainage(
     return splits
 
 
+def _resolve_udacity_frame(base: Path, name: str) -> Path | None:
+    """Resolve a logged frame name against known Udacity frame directories.
+
+    Simulator logs store Windows paths (``C:\\...\\IMG\\center_x.jpg``);
+    split on both separators so the leaf resolves on POSIX too.
+    """
+    leaf = str(name).replace("\\", "/").split("/")[-1]
+    for cand in (base / "IMG" / leaf, base / "center" / leaf, base / name):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _udacity_base_pairs(base: Path) -> list[tuple[Path, float]]:
+    """(frame, steering) pairs from one Udacity dataset directory."""
+    import csv as _csv
+
+    pairs: list[tuple[Path, float]] = []
+    # Layout A: center/*.jpg + steering csv (headered).
+    img_dirs = [d for d in (base / "IMG", base / "center") if d.is_dir()]
+    csvs = sorted(base.glob("*.csv"))
+    for csv_path in csvs:
+        try:
+            with open(csv_path, newline="") as fh:
+                rows = [row for row in _csv.reader(fh) if row]
+        except Exception:
+            continue
+        if not rows:
+            continue
+        header = [str(c).lower() for c in rows[0]]
+        if any("steer" in c or "angle" in c for c in header):
+            # Headered log: match steering + image columns by name.
+            fn = {str(c).lower(): c for c in rows[0]}
+            f_ang = next((fn[k] for k in fn if "steer" in k or "angle" in k), None)
+            f_img = next(
+                (fn[k] for k in fn if "frame" in k or "file" in k or "image" in k or "name" in k),
+                None,
+            )
+            if f_ang is None or f_img is None:
+                continue
+            idx_ang = rows[0].index(f_ang)
+            idx_img = rows[0].index(f_img)
+            for row in rows[1:]:
+                if max(idx_ang, idx_img) >= len(row):
+                    continue
+                try:
+                    ang = float(row[idx_ang])
+                except (ValueError, TypeError):
+                    continue
+                jp = _resolve_udacity_frame(base, str(row[idx_img]))
+                if jp is not None:
+                    pairs.append((jp, ang))
+        else:
+            # Layout C: headerless driving_log.csv —
+            # [center, left, right, steering, throttle, brake, speed].
+            # Detect the steering column as the first column that parses
+            # as a small float on nearly every row.
+            n_cols = max(len(row) for row in rows)
+            idx_ang: int | None = None
+            for j in range(1, n_cols):
+                vals = []
+                for row in rows:
+                    if j >= len(row):
+                        break
+                    try:
+                        vals.append(float(row[j]))
+                    except (ValueError, TypeError):
+                        break
+                else:
+                    if len(vals) == len(rows) and np.median(np.abs(vals)) < 2.0:
+                        idx_ang = j
+                        break
+                continue
+            if idx_ang is None:
+                continue
+            for row in rows:
+                if idx_ang >= len(row):
+                    continue
+                try:
+                    ang = float(row[idx_ang])
+                except (ValueError, TypeError):
+                    continue
+                jp = _resolve_udacity_frame(base, str(row[0]))
+                if jp is not None:
+                    pairs.append((jp, ang))
+        if pairs:
+            return pairs
+    if pairs or not img_dirs:
+        # Layout B: data.txt lines "<relpath> <angle>".
+        if not pairs:
+            for txt in ("data.txt", "labels.txt"):
+                tp = base / txt
+                if not tp.is_file():
+                    continue
+                try:
+                    for line in tp.read_text().splitlines():
+                        parts = line.split()
+                        if len(parts) < 2:
+                            continue
+                        try:
+                            ang = float(parts[-1])
+                        except ValueError:
+                            continue
+                        jp = base / parts[0]
+                        if jp.is_file():
+                            pairs.append((jp, ang))
+                except Exception:
+                    continue
+                if pairs:
+                    break
+    return pairs
+
+
 def _load_udacity_steering(
     n_samples: int = 2000,
     img_size: int = 64,
@@ -4447,8 +4727,14 @@ def _load_udacity_steering(
     Real path: ``UDACITY_ROOT`` with extracted frames — either
     ``center/*.jpg`` + ``steering.csv``/``interpolated.csv`` (rwightman
     reader layout; steering column matched case-insensitively, image column
-    matched against frame/filename/image), or SullyChen-style ``data.txt``
-    lines of ``<relpath> <angle>``. Images are RGB-resized to ``img_size``.
+    matched against frame/filename/image), headerless ``driving_log.csv``
+    (``IMG/`` + ``[center, left, right, steering, ...]`` simulator layout),
+    or SullyChen-style ``data.txt`` lines of ``<relpath> <angle>``. Images
+    are RGB-resized to ``img_size``. Staged mirrors under the shared
+    ``staged/udacity`` cache (scratch, or the ARC project allocation on
+    CANFAR) are preferred; a mirror may hold several dataset dirs, all of
+    which are scanned. An explicitly set but unusable ``UDACITY_ROOT``
+    raises instead of silently falling back to the synthetic proxy.
 
     Straight-driving dominates (angle ≈ 0 long tail) — canonical imbalanced
     scalar testbed alongside brain age.
@@ -4456,78 +4742,34 @@ def _load_udacity_steering(
     Fallback: synthetic perspective roads whose lane curvature sets the
     steering angle (mechanistic ground truth + matching imbalance).
     """
-    import csv as _csv
     import os as _os
 
     root = _os.environ.get("UDACITY_ROOT", "")
-    if root:
+    staged, explicit = _staged_roots(root, "udacity")
+    bases: list[Path] = []
+    for cand in staged:
+        if not cand.is_dir():
+            continue
+        bases.append(cand)
+        try:
+            bases.extend([d for d in sorted(cand.iterdir()) if d.is_dir()])
+        except OSError:
+            continue
+    if bases:
         try:
             from PIL import Image as _Image
 
-            base = Path(root)
             pairs: list[tuple[Path, float]] = []
-            # Layout A: center/*.jpg + steering csv.
-            centers = sorted((base / "center").glob("*.jpg")) if (base / "center").is_dir() else []
-            csvs = sorted(base.glob("*.csv"))
-            if centers and csvs:
-                for csv_path in csvs:
-                    try:
-                        with open(csv_path, newline="") as fh:
-                            reader = _csv.DictReader(fh)
-                            if not reader.fieldnames:
-                                continue
-                        fn = {str(c).lower(): c for c in reader.fieldnames}
-                        f_ang = next((fn[k] for k in fn if "steer" in k or "angle" in k), None)
-                        f_img = next(
-                            (
-                                fn[k]
-                                for k in fn
-                                if "frame" in k or "file" in k or "image" in k or "name" in k
-                            ),
-                            None,
-                        )
-                        if f_ang is None:
-                            continue
-                        with open(csv_path, newline="") as fh:
-                            for row in _csv.DictReader(fh):
-                                try:
-                                    ang = float(row[f_ang])
-                                except (ValueError, TypeError, KeyError):
-                                    continue
-                                if f_img is not None:
-                                    jp = base / "center" / Path(str(row[f_img])).name
-                                    if not jp.is_file():
-                                        jp = base / str(row[f_img])
-                                else:
-                                    continue
-                                if jp.is_file():
-                                    pairs.append((jp, ang))
-                        if pairs:
-                            break
-                    except Exception:
-                        continue
-            # Layout B: data.txt lines "<relpath> <angle>".
-            if not pairs:
-                for txt in ("data.txt", "labels.txt"):
-                    tp = base / txt
-                    if not tp.is_file():
-                        continue
-                    try:
-                        for line in tp.read_text().splitlines():
-                            parts = line.split()
-                            if len(parts) < 2:
-                                continue
-                            try:
-                                ang = float(parts[-1])
-                            except ValueError:
-                                continue
-                            jp = base / parts[0]
-                            if jp.is_file():
-                                pairs.append((jp, ang))
-                    except Exception:
-                        continue
-                    if pairs:
-                        break
+            for base in bases:
+                try:
+                    pairs.extend(_udacity_base_pairs(base))
+                except Exception:
+                    continue
+            if not pairs and explicit:
+                raise RuntimeError(
+                    f"UDACITY_ROOT={root!r} yielded no (frame, steering) pairs; "
+                    "refusing synthetic fallback."
+                )
             if pairs:
                 rng_pick = np.random.default_rng(seed)
                 order = rng_pick.permutation(len(pairs))[:n_samples]
@@ -4559,6 +4801,8 @@ def _load_udacity_steering(
                         "_n_channels": 3,
                         "_skip_y_standardization": True,
                     }
+        except RuntimeError:
+            raise  # explicit-root failure stays loud (no synthetic fallback)
         except Exception:
             pass  # fall through to synthetic proxy
 
@@ -4605,6 +4849,72 @@ def _load_udacity_steering(
     return splits
 
 
+def _resolve_kitti_depth(base: Path, rel: str) -> Path | None:
+    """Resolve a listed Eigen ground-truth depth path to an existing PNG.
+
+    Manifests reference ``.../proj_depth/groundtruth/image_02/data/<f>.jpg``;
+    mirrors store ``.../proj_depth/groundtruth/image_02/<stem>.png`` (uint16,
+    metres = px/256). Both spellings are probed.
+    """
+    rel_path = Path(rel)
+    stem = rel_path.stem
+    cands = [
+        base / rel_path.parent / (stem + ".png"),
+        base / rel_path.parent.parent / rel_path.parent.name / (stem + ".png"),
+        base / rel_path.parent.parent / (stem + ".png"),
+        base / str(rel_path.with_suffix(".png")),
+    ]
+    for cand in cands:
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _read_kitti_eigen_pairs(
+    base: Path,
+) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
+    """(train, test) RGB/depth pairs from Eigen-split location manifests.
+
+    Reads ``gt_locations.txt`` (train pool) and ``test_locations.txt`` (test
+    pool): whitespace-separated ``<rgb> <depth>`` paths relative to the
+    mirror root. Returns ([], []) when the manifests are absent.
+    """
+    pools: list[list[tuple[Path, Path]]] = []
+    for name in ("gt_locations.txt", "test_locations.txt"):
+        tp = base / name
+        pairs: list[tuple[Path, Path]] = []
+        if tp.is_file():
+            try:
+                lines = tp.read_text().splitlines()
+            except OSError:
+                lines = []
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 2:
+                    rgb = base / parts[0]
+                    if not rgb.is_file():
+                        continue
+                    depth = _resolve_kitti_depth(base, parts[1])
+                    if depth is None:
+                        continue
+                    pairs.append((rgb, depth))
+                elif len(parts) == 1 and "proj_depth" in parts[0]:
+                    # gt manifest: single-column projected-depth refs;
+                    # the RGB frame mirrors the same drive/stem path.
+                    depth = _resolve_kitti_depth(base, parts[0])
+                    if depth is None:
+                        continue
+                    rgb_rel = parts[0].replace(
+                        "proj_depth/groundtruth/image_02/data/", "image_02/data/"
+                    )
+                    rgb = base / rgb_rel
+                    if not rgb.is_file():
+                        continue
+                    pairs.append((rgb, depth))
+        pools.append(pairs)
+    return pools[0], pools[1]
+
+
 def _load_kitti_depth(
     n_samples: int = 1000,
     img_size: int = 128,
@@ -4616,10 +4926,15 @@ def _load_kitti_depth(
 
     Real path: ``KITTI_ROOT`` with torch-uncertainty KITTIDepth layout —
     ``train/{leftImg8bit,leftDepth}`` + ``val/...`` of paired ``*.png``
-    (depth uint16, metres = px/256). RGB resized to ``img_size``; depth
+    (depth uint16, metres = px/256) — or an Eigen-split mirror with
+    ``gt_locations.txt``/``test_locations.txt`` manifests (RGB ``*.jpg`` +
+    projected-depth ``*.png``). RGB resized to ``img_size``; depth
     resized nearest; invalid pixels (≤0 or >max_depth) are 0 with
     ``mask_*`` float maps (1 = valid). ``_sparse_depth`` flags the
     masked-dense contract for suites (masked losses, valid-only metrics).
+    Staged mirrors under the shared ``staged/kitti`` cache (scratch, or the
+    ARC project allocation on CANFAR) are preferred. An explicitly set but
+    unusable ``KITTI_ROOT`` raises instead of silently falling back.
 
     No auto-download: RGB requires per-drive raw zips (~175 GB total).
     Stage once via ``torch_uncertainty.datasets.KITTIDepth(root,
@@ -4631,6 +4946,74 @@ def _load_kitti_depth(
     import os as _os
 
     root = _os.environ.get("KITTI_ROOT", "")
+    staged, explicit = _staged_roots(root, "kitti")
+    eigen_train: list[tuple[Path, Path]] = []
+    eigen_test: list[tuple[Path, Path]] = []
+    for cand in staged:
+        if not cand.is_dir():
+            continue
+        try:
+            tr, te = _read_kitti_eigen_pairs(cand)
+        except Exception:
+            continue
+        eigen_train.extend(tr)
+        eigen_test.extend(te)
+    if eigen_train or eigen_test:
+        from PIL import Image as _Image
+
+        rng_pick = np.random.default_rng(seed)
+        n_test = max(1, int(round(n_samples * test_size)))
+        n_train = max(1, n_samples - n_test)
+
+        def _take(
+            pool: list[tuple[Path, Path]], k: int
+        ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+            Xs, Ys, Ms = [], [], []
+            if not pool:
+                return Xs, Ys, Ms
+            order = rng_pick.permutation(len(pool))
+            for idx in order:
+                if len(Xs) >= k:
+                    break
+                jp, dp = pool[int(idx)]
+                try:
+                    img = _Image.open(jp).convert("RGB").resize((img_size, img_size))
+                    dep = _Image.open(dp).resize((img_size, img_size), _Image.Resampling.NEAREST)
+                except Exception:
+                    continue
+                arr = np.array(img, dtype=np.float32) / 255.0
+                d = np.array(dep, dtype=np.float32) / 256.0
+                m = ((d > 0) & (d <= max_depth)).astype(np.float32)
+                d = np.where(m > 0, d, 0.0).astype(np.float32)
+                if m.sum() < 100:
+                    continue
+                Xs.append(arr.transpose(2, 0, 1))
+                Ys.append(d)
+                Ms.append(m)
+            return Xs, Ys, Ms
+
+        Xtr_l, Ytr_l, Mtr_l = _take(eigen_train or eigen_test, n_train)
+        Xte_l, Yte_l, Mte_l = _take(eigen_test or eigen_train, n_test)
+        if Xtr_l and Xte_l:
+            return {
+                "X_train": np.stack(Xtr_l).astype(np.float32),
+                "X_test": np.stack(Xte_l).astype(np.float32),
+                "y_train": np.stack(Ytr_l).astype(np.float32),
+                "y_test": np.stack(Yte_l).astype(np.float32),
+                "mask_train": np.stack(Mtr_l).astype(np.float32),
+                "mask_test": np.stack(Mte_l).astype(np.float32),
+                "_image_data": True,
+                "_image_size": img_size,
+                "_n_channels": 3,
+                "_dense_output": True,
+                "_sparse_depth": True,
+                "_skip_y_standardization": True,
+            }
+        if explicit:
+            raise RuntimeError(
+                f"KITTI_ROOT={root!r} yielded no usable Eigen RGB/depth pairs; "
+                "refusing synthetic fallback."
+            )
     if root:
         try:
             from PIL import Image as _Image
@@ -4695,6 +5078,11 @@ def _load_kitti_depth(
                     }
         except Exception:
             pass  # fall through to synthetic proxy
+
+    if explicit:
+        raise RuntimeError(
+            f"KITTI_ROOT={root!r} yielded no usable RGB/depth pairs; refusing synthetic fallback."
+        )
 
     # Synthetic fallback: street gradient + boxes, sparse LiDAR mask.
     rng = np.random.default_rng(seed)

@@ -19,7 +19,7 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig
 from suites.image._base import _image_to_dataloader
-from suites.image.age_regression import AgeRegressionSuite
+from suites.image.age_regression import _TIMM_AVAILABLE, AgeRegressionSuite
 
 
 class PhotozImagingSuite(AgeRegressionSuite):
@@ -41,8 +41,11 @@ class PhotozImagingSuite(AgeRegressionSuite):
         # Compact flagship set: distributional heads, measured-noise EIV,
         # MC-Dropout (the image BNN row), SLS level sets, R2C binned
         # conformal, last-layer Laplace BNN (conv-safe path). No sklearn_RF
-        # (uninformative on pixels).
-        return [
+        # (uninformative on pixels). The timm ResNet-18 comparator exercises
+        # the inherited age-regression engine (fit + predict) on the same
+        # cutouts, splits, and photo-z metrics — listed only when timm is
+        # installed (Skaha image sessions; absent locally).
+        methods = [
             "CNN+GaussianNLL",
             "CNN+MDN_K3",
             "CNN+MultiQuantile",
@@ -53,6 +56,9 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+R2C",
             "CNN+Laplace",
         ]
+        if _TIMM_AVAILABLE:
+            methods.append("timm_resnet18+GaussianNLL")
+        return methods
 
     def method_notes(self, method: str) -> str:
         base = super().method_notes(method)
@@ -63,6 +69,7 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+SLS": " (min-volume level-set photo-z regions)",
             "CNN+R2C": " (imbalanced binned head + R2C conformal)",
             "CNN+Laplace": " (last-layer Laplace BNN, conv-safe Fisher)",
+            "timm_resnet18+GaussianNLL": " (external vision comparator: unpretrained ResNet-18 + Gaussian NLL)",
         }.get(method, "")
         return f"{base}{tag}"
 
