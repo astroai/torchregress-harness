@@ -404,20 +404,48 @@ def _load_ihdp(
     test_size: float = 0.3,
     seed: int = 42,
 ) -> SplitsDict:
-    """IHDP causal benchmark (Hill 2011, via Kaggle mirror).
+    """IHDP causal benchmark (Hill 2011).
 
     Infant Health and Development Program: 25 covariates with treatment
     indicator, factual/counterfactual outcomes and noiseless response
     surfaces (mu0/mu1). True CATE = mu1 - mu0. THE classic causal-ML
-    benchmark (747 rows). CSV cached under the harness cache.
+    benchmark (747 rows). Sources: local harness cache (e.g. Kaggle
+    mirror), else the canonical CEVAE GitHub mirror (DoWhy-endorsed,
+    no auth — session-compatible).
     """
     splits: SplitMetadata = {}
+    df = None
     try:
         import pandas as pd
 
         path = _image_cache_dir() / "ihdp" / "ihdp_data.csv"
-        df = pd.read_csv(path)
-        x_cols = [c for c in df.columns if c.startswith("x")]
+        if path.exists():
+            df = pd.read_csv(path)
+    except Exception:
+        df = None
+    if df is None:
+        try:
+            import urllib.request
+
+            import pandas as pd
+
+            url = (
+                "https://raw.githubusercontent.com/AMLab-Amsterdam/CEVAE/"
+                "master/datasets/IHDP/csv/ihdp_npci_1.csv"
+            )
+            cols = ["treatment", "y_factual", "y_cfactual", "mu0", "mu1"] + [
+                f"x{i}" for i in range(1, 26)
+            ]
+            dest = _image_cache_dir() / "ihdp" / "ihdp_npci_1.csv"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(url, dest)
+            df = pd.read_csv(dest, header=None)
+            df.columns = cols  # type: ignore[assignment]
+        except Exception:
+            raise RuntimeError("IHDP data unavailable (cache + CEVAE mirror failed)")
+    assert df is not None
+    try:
+        x_cols = [c for c in df.columns if str(c).startswith("x")]
         X = df[x_cols].to_numpy(dtype=np.float64)
         t_raw = df["treatment"].to_numpy()
         if t_raw.dtype == bool:
@@ -426,12 +454,8 @@ def _load_ihdp(
             t = np.isin(t_raw.astype(str), ["True", "true", "1", "1.0"]).astype(np.float64)
         y = df["y_factual"].to_numpy(dtype=np.float64)
         cate_true = (df["mu1"] - df["mu0"]).to_numpy(dtype=np.float64)
-        if n_samples < len(X):
-            rng0 = np.random.default_rng(seed)
-            idx0 = rng0.choice(len(X), n_samples, replace=False)
-            X, t, y, cate_true = X[idx0], t[idx0], y[idx0], cate_true[idx0]
     except Exception:
-        raise RuntimeError("IHDP data unavailable (see cache/ihdp/ihdp_data.csv)")
+        raise RuntimeError("IHDP columns unreadable")
 
     rng = np.random.default_rng(seed)
     idx = rng.permutation(len(X))
@@ -4444,7 +4468,7 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_features=25,
         n_samples=747,
         description=(
-            "IHDP causal benchmark (Hill 2011, Kaggle mirror): 25 covariates "
+            "IHDP causal benchmark (Hill 2011, CEVAE mirror): 25 covariates "
             "with treatment, factual/counterfactual outcomes, true CATE."
         ),
         loader=_registry_loader(_load_ihdp),
