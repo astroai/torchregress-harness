@@ -64,7 +64,7 @@ class StreamingTTASuite(HarnessRunner):
         return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["Static", "COSAAdapted"]
+        return ["Static", "COSAAdapted", "CausalHarnessCOSA"]
 
     def library_name(self, method: str) -> str:
         return "torchregress"
@@ -73,6 +73,7 @@ class StreamingTTASuite(HarnessRunner):
         return {
             "Static": "MLP point + train-residual std, no adaptation (ablation)",
             "COSAAdapted": "DelayedLabelResidualAdapter, 1-chunk label delay",
+            "CausalHarnessCOSA": "CausalTTAHarness + DelayedLabelResidualAdapter, 1-chunk delay",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -110,7 +111,7 @@ class StreamingTTASuite(HarnessRunner):
         resid_std = float(np.std(np.asarray(y_train_np).reshape(-1) - p_tr)) + 1e-6
         base = _BatchBase(model, resid_std)
         state: dict[str, Any] = {"type": "point", "model": model, "base": base}
-        if method == "COSAAdapted":
+        if method in ("COSAAdapted", "CausalHarnessCOSA"):
             from torchregress.test_time.cosa import DelayedLabelResidualAdapter
 
             state["adapter"] = DelayedLabelResidualAdapter(base)
@@ -213,13 +214,35 @@ class StreamingTTASuite(HarnessRunner):
                 fit_time = perf_counter() - t0
                 state["y_test_full"] = y_te
                 t0 = perf_counter()
-                pred = self.predict(method, state, X_te, cfg)
+                if method == "CausalHarnessCOSA":
+                    from torchregress.test_time import CausalTTAHarness
+
+                    causal = CausalTTAHarness(delay=1, alpha=0.1)
+                    causal_metrics = causal.evaluate(
+                        state["adapter"],
+                        torch.from_numpy(X_te.astype(np.float32)),
+                        torch.from_numpy(y_te.astype(np.float32)),
+                        batch_size=_CHUNK,
+                    )
+                    pred = None
+                else:
+                    pred = self.predict(method, state, X_te, cfg)
                 pred_time = perf_counter() - t0
-                metrics = compute_interval_metrics(
-                    np.asarray(pred["lower"]).reshape(-1),
-                    np.asarray(pred["upper"]).reshape(-1),
-                    y_te.reshape(-1),
-                )
+                if pred is None:
+                    metrics = {
+                        "RMSE": float(causal_metrics["RMSE"]),
+                        "MAE": float(causal_metrics["MAE"]),
+                        "Coverage": float(causal_metrics["coverage"]),
+                        "Width": float(causal_metrics["mean_width"]),
+                        "IntervalScore": float(causal_metrics["winkler_score"]),
+                        "NLL": float(causal_metrics.get("NLL", float("nan"))),
+                    }
+                else:
+                    metrics = compute_interval_metrics(
+                        np.asarray(pred["lower"]).reshape(-1),
+                        np.asarray(pred["upper"]).reshape(-1),
+                        y_te.reshape(-1),
+                    )
                 row: dict[str, Any] = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),

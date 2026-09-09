@@ -38,6 +38,7 @@ from suites.tabular.sbi_parity import SBIParitySuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.streaming_tta import StreamingTTASuite
 from suites.tabular.stress_matrix import StressMatrixSuite
+from suites.tabular.test_time_adaptation import TestTimeAdaptationSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
 
@@ -53,6 +54,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "calibration": CalibrationSuite,
     "sklearn_baselines": SklearnBaselinesSuite,
     "stress_matrix": StressMatrixSuite,
+    "test_time_adaptation": TestTimeAdaptationSuite,
     "ensembles": EnsemblesSuite,
     "uq": UQSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
