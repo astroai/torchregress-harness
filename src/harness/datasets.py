@@ -547,6 +547,85 @@ def _load_sbibm_slcp(
     return _load_sbibm_task("slcp", n_samples, n_observations, seed)
 
 
+def _load_galaxiesml_eiv(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """GalaxiesML EIV (Do et al. 2024, HSC PDR2, Zenodo).
+
+    REAL heteroscedastic EIV: grizy cmodel magnitudes with MEASURED
+    per-object per-band uncertainties ({band}_cmodel_magsigma) and
+    spectroscopic redshifts. The honest flagship: heteroscedastic,
+    per-band, measured — not assumed. Reads tabular columns from the 64px
+    test HDF5 (chunked, images untouched). Falls back to photoz_eiv if
+    the HDF5 is unavailable.
+    """
+    splits: SplitMetadata = {}
+    try:
+        import urllib.request
+
+        import h5py
+        from sklearn.preprocessing import StandardScaler
+
+        bands = ["g", "r", "i", "z", "y"]
+        path = _image_cache_dir() / "galaxiesml" / "test.hdf5"
+        if not (path.exists() and path.stat().st_size > 3_000_000_000):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            url = (
+                "https://zenodo.org/api/records/11117528/files/"
+                "5x64x64_testing_with_morphology.hdf5/content"
+            )
+            urllib.request.urlretrieve(url, path)
+        with h5py.File(path, "r") as f:
+            mags = np.stack([np.asarray(f[f"{b}_cmodel_mag"][:]) for b in bands], axis=1).astype(
+                np.float64
+            )
+            sigs = np.stack(
+                [np.asarray(f[f"{b}_cmodel_magsigma"][:]) for b in bands], axis=1
+            ).astype(np.float64)
+            z = np.asarray(f["specz_redshift"][:]).astype(np.float64).reshape(-1)
+        keep = (
+            np.isfinite(mags).all(axis=1)
+            & np.isfinite(sigs).all(axis=1)
+            & np.isfinite(z)
+            & (sigs > 0).all(axis=1)
+            & (sigs < 1.0).all(axis=1)
+            & (z > 0)
+            & (z < 6)
+        )
+        mags, sigs, z = mags[keep], sigs[keep], z[keep]
+        if n_samples < len(mags):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(mags), n_samples, replace=False)
+            mags, sigs, z = mags[idx], sigs[idx], z[idx]
+        # Per-band sigma in standardized units (band stds from train split
+        # below — computed post-split to avoid leakage).
+        X_train, X_test, y_train, y_test, s_train, s_test = train_test_split(
+            mags, z, sigs, test_size=test_size, random_state=seed
+        )
+        band_std = X_train.std(axis=0)
+        band_std[band_std < 1e-12] = 1.0
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        sigma_vec = (s_train / band_std).mean(axis=0)
+    except Exception:
+        fb = _load_photoz_eiv(n_samples=n_samples, test_size=test_size, seed=seed)
+        fb["_synthetic_fallback"] = True
+        fb["_fallback_reason"] = "GalaxiesML HDF5 unavailable"
+        return fb
+
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "sigma_x": sigma_vec.astype(np.float32),
+    }
+
+
 def _load_photoz_eiv(
     n_samples: int = 20000,
     test_size: float = 0.3,
@@ -4494,6 +4573,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "posterior with reference samples for C2ST."
         ),
         loader=_registry_loader(_load_sbibm_twomoons, n_samples=10000),
+    ),
+    "galaxiesml_eiv": DatasetInfo(
+        name="galaxiesml_eiv",
+        category="tabular",
+        n_features=5,
+        n_samples=40000,
+        description=(
+            "GalaxiesML HSC EIV (Do et al. 2024, Zenodo): grizy mags with "
+            "MEASURED per-band heteroscedastic errors + spec-z. Flagship."
+        ),
+        loader=_registry_loader(_load_galaxiesml_eiv, n_samples=20000),
     ),
     "photoz_eiv": DatasetInfo(
         name="photoz_eiv",

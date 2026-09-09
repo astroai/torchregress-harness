@@ -211,7 +211,9 @@ ALL_JOBS=(
   "sbi_parity sbibm_slcp"
   "causal ihdp"
   "causal folktables_causal"
-  "eiv photoz_eiv"  "streaming_tta diabetes"
+  "eiv photoz_eiv"
+  "eiv galaxiesml_eiv"
+  "streaming_tta diabetes"
   "streaming_tta california_housing"
   "streaming_tta folktables_income"
 )

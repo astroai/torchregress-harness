@@ -124,6 +124,27 @@ def _train_eiv(
 # --- Shared prediction helper (noisy and clean X paths) ---
 
 
+def _eiv_sigma(value: Any) -> Any:
+    """Pass-through measurement-noise scale: scalars stay scalars (fast
+    path for classical algorithms), arrays become CPU float tensors for
+    the tensor-ready losses/predictors (Functional/Structural/ODR/Ensemble/
+    InputNoise/LatentNN/NoisyInputPredictor/NoiseAware all accept them).
+
+    Stays on CPU deliberately: consumers move internally as needed, while
+    suite-side mixing (CPU model + CUDA sigma) breaks predict paths.
+    Enables heteroscedastic datasets (per-band GalaxiesML sigmas) without
+    changing any method's math on scalar datasets.
+    """
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu()
+    if isinstance(value, (float, int)):
+        return float(value)
+    arr = np.asarray(value, dtype=np.float32)
+    if arr.ndim == 0:
+        return float(arr)
+    return torch.as_tensor(arr)
+
+
 def _eiv_predict(
     method: str,
     model_state: dict[str, Any],
@@ -143,7 +164,7 @@ def _eiv_predict(
         return X_np @ beta + intercept
 
     if model_type == "latentnn":
-        sigma_x_val = float(model_state.get("sigma_x", 0.2))
+        sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
         with torch.no_grad():
             X = torch.from_numpy(X_np).float().to(current_device())
             return m.predict(X, sigma_x=sigma_x_val).squeeze(-1).detach().cpu().numpy()
@@ -164,7 +185,7 @@ def _eiv_predict(
             return m(X).squeeze(-1).detach().cpu().numpy()
 
     if method == "MSE_NoisyPredict" and noisy:
-        sigma_x_val = float(model_state.get("sigma_x", 0.2))
+        sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
         noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
         with torch.no_grad():
             X = torch.from_numpy(X_np).float().to(current_device())
@@ -189,7 +210,7 @@ def _eiv_predict(
         X = torch.from_numpy(X_np).float().to(current_device())
         if method == "NoiseAware":
             # NoiseAware always needs sigma_x (architectural requirement)
-            sigma_x_val = float(model_state.get("sigma_x", 0.2))
+            sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
             return m(X, sigma_x_val).squeeze(-1).detach().cpu().numpy()
         return m(X).squeeze(-1).detach().cpu().numpy()
 
@@ -223,6 +244,7 @@ class EIVSuite(HarnessRunner):
             "synthetic_eiv_veryhighnoise",
             "synthetic_eiv_nonlinear_veryhighnoise",
             "photoz_eiv",
+            "galaxiesml_eiv",
         ]
 
     @property
@@ -362,7 +384,9 @@ class EIVSuite(HarnessRunner):
 
         # Known noise parameters from the dataset generator (fallback matches
         # the defaults in _load_synthetic_eiv: sigma_x=0.2, sigma_y=0.1).
-        sigma_x = float(splits.get("sigma_x", 0.2))
+        # Scalar or per-feature array (heteroscedastic datasets) —
+        # losses/algorithms accept both; see _eiv_sigma.
+        sigma_x = _eiv_sigma(splits.get("sigma_x", 0.2))
         sigma_y = float(splits.get("sigma_y", 0.1))
 
         in_dim = X.shape[1]
@@ -851,7 +875,7 @@ class EIVSuite(HarnessRunner):
 
         # --- Distributional path: GaussianNLL+InputNoiseMC ---
         if model_type == "gaussian_mc":
-            sigma_x_val = float(model_state.get("sigma_x", 0.2))
+            sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
             predictor = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=32)
 
             def _moment_match(X_np):
