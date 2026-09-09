@@ -200,6 +200,7 @@ class LabelShiftSuite(HarnessRunner):
             X_te = np.asarray(X_test, dtype=np.float64)
             cov_idx, _ = _covariate_shift_target(X_te, config.seed)
             out["cov_tgt_idx"] = cov_idx.astype(np.float64)
+            out["resid_cal"] = np.asarray(model_state["resid_cal"], dtype=np.float64).reshape(-1)
             smean = float(model_state.get("y_smean", 0.0))
             sscale = float(model_state.get("y_sscale", 1.0))
             if method == "SplitCP":
@@ -287,14 +288,45 @@ class LabelShiftSuite(HarnessRunner):
             w_est = w_all[tgt_idx]
             w_est = w_est / max(w_est.mean(), 1e-12)
         elif method in ("SplitCP", "WeightedCP"):
+            from torchregress.test_time.ot_conformal import (
+                OptimalTransportCoverageGap,
+            )
+
             cov_idx = np.asarray(predictions["cov_tgt_idx"]).reshape(-1).astype(int)
             lo = np.asarray(predictions["lower"]).reshape(-1)[cov_idx]
             hi = np.asarray(predictions["upper"]).reshape(-1)[cov_idx]
             yt = y_true[cov_idx]
+            # OT coverage-gap diagnostic: CDF mismatch between calibration
+            # residuals and shifted-target residuals (what WeightedCP fixes).
+            # predictions["y_pred"] is still standardized here (only locals
+            # were inverse-transformed above); standardize y_true to match,
+            # or compare native when no scaler exists (skip-flag datasets).
+            gap: dict[str, float] = {}
+            try:
+                ps = np.asarray(predictions["y_pred"]).reshape(-1)[cov_idx]
+                if y_scaler is not None:
+                    _mu = float(np.asarray(y_scaler.mean_).reshape(-1)[0])
+                    _sc = float(np.asarray(y_scaler.scale_).reshape(-1)[0])
+                    resid_tgt = np.abs(ps - (yt - _mu) / max(_sc, 1e-12))
+                else:
+                    resid_tgt = np.abs(ps - yt)
+                ot = OptimalTransportCoverageGap().estimate(
+                    calibration_scores=torch.from_numpy(
+                        np.asarray(predictions["resid_cal"]).astype(np.float32)
+                    ),
+                    target_score_summary=torch.from_numpy(resid_tgt.astype(np.float32)),
+                )
+                gap = {
+                    "OTL2Gap": float(ot["l2_cdf_gap"]),
+                    "OTKS": float(ot["ks_max_abs"]),
+                }
+            except Exception:
+                pass
             return {
                 "ShiftCoverage": float(np.mean((yt >= lo) & (yt <= hi))),
                 "ShiftWidth": float(np.mean(hi - lo)),
                 "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
+                **gap,
             }
         else:
             raise ValueError(f"Unknown method: {method}")
