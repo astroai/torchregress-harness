@@ -250,6 +250,10 @@ fi
 EPOCHS=10
 EXTRA_ARGS="--epochs $EPOCHS"
 if [[ "$SMOKE" != 1 ]]; then EPOCHS=30; EXTRA_ARGS="--epochs $EPOCHS"; fi
+# EPOCHS_OVERRIDE (optional): exact epoch budget, e.g. 60 for R2C-scale runs.
+if [[ -n "${EPOCHS_OVERRIDE:-}" ]]; then
+  EPOCHS="$EPOCHS_OVERRIDE"; EXTRA_ARGS="--epochs $EPOCHS"
+fi
 
 # shellcheck disable=SC2086
 for job in "${JOBS[@]}"; do
