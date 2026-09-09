@@ -40,7 +40,7 @@ class CrowdCountingSuite(ImageHarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["shanghai_crowd", "shanghai_crowd_tiny"]
+        return ["shanghai_crowd", "shanghai_crowd_tiny", "ucf_qnrf"]
 
     def methods(self) -> list[str]:
         return ["UNet+MSE", "UNet+Huber", "UNet+GaussianNLL", "sklearn_RF"]

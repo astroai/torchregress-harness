@@ -3843,6 +3843,92 @@ def _density_from_points(points: np.ndarray, h: int, w: int, sigma: float = 4.0)
     return dens
 
 
+def _load_ucf_qnrf(
+    n_samples: int = 400,
+    img_size: int = 128,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """UCF-QNRF crowd counting (Idrees et al., ECCV 2018, via Kaggle).
+
+    1535 high-resolution images (1201 train / 334 test) with 1.25M head
+    annotations — the SOTA dense-crowd benchmark. Per-image ``*_ann.mat``
+    files carry ``annPoints`` (N,2); density maps via the shared Gaussian
+    renderer (sigma=4). Images resized to ``img_size`` with rescaled points.
+    Cached under the harness cache (Kaggle download). Falls back to the
+    synthetic crowd proxy if unavailable.
+    """
+    import os as _os
+
+    cache_dir = _image_cache_dir()
+    root = _os.environ.get("QNRF_ROOT", "")
+    base = Path(root) if root else cache_dir / "qnrf" / "UCF-QNRF_ECCV18"
+    pairs: list[tuple[Path, Path]] | None = None
+    if base.is_dir():
+        for split in ("Train", "Test"):
+            d = base / split
+            if not d.is_dir():
+                continue
+            for jp in sorted(d.glob("*.jpg")):
+                mp = d / f"{jp.stem}_ann.mat"
+                if mp.is_file():
+                    (pairs := pairs or []).append((jp, mp))
+    if pairs is not None:
+        try:
+            import scipy.io as _sio
+            from PIL import Image as _Image
+
+            imgs_all, counts_all, dens_all = [], [], []
+            rng_pick = np.random.default_rng(seed)
+            order = rng_pick.permutation(len(pairs))[:n_samples]
+            for idx in order:
+                jp, mp = pairs[int(idx)]
+                mat = _sio.loadmat(str(mp))
+                pts = np.asarray(mat["annPoints"], dtype=np.float32)
+                if pts.ndim == 1:
+                    pts = pts.reshape(-1, 2)
+                img = _Image.open(jp).convert("RGB")
+                w0, h0 = img.size
+                img = img.resize((img_size, img_size))
+                sx, sy = img_size / max(w0, 1), img_size / max(h0, 1)
+                pts_s = pts * np.array([sx, sy], dtype=np.float32)
+                dens = _density_from_points(pts_s, img_size, img_size, sigma=4.0)
+                arr = np.array(img, dtype=np.float32) / 255.0
+                imgs_all.append(arr.transpose(2, 0, 1))
+                dens_all.append(dens)
+                counts_all.append(float(len(pts)))
+            if imgs_all:
+                X = np.stack(imgs_all).astype(np.float32)
+                Y = np.stack(dens_all).astype(np.float32)
+                C = np.array(counts_all, dtype=np.float32)
+                Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
+                    X, Y, C, test_size=test_size, random_state=seed
+                )
+                return {
+                    "X_train": Xtr,
+                    "X_test": Xte,
+                    "y_train": Ytr,
+                    "y_test": Yte,
+                    "count_train": Ctr,
+                    "count_test": Cte,
+                    "_image_data": True,
+                    "_image_size": img_size,
+                    "_n_channels": 3,
+                    "_dense_output": True,
+                    "_skip_y_standardization": True,
+                }
+        except Exception:
+            pass  # fall through to synthetic proxy
+
+    # Synthetic fallback: reuse the Shanghai proxy generator inline.
+    synth = _load_shanghai_crowd(
+        n_samples=n_samples, img_size=img_size, test_size=test_size, seed=seed
+    )
+    synth["_synthetic_fallback"] = True
+    synth["_fallback_reason"] = "UCF-QNRF data unavailable"
+    return synth
+
+
 def _load_shanghai_crowd(
     n_samples: int = 400,
     img_size: int = 128,
@@ -5208,6 +5294,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "SHANGHAI_ROOT; synthetic crowd proxy otherwise (flagged)."
         ),
         loader=_registry_loader(_load_shanghai_crowd),
+    ),
+    "ucf_qnrf": DatasetInfo(
+        name="ucf_qnrf",
+        category="image",
+        n_features=-1,
+        n_samples=1535,
+        description=(
+            "UCF-QNRF dense crowd (Idrees et al., ECCV 2018, via Kaggle): "
+            "1535 high-res images, 1.25M annotations. SOTA crowd benchmark."
+        ),
+        loader=_registry_loader(_load_ucf_qnrf, n_samples=400),
     ),
     "shanghai_crowd_tiny": DatasetInfo(
         name="shanghai_crowd_tiny",
