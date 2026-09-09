@@ -206,6 +206,9 @@ ALL_JOBS=(
   "pzflow_parity pzflow_galaxies"
   "pzflow_parity energy_efficiency"
   "sbi_parity sbibm_twomoons"
+  "streaming_tta diabetes"
+  "streaming_tta california_housing"
+  "streaming_tta folktables_income"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"
