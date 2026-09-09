@@ -191,6 +191,7 @@ ALL_JOBS=(
   "distributional_bins diabetes"
   "distributional_bins california_housing"
   "ensembles diabetes"
+  "ensembles california_housing"
   "multivariate_intervals synthetic_multivariate"
   "multivariate_intervals energy_efficiency"
   "eiv synthetic_eiv"

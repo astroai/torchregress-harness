@@ -751,7 +751,25 @@ class EnsemblesSuite(HarnessRunner):
 
             if isinstance(reg, HeteroscedasticEnsembleRegressor):
                 diag = reg._predict_diagnostics(X_test)
-                return {"mean": diag["mean"], "std": diag["std"]}
+                ens = reg._model
+                dev = next(ens.parameters()).device
+                with torch.no_grad():
+                    member_outputs = ens(torch.from_numpy(X_test).float().to(dev))
+                member_means = np.stack(
+                    [out[:, 0].detach().cpu().numpy().reshape(-1) for out in member_outputs]
+                )
+                member_variances = np.stack(
+                    [
+                        np.exp(out[:, 1].detach().cpu().numpy().reshape(-1)).clip(min=1e-8)
+                        for out in member_outputs
+                    ]
+                )
+                return {
+                    "mean": diag["mean"],
+                    "std": diag["std"],
+                    "member_means": member_means,
+                    "member_variances": member_variances,
+                }
             else:
                 mean = reg.predict(X_test)
                 return {"y_pred": mean}
@@ -1062,3 +1080,34 @@ class EnsemblesSuite(HarnessRunner):
             }
 
         raise ValueError(f"Unknown model type: {model_type}")
+
+    def evaluate(
+        self,
+        method: str,
+        predictions: dict[str, np.ndarray],
+        y_test: np.ndarray,
+        config: HarnessConfig,
+    ) -> dict[str, float]:
+        metrics = super().evaluate(method, predictions, y_test, config)
+        if "member_means" not in predictions or "member_variances" not in predictions:
+            return metrics
+        try:
+            from torchregress.metrics import GaussianNLLEnsemble, uncertainty_decomposition
+
+            means = np.asarray(predictions["member_means"], dtype=np.float64)
+            variances = np.asarray(predictions["member_variances"], dtype=np.float64)
+            y = np.asarray(y_test, dtype=np.float64).reshape(-1)
+            decomp = uncertainty_decomposition(means, variances)
+            nll = GaussianNLLEnsemble()
+            nll.update(means, variances, torch.from_numpy(y))
+            metrics.update(
+                {
+                    "EpistemicVar": float(decomp["epistemic_uncertainty"].mean()),
+                    "AleatoricVar": float(decomp["aleatoric_uncertainty"].mean()),
+                    "TotalVar": float(decomp["total_uncertainty"].mean()),
+                    "EnsembleNLL": float(nll.compute()),
+                }
+            )
+        except Exception:
+            pass
+        return metrics
