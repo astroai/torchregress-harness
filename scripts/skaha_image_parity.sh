@@ -223,6 +223,9 @@ ALL_JOBS=(
   "streaming_tta diabetes"
   "streaming_tta california_housing"
   "streaming_tta folktables_income"
+  "test_time_adaptation diabetes"
+  "test_time_adaptation california_housing"
+  "test_time_adaptation folktables_income"
 )
 RID_RAW="${REPLICA_ID:-1}"
 RCNT="${REPLICA_COUNT:-1}"
