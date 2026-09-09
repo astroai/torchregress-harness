@@ -680,6 +680,68 @@ def _load_photoz_eiv(
     }
 
 
+def _load_galaxiesml_cutouts(
+    n_samples: int = 4000,
+    test_size: float = 0.3,
+    seed: int = 42,
+    img_size: int = 64,
+) -> SplitsDict:
+    """GalaxiesML image cutouts for photo-z (Do et al. 2024, HSC PDR2).
+
+    5-band 64×64 coadds + spectroscopic redshifts from the Zenodo HDF5s
+    (training/testing splits as published). Returns (N,5,H,W) float32
+    images standardized per-channel from train stats; y = spec-z.
+    Falls back to synthetic image regression if the HDF5s are unavailable.
+    """
+    splits: SplitMetadata = {}
+    try:
+        import h5py
+
+        cache = _image_cache_dir() / "galaxiesml"
+        tr_path = cache / "training.hdf5"
+        te_path = cache / "test.hdf5"
+        if not (tr_path.exists() and tr_path.stat().st_size > 1_000_000_000):
+            raise RuntimeError("training HDF5 incomplete")
+        if not (te_path.exists() and te_path.stat().st_size > 1_000_000_000):
+            raise RuntimeError("test HDF5 incomplete")
+        rng = np.random.default_rng(seed)
+        with h5py.File(tr_path, "r") as f:
+            n_tr = f["image"].shape[0]
+            n_tr_take = min(n_tr, max(64, int(n_samples * 0.7)))
+            idx_tr = np.sort(rng.choice(n_tr, n_tr_take, replace=False))
+            X_train = np.asarray(f["image"][idx_tr]).astype(np.float32)
+            y_train = np.asarray(f["specz_redshift"][idx_tr]).astype(np.float64)
+        with h5py.File(te_path, "r") as f:
+            n_te = f["image"].shape[0]
+            n_te_take = min(n_te, max(32, n_samples - n_tr_take))
+            idx_te = np.sort(rng.choice(n_te, n_te_take, replace=False))
+            X_test = np.asarray(f["image"][idx_te]).astype(np.float32)
+            y_test = np.asarray(f["specz_redshift"][idx_te]).astype(np.float64)
+        keep_tr = np.isfinite(y_train) & (y_train > 0) & (y_train < 6)
+        keep_te = np.isfinite(y_test) & (y_test > 0) & (y_test < 6)
+        X_train, y_train = X_train[keep_tr], y_train[keep_tr]
+        X_test, y_test = X_test[keep_te], y_test[keep_te]
+        # Per-channel standardization from train (images are raw coadds).
+        mu = X_train.mean(axis=(0, 2, 3), keepdims=True)
+        sd = X_train.std(axis=(0, 2, 3), keepdims=True)
+        sd[sd < 1e-12] = 1.0
+        X_train = ((X_train - mu) / sd).astype(np.float32)
+        X_test = ((X_test - mu) / sd).astype(np.float32)
+    except Exception:
+        synth = _load_synthetic_image_regression(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "GalaxiesML HDF5s unavailable"
+        return synth
+
+    return {
+        **splits,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
 def _load_pzflow_galaxies(
     n_samples: int = 20000,
     test_size: float = 0.3,
@@ -4596,6 +4658,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Real EIV — no clean features exist."
         ),
         loader=_registry_loader(_load_photoz_eiv, n_samples=20000),
+    ),
+    "galaxiesml_cutouts": DatasetInfo(
+        name="galaxiesml_cutouts",
+        category="image",
+        n_features=5,
+        n_samples=286401,
+        description=(
+            "GalaxiesML HSC cutouts (Do et al. 2024, Zenodo): 5-band 64px "
+            "coadds + spec-z. Real image photo-z benchmark."
+        ),
+        loader=_registry_loader(_load_galaxiesml_cutouts, n_samples=4000),
     ),
     "pzflow_galaxies": DatasetInfo(
         name="pzflow_galaxies",

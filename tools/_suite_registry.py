@@ -16,6 +16,7 @@ from suites.image.image_conformal import ImageConformalSuite
 from suites.image.image_ensembles_uq import ImageEnsemblesUQSuite
 from suites.image.image_robust import ImageRobustSuite
 from suites.image.keypoint_regression import KeypointRegressionSuite
+from suites.image.photoz_imaging import PhotozImagingSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.causal import CausalSuite
@@ -72,6 +73,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "crowd_counting": CrowdCountingSuite,
     "depth_estimation": DepthEstimationSuite,
     "keypoint_regression": KeypointRegressionSuite,
+    "photoz_imaging": PhotozImagingSuite,
     "image_conformal": ImageConformalSuite,
     "image_ensembles_uq": ImageEnsemblesUQSuite,
     "image_robust": ImageRobustSuite,

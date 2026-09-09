@@ -211,6 +211,7 @@ ALL_JOBS=(
   "pzflow_parity energy_efficiency"
   "sbi_parity sbibm_twomoons"
   "sbi_parity sbibm_slcp"
+  "photoz_imaging galaxiesml_cutouts"
   "causal ihdp"
   "causal folktables_causal"
   "eiv photoz_eiv"
