@@ -64,7 +64,13 @@ class StreamingTTASuite(HarnessRunner):
         return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        return ["Static", "COSAAdapted", "CausalHarnessCOSA"]
+        return [
+            "Static",
+            "COSAAdapted",
+            "CausalHarnessCOSA",
+            "CausalHarnessCOSA_Unlabeled",
+            "CausalHarnessCOSA_Delay2",
+        ]
 
     def library_name(self, method: str) -> str:
         return "torchregress"
@@ -74,6 +80,8 @@ class StreamingTTASuite(HarnessRunner):
             "Static": "MLP point + train-residual std, no adaptation (ablation)",
             "COSAAdapted": "DelayedLabelResidualAdapter, 1-chunk label delay",
             "CausalHarnessCOSA": "CausalTTAHarness + DelayedLabelResidualAdapter, 1-chunk delay",
+            "CausalHarnessCOSA_Unlabeled": "CausalTTAHarness + adapter, no labels ever (delay=-1)",
+            "CausalHarnessCOSA_Delay2": "CausalTTAHarness + adapter, 2-chunk label delay",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -111,7 +119,12 @@ class StreamingTTASuite(HarnessRunner):
         resid_std = float(np.std(np.asarray(y_train_np).reshape(-1) - p_tr)) + 1e-6
         base = _BatchBase(model, resid_std)
         state: dict[str, Any] = {"type": "point", "model": model, "base": base}
-        if method in ("COSAAdapted", "CausalHarnessCOSA"):
+        if method in (
+            "COSAAdapted",
+            "CausalHarnessCOSA",
+            "CausalHarnessCOSA_Unlabeled",
+            "CausalHarnessCOSA_Delay2",
+        ):
             from torchregress.test_time.cosa import DelayedLabelResidualAdapter
 
             state["adapter"] = DelayedLabelResidualAdapter(base)
@@ -214,10 +227,15 @@ class StreamingTTASuite(HarnessRunner):
                 fit_time = perf_counter() - t0
                 state["y_test_full"] = y_te
                 t0 = perf_counter()
-                if method == "CausalHarnessCOSA":
+                if method.startswith("CausalHarnessCOSA"):
                     from torchregress.test_time import CausalTTAHarness
 
-                    causal = CausalTTAHarness(delay=1, alpha=0.1)
+                    delay = {"CausalHarnessCOSA": 1}.get(method, 1)
+                    if method.endswith("_Unlabeled"):
+                        delay = -1
+                    elif method.endswith("_Delay2"):
+                        delay = 2
+                    causal = CausalTTAHarness(delay=delay, alpha=0.1)
                     causal_metrics = causal.evaluate(
                         state["adapter"],
                         torch.from_numpy(X_te.astype(np.float32)),
@@ -236,6 +254,7 @@ class StreamingTTASuite(HarnessRunner):
                         "Width": float(causal_metrics["mean_width"]),
                         "IntervalScore": float(causal_metrics["winkler_score"]),
                         "NLL": float(causal_metrics.get("NLL", float("nan"))),
+                        "Delay": float(delay),
                     }
                 else:
                     metrics = compute_interval_metrics(
@@ -243,6 +262,12 @@ class StreamingTTASuite(HarnessRunner):
                         np.asarray(pred["upper"]).reshape(-1),
                         y_te.reshape(-1),
                     )
+                    # Point accuracy on the same stream (enables AdaptGain
+                    # vs the static baseline below).
+                    yp = np.asarray(pred["y_pred"]).reshape(-1)
+                    yt = y_te.reshape(-1)
+                    metrics["RMSE"] = float(np.sqrt(np.mean((yp - yt) ** 2)))
+                    metrics["MAE"] = float(np.mean(np.abs(yp - yt)))
                 row: dict[str, Any] = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -269,4 +294,22 @@ class StreamingTTASuite(HarnessRunner):
                     "Notes": f"failed: {type(exc).__name__}: {exc}",
                 }
             rows.append(row)
+        # Adaptation gain vs the static baseline at the same seed: positive
+        # means the delayed-label adapter beat no adaptation on RMSE.
+        static_rmse: float | None = None
+        for row in rows:
+            if row.get("Method") == f"{self.name}/Static" and row.get("RMSE") is not None:
+                try:
+                    static_rmse = float(row["RMSE"])
+                except (TypeError, ValueError):
+                    static_rmse = None
+                break
+        if static_rmse is not None:
+            for row in rows:
+                if row.get("RMSE") is None or row.get("Method") == f"{self.name}/Static":
+                    continue
+                try:
+                    row["AdaptGain"] = float(static_rmse - float(row["RMSE"]))
+                except (TypeError, ValueError):
+                    continue
         return rows

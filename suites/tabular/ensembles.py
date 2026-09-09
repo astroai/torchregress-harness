@@ -149,7 +149,7 @@ class EnsemblesSuite(HarnessRunner):
     def method_notes(self, method: str) -> str:
         notes = {
             "DeepEnsemble_MSE": f"{_N_ENSEMBLE}× MLP + MSE → mean of point predictions",
-            "DeepEnsemble_GaussianNLL": f"{_N_ENSEMBLE}× MLP + BetaNLL → mixture mean & std",
+            "DeepEnsemble_GaussianNLL": f"{_N_ENSEMBLE}× MLP + BetaNLL → mixture mean & std [contract: epistemic_plus_aleatoric]",
             "DeepEnsemble_MultiQuantile": f"{_N_ENSEMBLE}× MLP + MultiQuantile → mean of quantiles",
             "MDNEnsemble": "3× MDN heads (K=2) → mixture-mean point prediction",
             "LaplaceMAP": "MAP MLP + FullNetworkLaplace post-hoc (mean, var, intervals)",
@@ -162,9 +162,9 @@ class EnsemblesSuite(HarnessRunner):
             "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
             "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only — expect undercoverage: no aleatoric term)",
             "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta on held-out slice (trails proper-CV sklearn stacking)",
-            "HeteroscedasticEnsemble": "native hetero ensemble (3× Gaussian heads) → epi+alea split",
-            "MCDropoutWrapper": "MC-Dropout wrapper over dropout MLP (20 draws) → mean/std",
-            "BBB": "Bayes-by-Backprop VI (ELBO) → posterior MC mean/std",
+            "HeteroscedasticEnsemble": "native hetero ensemble (3× Gaussian heads) → epi+alea split [contract: epistemic_plus_aleatoric]",
+            "MCDropoutWrapper": "MC-Dropout wrapper over dropout MLP (20 draws) → mean/std [contract: epistemic_only]",
+            "BBB": "Bayes-by-Backprop VI (ELBO) → posterior MC mean/std [contract: epistemic_only]",
             "HeteroscedasticBNN": "BBB + variance head → epi/alea decomposition",
             "sklearn_VotingRegressor": "Voting(LinearRegression, RandomForest, SVR, KNeighbors)",
             "sklearn_StackingRegressor": "Stacking(LinearRegression, RandomForest, SVR, KNeighbors) → RidgeCV",
@@ -1024,6 +1024,9 @@ class EnsemblesSuite(HarnessRunner):
             return {"y_pred": y_pred}
 
         # --- torchregress: HeteroscedasticEnsemble → epi+alea intervals ---
+        # The native model already separates the two variance terms; both
+        # are stashed so evaluate() reports them without re-deriving member
+        # statistics the model does not expose.
         elif model_type == "heteroensemble":
             ens = model_state["model"]
             ens.eval()
@@ -1032,6 +1035,8 @@ class EnsemblesSuite(HarnessRunner):
                 d = ens.predict(torch.from_numpy(X_test).float().to(dev))
             mean_np = d["mean"].reshape(-1).detach().cpu().numpy()
             std_np = np.sqrt(d["variance"].reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+            epi_np = d["epistemic_variance"].reshape(-1).detach().cpu().numpy().clip(min=0.0)
+            alea_np = d["aleatoric_variance"].reshape(-1).detach().cpu().numpy().clip(min=0.0)
             z = 1.645
             return {
                 "lower": mean_np - z * std_np,
@@ -1039,6 +1044,8 @@ class EnsemblesSuite(HarnessRunner):
                 "y_pred": mean_np,
                 "mean": mean_np,
                 "std": std_np,
+                "epistemic_var": epi_np,
+                "aleatoric_var": alea_np,
             }
 
         # --- torchregress: MCDropoutWrapper / BBB → posterior MC mean/std ---
@@ -1089,7 +1096,24 @@ class EnsemblesSuite(HarnessRunner):
         config: HarnessConfig,
     ) -> dict[str, float]:
         metrics = super().evaluate(method, predictions, y_test, config)
+        # Native-model decomposition passthrough: HeteroscedasticEnsembleModel
+        # already separates the two variance terms; report them directly.
+        # No Gaussian ensemble NLL here — that metric requires per-member
+        # predictive variances, which this model does not expose.
         if "member_means" not in predictions or "member_variances" not in predictions:
+            if "epistemic_var" in predictions and "aleatoric_var" in predictions:
+                try:
+                    epi = np.asarray(predictions["epistemic_var"], dtype=np.float64)
+                    alea = np.asarray(predictions["aleatoric_var"], dtype=np.float64)
+                    metrics.update(
+                        {
+                            "EpistemicVar": float(epi.mean()),
+                            "AleatoricVar": float(alea.mean()),
+                            "TotalVar": float((epi + alea).mean()),
+                        }
+                    )
+                except Exception:
+                    pass
             return metrics
         try:
             from torchregress.metrics import GaussianNLLEnsemble, uncertainty_decomposition
