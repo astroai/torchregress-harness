@@ -266,6 +266,22 @@ class PhotozImagingSuite(AgeRegressionSuite):
             nmad.update(yp_t, yt_t)
             metrics["NMAD"] = float(nmad.compute().item())
             metrics["Bias"] = float(((yp_t - yt_t) / (1.0 + yt_t.abs())).mean().item())
+            # Library analytic scores for Gaussian rows (native units).
+            if "mean" in predictions and "std" in predictions:
+                from torchregress.metrics import crps_gaussian, dss_score
+
+                try:
+                    m = np.asarray(predictions["mean"]).reshape(-1)
+                    s = np.asarray(predictions["std"]).reshape(-1)
+                    if y_scaler is not None:
+                        sc = float(np.asarray(y_scaler.scale_).reshape(-1)[0])
+                        mu = float(np.asarray(y_scaler.mean_).reshape(-1)[0])
+                        m = m * sc + mu
+                        s = s * sc
+                    metrics["CRPS_Gauss"] = float(crps_gaussian(m, y_true, s))
+                    metrics["DSS"] = float(dss_score(m, s, y_true))
+                except Exception:
+                    pass
             # Library interval score where intervals exist.
             if "lower" in predictions and "upper" in predictions:
                 lo = np.asarray(predictions["lower"]).reshape(-1)
@@ -277,7 +293,7 @@ class PhotozImagingSuite(AgeRegressionSuite):
                     metrics["IntervalScore"] = float(interval_score(lo, hi, y_true, alpha=0.1))
                 except Exception:
                     pass
-            # Library CRPS where predictive samples exist (N, S).
+            # Library CRPS where predictive samples exist (N, S), native units.
             if "samples" in predictions:
                 from torchregress.metrics import crps_from_samples
 
@@ -285,6 +301,10 @@ class PhotozImagingSuite(AgeRegressionSuite):
                     samp = np.asarray(predictions["samples"])
                     if samp.ndim != 2 or samp.shape[0] != len(y_true):
                         samp = np.asarray(samp).reshape(len(y_true), -1)
+                    if y_scaler is not None:
+                        sc = float(np.asarray(y_scaler.scale_).reshape(-1)[0])
+                        mu = float(np.asarray(y_scaler.mean_).reshape(-1)[0])
+                        samp = samp * sc + mu
                     metrics["CRPS"] = float(crps_from_samples(samp, y_true.reshape(-1, 1)))
                 except Exception:
                     pass

@@ -901,6 +901,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "mean": mean.reshape(-1),
+                "std": std.reshape(-1),
                 "samples": _diag_gaussian_samples(mean, std, config.seed),
                 "_multi_output": True,
                 "_n_features": D,
@@ -945,6 +947,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "mean": mean.reshape(-1),
+                "std": std.reshape(-1),
                 "samples": _full_gaussian_samples(
                     *_mv_full_params(model_state["model"], X_test, D),
                     config.seed,
@@ -969,6 +973,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean.reshape(-1),
+                "mean": mean.reshape(-1),
+                "std": std.reshape(-1),
                 "samples": samples,
                 "_multi_output": True,
                 "_n_features": D,
@@ -1017,6 +1023,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lo.reshape(-1),
                 "upper": hi.reshape(-1),
                 "y_pred": med.reshape(-1),
+                "quantile_values": q,
+                "quantile_levels": np.asarray(qs, dtype=np.float64),
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -1038,6 +1046,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean_np.reshape(-1),
+                "mean": mean_np.reshape(-1),
+                "std": std_np.reshape(-1),
                 "samples": _full_gaussian_samples(mean_np, cov_np, config.seed),
                 "_multi_output": True,
                 "_n_features": D,
@@ -1060,6 +1070,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
                 "y_pred": mean_np.reshape(-1),
+                "mean": mean_np.reshape(-1),
+                "std": std_np.reshape(-1),
                 "samples": _full_gaussian_samples(mean_np, cov_np, config.seed),
                 "_multi_output": True,
                 "_n_features": D,
@@ -1241,12 +1253,47 @@ class MultivariateIntervalsSuite(HarnessRunner):
             for d in range(D):
                 metrics[f"Coverage_D{d}"] = float(np.mean(in_interval[:, d]))
 
+            # Library mean pinball over predicted quantile levels (SQR-style
+            # rows stash per-level values; averaged over output dims).
+            if "quantile_values" in predictions and "quantile_levels" in predictions:
+                from torchregress.metrics import pinball_metric
+
+                try:
+                    qv = np.asarray(predictions["quantile_values"], dtype=np.float64)
+                    ql = np.asarray(predictions["quantile_levels"], dtype=np.float64)
+                    # Normalize to (N, Q, D).
+                    if qv.ndim == 2:
+                        qv = qv[:, :, None]
+                    pb = []
+                    for d in range(qv.shape[2]):
+                        qdict = {float(ql[j]): qv[:, j, d] for j in range(len(ql))}
+                        pb.append(pinball_metric(qdict, y_true[:, d].reshape(-1, 1)))
+                    metrics["Pinball"] = float(np.mean(pb))
+                except Exception:
+                    pass
+
+            # Library analytic scores for Gaussian-family rows emitting
+            # mean/std (marginals pooled): CRPS + Dawid-Sebastiani.
+            if "mean" in predictions and "std" in predictions:
+                from torchregress.metrics import crps_gaussian, dss_score
+
+                try:
+                    m = np.asarray(predictions["mean"]).reshape(N, D)
+                    s = np.asarray(predictions["std"]).reshape(N, D)
+                    metrics["CRPS"] = float(crps_gaussian(m, y_true, s))
+                    metrics["DSS"] = float(dss_score(m, s, y_true))
+                except Exception:
+                    pass
+
             # Proper scoring rules for distribution-valued forecasts
             # (Gneiting & Raftery 2007; Scheuerer & Hamill 2015). Only rows
             # emitting predictive "samples" [S, N, D] qualify — conformal/SLS
             # rows output regions, not distributions, and honestly skip these.
             if "samples" in predictions:
                 from torchregress.metrics import energy_score, variogram_score
+                from torchregress.metrics import (
+                    kolmogorov_smirnov_uniform_statistic as _ks,
+                )
 
                 samp = np.asarray(predictions["samples"], dtype=np.float64)
                 if samp.ndim == 3 and samp.shape[0] == N and samp.shape[1] != N:
@@ -1256,6 +1303,15 @@ class MultivariateIntervalsSuite(HarnessRunner):
                     metrics["VariogramScore"] = float(
                         variogram_score(samp, y_true.astype(np.float64))
                     )
+                    # PIT uniformity per dim (mean KS): library KS statistic
+                    # on sample-rank PIT values.
+                    ks_list = []
+                    for d in range(D):
+                        r = (samp[:, :, d] <= y_true[None, :, d]).mean(axis=0)
+                        ks_list.append(
+                            float(_ks(np.clip(r, 1e-6, 1 - 1e-6).astype(np.float64)).item())
+                        )
+                    metrics["PIT_KS"] = float(np.mean(ks_list))
                 except Exception:
                     pass
 

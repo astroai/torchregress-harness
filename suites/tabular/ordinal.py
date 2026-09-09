@@ -218,7 +218,7 @@ class OrdinalSuite(HarnessRunner):
 
             backbone = _MLP(in_dim, _ordinal_hidden, out_dim=_ordinal_hidden)
             head = CORALHead(in_features=_ordinal_hidden, num_classes=n_classes)
-            model = nn.Sequential(backbone, head)
+            model = nn.Sequential(backbone, head).to(current_device())
             _train_one(model, CORALLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
@@ -337,7 +337,29 @@ class OrdinalSuite(HarnessRunner):
         mae = float(np.mean(np.abs(y_pred.astype(float) - y_true.astype(float))))
         rmse = float(np.sqrt(np.mean((y_pred.astype(float) - y_true.astype(float)) ** 2)))
 
-        return {"Accuracy": acc, "MAE": mae, "RMSE": rmse}
+        out: dict[str, float] = {"Accuracy": acc, "MAE": mae, "RMSE": rmse}
+        # Library ordinal metrics (dogfood): exact-match, QWK, class-MAE.
+        try:
+            import torch as _torch
+            from torchregress.metrics import (
+                mean_absolute_class_error as _mace,
+            )
+            from torchregress.metrics import (
+                ordinal_accuracy as _oacc,
+            )
+            from torchregress.metrics import (
+                quadratic_weighted_kappa as _qwk,
+            )
+
+            yp_t = _torch.from_numpy(y_pred.astype(np.int64))
+            yt_t = _torch.from_numpy(y_true.astype(np.int64))
+            n_cl = int(max(yp_t.max().item(), yt_t.max().item())) + 1
+            out["LibAccuracy"] = float(_oacc(yp_t, yt_t).item())
+            out["QWK"] = float(_qwk(yp_t, yt_t, num_classes=n_cl).item())
+            out["ClassMAE"] = float(_mace(yp_t, yt_t).item())
+        except Exception:
+            pass
+        return out
 
     # ------------------------------------------------------------------
     # notes

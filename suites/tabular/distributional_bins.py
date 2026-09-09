@@ -681,7 +681,11 @@ class DistributionalBinsSuite(HarnessRunner):
             ce = nn.CrossEntropyLoss()
             for k, member in enumerate(ens.models):
                 y_idx = torch.from_numpy(
-                    np.clip(np.digitize(y_np, member_edges[k].numpy()) - 1, 0, n_bins - 1)
+                    np.clip(
+                        np.digitize(y_np, member_edges[k].detach().cpu().numpy()) - 1,
+                        0,
+                        n_bins - 1,
+                    )
                 ).long()
                 loader = DataLoader(
                     TensorDataset(torch.from_numpy(splits["X_train"]).float(), y_idx),
@@ -832,7 +836,14 @@ class DistributionalBinsSuite(HarnessRunner):
             def _q(p: float) -> np.ndarray:
                 return arr[:, min(31, int(p * 32))].reshape(-1)
 
-            return {"lower": _q(0.05), "upper": _q(0.95), "y_pred": _q(0.5)}
+            levels = (np.arange(1, 33) / 33.0).astype(np.float64)
+            return {
+                "lower": _q(0.05),
+                "upper": _q(0.95),
+                "y_pred": _q(0.5),
+                "quantile_values": arr.astype(np.float64),
+                "quantile_levels": levels,
+            }
 
         # --- crepes_CQR → calibrated quantile intervals ---
         elif model_type == "crepes_cqr":
@@ -1032,6 +1043,18 @@ class DistributionalBinsSuite(HarnessRunner):
         predictions["_lo_raw"] = lo
         predictions["_hi_raw"] = hi
         predictions["_y_true_raw"] = y_true
+
+        # --- Library mean pinball over predicted quantile levels ---
+        if "quantile_values" in predictions and "quantile_levels" in predictions:
+            from torchregress.metrics import pinball_metric
+
+            try:
+                qv = np.asarray(predictions["quantile_values"], dtype=np.float64)
+                ql = np.asarray(predictions["quantile_levels"], dtype=np.float64)
+                qdict = {float(ql[j]): qv[:, j] for j in range(len(ql))}
+                metrics["Pinball"] = float(pinball_metric(qdict, y_true))
+            except Exception:
+                pass
 
         return metrics
 
