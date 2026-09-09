@@ -68,6 +68,10 @@ class SplitMetadata(TypedDict, total=False):
     _calibration_fraction: float
     _dense_output: bool
     _y_scaler: StandardScaler
+    reference: list[np.ndarray]
+    prior_dist: Any
+    sbc_theta: np.ndarray
+    sbc_x: np.ndarray
 
 
 class SplitsDict(SplitArrays, SplitMetadata):
@@ -346,13 +350,16 @@ def _load_sbibm_task(
     task_name: str,
     n_samples: int = 10000,
     n_observations: int = 3,
+    n_sbc_simulations: int = 16,
     seed: int = 42,
 ) -> SplitsDict:
     """Shared sbibm task loader (Lueckmann et al., NeurIPS 2021 SBI bench).
 
     Complex posteriors p(theta | x) with REFERENCE posterior samples for
     C2ST comparison. Train = prior simulations; test = benchmark
-    observations. Seeded via torch (+numpy, unused by most simulators).
+    observations. ``sbc_theta``/``sbc_x`` are a separate held-out set of
+    prior/simulator draws used only for posterior-calibration diagnostics.
+    Seeded via torch (+numpy, unused by most simulators).
     """
     splits: SplitMetadata = {}
     try:
@@ -361,10 +368,10 @@ def _load_sbibm_task(
 
         torch.manual_seed(seed)
         task = sbibm.get_task(task_name)
-        theta = torch.as_tensor(
-            np.asarray(task.get_prior()(num_samples=n_samples)), dtype=torch.float32
-        )
-        x = torch.as_tensor(np.asarray(task.get_simulator()(theta)), dtype=torch.float32)
+        prior = task.get_prior()
+        simulator = task.get_simulator()
+        theta = torch.as_tensor(np.asarray(prior(num_samples=n_samples)), dtype=torch.float32)
+        x = torch.as_tensor(np.asarray(simulator(theta)), dtype=torch.float32)
         X = x.numpy().astype(np.float32)
         y = theta.numpy().astype(np.float32)
         obs, ref = [], []
@@ -379,6 +386,13 @@ def _load_sbibm_task(
         X_test = np.stack(obs, axis=0).astype(np.float32)
         # Point target = reference posterior mean (diagnostic only).
         y_test = np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32)
+        # Diagnostic simulations are independently seeded and never included in
+        # the amortized training pairs above.
+        torch.manual_seed(seed + 1)
+        sbc_theta_t = torch.as_tensor(
+            np.asarray(prior(num_samples=n_sbc_simulations)), dtype=torch.float32
+        )
+        sbc_x_t = torch.as_tensor(np.asarray(simulator(sbc_theta_t)), dtype=torch.float32)
     except Exception:
         synth = _load_synthetic_cond_nongaussian(n_samples=n_samples, seed=seed)
         synth["_synthetic_fallback"] = True
@@ -392,6 +406,9 @@ def _load_sbibm_task(
         "X_test": X_test,
         "y_test": y_test,
         "reference": ref,
+        "prior_dist": task.get_prior_dist(),
+        "sbc_theta": sbc_theta_t.numpy().astype(np.float32),
+        "sbc_x": sbc_x_t.numpy().astype(np.float32),
         "n_targets": y.shape[1],
         "prior_low": float(y.min()),
         "prior_high": float(y.max()),
@@ -538,19 +555,51 @@ def _load_folktables_causal(
 def _load_sbibm_twomoons(
     n_samples: int = 10000,
     n_observations: int = 3,
+    n_sbc_simulations: int = 16,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Two Moons (bimodal 2-D posterior + reference samples)."""
-    return _load_sbibm_task("two_moons", n_samples, n_observations, seed)
+    return _load_sbibm_task("two_moons", n_samples, n_observations, n_sbc_simulations, seed)
 
 
 def _load_sbibm_slcp(
     n_samples: int = 10000,
     n_observations: int = 3,
+    n_sbc_simulations: int = 16,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm SLCP (5-D params, 8-D obs, complex posterior + references)."""
-    return _load_sbibm_task("slcp", n_samples, n_observations, seed)
+    return _load_sbibm_task("slcp", n_samples, n_observations, n_sbc_simulations, seed)
+
+
+def _load_sbibm_gaussian_linear(
+    n_samples: int = 10000,
+    n_observations: int = 3,
+    n_sbc_simulations: int = 16,
+    seed: int = 42,
+) -> SplitsDict:
+    """sbibm Gaussian Linear (10-D analytic Gaussian posterior)."""
+    return _load_sbibm_task("gaussian_linear", n_samples, n_observations, n_sbc_simulations, seed)
+
+
+def _load_sbibm_gaussian_mixture(
+    n_samples: int = 10000,
+    n_observations: int = 3,
+    n_sbc_simulations: int = 16,
+    seed: int = 42,
+) -> SplitsDict:
+    """sbibm Gaussian Mixture (2-D bimodal posterior)."""
+    return _load_sbibm_task("gaussian_mixture", n_samples, n_observations, n_sbc_simulations, seed)
+
+
+def _load_sbibm_bernoulli_glm(
+    n_samples: int = 10000,
+    n_observations: int = 3,
+    n_sbc_simulations: int = 16,
+    seed: int = 42,
+) -> SplitsDict:
+    """sbibm Bernoulli GLM with sufficient-statistic observations."""
+    return _load_sbibm_task("bernoulli_glm", n_samples, n_observations, n_sbc_simulations, seed)
 
 
 def _load_galaxiesml_eiv(
@@ -1373,7 +1422,9 @@ def _load_insurance_claims(
     }
 
 
-def _fetch_folktables_xy(seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def _fetch_folktables_xy(
+    seed: int = 42, *, published_acs_income_filter: bool = False
+) -> tuple[np.ndarray, np.ndarray]:
     """Shared ACS 2018 CA fetch + encoding → (X features, continuous PINCP)."""
     import folktables
     import pandas as pd
@@ -1386,6 +1437,10 @@ def _fetch_folktables_xy(seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
     acs = ds.get_data(states=["CA"], download=True)
     df = acs.copy()
     filt = (df["AGEP"] > 16) & (df["WKHP"] > 0) & (df["PINCP"] >= 100)
+    if published_acs_income_filter:
+        # Folktables ACSIncome's adult_filter additionally excludes unpaid
+        # family workers (COW == 5).
+        filt &= df["COW"] != 5
     df = df.loc[filt].reset_index(drop=True)
     y = df["PINCP"].to_numpy(dtype=np.float64)
     low_card = ["COW", "SCHL", "MAR", "SEX", "RAC1P", "RELP"]
@@ -1450,6 +1505,62 @@ def _load_folktables_income(
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
         "y_test": y_test.astype(np.float32),
+    }
+
+
+def _load_folktables_acs_income_binary(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Published Folktables ACSIncome task with the canonical $50k label.
+
+    Features and population filtering match :func:`_load_folktables_income`.
+    The binary outcome is ``PINCP > $50,000``, which is the target used by the
+    Folktables ACSIncome benchmark.  A synthetic binary classification fallback
+    keeps offline harness smoke runs executable, and is explicitly flagged.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.preprocessing import StandardScaler
+
+        X, income = _fetch_folktables_xy(seed, published_acs_income_filter=True)
+        y = (income > 50_000.0).astype(np.int64)
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        from sklearn.datasets import make_classification
+        from sklearn.preprocessing import StandardScaler
+
+        X, y = make_classification(
+            n_samples=n_samples,
+            n_features=20,
+            n_informative=8,
+            n_redundant=4,
+            weights=[0.75, 0.25],
+            class_sep=1.2,
+            flip_y=0.02,
+            random_state=seed,
+        )
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "Folktables ACS fetch failed"
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed, stratify=y
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.int64),
+        "y_test": y_test.astype(np.int64),
+        "n_classes": 2,
+        "_skip_y_standardization": True,
     }
 
 
@@ -4758,6 +4869,39 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         ),
         loader=_registry_loader(_load_sbibm_slcp, n_samples=10000),
     ),
+    "sbibm_gaussian_linear": DatasetInfo(
+        name="sbibm_gaussian_linear",
+        category="synthetic",
+        n_features=10,
+        n_samples=10000,
+        description=(
+            "sbibm Gaussian Linear (NeurIPS 2021 SBI benchmark): 10-D analytic "
+            "Gaussian posterior with reference samples and held-out SBC simulations."
+        ),
+        loader=_registry_loader(_load_sbibm_gaussian_linear, n_samples=10000),
+    ),
+    "sbibm_gaussian_mixture": DatasetInfo(
+        name="sbibm_gaussian_mixture",
+        category="synthetic",
+        n_features=2,
+        n_samples=10000,
+        description=(
+            "sbibm Gaussian Mixture (NeurIPS 2021 SBI benchmark): 2-D multimodal "
+            "posterior with reference samples and held-out SBC simulations."
+        ),
+        loader=_registry_loader(_load_sbibm_gaussian_mixture, n_samples=10000),
+    ),
+    "sbibm_bernoulli_glm": DatasetInfo(
+        name="sbibm_bernoulli_glm",
+        category="synthetic",
+        n_features=10,
+        n_samples=10000,
+        description=(
+            "sbibm Bernoulli GLM (NeurIPS 2021 SBI benchmark): 10-D sufficient "
+            "statistics with reference samples and held-out SBC simulations."
+        ),
+        loader=_registry_loader(_load_sbibm_bernoulli_glm, n_samples=10000),
+    ),
     "ihdp": DatasetInfo(
         name="ihdp",
         category="tabular",
@@ -4998,6 +5142,17 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "(Ding et al., NeurIPS 2021). Modern large-scale benchmark."
         ),
         loader=_registry_loader(_load_folktables_income, n_samples=20000),
+    ),
+    "folktables_acs_income": DatasetInfo(
+        name="folktables_acs_income",
+        category="tabular",
+        n_features=70,
+        n_samples=150000,
+        description=(
+            "Folktables ACSIncome binary classification (ACS 2018 CA): "
+            "personal income above $50k on the published adult worker cohort."
+        ),
+        loader=_registry_loader(_load_folktables_acs_income_binary, n_samples=20000),
     ),
     "folktables_decile": DatasetInfo(
         name="folktables_decile",

@@ -61,6 +61,8 @@ from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _carve_calibration_split, _hidden_size, _Linear, _train_one
 
 # --- scipy.odr (deprecated in scipy >= 1.17; check gracefully) ---
+# ODRPACK expects x with shape (n_vars, n_obs); the suite therefore passes
+# X.T. The probe below uses the same orientation as the SciPyODR fit path.
 try:
     from scipy.odr import ODR as _ODR
     from scipy.odr import Model as _ODRModel
@@ -68,9 +70,9 @@ try:
 
     # Verify it actually works with sx/sy parameters (it may be broken
     # in the deprecation window, e.g. scipy >= 1.17 on macOS).
-    _x_test = np.random.randn(10, 3).astype(np.float64)
+    _x_test = np.random.randn(3, 10).astype(np.float64)
     _y_test = np.random.randn(10).astype(np.float64)
-    _model_test = _ODRModel(lambda beta, x: beta[0] + x @ beta[1:])
+    _model_test = _ODRModel(lambda beta, x: beta[0] + beta[1:] @ x)
     _odr_test = _ODR(RealData(_x_test, _y_test, sx=0.2, sy=0.1), _model_test, beta0=np.zeros(4))
     _odr_test.run()
     HAS_SCIPY_ODR = True
@@ -768,12 +770,14 @@ class EIVSuite(HarnessRunner):
             X_np = X_train_np.astype(np.float64)
             y_np = y_train_np.ravel().astype(np.float64)
 
-            # Linear model: y = intercept + X @ coef
+            # Linear model: y = intercept + X @ coef. ODRPACK takes x as
+            # (n_vars, n_obs), so the design matrix is transposed here; the
+            # stored beta convention is unchanged (beta[0] + X @ beta[1:]).
             def _linear_fcn(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
-                return beta[0] + np.dot(x, beta[1:])
+                return beta[0] + np.dot(beta[1:], x)
 
             model = _ODRModel(_linear_fcn)
-            data = RealData(x=X_np, y=y_np, sx=sigma_x, sy=sigma_y)
+            data = RealData(x=X_np.T, y=y_np, sx=sigma_x, sy=sigma_y)
 
             # Initial guess from OLS
             X_with_bias = np.column_stack([np.ones(len(X_np), dtype=np.float64), X_np])

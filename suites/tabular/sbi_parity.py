@@ -8,8 +8,9 @@ Protocol: train p(theta | x) on prior simulations once; per benchmark
 observation draw posterior samples and score C2ST vs reference draws
 (sbibm standard; 0.5 = indistinguishable), mean error vs reference mean,
 and reference log-prob where the method exposes conditional densities
-(pzflow models the joint — honestly N/A there). Custom run() aggregates
-over observations.
+(pzflow models the joint — honestly N/A there). Independently simulated,
+held-out theta/x pairs provide marginal 95% coverage and SBC rank
+diagnostics. Custom run() aggregates over observations.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from suites._backbones import _MLP, _hidden_size, _train_one
 
 N_POSTERIOR_SAMPLES = 2000
 N_REF_LOGPROB = 1000
+N_SBC_POSTERIOR_SAMPLES = 500
 
 
 class SBIParitySuite(HarnessRunner):
@@ -45,7 +47,13 @@ class SBIParitySuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["sbibm_twomoons", "sbibm_slcp"]
+        return [
+            "sbibm_twomoons",
+            "sbibm_slcp",
+            "sbibm_gaussian_linear",
+            "sbibm_gaussian_mixture",
+            "sbibm_bernoulli_glm",
+        ]
 
     def methods(self) -> list[str]:
         return ["torchregress_NSF", "pzflow_NSF", "sbi_NPE"]
@@ -140,11 +148,14 @@ class SBIParitySuite(HarnessRunner):
             from sbi.inference import NPE
             from sbi.utils import BoxUniform
 
-            # Prior box from the task loader (two_moons ±1, slcp ±3, ...).
-            plo = float(splits.get("prior_low", -1.0))
-            phi = float(splits.get("prior_high", 1.0))
-            assert plo < phi
-            prior = BoxUniform(low=plo * _torch.ones(out_dim), high=phi * _torch.ones(out_dim))
+            # sbibm's exact prior matters for the unbounded Gaussian and GLM
+            # tasks. The box fallback preserves compatibility with older splits.
+            prior = splits.get("prior_dist")
+            if prior is None:
+                plo = float(splits.get("prior_low", -1.0))
+                phi = float(splits.get("prior_high", 1.0))
+                assert plo < phi
+                prior = BoxUniform(low=plo * _torch.ones(out_dim), high=phi * _torch.ones(out_dim))
             inference = NPE(prior=prior, show_progress_bars=False)
             inference.append_simulations(
                 _torch.as_tensor(y, dtype=_torch.float32),
@@ -199,6 +210,45 @@ class SBIParitySuite(HarnessRunner):
             return np.asarray(s.detach().cpu(), dtype=np.float64)
 
         raise ValueError(f"Unknown model type: {t}")
+
+    def _sbc_diagnostics(
+        self,
+        model_state: dict[str, Any],
+        splits: dict[str, Any],
+        config: HarnessConfig,
+    ) -> dict[str, float]:
+        """Compute posterior calibration from held-out prior/simulator pairs.
+
+        Ranks are the number of posterior draws below the generating parameter
+        per parameter dimension. They are discrete-uniform for a calibrated
+        posterior; no reference posterior or synthetic proxy is substituted.
+        """
+        sbc_x = np.asarray(splits["sbc_x"], dtype=np.float32)
+        sbc_theta = np.asarray(splits["sbc_theta"], dtype=np.float64)
+        n_cases = min(len(sbc_x), 4 if config.smoke else len(sbc_x))
+        n_draws = min(N_SBC_POSTERIOR_SAMPLES, 200) if config.smoke else N_SBC_POSTERIOR_SAMPLES
+        ranks: list[np.ndarray] = []
+        covered: list[np.ndarray] = []
+        for x, theta in zip(sbc_x[:n_cases], sbc_theta[:n_cases], strict=True):
+            draws = self._posterior_samples(model_state, x, config, n_draws=n_draws)
+            ranks.append(np.sum(draws < theta, axis=0) / n_draws)
+            lower, upper = np.quantile(draws, [0.025, 0.975], axis=0)
+            covered.append((lower <= theta) & (theta <= upper))
+
+        rank_values = np.sort(np.concatenate(ranks))
+        n_ranks = len(rank_values)
+        empirical_upper = np.arange(1, n_ranks + 1) / n_ranks
+        empirical_lower = np.arange(n_ranks) / n_ranks
+        return {
+            "SBC_Coverage95": float(np.concatenate(covered).mean()),
+            "SBC_RankMean": float(rank_values.mean()),
+            "SBC_RankKS": float(
+                max(
+                    np.max(np.abs(empirical_upper - rank_values)),
+                    np.max(np.abs(rank_values - empirical_lower)),
+                )
+            ),
+        }
 
     def _reference_logprob(
         self, model_state: dict[str, Any], x_obs: np.ndarray, ref: np.ndarray
@@ -262,6 +312,9 @@ class SBIParitySuite(HarnessRunner):
                     "C2ST": None,
                     "RefLogProb": None,
                     "MeanRMSE": None,
+                    "SBC_Coverage95": None,
+                    "SBC_RankMean": None,
+                    "SBC_RankKS": None,
                     "train_s": None,
                     "eval_s": None,
                     "SyntheticFallback": False,
@@ -302,6 +355,7 @@ class SBIParitySuite(HarnessRunner):
                     lp = self._reference_logprob(model_state, X_test[k], ref)
                     if lp is not None:
                         lps.append(lp)
+                sbc = self._sbc_diagnostics(model_state, splits, cfg)
                 pred_time = perf_counter() - t0
                 row: dict[str, Any] = {
                     "Method": f"{self.name}/{method}",
@@ -311,6 +365,7 @@ class SBIParitySuite(HarnessRunner):
                     "C2ST": float(np.mean(c2sts)),
                     "RefLogProb": float(np.mean(lps)) if lps else None,
                     "MeanRMSE": float(np.mean(rimse)),
+                    **sbc,
                     "train_s": fit_time,
                     "eval_s": pred_time,
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
@@ -326,6 +381,9 @@ class SBIParitySuite(HarnessRunner):
                     "C2ST": None,
                     "RefLogProb": None,
                     "MeanRMSE": None,
+                    "SBC_Coverage95": None,
+                    "SBC_RankMean": None,
+                    "SBC_RankKS": None,
                     "train_s": None,
                     "eval_s": None,
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
