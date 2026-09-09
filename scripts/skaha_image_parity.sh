@@ -214,6 +214,7 @@ ALL_JOBS=(
   "sbi_parity sbibm_twomoons"
   "sbi_parity sbibm_slcp"
   "photoz_imaging galaxiesml_cutouts"
+  "image_robust galaxiesml_cutouts"
   "crowd_counting ucf_qnrf"
   "causal ihdp"
   "causal folktables_causal"

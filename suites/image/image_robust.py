@@ -54,6 +54,7 @@ class ImageRobustSuite(ImageHarnessRunner):
             "ixi_brainage_tiny",
             "udacity_steering",
             "udacity_steering_tiny",
+            "galaxiesml_cutouts",
             "boneage",
         ]
 

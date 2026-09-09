@@ -18,6 +18,7 @@ import torch.nn as nn
 from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig
+from suites.image._base import _image_to_dataloader
 from suites.image.age_regression import AgeRegressionSuite
 
 
@@ -38,10 +39,10 @@ class PhotozImagingSuite(AgeRegressionSuite):
 
     def methods(self) -> list[str]:
         # Compact flagship set: distributional heads, measured-noise EIV,
-        # MC-Dropout (the image BNN row). No sklearn_RF (uninformative on
-        # pixels). No Laplace: FullNetworkLaplace's functorch/vmap Fisher
-        # assumes MLP-rank modules and fails on conv nets (verified minimal
-        # repro) — BNN-on-images is covered by MC_Dropout instead.
+        # MC-Dropout (the image BNN row), SLS level sets, R2C binned
+        # conformal. No sklearn_RF (uninformative on pixels). No Laplace:
+        # FullNetworkLaplace's functorch/vmap Fisher assumes MLP-rank
+        # modules and fails on conv nets (verified minimal repro).
         return [
             "CNN+GaussianNLL",
             "CNN+MDN_K3",
@@ -49,6 +50,8 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+NormalizingFlow",
             "CNN+MC_Dropout",
             "CNN+NoiseAware",
+            "CNN+SLS",
+            "CNN+R2C",
         ]
 
     def method_notes(self, method: str) -> str:
@@ -57,6 +60,8 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+GaussianNLL": " (photo-z baseline head)",
             "CNN+MDN_K3": " (multimodal posteriors for color degeneracies)",
             "CNN+NoiseAware": " (measured sky-sigma input augmentation)",
+            "CNN+SLS": " (min-volume level-set photo-z regions)",
+            "CNN+R2C": " (imbalanced binned head + R2C conformal)",
         }.get(method, "")
         return f"{base}{tag}"
 
@@ -72,6 +77,8 @@ class PhotozImagingSuite(AgeRegressionSuite):
     ) -> dict[str, Any]:
         if method == "CNN+NoiseAware":
             return self._fit_noiseaware(splits, config)
+        if method == "CNN+R2C":
+            return self._fit_r2c(splits, config)
         return super().fit(method, splits, config)
 
     def _fit_noiseaware(
@@ -111,6 +118,77 @@ class PhotozImagingSuite(AgeRegressionSuite):
         model.eval()
         return {"type": "point", "model": model}
 
+    def _fit_r2c(self, splits: dict[str, np.ndarray], config: HarnessConfig) -> dict[str, Any]:
+        """Imbalanced binned head (inverse-freq WeightedCE) + R2C conformal.
+
+        Uniform z-bins have imbalanced occupancy (realistic); the R2C
+        predictor turns the classifier into calibrated intervals —
+        imbalance × R2C composition.
+        """
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, TensorDataset
+        from torchregress.losses import WeightedCrossEntropyLoss
+        from torchregress.losses.conformal import R2CConformal
+
+        set_harness_seed(config.seed)
+        in_channels, _, _ = self._image_shape(splits)
+        y_tr = np.asarray(splits["y_train"]).reshape(-1)
+        n_bins = 20
+        lo, hi = float(y_tr.min()), float(y_tr.max())
+        edges = np.linspace(lo - 1e-6, hi + 1e-6, n_bins + 1).astype(np.float32)
+        idx_tr = np.clip(np.digitize(y_tr, edges) - 1, 0, n_bins - 1)
+        counts = np.bincount(idx_tr, minlength=n_bins).astype(np.float64)
+        weights = len(idx_tr) / np.clip(counts * n_bins, 1.0, None)
+        model = self._build_cnn(in_channels=in_channels, out_dim=n_bins)
+        dev = current_device()
+        model.to(dev)
+        loss_fn = WeightedCrossEntropyLoss(
+            weight=torch.from_numpy(weights.astype(np.float32)).to(dev)
+        )
+        loader = DataLoader(
+            TensorDataset(
+                torch.from_numpy(np.asarray(splits["X_train"])).float(),
+                torch.from_numpy(idx_tr).long(),
+            ),
+            batch_size=config.batch_size,
+            shuffle=True,
+        )
+        opt = optim.Adam(model.parameters(), lr=config.lr)
+        model.train()
+        for _ in range(config.epochs):
+            for Xb, yb in loader:
+                Xb, yb = Xb.to(dev), yb.to(dev)
+                opt.zero_grad(set_to_none=True)
+                loss_fn(model(Xb), yb).backward()
+                opt.step()
+        model.eval()
+        # Calibrate R2C on the last 20% of train.
+        X_tr = np.asarray(splits["X_train"])
+        n_cal = max(16, len(X_tr) // 5)
+        X_cal = torch.from_numpy(X_tr[-n_cal:]).float().to(dev)
+        with torch.no_grad():
+            probs_cal = torch.softmax(model(X_cal), dim=-1)
+        r2c = R2CConformal(alpha=0.1, bin_edges=torch.from_numpy(edges).float().to(dev))
+        r2c.calibrate(
+            probs_cal,
+            torch.from_numpy(y_tr[-n_cal:].astype(np.float32)).to(dev),
+        )
+        centers = ((edges[:-1] + edges[1:]) / 2.0).astype(np.float32)
+        scaler = splits.get("_y_scaler")
+        if scaler is not None:
+            smean = float(np.asarray(scaler.mean_).reshape(-1)[0])
+            sscale = float(np.asarray(scaler.scale_).reshape(-1)[0])
+        else:
+            smean, sscale = 0.0, 1.0
+        return {
+            "type": "r2c",
+            "model": model,
+            "r2c": r2c,
+            "centers": centers,
+            "y_smean": smean,
+            "y_sscale": sscale,
+        }
+
     # ------------------------------------------------------------------
     # predict — NoiseAware is point-type (parent handles); delegate all
     # ------------------------------------------------------------------
@@ -122,6 +200,33 @@ class PhotozImagingSuite(AgeRegressionSuite):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
+        if model_state.get("type") == "r2c":
+            model = model_state["model"]
+            r2c = model_state["r2c"]
+            centers = np.asarray(model_state["centers"], dtype=np.float64)
+            smean = float(model_state.get("y_smean", 0.0))
+            sscale = float(model_state.get("y_sscale", 1.0))
+            model.eval()
+            device = next(model.parameters()).device
+            loader = _image_to_dataloader(X_test, y=None, batch_size=32, shuffle=False)
+            probs_list, means = [], []
+            with torch.no_grad():
+                for (Xb,) in loader:
+                    p = torch.softmax(model(Xb.to(device)), dim=-1)
+                    probs_list.append(p.detach().cpu())
+                    means.append(
+                        (p @ torch.from_numpy(centers.astype(np.float32)).to(device))
+                        .reshape(-1)
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
+            probs = torch.cat(probs_list, dim=0).to(device)
+            lo_t, hi_t = r2c.predict_interval(probs)
+            lo = np.asarray(lo_t.detach().cpu()).reshape(-1) * sscale + smean
+            hi = np.asarray(hi_t.detach().cpu()).reshape(-1) * sscale + smean
+            y_pred = np.concatenate(means).reshape(-1) * sscale + smean
+            return {"lower": lo, "upper": hi, "y_pred": y_pred}
         return super().predict(method, model_state, X_test, config)
 
     # ------------------------------------------------------------------
@@ -135,6 +240,13 @@ class PhotozImagingSuite(AgeRegressionSuite):
         y_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, float]:
+        import torch as _torch
+        from torchregress.metrics import (
+            NormalizedMedianAbsoluteDeviation,
+            OutlierFraction,
+            interval_score,
+        )
+
         metrics = super().evaluate(method, predictions, y_test, config)
         try:
             y_pred = np.asarray(predictions["y_pred"]).reshape(-1)
@@ -144,10 +256,38 @@ class PhotozImagingSuite(AgeRegressionSuite):
             if y_scaler is not None:
                 y_pred = y_scaler.inverse_transform(y_pred.reshape(-1, 1)).ravel()
                 y_true = y_scaler.inverse_transform(y_true.reshape(-1, 1)).ravel()
-            dz = (y_pred - y_true) / (1.0 + np.abs(y_true))
-            metrics["Bias"] = float(np.mean(dz))
-            metrics["NMAD"] = float(1.4826 * np.median(np.abs(dz - np.median(dz))))
-            metrics["OutlierFrac"] = float(np.mean(np.abs(dz) > 0.15))
+            yp_t = _torch.from_numpy(y_pred.astype(np.float64))
+            yt_t = _torch.from_numpy(y_true.astype(np.float64))
+            # Library photo-z metrics (relative mode = Δz/(1+z) standard).
+            of = OutlierFraction(threshold=0.15, mode="relative")
+            of.update(yp_t, yt_t)
+            metrics["OutlierFrac"] = float(of.compute().item())
+            nmad = NormalizedMedianAbsoluteDeviation(normalization="relative")
+            nmad.update(yp_t, yt_t)
+            metrics["NMAD"] = float(nmad.compute().item())
+            metrics["Bias"] = float(((yp_t - yt_t) / (1.0 + yt_t.abs())).mean().item())
+            # Library interval score where intervals exist.
+            if "lower" in predictions and "upper" in predictions:
+                lo = np.asarray(predictions["lower"]).reshape(-1)
+                hi = np.asarray(predictions["upper"]).reshape(-1)
+                if y_scaler is not None:
+                    lo = y_scaler.inverse_transform(lo.reshape(-1, 1)).ravel()
+                    hi = y_scaler.inverse_transform(hi.reshape(-1, 1)).ravel()
+                try:
+                    metrics["IntervalScore"] = float(interval_score(lo, hi, y_true, alpha=0.1))
+                except Exception:
+                    pass
+            # Library CRPS where predictive samples exist (N, S).
+            if "samples" in predictions:
+                from torchregress.metrics import crps_from_samples
+
+                try:
+                    samp = np.asarray(predictions["samples"])
+                    if samp.ndim != 2 or samp.shape[0] != len(y_true):
+                        samp = np.asarray(samp).reshape(len(y_true), -1)
+                    metrics["CRPS"] = float(crps_from_samples(samp, y_true.reshape(-1, 1)))
+                except Exception:
+                    pass
         except Exception:
             pass
         return metrics
