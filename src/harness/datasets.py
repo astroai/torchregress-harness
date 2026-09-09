@@ -721,12 +721,30 @@ def _load_galaxiesml_cutouts(
         keep_te = np.isfinite(y_test) & (y_test > 0) & (y_test < 6)
         X_train, y_train = X_train[keep_tr], y_train[keep_tr]
         X_test, y_test = X_test[keep_te], y_test[keep_te]
+
+        def _border_sigma(imgs: np.ndarray) -> np.ndarray:
+            # Sky-noise floor per image: robust std (MAD) of the outer
+            # 8px frame across bands → median over bands. MEASURED from
+            # the cutouts (empty-sky pixels), not assumed.
+            edge = np.r_[0:8, -8:0]
+            rows = imgs[:, :, edge[:, None], :].reshape(imgs.shape[0], 5, -1)
+            cols = imgs[:, :, :, edge].reshape(imgs.shape[0], 5, -1)
+            f = np.concatenate([rows, cols], axis=2)  # (N, 5, P)
+            mad = np.median(np.abs(f - np.median(f, axis=2, keepdims=True)), axis=2)  # (N, 5)
+            return (1.4826 * np.median(mad, axis=1)).astype(np.float64)  # (N,)
+
+        sig_tr_raw = _border_sigma(X_train)
+        sig_te_raw = _border_sigma(X_test)
         # Per-channel standardization from train (images are raw coadds).
         mu = X_train.mean(axis=(0, 2, 3), keepdims=True)
         sd = X_train.std(axis=(0, 2, 3), keepdims=True)
         sd[sd < 1e-12] = 1.0
         X_train = ((X_train - mu) / sd).astype(np.float32)
         X_test = ((X_test - mu) / sd).astype(np.float32)
+        # Noise in standardized units (median channel scale; bands similar).
+        ch_scale = float(np.median(sd))
+        sig_tr = (sig_tr_raw / ch_scale).astype(np.float32)
+        sig_te = (sig_te_raw / ch_scale).astype(np.float32)
     except Exception:
         synth = _load_synthetic_image_regression(n_samples=n_samples, seed=seed)
         synth["_synthetic_fallback"] = True
@@ -739,6 +757,8 @@ def _load_galaxiesml_cutouts(
         "X_test": X_test,
         "y_train": y_train.astype(np.float32),
         "y_test": y_test.astype(np.float32),
+        "sigma_image_train": sig_tr,
+        "sigma_image_test": sig_te,
     }
 
 
@@ -3865,9 +3885,7 @@ def _load_ucf_qnrf(
     base = Path(root) if root else cache_dir / "qnrf" / "UCF-QNRF_ECCV18"
     if not base.is_dir():
         # Try a Kaggle fetch when credentials are available (sessions).
-        ku, kk = _os.environ.get("KAGGLE_USERNAME", ""), _os.environ.get(
-            "KAGGLE_KEY", ""
-        )
+        ku, kk = _os.environ.get("KAGGLE_USERNAME", ""), _os.environ.get("KAGGLE_KEY", "")
         if ku and kk:
             try:
                 import subprocess as _sp
