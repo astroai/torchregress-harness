@@ -18,6 +18,7 @@ from suites.image.image_robust import ImageRobustSuite
 from suites.image.keypoint_regression import KeypointRegressionSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
+from suites.tabular.causal import CausalSuite
 from suites.tabular.censored import CensoredSuite
 from suites.tabular.conformal import ConformalSuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
@@ -58,6 +59,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "ppi": PPISuite,
     "sbi_parity": SBIParitySuite,
     "streaming_tta": StreamingTTASuite,
+    "causal": CausalSuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "distributional_bins": DistributionalBinsSuite,

@@ -102,7 +102,7 @@ def _load_california_housing(
     """Load California Housing dataset."""
     from sklearn.datasets import fetch_california_housing
 
-    data = fetch_california_housing()
+    data = fetch_california_housing(data_home=str(_image_cache_dir() / "sklearn"))
     X, y = data.data, data.target
 
     if n_samples < len(X):
@@ -172,7 +172,12 @@ def _load_openml_year(
     try:
         from sklearn.datasets import fetch_openml
 
-        data = fetch_openml(data_id=data_id or 44031, parser="pandas", as_frame=True)
+        data = fetch_openml(
+            data_id=data_id or 44031,
+            parser="pandas",
+            as_frame=True,
+            data_home=str(_image_cache_dir() / "sklearn"),
+        )
         df = data.frame
         target_col = df.columns[-1]
         X = df.drop(columns=[target_col]).values.astype(np.float64)
@@ -394,6 +399,112 @@ def _load_sbibm_task(
     }
 
 
+def _load_ihdp(
+    n_samples: int = 747,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """IHDP causal benchmark (Hill 2011, via Kaggle mirror).
+
+    Infant Health and Development Program: 25 covariates with treatment
+    indicator, factual/counterfactual outcomes and noiseless response
+    surfaces (mu0/mu1). True CATE = mu1 - mu0. THE classic causal-ML
+    benchmark (747 rows). CSV cached under the harness cache.
+    """
+    splits: SplitMetadata = {}
+    try:
+        import pandas as pd
+
+        path = _image_cache_dir() / "ihdp" / "ihdp_data.csv"
+        df = pd.read_csv(path)
+        x_cols = [c for c in df.columns if c.startswith("x")]
+        X = df[x_cols].to_numpy(dtype=np.float64)
+        t_raw = df["treatment"].to_numpy()
+        if t_raw.dtype == bool:
+            t = t_raw.astype(np.float64)
+        else:
+            t = np.isin(t_raw.astype(str), ["True", "true", "1", "1.0"]).astype(np.float64)
+        y = df["y_factual"].to_numpy(dtype=np.float64)
+        cate_true = (df["mu1"] - df["mu0"]).to_numpy(dtype=np.float64)
+        if n_samples < len(X):
+            rng0 = np.random.default_rng(seed)
+            idx0 = rng0.choice(len(X), n_samples, replace=False)
+            X, t, y, cate_true = X[idx0], t[idx0], y[idx0], cate_true[idx0]
+    except Exception:
+        raise RuntimeError("IHDP data unavailable (see cache/ihdp/ihdp_data.csv)")
+
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(len(X))
+    n_te = max(32, int(len(X) * test_size))
+    te, tr = idx[:n_te], idx[n_te:]
+    return {
+        **splits,
+        "X_train": X[tr].astype(np.float32),
+        "X_test": X[te].astype(np.float32),
+        "y_train": y[tr].astype(np.float32),
+        "y_test": y[te].astype(np.float32),
+        "treatment_train": t[tr].astype(np.float32),
+        "treatment_test": t[te].astype(np.float32),
+        "cate_true_train": cate_true[tr].astype(np.float64),
+        "cate_true_test": cate_true[te].astype(np.float64),
+        "ate_true": float(cate_true.mean()),
+    }
+
+
+def _load_folktables_causal(
+    n_samples: int = 5000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Semi-synthetic causal benchmark on Folktables ACS features.
+
+    Real Census covariates (X) + simulated treatment/outcome with KNOWN
+    truth (ACIC-style): propensity logistic in (age, education, hours),
+    CATE linear + age-interaction, nonlinear baseline + noise. Scales to
+    any n (IHDP has 747 rows). Falls back to California Housing covariates
+    if the ACS fetch fails (same simulation).
+    """
+    splits: SplitMetadata = {}
+    try:
+        X_full, _ = _fetch_folktables_xy(seed)
+    except Exception:
+        from sklearn.datasets import fetch_california_housing
+
+        data = fetch_california_housing(data_home=str(_image_cache_dir() / "sklearn"))
+        X_full = data.data.astype(np.float64)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "Folktables ACS fetch failed"
+    rng = np.random.default_rng(seed)
+    if n_samples < len(X_full):
+        X_full = X_full[rng.choice(len(X_full), n_samples, replace=False)]
+    Xs = (X_full - X_full.mean(axis=0)) / (X_full.std(axis=0) + 1e-12)
+    d = Xs.shape[1]
+    b_prop = rng.normal(0, 0.5, d)
+    b_prop[0] += 0.8  # age loads propensity (confounding by construction)
+    e = 1.0 / (1.0 + np.exp(-(Xs @ b_prop - 0.5)))
+    e = np.clip(e, 0.05, 0.95)
+    t = (rng.random(len(Xs)) < e).astype(np.float64)
+    tau = 1.0 + 0.5 * Xs[:, 0] + 0.3 * Xs[:, min(1, d - 1)] * Xs[:, min(7, d - 1)]
+    mu = 2.0 * np.sin(Xs[:, 0]) + Xs[:, min(2, d - 1)] ** 2 + 0.5 * Xs.sum(axis=1) / d
+    y = mu + tau * t + rng.normal(0, 1.0, len(Xs))
+    cate_true = tau
+    idx = rng.permutation(len(Xs))
+    n_te = max(32, int(len(Xs) * test_size))
+    te, tr = idx[:n_te], idx[n_te:]
+    return {
+        **splits,
+        "X_train": X_full[tr].astype(np.float32),
+        "X_test": X_full[te].astype(np.float32),
+        "y_train": y[tr].astype(np.float32),
+        "y_test": y[te].astype(np.float32),
+        "treatment_train": t[tr].astype(np.float32),
+        "treatment_test": t[te].astype(np.float32),
+        "cate_true_train": cate_true[tr].astype(np.float64),
+        "cate_true_test": cate_true[te].astype(np.float64),
+        "ate_true": float(cate_true.mean()),
+    }
+
+
 def _load_sbibm_twomoons(
     n_samples: int = 10000,
     n_observations: int = 3,
@@ -410,6 +521,60 @@ def _load_sbibm_slcp(
 ) -> SplitsDict:
     """sbibm SLCP (5-D params, 8-D obs, complex posterior + references)."""
     return _load_sbibm_task("slcp", n_samples, n_observations, seed)
+
+
+def _load_photoz_eiv(
+    n_samples: int = 20000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Photo-z errors-in-variables (pzflow galaxies + photometric errors).
+
+    REAL EIV: ugrizy magnitudes are noisy measurements with KNOWN nominal
+    photometric error (sigma_x=0.1 mag, the pzflow-tutorial convention);
+    target is spectroscopic redshift. No clean features exist — the honest
+    real-data EIV setting. Falls back to synthetic EIV if pzflow is
+    unavailable.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from pzflow.examples import get_galaxy_data
+        from sklearn.preprocessing import StandardScaler
+
+        data = get_galaxy_data()
+        bands = ["u", "g", "r", "i", "z", "y"]
+        X = data[bands].to_numpy(dtype=np.float64)
+        y = data["redshift"].to_numpy(dtype=np.float64)
+        keep = np.isfinite(X).all(axis=1) & np.isfinite(y)
+        X, y = X[keep], y[keep]
+        if n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        synth = _load_synthetic_eiv(n_samples=n_samples, seed=seed)
+        synth["_synthetic_fallback"] = True
+        synth["_fallback_reason"] = "pzflow galaxy data unavailable"
+        return synth
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    # Nominal 0.1-mag photometric error expressed in standardized units
+    # (per-band stds are near-identical for magnitudes; median is exact).
+    band_std = float(np.median(X_train.std(axis=0)))
+    sigma_std = 0.1 / max(band_std, 1e-12)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "sigma_x": float(sigma_std),
+    }
 
 
 def _load_pzflow_galaxies(
@@ -930,7 +1095,12 @@ def _load_insurance_claims(
         from sklearn.datasets import fetch_openml
         from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-        df = fetch_openml(data_id=41214, parser="auto", as_frame=True)
+        df = fetch_openml(
+            data_id=41214,
+            parser="auto",
+            as_frame=True,
+            data_home=str(_image_cache_dir() / "sklearn"),
+        )
         data = df.frame if hasattr(df, "frame") else df.data
 
         # Extract target and exposure column
@@ -1061,7 +1231,7 @@ def _load_folktables_income(
     except Exception:
         from sklearn.datasets import fetch_california_housing
 
-        data = fetch_california_housing()
+        data = fetch_california_housing(data_home=str(_image_cache_dir() / "sklearn"))
         X, y = data.data.astype(np.float64), data.target.astype(np.float64)
         if n_samples < len(X):
             rng = np.random.default_rng(seed)
@@ -1210,7 +1380,13 @@ def _load_house_sales(
     try:
         from sklearn.datasets import fetch_openml
 
-        data = fetch_openml(name="house_sales", version=3, parser="auto", as_frame=True)
+        data = fetch_openml(
+            name="house_sales",
+            version=3,
+            parser="auto",
+            as_frame=True,
+            data_home=str(_image_cache_dir() / "sklearn"),
+        )
         df = data.frame if hasattr(data, "frame") else data.data
 
         # Target is expected to be named "price" (crepes canonical name).
@@ -1560,11 +1736,16 @@ def _load_tabred(
 
 
 def _image_cache_dir() -> Path:
-    """Return the harness image dataset cache directory."""
+    """Return the harness dataset cache directory.
+
+    Policy: datasets live on /scratch (never home). Override with
+    TORCHREGRESS_HARNESS_CACHE. Datasets >100GB go to
+    /arc/projects/ots/torchregress (set the env var accordingly).
+    """
     cache = Path(
         os.environ.get(
             "TORCHREGRESS_HARNESS_CACHE",
-            os.path.expanduser("~/.cache/torchregress-harness"),
+            "/scratch/torchregress-harness-cache",
         )
     )
     cache.mkdir(parents=True, exist_ok=True)
@@ -4257,6 +4438,28 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         ),
         loader=_registry_loader(_load_sbibm_slcp, n_samples=10000),
     ),
+    "ihdp": DatasetInfo(
+        name="ihdp",
+        category="tabular",
+        n_features=25,
+        n_samples=747,
+        description=(
+            "IHDP causal benchmark (Hill 2011, Kaggle mirror): 25 covariates "
+            "with treatment, factual/counterfactual outcomes, true CATE."
+        ),
+        loader=_registry_loader(_load_ihdp),
+    ),
+    "folktables_causal": DatasetInfo(
+        name="folktables_causal",
+        category="tabular",
+        n_features=70,
+        n_samples=150000,
+        description=(
+            "Semi-synthetic causal benchmark on Folktables ACS features: "
+            "simulated propensity/treatment/outcome with KNOWN ATE/CATE."
+        ),
+        loader=_registry_loader(_load_folktables_causal, n_samples=5000),
+    ),
     "sbibm_twomoons": DatasetInfo(
         name="sbibm_twomoons",
         category="synthetic",
@@ -4267,6 +4470,18 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "posterior with reference samples for C2ST."
         ),
         loader=_registry_loader(_load_sbibm_twomoons, n_samples=10000),
+    ),
+    "photoz_eiv": DatasetInfo(
+        name="photoz_eiv",
+        category="tabular",
+        n_features=6,
+        n_samples=100000,
+        description=(
+            "Photo-z errors-in-variables (pzflow galaxies): noisy ugrizy "
+            "magnitudes with KNOWN nominal photometric error + spec-z. "
+            "Real EIV — no clean features exist."
+        ),
+        loader=_registry_loader(_load_photoz_eiv, n_samples=20000),
     ),
     "pzflow_galaxies": DatasetInfo(
         name="pzflow_galaxies",

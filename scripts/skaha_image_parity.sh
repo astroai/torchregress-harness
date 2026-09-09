@@ -123,6 +123,8 @@ pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertai
 pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
 log "installing comparator/data deps (lifelines/crepes/survset/folktables/openpyxl)"
 pixi run pip install -q lifelines crepes survset folktables openpyxl || log "comparator deps failed (offline?)"
+log "installing econml (causal comparator)"
+pixi run pip install -q econml || log "econml failed (offline?)"
 # ppi-python pulls numba (~slow); only sessions that run ppi jobs need it.
 if [[ -z "${JOB_FILTER:-}" || "${JOB_FILTER}" == *ppi* ]]; then
   log "installing ppi-python (official PPI comparator)"
@@ -206,7 +208,10 @@ ALL_JOBS=(
   "pzflow_parity pzflow_galaxies"
   "pzflow_parity energy_efficiency"
   "sbi_parity sbibm_twomoons"
-  "sbi_parity sbibm_slcp"  "streaming_tta diabetes"
+  "sbi_parity sbibm_slcp"
+  "causal ihdp"
+  "causal folktables_causal"
+  "eiv photoz_eiv"  "streaming_tta diabetes"
   "streaming_tta california_housing"
   "streaming_tta folktables_income"
 )

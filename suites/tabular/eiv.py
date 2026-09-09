@@ -222,6 +222,7 @@ class EIVSuite(HarnessRunner):
             "synthetic_eiv_nonlinear_highnoise",
             "synthetic_eiv_veryhighnoise",
             "synthetic_eiv_nonlinear_veryhighnoise",
+            "photoz_eiv",
         ]
 
     @property
