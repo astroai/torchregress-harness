@@ -40,9 +40,8 @@ class PhotozImagingSuite(AgeRegressionSuite):
     def methods(self) -> list[str]:
         # Compact flagship set: distributional heads, measured-noise EIV,
         # MC-Dropout (the image BNN row), SLS level sets, R2C binned
-        # conformal. No sklearn_RF (uninformative on pixels). No Laplace:
-        # FullNetworkLaplace's functorch/vmap Fisher assumes MLP-rank
-        # modules and fails on conv nets (verified minimal repro).
+        # conformal, last-layer Laplace BNN (conv-safe path). No sklearn_RF
+        # (uninformative on pixels).
         return [
             "CNN+GaussianNLL",
             "CNN+MDN_K3",
@@ -52,6 +51,7 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+NoiseAware",
             "CNN+SLS",
             "CNN+R2C",
+            "CNN+Laplace",
         ]
 
     def method_notes(self, method: str) -> str:
@@ -62,6 +62,7 @@ class PhotozImagingSuite(AgeRegressionSuite):
             "CNN+NoiseAware": " (measured sky-sigma input augmentation)",
             "CNN+SLS": " (min-volume level-set photo-z regions)",
             "CNN+R2C": " (imbalanced binned head + R2C conformal)",
+            "CNN+Laplace": " (last-layer Laplace BNN, conv-safe Fisher)",
         }.get(method, "")
         return f"{base}{tag}"
 
@@ -77,9 +78,43 @@ class PhotozImagingSuite(AgeRegressionSuite):
     ) -> dict[str, Any]:
         if method == "CNN+NoiseAware":
             return self._fit_noiseaware(splits, config)
+        if method == "CNN+Laplace":
+            return self._fit_laplace(splits, config)
         if method == "CNN+R2C":
             return self._fit_r2c(splits, config)
         return super().fit(method, splits, config)
+
+    def _fit_laplace(self, splits: dict[str, np.ndarray], config: HarnessConfig) -> dict[str, Any]:
+        """MAP CNN + last-layer Laplace post-hoc (conv-safe Fisher)."""
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, TensorDataset
+        from torchregress.ensemble import FullNetworkLaplace
+
+        set_harness_seed(config.seed)
+        in_channels, _, _ = self._image_shape(splits)
+        model = self._build_cnn(in_channels=in_channels, out_dim=1)
+        dev = current_device()
+        model.to(dev)
+        loader = DataLoader(
+            TensorDataset(
+                torch.from_numpy(np.asarray(splits["X_train"])).float(),
+                torch.from_numpy(np.asarray(splits["y_train"])).float().unsqueeze(1),
+            ),
+            batch_size=config.batch_size,
+            shuffle=True,
+        )
+        opt = optim.Adam(model.parameters(), lr=config.lr)
+        model.train()
+        for _ in range(config.epochs):
+            for Xb, yb in loader:
+                Xb, yb = Xb.to(dev), yb.to(dev)
+                opt.zero_grad(set_to_none=True)
+                nn.MSELoss()(model(Xb), yb).backward()
+                opt.step()
+        model.eval()
+        lap = FullNetworkLaplace(model.to(dev), last_layer_only=True)
+        lap.fit(loader, nn.MSELoss(reduction="none"))
+        return {"type": "laplace", "model": lap, "base": model}
 
     def _fit_noiseaware(
         self, splits: dict[str, np.ndarray], config: HarnessConfig
@@ -190,8 +225,36 @@ class PhotozImagingSuite(AgeRegressionSuite):
         }
 
     # ------------------------------------------------------------------
-    # predict — NoiseAware is point-type (parent handles); delegate all
+    # predict — laplace/r2c branches here; everything else delegates
     # ------------------------------------------------------------------
+
+    def _predict_laplace(
+        self, lap: Any, base: nn.Module, X_test: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        """Last-layer posterior MC mean/var + intervals (batched)."""
+        from suites.image._base import _image_to_dataloader
+
+        device = next(base.parameters()).device
+        loader = _image_to_dataloader(X_test, y=None, batch_size=32, shuffle=False)
+        means, stds = [], []
+        with torch.no_grad():
+            for (Xb,) in loader:
+                Xb = Xb.to(device)
+                mean_b = base(Xb).reshape(-1)
+                _, var_b = lap.predict_with_uncertainty(Xb)
+                means.append(mean_b.detach().cpu().numpy())
+                std_b = np.sqrt(var_b.reshape(-1).detach().cpu().numpy().clip(min=1e-12))
+                stds.append(std_b)
+        mean_np = np.concatenate(means).reshape(-1)
+        std_np = np.concatenate(stds).reshape(-1)
+        z = 1.645
+        return {
+            "lower": mean_np - z * std_np,
+            "upper": mean_np + z * std_np,
+            "y_pred": mean_np,
+            "mean": mean_np,
+            "std": std_np,
+        }
 
     def predict(
         self,
@@ -200,6 +263,8 @@ class PhotozImagingSuite(AgeRegressionSuite):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
+        if model_state.get("type") == "laplace":
+            return self._predict_laplace(model_state["model"], model_state["base"], X_test)
         if model_state.get("type") == "r2c":
             model = model_state["model"]
             r2c = model_state["r2c"]

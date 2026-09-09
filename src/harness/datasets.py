@@ -609,7 +609,12 @@ def _load_galaxiesml_eiv(
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
-        sigma_vec = (s_train / band_std).mean(axis=0)
+        # Per-OBSERVATION sigma [N, 5] in standardized units (heteroscedastic;
+        # rows stay aligned with X_train/X_test). Per-band mean kept as the
+        # fallback for construction-time-only methods (SIMEX/RC/LatentNN).
+        sigma_tr = (s_train / band_std).astype(np.float32)
+        sigma_te = (s_test / band_std).astype(np.float32)
+        sigma_vec = sigma_tr.mean(axis=0).astype(np.float32)
     except Exception:
         fb = _load_photoz_eiv(n_samples=n_samples, test_size=test_size, seed=seed)
         fb["_synthetic_fallback"] = True
@@ -622,7 +627,9 @@ def _load_galaxiesml_eiv(
         "X_test": X_test.astype(np.float32),
         "y_train": y_train.astype(np.float32),
         "y_test": y_test.astype(np.float32),
-        "sigma_x": sigma_vec.astype(np.float32),
+        "sigma_x": sigma_vec,
+        "sigma_x_train": sigma_tr,
+        "sigma_x_test": sigma_te,
     }
 
 

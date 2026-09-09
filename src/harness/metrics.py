@@ -443,6 +443,16 @@ def compute_all_metrics(
         if "y_pred" not in predictions:
             metrics.update(compute_point_metrics(mean, y_true_np))
         metrics.update(compute_distribution_metrics(mean, std, y_true_np))
+        # Selective-prediction quality: area under the risk-coverage curve
+        # (library RiskCoverageCurve; lower = better uncertainty ranking).
+        try:
+            from torchregress.metrics import risk_coverage_curve
+
+            rc = risk_coverage_curve(mean, y_true_np, std)
+            aurc = rc.get("aurc")
+            metrics["AURC"] = float(aurc.item() if hasattr(aurc, "item") else aurc)
+        except Exception:
+            pass
 
     if "samples" in predictions and "y_pred" not in predictions:
         samples = np.asarray(predictions["samples"])
@@ -484,5 +494,27 @@ def compute_all_metrics(
             pit_metrics["MACE"] = float("nan")
             pit_metrics["RMSCE"] = float("nan")
         metrics.update(pit_metrics)
+
+    # --- Density-grid diagnostics (CDE loss + HPD coverage) ---
+    # Rows emitting a 1-D predictive density on a support grid
+    # (binned-PDF ensembles, flow grids) get proper density scores.
+    if "density_support" in predictions and "density_values" in predictions:
+        try:
+            from torchregress.metrics import (
+                conditional_density_estimation_loss as _cde,
+            )
+            from torchregress.metrics import (
+                highest_posterior_density_coverage as _hpd,
+            )
+
+            support = np.asarray(predictions["density_support"], dtype=np.float64)
+            dens = np.asarray(predictions["density_values"], dtype=np.float64)
+            if dens.ndim == 1:
+                dens = dens[None, :]
+            if dens.shape[0] == len(y_true_np) and support.ndim == 1:
+                metrics["CDELoss"] = float(_cde(support, dens, y_true_np))
+                metrics["HPDCoverage"] = float(_hpd(support, dens, y_true_np))
+        except Exception:
+            pass
 
     return metrics

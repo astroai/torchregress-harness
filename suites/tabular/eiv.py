@@ -95,8 +95,17 @@ def _train_eiv(
     epochs: int | None = None,
     batch_size: int | None = None,
     lr: float | None = None,
+    sigma_rows: torch.Tensor | None = None,
+    forward_sigma: bool = False,
 ) -> None:
-    """Mini-batch training loop for EIV losses (loss_fn takes x_obs, y_obs)."""
+    """Mini-batch training loop for EIV losses (loss_fn takes x_obs, y_obs).
+
+    ``sigma_rows`` ([N, D] per-observation noise, aligned with ``X`` rows)
+    is sliced per batch and forwarded as ``sigma_x=`` when ``forward_sigma``
+    is set — the per-obs path for losses with per-call sigma support
+    (Functional/Structural/ODR/Ensemble/InputNoise families). Otherwise the
+    construction-time sigma applies (per-band fallback).
+    """
     if config is not None:
         n_epochs = epochs if epochs is not None else config.epochs
         bs = batch_size if batch_size is not None else config.batch_size
@@ -107,11 +116,22 @@ def _train_eiv(
         learning_rate = lr or 1e-3
 
     dataset = TensorDataset(X, y)
+    use_rows = forward_sigma and sigma_rows is not None and sigma_rows.shape[0] == X.shape[0]
+    if use_rows:
+        dataset = TensorDataset(X, y, torch.arange(X.shape[0]), sigma_rows.detach().cpu())
     loader = DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=False)
     optimizer = Adam(model.parameters(), lr=learning_rate)
 
     model.train()
     for _epoch in range(n_epochs):
+        if use_rows:
+            for X_batch, y_batch, _idx, sig_batch in loader:
+                optimizer.zero_grad()
+                # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
+                loss = loss_fn(X_batch, y_batch, sigma_x=sig_batch.to(X_batch.device))
+                loss.backward()
+                optimizer.step()
+            continue
         for X_batch, y_batch in loader:
             optimizer.zero_grad()
             # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
@@ -143,6 +163,35 @@ def _eiv_sigma(value: Any) -> Any:
     if arr.ndim == 0:
         return float(arr)
     return torch.as_tensor(arr)
+
+
+# Methods whose losses accept per-call sigma_x (per-obs threading).
+_PER_OBS_METHODS = frozenset(
+    {
+        "FunctionalEIV",
+        "FunctionalEIV_MC",
+        "StructuralEIV",
+        "ODR",
+        "EnsembleEIV",
+        "InputNoiseMC",
+        "InputNoiseMDN",
+        "InputNoiseBinnedPDF",
+        "GaussianNLL+InputNoiseMC",
+        "TLS_Init+FunctionalEIV",
+        "MSE_NoisyPredict",
+    }
+)
+
+
+def _test_sigma(model_state: dict[str, Any], n_rows: int) -> Any:
+    """Per-obs test sigma truncated to the presented rows (or scalar)."""
+    arr = model_state.get("sigma_x_test")
+    if arr is None:
+        return _eiv_sigma(model_state.get("sigma_x", 0.2))
+    a = np.asarray(arr, dtype=np.float32)
+    if a.ndim == 2 and a.shape[0] >= n_rows:
+        return torch.from_numpy(a[:n_rows])
+    return _eiv_sigma(model_state.get("sigma_x", 0.2))
 
 
 def _eiv_predict(
@@ -185,11 +234,15 @@ def _eiv_predict(
             return m(X).squeeze(-1).detach().cpu().numpy()
 
     if method == "MSE_NoisyPredict" and noisy:
-        sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
+        n_rows = np.asarray(X_np).shape[0]
+        sigma_x_val = _test_sigma(model_state, n_rows)
         noisy_pred = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=16)
         with torch.no_grad():
             X = torch.from_numpy(X_np).float().to(current_device())
-            return noisy_pred(X).squeeze(-1).detach().cpu().numpy()
+            out = noisy_pred(X)
+            if not torch.is_tensor(out):
+                out = torch.as_tensor(np.asarray(out))
+            return out.squeeze(-1).detach().cpu().numpy()
 
     if model_type == "mdn_eiv":
         loss_fn = model_state["loss_fn"]
@@ -389,6 +442,23 @@ class EIVSuite(HarnessRunner):
         sigma_x = _eiv_sigma(splits.get("sigma_x", 0.2))
         sigma_y = float(splits.get("sigma_y", 0.1))
 
+        # Per-observation noise [N, D] (heteroscedastic datasets only):
+        # threaded per-batch into losses with per-call sigma_x support.
+        sigma_rows: torch.Tensor | None = None
+        _raw_rows = splits.get("sigma_x_train")
+        if _raw_rows is not None:
+            _arr = np.asarray(_raw_rows, dtype=np.float32)
+            if _arr.ndim == 2 and _arr.shape[0] == np.asarray(X_train_np).shape[0]:
+                sigma_rows = torch.from_numpy(_arr)
+        # Per-obs test sigma for predict-time marginalization (truncated
+        # to the presented rows in predict()).
+        _raw_te = splits.get("sigma_x_test")
+        sigma_test: np.ndarray | None = None
+        if _raw_te is not None:
+            _te = np.asarray(_raw_te, dtype=np.float32)
+            if _te.ndim == 2:
+                sigma_test = _te
+
         in_dim = X.shape[1]
         out_dim = y.shape[1]
         hidden = _hidden_size(in_dim)
@@ -408,7 +478,7 @@ class EIVSuite(HarnessRunner):
         elif method == "FunctionalEIV":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = FunctionalEIVLoss(model=model, sigma_x=sigma_x, sigma_y=sigma_y)
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -426,7 +496,7 @@ class EIVSuite(HarnessRunner):
                 monte_carlo=True,
                 n_samples=20,
             )
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -439,7 +509,7 @@ class EIVSuite(HarnessRunner):
             loss_fn = StructuralEIVLoss(
                 model=model, sigma_x=sigma_x, sigma_y=sigma_y, sigma_xy=sigma_xy
             )
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -450,7 +520,7 @@ class EIVSuite(HarnessRunner):
             loss_fn = OrthogonalDistanceRegressionLoss(
                 model=model, sigma_x=sigma_x, sigma_y=sigma_y
             )
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -459,7 +529,7 @@ class EIVSuite(HarnessRunner):
         elif method == "EnsembleEIV":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = EnsembleEIVLoss(model=model, sigma_x=sigma_x)
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -476,7 +546,7 @@ class EIVSuite(HarnessRunner):
                 sigma_x=sigma_x,
                 n_samples=20,
             )
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -494,7 +564,7 @@ class EIVSuite(HarnessRunner):
                 n_features=out_dim,
                 sigma_x=sigma_x,
             )
-            _train_eiv(model, loss_fn, X, y, config)
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
             result = {"type": "mdn_eiv", "model": model, "loss_fn": mdn}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -519,14 +589,35 @@ class EIVSuite(HarnessRunner):
             loss_fn = InputNoiseBinnedPDFLoss(model=model, sigma_x=sigma_x)
             dev = current_device()
             y_idx = torch.from_numpy(np.clip(np.digitize(y_np, edges) - 1, 0, n_bins - 1)).long()
-            loader = DataLoader(
-                TensorDataset(torch.from_numpy(np.asarray(splits["X_train"])).float(), y_idx),
-                batch_size=config.batch_size,
-                shuffle=True,
-            )
+            X_all = torch.from_numpy(np.asarray(splits["X_train"])).float()
+            use_rows = sigma_rows is not None and sigma_rows.shape[0] == X_all.shape[0]
+            if use_rows:
+                loader = DataLoader(
+                    TensorDataset(
+                        X_all,
+                        y_idx,
+                        torch.arange(X_all.shape[0]),
+                        sigma_rows.detach().cpu(),
+                    ),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+            else:
+                loader = DataLoader(
+                    TensorDataset(X_all, y_idx),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
             opt = torch.optim.Adam(model.parameters(), lr=config.lr)
             model.train()
             for _ in range(config.epochs):
+                if use_rows:
+                    for Xb, yb, _idx, sb in loader:
+                        opt.zero_grad(set_to_none=True)
+                        loss = loss_fn(Xb.to(dev), yb.to(dev), sigma_x=sb.to(dev))
+                        loss.backward()
+                        opt.step()
+                    continue
                 for Xb, yb in loader:
                     opt.zero_grad(set_to_none=True)
                     loss = loss_fn(Xb.to(dev), yb.to(dev))
@@ -568,6 +659,8 @@ class EIVSuite(HarnessRunner):
             model = _MLP(in_dim, hidden, out_dim)
             _train_one(model, WeightedMSELoss(), X, y, config)
             result = {"type": "torch", "model": model, "sigma_x": sigma_x}
+            if sigma_test is not None:
+                result["sigma_x_test"] = sigma_test
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
             return result
@@ -720,8 +813,11 @@ class EIVSuite(HarnessRunner):
                 sigma_x=sigma_x,
                 n_samples=20,
             )
-            _train_eiv(model, loss_fn, X, y, config)
-            return {"type": "gaussian_mc", "model": model, "sigma_x": sigma_x}
+            _train_eiv(model, loss_fn, X, y, config, sigma_rows=sigma_rows, forward_sigma=True)
+            state = {"type": "gaussian_mc", "model": model, "sigma_x": sigma_x}
+            if sigma_test is not None:
+                state["sigma_x_test"] = sigma_test
+            return state
 
         elif method == "RC+GaussianNLL":
             # Pipeline: calibrate inputs via RC, then fit probabilistic model.
@@ -779,7 +875,16 @@ class EIVSuite(HarnessRunner):
                 )
                 model.fc.bias.copy_(torch.tensor([intercept]).float())
             loss_fn = FunctionalEIVLoss(model=model, sigma_x=sigma_x, sigma_y=sigma_y)
-            _train_eiv(model, loss_fn, X, y, config, lr=config.lr * 0.1)
+            _train_eiv(
+                model,
+                loss_fn,
+                X,
+                y,
+                config,
+                lr=config.lr * 0.1,
+                sigma_rows=sigma_rows,
+                forward_sigma=True,
+            )
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -875,7 +980,8 @@ class EIVSuite(HarnessRunner):
 
         # --- Distributional path: GaussianNLL+InputNoiseMC ---
         if model_type == "gaussian_mc":
-            sigma_x_val = _eiv_sigma(model_state.get("sigma_x", 0.2))
+            n_rows = np.asarray(X_test).shape[0]
+            sigma_x_val = _test_sigma(model_state, n_rows)
             predictor = NoisyInputPredictor(m, sigma_x=sigma_x_val, n_samples=32)
 
             def _moment_match(X_np):
@@ -1067,4 +1173,7 @@ class EIVSuite(HarnessRunner):
                 ),
             }
         )
-        return notes.get(method, "")
+        base = notes.get(method, "")
+        if method in _PER_OBS_METHODS:
+            base += " [per-obs σ on heteroscedastic sets, per-band fallback]"
+        return base

@@ -395,6 +395,7 @@ class EnsemblesSuite(HarnessRunner):
                     "type": "binnedpdf",
                     "model": be,
                     "centers": torch.from_numpy(centers).float(),
+                    "edges": torch.from_numpy(edges).float(),
                 }
 
             elif method == "HeteroscedasticLaplace":
@@ -867,13 +868,29 @@ class EnsemblesSuite(HarnessRunner):
                 var_np = (probs * (centers.reshape(-1) - mean_np.reshape(-1, 1)) ** 2).sum(-1)
                 std_np = np.sqrt(np.asarray(var_np).clip(min=1e-12))
             z = 1.645
-            return {
+            out: dict[str, np.ndarray] = {
                 "lower": mean_np - z * std_np,
                 "upper": mean_np + z * std_np,
                 "y_pred": mean_np,
                 "mean": mean_np,
                 "std": std_np,
             }
+            # Density grid for library CDE/HPD scoring (piecewise-constant
+            # density = bin prob / bin width on bin centers).
+            try:
+                edges_np = np.asarray(
+                    model_state["edges"].detach().cpu(), dtype=np.float64
+                ).reshape(-1)
+                widths = np.diff(edges_np)
+                widths[widths <= 0] = 1.0
+                dens = np.asarray(probs.detach().cpu(), dtype=np.float64) / widths.reshape(1, -1)
+                out["density_support"] = np.asarray(
+                    centers.reshape(-1).detach().cpu(), dtype=np.float64
+                )
+                out["density_values"] = dens
+            except Exception:
+                pass
+            return out
 
         # --- torchregress: HeteroscedasticLaplace → PredictiveBatch ---
         elif model_type == "hlaplace":

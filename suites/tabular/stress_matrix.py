@@ -550,6 +550,42 @@ class StressMatrixSuite(HarnessRunner):
                     predictions = self.predict(method, model, X_test, cfg)
                     pred_time = perf_counter() - t0
                     metrics = self.evaluate(method, predictions, y_test, cfg)
+                    # OOD-axis diagnostics (library OOD scores): shift
+                    # magnitude of test inputs vs train + predictive
+                    # typicality. Honest diagnostics, not AUROC (the
+                    # stress_ood test set is fully shifted by construction).
+                    if ds == "stress_ood":
+                        try:
+                            from torchregress.metrics import (
+                                kernel_density_score as _kde,
+                            )
+                            from torchregress.metrics import (
+                                mahalanobis_distance as _maha,
+                            )
+                            from torchregress.metrics import (
+                                typicality_score as _typ,
+                            )
+
+                            Xtr = np.asarray(data["X_train"], dtype=np.float64)
+                            Xte = np.asarray(X_test, dtype=np.float64)
+                            mu = Xtr.mean(axis=0)
+                            cov = np.cov(Xtr.T) + 1e-6 * np.eye(Xtr.shape[1])
+                            md = _maha(Xte, mu, cov, reduction="none")
+                            metrics["OODMahalanobis"] = float(
+                                np.asarray(md, dtype=np.float64).mean()
+                            )
+                            kd = _kde(Xte, Xtr[:2000], reduction="mean")
+                            metrics["OODKDE"] = float(kd.item() if hasattr(kd, "item") else kd)
+                            if "mean" in predictions and "std" in predictions:
+                                mp = np.asarray(predictions["mean"], dtype=np.float64).reshape(-1)
+                                sp = np.asarray(predictions["std"], dtype=np.float64).reshape(-1)
+                                yt = np.asarray(y_test, dtype=np.float64).reshape(-1)[: len(mp)]
+                                tp = _typ((mp, sp**2), x=yt, reduction="mean")
+                                metrics["OODTypicality"] = float(
+                                    tp.item() if hasattr(tp, "item") else tp
+                                )
+                        except Exception:
+                            pass
                     rows.append(
                         {
                             "Method": f"{self.name}/{method}",

@@ -120,6 +120,88 @@ def _pzflow_sample_conditional(
     return arr
 
 
+_N_DENSITY_GRID = 48
+
+
+def _density_grid(
+    model: Any,
+    flow_loss: Any,
+    X_t: torch.Tensor,
+    samples_np: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """(support, density) on a 1-D grid for the torchregress NSF.
+
+    Grid spans the sample mass; density = exp(log_prob), chunked over
+    test points. Standardized units (both flows share them).
+    """
+    del seed
+    try:
+        s1 = np.asarray(samples_np).reshape(-1)
+        lo, hi = float(np.quantile(s1, 0.001)), float(np.quantile(s1, 0.999))
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+            return None
+        grid = np.linspace(lo, hi, _N_DENSITY_GRID).astype(np.float32)
+        n = X_t.shape[0]
+        model.eval()
+        with torch.no_grad():
+            dens = np.empty((n, _N_DENSITY_GRID), dtype=np.float64)
+            bs = 256
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+                c = model(X_t[s:e].detach())
+                c_rep = c.unsqueeze(1).expand(-1, _N_DENSITY_GRID, -1).reshape(-1, c.shape[-1])
+                y_rep = (
+                    torch.from_numpy(grid)
+                    .to(c.device)
+                    .unsqueeze(0)
+                    .expand(e - s, -1)
+                    .reshape(-1, 1)
+                )
+                lp = flow_loss.log_prob(c_rep, y_rep).reshape(e - s, _N_DENSITY_GRID)
+                dens[s:e] = np.exp(np.asarray(lp.detach().cpu(), dtype=np.float64))
+        return grid.astype(np.float64), dens
+    except Exception:
+        return None
+
+
+def _pzflow_density_grid(
+    flow: Any,
+    X_test: np.ndarray,
+    cols_x: list[str],
+    cols_y: list[str],
+    samples_np: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """(support, density) on a 1-D grid for a pzflow Flow (JAX)."""
+    del seed
+    try:
+        import pandas as pd
+
+        s1 = np.asarray(samples_np).reshape(-1)
+        lo, hi = float(np.quantile(s1, 0.001)), float(np.quantile(s1, 0.999))
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+            return None
+        grid = np.linspace(lo, hi, _N_DENSITY_GRID).astype(np.float32)
+        target_col = cols_y[0]
+        df_x = pd.DataFrame(np.asarray(X_test), columns=cols_x)
+        n = len(df_x)
+        dens = np.empty((n, _N_DENSITY_GRID), dtype=np.float64)
+        bs = 512
+        for j, g in enumerate(grid):
+            col_vals = np.empty(n, dtype=np.float64)
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+                df = df_x.iloc[s:e].copy()
+                df[target_col] = float(g)
+                lp = flow.log_prob(df)
+                col_vals[s:e] = np.asarray(lp, dtype=np.float64).reshape(-1)
+            dens[:, j] = col_vals
+        return grid.astype(np.float64), dens
+    except Exception:
+        return None
+
+
 def _native_samples(samples_std: np.ndarray, model_state: dict[str, Any]) -> np.ndarray:
     """Inverse-transform standardized flow samples to native units."""
     mean = np.asarray(model_state["y_mean"], dtype=np.float64).reshape(-1)
@@ -367,12 +449,19 @@ class PzflowParitySuite(HarnessRunner):
             native = _native_samples(samples_np, model_state)
             lo_n = np.quantile(native, alpha / 2, axis=0)
             hi_n = np.quantile(native, 1.0 - alpha / 2, axis=0)
-            return {
+            out: dict[str, np.ndarray] = {
                 "lower": lo_n.reshape(-1),
                 "upper": hi_n.reshape(-1),
                 "y_pred": native.mean(axis=0).reshape(-1),
                 "samples": np.swapaxes(native, 0, 1),
             }
+            # Density grid for library CDE/HPD (1-D targets only — the
+            # library scores are univariate; D>1 energy rows honestly skip).
+            if n_feat == 1:
+                grid = _density_grid(model, flow_loss, X_t, samples_np, config.seed)
+                if grid is not None:
+                    out["density_support"], out["density_values"] = grid
+            return out
 
         # --- pzflow NSF ---
         elif model_type == "pzflow_nsf":
@@ -390,12 +479,18 @@ class PzflowParitySuite(HarnessRunner):
             lo = np.quantile(native, alpha / 2, axis=0)
             hi = np.quantile(native, 1.0 - alpha / 2, axis=0)
             y_pred = native.mean(axis=0)
-            return {
+            out2: dict[str, np.ndarray] = {
                 "lower": lo.reshape(-1),
                 "upper": hi.reshape(-1),
                 "y_pred": y_pred.reshape(-1),
                 "samples": np.swapaxes(native, 0, 1),
             }
+            # Density grid for library CDE/HPD (1-D targets only).
+            if len(cols_y) == 1:
+                grid = _pzflow_density_grid(flow, X_test, cols_x, cols_y, samples, config.seed)
+                if grid is not None:
+                    out2["density_support"], out2["density_values"] = grid
+            return out2
 
         raise ValueError(f"Unknown model type: {model_type}")
 
@@ -442,6 +537,30 @@ class PzflowParitySuite(HarnessRunner):
                 metrics["PIT_KS"] = float(np.mean(ks_list))
                 # Library energy_score takes [S, N, D].
                 metrics["EnergyScore"] = float(energy_score(np.swapaxes(samp, 0, 1), yt))
+            except Exception:
+                pass
+
+        # Library density scores (CDE loss + HPD coverage) from stashed
+        # 1-D grids. Grids live in standardized units, so this only runs
+        # when the runner standardized (y_test standardized to match).
+        if (
+            "density_support" in predictions
+            and "density_values" in predictions
+            and "_y_scaler" in predictions
+        ):
+            try:
+                from torchregress.metrics import (
+                    conditional_density_estimation_loss as _cde,
+                )
+                from torchregress.metrics import (
+                    highest_posterior_density_coverage as _hpd,
+                )
+
+                sup = np.asarray(predictions["density_support"], dtype=np.float64)
+                den = np.asarray(predictions["density_values"], dtype=np.float64)
+                y_std = np.asarray(y_test, dtype=np.float64).reshape(-1)
+                metrics["CDELoss"] = float(_cde(sup, den, y_std))
+                metrics["HPDCoverage"] = float(_hpd(sup, den, y_std))
             except Exception:
                 pass
 
