@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig
 
 from ._base import (
@@ -22,6 +23,46 @@ from ._base import (
     _image_to_dataloader,
     _train_image_model,
 )
+
+
+def _vgg_block(in_ch: int, out_ch: int, n_convs: int) -> nn.Sequential:
+    layers: list[nn.Module] = []
+    for _ in range(n_convs):
+        layers += [nn.Conv2d(in_ch, out_ch, 3, padding=1), nn.ReLU(inplace=True)]
+        in_ch = out_ch
+    layers.append(nn.MaxPool2d(2, 2))
+    return nn.Sequential(*layers)
+
+
+class _CSRNet(nn.Module):
+    """CSRNet density estimator (Li, Zhang, Chen, CVPR 2016), unpretrained.
+
+    Frontend mirrors VGG-16 conv1-conv3 (3 poolings → 1/8 resolution, 256
+    channels); backend is 6 dilated (rate 2) convolutions followed by a 1×1
+    output head. Pure ``nn`` modules — no torchvision dependency, so the row
+    smokes on CPU. Randomly initialised (like the timm comparator rows);
+    comparability notes record the no-pretraining caveat.
+    """
+
+    def __init__(self, in_channels: int = 3) -> None:
+        super().__init__()
+        self.frontend = nn.Sequential(
+            _vgg_block(in_channels, 64, 2),
+            _vgg_block(64, 128, 2),
+            _vgg_block(128, 256, 3),
+        )
+        backend_cfg = [(256, 512), (512, 512), (512, 512), (512, 256), (256, 128), (128, 64)]
+        backend: list[nn.Module] = []
+        for in_ch, out_ch in backend_cfg:
+            backend += [nn.Conv2d(in_ch, out_ch, 3, padding=2, dilation=2), nn.ReLU(inplace=True)]
+        self.backend = nn.Sequential(*backend)
+        self.output_layer = nn.Conv2d(64, 1, 1)
+        self.to(current_device())
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.frontend(x)
+        x = self.backend(x)
+        return self.output_layer(x).squeeze(1)  # [B, H/8, W/8]
 
 
 class CrowdCountingSuite(ImageHarnessRunner):
@@ -43,16 +84,26 @@ class CrowdCountingSuite(ImageHarnessRunner):
         return ["shanghai_crowd", "shanghai_crowd_tiny", "ucf_qnrf"]
 
     def methods(self) -> list[str]:
-        return ["UNet+MSE", "UNet+Huber", "UNet+GaussianNLL", "sklearn_RF"]
+        return ["UNet+MSE", "UNet+Huber", "UNet+GaussianNLL", "CSRNet", "sklearn_RF"]
 
     def library_name(self, method: str) -> str:
-        return "scikit-learn" if method.startswith("sklearn_") else "torchregress"
+        if method.startswith("sklearn_"):
+            return "scikit-learn"
+        if method == "CSRNet":
+            return "csrnet-paper"
+        return "torchregress"
+
+    def library_version(self, method: str) -> str:
+        if method == "CSRNet":
+            return "Li-Zhang-Chen-2016-native-unpretrained"
+        return super().library_version(method)
 
     def method_notes(self, method: str) -> str:
         return {
             "UNet+MSE": "UNet density map + MSE (point baseline)",
             "UNet+Huber": "UNet density map + PseudoHuber (robust to congested outliers)",
             "UNet+GaussianNLL": "UNet 2ch density mean+logvar per pixel",
+            "CSRNet": "native CSRNet reimplementation (VGG-16 frontend + dilated backend, unpretrained) at 1/8 resolution; counts via map sums",
             "sklearn_RF": "RF count regressor → uniform maps (count metrics honest; no spatial model)",
         }.get(method, "")
 
@@ -96,6 +147,29 @@ class CrowdCountingSuite(ImageHarnessRunner):
             m = self._build_unet(in_channels=in_channels, out_channels=2, base_filters=32)
             _train_image_model(m, GaussianNLLLoss(split_dim=1), train_loader, config)
             return {"type": "gaussian_nll", "model": m}
+        if method == "CSRNet":
+            import torch.utils.data as _data
+
+            m = _CSRNet(in_channels=in_channels)
+            # CSRNet predicts at 1/8 resolution: sum-pool the GT density
+            # maps (count-preserving) for the MSE target.
+            y_small = (
+                torch.nn.functional.avg_pool2d(
+                    torch.from_numpy(np.asarray(splits["y_train"])).float().unsqueeze(1),
+                    kernel_size=8,
+                ).squeeze(1)
+                * 64.0
+            )
+            loader = _data.DataLoader(
+                _data.TensorDataset(
+                    torch.from_numpy(np.asarray(splits["X_train"])).float(), y_small
+                ),
+                batch_size=min(config.batch_size, 8),
+                shuffle=True,
+            )
+            _train_image_model(m, nn.MSELoss(), loader, config)
+            _ = current_device
+            return {"type": "csrnet", "model": m}
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -133,6 +207,23 @@ class CrowdCountingSuite(ImageHarnessRunner):
         loader = _image_to_dataloader(
             X_test, y=None, batch_size=self.DENSE_BATCH_SIZE, shuffle=False
         )
+        if t == "csrnet":
+            # Native 1/8-resolution maps; nearest-upsample and renormalise
+            # by 64 so flattened densities keep count-preserving sums.
+            preds = []
+            with torch.no_grad():
+                for (xb,) in loader:
+                    small = model(xb.to(device))
+                    full = (
+                        torch.nn.functional.interpolate(
+                            small.unsqueeze(1), scale_factor=8, mode="nearest"
+                        ).squeeze(1)
+                        / 64.0
+                    )
+                    preds.append(full.cpu().numpy())
+            dens = np.concatenate(preds, axis=0).reshape(len(np.asarray(X_test)), -1)
+            dens = np.clip(dens, 0, None)
+            return {"y_pred": dens.reshape(-1), "_density": dens}
         if t == "mse":
             preds = []
             with torch.no_grad():

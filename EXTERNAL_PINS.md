@@ -37,6 +37,7 @@ how to install / re-pin them.
 | **sbi** | PyPI `sbi` (mackelab) | PyPI latest | — | amortized NPE comparator (`sbi_NPE`) |
 | **econml** | PyPI `econml` (Microsoft) | PyPI latest | — | DRLearner causal comparator (`EconML_DRLearner`) |
 | **Kaggle datasets** | Kaggle API (user token, `~/.kaggle/kaggle.json`) | — | — | IHDP (`konradb/ihdp-data`), UCF-QNRF mirrors; cached under the harness cache, never home |
+| **CSRNet** | native reimplementation from Li, Zhang, Chen (CVPR 2016), no external package | paper | — | VGG-16 frontend (conv1–conv3) + 6 dilated backend convs, 1/8-resolution density maps, MSE; unpretrained; `crowd_counting/CSRNet` with `LibraryVersion: Li-Zhang-Chen-2016-native-unpretrained` |
 | **Udacity steering (staged)** | Kaggle `andy8744/udacity-self-driving-car-behavioural-cloning` (CC0-1.0) | 2022-04-12 snapshot | 2026-09-09 | headerless `driving_log.csv` + `IMG/` frames (7,334 pairs across jungle/make); staged under `staged/udacity` on scratch + ARC allocation |
 | **Preprocessed IXI (staged)** | Kaggle `kingpowa/preprocessed-ixi-dataset-with-fs8` (Apache-2.0) | 2025-09-10 snapshot | 2026-09-09 | MNI-registered T1 volumes + `subjects.csv` ages (560 usable after -1.0 sentinel filter); staged under `staged/ixi`; requires `nibabel` |
 | **KITTI Eigen split (staged)** | Kaggle `aalniak/kitti-eigen-split-for-monocular-depth-estimation` | 2025-03-03 snapshot | 2026-09-09 | `gt_locations.txt` (train, single-col depth refs) + `test_locations.txt` (rgb/depth pairs); 652+652 resolved pairs; staged under `staged/kitti` |
