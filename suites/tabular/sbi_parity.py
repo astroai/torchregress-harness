@@ -45,7 +45,7 @@ class SBIParitySuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["sbibm_twomoons"]
+        return ["sbibm_twomoons", "sbibm_slcp"]
 
     def methods(self) -> list[str]:
         return ["torchregress_NSF", "pzflow_NSF", "sbi_NPE"]
@@ -140,10 +140,11 @@ class SBIParitySuite(HarnessRunner):
             from sbi.inference import NPE
             from sbi.utils import BoxUniform
 
-            # two_moons prior: Uniform(-1, 1)^2 (asserted, not assumed).
-            lo, hi = float(y.min()), float(y.max())
-            assert lo >= -1.0 - 1e-6 and hi <= 1.0 + 1e-6, (lo, hi)
-            prior = BoxUniform(low=-1.0 * _torch.ones(out_dim), high=torch.ones(out_dim))
+            # Prior box from the task loader (two_moons ±1, slcp ±3, ...).
+            plo = float(splits.get("prior_low", -1.0))
+            phi = float(splits.get("prior_high", 1.0))
+            assert plo < phi
+            prior = BoxUniform(low=plo * _torch.ones(out_dim), high=phi * _torch.ones(out_dim))
             inference = NPE(prior=prior, show_progress_bars=False)
             inference.append_simulations(
                 _torch.as_tensor(y, dtype=_torch.float32),
@@ -165,6 +166,7 @@ class SBIParitySuite(HarnessRunner):
         model_state: dict[str, Any],
         x_obs: np.ndarray,
         config: HarnessConfig,
+        n_draws: int = N_POSTERIOR_SAMPLES,
     ) -> np.ndarray:
         """Draw [S, D] posterior samples at one observation."""
         t = model_state["type"]
@@ -178,22 +180,22 @@ class SBIParitySuite(HarnessRunner):
             Xt = torch.from_numpy(x_obs.reshape(1, -1)).float().to(current_device())
             with torch.no_grad():
                 ctx = model(Xt)
-                s = flow_loss.sample(ctx, n_samples=N_POSTERIOR_SAMPLES)
-            return np.asarray(s.detach().cpu()).reshape(N_POSTERIOR_SAMPLES, -1)
+                s = flow_loss.sample(ctx, n_samples=n_draws)
+            return np.asarray(s.detach().cpu()).reshape(n_draws, -1)
 
         if t == "pzflow_nsf":
             import pandas as pd
 
             flow = model_state["flow"]
             df_x = pd.DataFrame([x_obs], columns=model_state["cols_x"])
-            s = flow.sample(N_POSTERIOR_SAMPLES, conditions=df_x)
+            s = flow.sample(n_draws, conditions=df_x)
             cols = model_state["cols_y"]
             return np.stack([np.asarray(s[c]).reshape(-1) for c in cols], axis=1).astype(np.float64)
 
         if t == "sbi_npe":
             post = model_state["posterior"]
             xo = torch.as_tensor(x_obs.reshape(-1), dtype=torch.float32)
-            s = post.sample((N_POSTERIOR_SAMPLES,), x=xo, show_progress_bars=False)
+            s = post.sample((n_draws,), x=xo, show_progress_bars=False)
             return np.asarray(s.detach().cpu(), dtype=np.float64)
 
         raise ValueError(f"Unknown model type: {t}")
@@ -270,6 +272,12 @@ class SBIParitySuite(HarnessRunner):
             ]
         reference = splits["reference"]
         n_obs = len(reference)
+        # Smoke thrift: 1 observation, fewer posterior draws (C2ST dominates).
+        if cfg.smoke:
+            n_obs = 1
+            n_draws = 500
+        else:
+            n_draws = N_POSTERIOR_SAMPLES
         rows: list[dict[str, Any]] = []
 
         for method in self.methods():
@@ -282,7 +290,7 @@ class SBIParitySuite(HarnessRunner):
                 c2sts, rimse, lps = [], [], []
                 X_test = np.asarray(splits["X_test"])
                 for k in range(n_obs):
-                    approx = self._posterior_samples(model_state, X_test[k], cfg)
+                    approx = self._posterior_samples(model_state, X_test[k], cfg, n_draws=n_draws)
                     ref = np.asarray(reference[k], dtype=np.float64)
                     c = c2st(
                         torch.as_tensor(ref, dtype=torch.float32),

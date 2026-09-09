@@ -206,7 +206,7 @@ ALL_JOBS=(
   "pzflow_parity pzflow_galaxies"
   "pzflow_parity energy_efficiency"
   "sbi_parity sbibm_twomoons"
-  "streaming_tta diabetes"
+  "sbi_parity sbibm_slcp"  "streaming_tta diabetes"
   "streaming_tta california_housing"
   "streaming_tta folktables_income"
 )
