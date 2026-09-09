@@ -3863,6 +3863,44 @@ def _load_ucf_qnrf(
     cache_dir = _image_cache_dir()
     root = _os.environ.get("QNRF_ROOT", "")
     base = Path(root) if root else cache_dir / "qnrf" / "UCF-QNRF_ECCV18"
+    if not base.is_dir():
+        # Try a Kaggle fetch when credentials are available (sessions).
+        ku, kk = _os.environ.get("KAGGLE_USERNAME", ""), _os.environ.get(
+            "KAGGLE_KEY", ""
+        )
+        if ku and kk:
+            try:
+                import subprocess as _sp
+
+                dest = cache_dir / "qnrf"
+                dest.mkdir(parents=True, exist_ok=True)
+                env = dict(
+                    _os.environ,
+                    KAGGLE_USERNAME=ku,
+                    KAGGLE_KEY=kk,
+                    KAGGLE_CONFIG_DIR=str(dest / ".kaggle"),
+                )
+                (dest / ".kaggle").mkdir(parents=True, exist_ok=True)
+                with open(dest / ".kaggle" / "kaggle.json", "w") as fh:
+                    fh.write(f'{{"username": "{ku}", "key": "{kk}"}}')
+                _sp.run(
+                    [
+                        "kaggle",
+                        "datasets",
+                        "download",
+                        "-d",
+                        "faihajalamtopu/ucf-qnrf",
+                        "-p",
+                        str(dest),
+                        "--unzip",
+                    ],
+                    env=env,
+                    timeout=3600,
+                    check=True,
+                    capture_output=True,
+                )
+            except Exception:
+                pass
     pairs: list[tuple[Path, Path]] | None = None
     if base.is_dir():
         for split in ("Train", "Test"):
