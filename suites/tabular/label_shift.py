@@ -82,6 +82,8 @@ class LabelShiftSuite(HarnessRunner):
             "BBSE",
             "Oracle",
             "DomainClassifier",
+            "LibDomainClassifier",
+            "GaussShiftCorrect",
             "SplitCP",
             "WeightedCP",
         ]
@@ -97,6 +99,8 @@ class LabelShiftSuite(HarnessRunner):
             "BBSE": "BinnedLabelShiftEstimator (EM) weights from source + target preds",
             "Oracle": "TRUE importance weights (upper bound)",
             "DomainClassifier": "sklearn domain classifier density-ratio weights (external)",
+            "LibDomainClassifier": "torchregress MLP discriminator density-ratio weights",
+            "GaussShiftCorrect": "Gaussian predictions corrected for label shift (EM priors)",
             "SplitCP": "split conformal on source cal — undercovers shifted target",
             "WeightedCP": "WeightedConformalRegressionAdapter (density-ratio CP)",
         }.get(method, "")
@@ -240,6 +244,21 @@ class LabelShiftSuite(HarnessRunner):
             p = clf.predict_proba(X_te)[:, 1]
             w_dom = (p / np.clip(1.0 - p, 1e-3, None)).astype(np.float64)
             out["w_dom"] = w_dom / max(w_dom.mean(), 1e-12)
+        elif method == "LibDomainClassifier":
+            from torchregress.test_time.shift_weights import (
+                DomainClassifierRatioEstimator,
+            )
+
+            X_te = np.asarray(X_test, dtype=np.float32)
+            X_tr = np.asarray(model_state["X_train"], dtype=np.float32)
+            # Keep the full-batch discriminator bounded in smoke and full runs.
+            n_tr = min(len(X_tr), 2_000)
+            n_te = min(len(X_te), 2_000)
+            estimator = DomainClassifierRatioEstimator(
+                hidden=(32,), epochs=50, lr=1e-3, clip=20.0
+            ).fit(torch.from_numpy(X_tr[:n_tr]), torch.from_numpy(X_te[:n_te]))
+            w_dom = estimator.weights_for(torch.from_numpy(X_te)).cpu().numpy()
+            out["w_lib_dom"] = w_dom / max(w_dom.mean(), 1e-12)
         return out
 
     # ------------------------------------------------------------------
@@ -287,6 +306,37 @@ class LabelShiftSuite(HarnessRunner):
             w_all = np.asarray(predictions["w_dom"], dtype=np.float64).reshape(-1)
             w_est = w_all[tgt_idx]
             w_est = w_est / max(w_est.mean(), 1e-12)
+        elif method == "LibDomainClassifier":
+            w_all = np.asarray(predictions["w_lib_dom"], dtype=np.float64).reshape(-1)
+            w_est = w_all[tgt_idx]
+            w_est = w_est / max(w_est.mean(), 1e-12)
+        elif method == "GaussShiftCorrect":
+            from torchregress.test_time.label_shift import (
+                correct_gaussian_predictions_for_label_shift,
+            )
+
+            y_train = np.asarray(predictions["y_train"]).reshape(-1)
+            p_src = np.asarray(predictions["p_src"]).reshape(-1)
+            if y_scaler is not None:
+                y_train = y_scaler.inverse_transform(y_train.reshape(-1, 1)).ravel()
+                p_src = y_scaler.inverse_transform(p_src.reshape(-1, 1)).ravel()
+            source_std = max(float(np.std(y_train - p_src)), 1e-6)
+            corrected_mean, corrected_std, metadata = correct_gaussian_predictions_for_label_shift(
+                mean=y_pred,
+                std=np.full_like(y_pred, source_std),
+                source_targets=y_train,
+            )
+            y_shift = y_true[tgt_idx]
+            mean_shift = corrected_mean[tgt_idx]
+            std_shift = corrected_std[tgt_idx]
+            z = 1.6448536269514722
+            return {
+                "TargetMAE": float(np.mean(np.abs(mean_shift - y_shift))),
+                "RMSE": float(np.sqrt(np.mean((mean_shift - y_shift) ** 2))),
+                "ShiftCoverage": float(np.mean(np.abs(y_shift - mean_shift) <= z * std_shift)),
+                "TargetStd": float(np.mean(std_shift)),
+                "EMIterations": float(metadata["estimate_iterations"]),
+            }
         elif method in ("SplitCP", "WeightedCP"):
             from torchregress.test_time.ot_conformal import (
                 OptimalTransportCoverageGap,

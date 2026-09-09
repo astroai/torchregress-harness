@@ -254,8 +254,8 @@ def _mv_full_params(model: nn.Module, X: np.ndarray, D: int) -> tuple[np.ndarray
 
 def _lowrank_gaussian_predict(
     model: nn.Module, X: np.ndarray, D: int, rank: int, seed: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Mean/std + factor-model samples from a low-rank Gaussian head."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Mean/std + factor-model samples + full covariances from a low-rank head."""
     import torch.nn.functional as F
 
     model.eval()
@@ -276,7 +276,10 @@ def _lowrank_gaussian_predict(
         z_r = rng.standard_normal((S, N, rank))
         z_d = rng.standard_normal((S, N, D))
         samples = mean[None] + (F_np[None] * z_r[:, :, None, :]).sum(-1) + np.sqrt(d_np)[None] * z_d
-    return mean, std, samples
+        cov = F_np @ F_np.transpose(0, 2, 1) + np.stack(
+            [np.diag(d_np[i]) for i in range(N)], axis=0
+        )
+    return mean, std, samples, cov
 
 
 def _mdn_full_samples(
@@ -943,6 +946,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             )
             lower = mean - z_score * std
             upper = mean + z_score * std
+            _, cov_full = _mv_full_params(model_state["model"], X_test, D)
             return {
                 "lower": lower.reshape(-1),
                 "upper": upper.reshape(-1),
@@ -953,6 +957,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                     *_mv_full_params(model_state["model"], X_test, D),
                     config.seed,
                 ),
+                "covariances": cov_full,
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -960,7 +965,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
 
         # --- LowRankGaussian → marginal intervals + factor samples ---
         elif model_type == "lowrank_gaussian":
-            mean, std, samples = _lowrank_gaussian_predict(
+            mean, std, samples, cov_lr = _lowrank_gaussian_predict(
                 model_state["model"],
                 X_test,
                 D,
@@ -976,6 +981,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "mean": mean.reshape(-1),
                 "std": std.reshape(-1),
                 "samples": samples,
+                "covariances": cov_lr,
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -1049,6 +1055,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "mean": mean_np.reshape(-1),
                 "std": std_np.reshape(-1),
                 "samples": _full_gaussian_samples(mean_np, cov_np, config.seed),
+                "covariances": cov_np,
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -1073,6 +1080,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "mean": mean_np.reshape(-1),
                 "std": std_np.reshape(-1),
                 "samples": _full_gaussian_samples(mean_np, cov_np, config.seed),
+                "covariances": cov_np,
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
@@ -1276,6 +1284,9 @@ class MultivariateIntervalsSuite(HarnessRunner):
             # mean/std (marginals pooled): CRPS + Dawid-Sebastiani.
             if "mean" in predictions and "std" in predictions:
                 from torchregress.metrics import crps_gaussian, dss_score
+                from torchregress.metrics import (
+                    task_agnostic_correlations as _tac,
+                )
 
                 try:
                     m = np.asarray(predictions["mean"]).reshape(N, D)
@@ -1284,6 +1295,15 @@ class MultivariateIntervalsSuite(HarnessRunner):
                     metrics["DSS"] = float(dss_score(m, s, y_true))
                 except Exception:
                     pass
+                # TAC needs full covariances (only full-cov rows stash them).
+                if "covariances" in predictions:
+                    try:
+                        m = np.asarray(predictions["mean"]).reshape(N, D)
+                        cov = np.asarray(predictions["covariances"], dtype=np.float64)
+                        if cov.shape == (N, D, D):
+                            metrics["TAC"] = float(_tac(m, y_true, cov).item())
+                    except Exception:
+                        pass
 
             # Proper scoring rules for distribution-valued forecasts
             # (Gneiting & Raftery 2007; Scheuerer & Hamill 2015). Only rows

@@ -47,7 +47,14 @@ class PPISuite(HarnessRunner):
         return ["diabetes", "california_housing", "folktables_income"]
 
     def methods(self) -> list[str]:
-        methods = ["Classical", "PPI_Mean", "PPI_Quantile"]
+        methods = [
+            "Classical",
+            "PPI_Mean",
+            "PPI_Quantile",
+            "PPI_CalibratedMean",
+            "PPI_PPMean",
+            "PPI_OLS",
+        ]
         if _PPI_PY_AVAILABLE:
             methods += ["PPI_py_Mean", "PPI_py_Quantile"]
         return methods
@@ -62,6 +69,9 @@ class PPISuite(HarnessRunner):
             "Classical": "labeled-only mean/median CIs (no model, no PPI)",
             "PPI_Mean": "ppi_mean_ci: rectified mean + bootstrap CI",
             "PPI_Quantile": "ppi_quantile_ci (q=0.5): rectified median + CI",
+            "PPI_CalibratedMean": "ppi_calibrated_mean_ci: affine-calibrated rectifier",
+            "PPI_PPMean": "ppi_pp_mean_ci: PPI++ power-tuned mean CI",
+            "PPI_OLS": "ppi_ols_ci: prediction-powered OLS coefficients",
             "PPI_py_Mean": "OFFICIAL ppi_py ppi_mean_ci (PPI++ power tuning, external)",
             "PPI_py_Quantile": "OFFICIAL ppi_py ppi_quantile_ci (external)",
         }.get(method, "")
@@ -114,7 +124,7 @@ class PPISuite(HarnessRunner):
                 .cpu()
                 .numpy()
             )
-        return {"y_pred": pred}
+        return {"y_pred": pred, "X_test": np.asarray(X_test, dtype=np.float64)}
 
     # ------------------------------------------------------------------
     # evaluate — RMSE + CI width/coverage of the true test moment
@@ -129,7 +139,11 @@ class PPISuite(HarnessRunner):
     ) -> dict[str, float]:
         from torchregress.inference.ppi import (
             PPIConfig,
+            ppi_calibrated_mean_ci,
+            ppi_diagnostics,
             ppi_mean_ci,
+            ppi_ols_ci,
+            ppi_pp_mean_ci,
             ppi_quantile_ci,
         )
 
@@ -160,7 +174,16 @@ class PPISuite(HarnessRunner):
         Pu_official = y_pred[unl_mask]
 
         out: dict[str, float] = {"RMSE": rmse}
-        if method in ("Classical", "PPI_Mean", "PPI_py_Mean"):
+        # Validity diagnostics ride every PPI row (same triple; cheap).
+        if method.startswith("PPI_"):
+            try:
+                diag = ppi_diagnostics(y_l, p_l, p_u)
+                out["Diag_Corr"] = float(diag["prediction_label_correlation"])
+                out["Diag_ResidRMSE"] = float(diag["residual_rmse_labeled"])
+                out["Diag_Shift"] = float(diag["prediction_mean_shift_unlabeled_vs_labeled"])
+            except Exception:
+                pass
+        if method in ("Classical", "PPI_Mean", "PPI_py_Mean", "PPI_CalibratedMean", "PPI_PPMean"):
             true_mean = float(y_true.mean())
             if method == "Classical":
                 se = float(y_l.double().std() / np.sqrt(n_lab))
@@ -171,6 +194,12 @@ class PPISuite(HarnessRunner):
                 lo_a, hi_a = _ppi_py.ppi_mean_ci(Y_official, Ph_official, Pu_official, alpha=0.1)
                 lo, hi = float(np.ravel(lo_a)[0]), float(np.ravel(hi_a)[0])
                 est = float((lo + hi) / 2)
+            elif method == "PPI_CalibratedMean":
+                res = ppi_calibrated_mean_ci(y_l, p_l, p_u, config=cfg)
+                est, lo, hi = res["estimate"], res["ci_lower"], res["ci_upper"]
+            elif method == "PPI_PPMean":
+                res = ppi_pp_mean_ci(y_l, p_l, p_u, alpha=0.1)
+                est, lo, hi = res["estimate"], res["ci_lower"], res["ci_upper"]
             else:
                 res = ppi_mean_ci(y_l, p_l, p_u, config=cfg)
                 est, lo, hi = res["estimate"], res["ci_lower"], res["ci_upper"]
@@ -198,6 +227,27 @@ class PPISuite(HarnessRunner):
                     "Estimate": float(est),
                     "CIWidth": float(hi - lo),
                     "Covers": float(lo <= true_med <= hi),
+                }
+            )
+        if method == "PPI_OLS":
+            # Prediction-powered OLS coefficients. Truth = full-test OLS.
+            X_te = np.asarray(predictions["X_test"], dtype=np.float64)
+            X_lab = X_te[lab_idx]
+            X_unl = X_te[unl_mask]
+            x_l = torch.from_numpy(X_lab)
+            x_u = torch.from_numpy(X_unl)
+            res = ppi_ols_ci(x_l, y_l, x_u, p_l, p_u, config=cfg)
+            coef = np.asarray(res["coef"], dtype=np.float64).reshape(-1)
+            se = np.asarray(res["se"], dtype=np.float64).reshape(-1)
+            lo_o = np.asarray(res["ci_lower"], dtype=np.float64).reshape(-1)
+            hi_o = np.asarray(res["ci_upper"], dtype=np.float64).reshape(-1)
+            Xd = np.concatenate([X_te, np.ones((len(X_te), 1))], axis=1)
+            beta_true, *_ = np.linalg.lstsq(Xd, y_true, rcond=None)
+            out.update(
+                {
+                    "Estimate": float(coef.mean()),
+                    "CIWidth": float(np.mean(hi_o - lo_o)),
+                    "Covers": float(np.mean((lo_o <= beta_true) & (beta_true <= hi_o))),
                 }
             )
         return out

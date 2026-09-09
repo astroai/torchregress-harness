@@ -454,6 +454,8 @@ def _load_ihdp(
             t = np.isin(t_raw.astype(str), ["True", "true", "1", "1.0"]).astype(np.float64)
         y = df["y_factual"].to_numpy(dtype=np.float64)
         cate_true = (df["mu1"] - df["mu0"]).to_numpy(dtype=np.float64)
+        mu0 = df["mu0"].to_numpy(dtype=np.float64)
+        mu1 = df["mu1"].to_numpy(dtype=np.float64)
     except Exception:
         raise RuntimeError("IHDP columns unreadable")
 
@@ -471,6 +473,8 @@ def _load_ihdp(
         "treatment_test": t[te].astype(np.float32),
         "cate_true_train": cate_true[tr].astype(np.float64),
         "cate_true_test": cate_true[te].astype(np.float64),
+        "pot0_test": mu0[te].astype(np.float64),
+        "pot1_test": mu1[te].astype(np.float64),
         "ate_true": float(cate_true.mean()),
     }
 
@@ -525,6 +529,8 @@ def _load_folktables_causal(
         "treatment_test": t[te].astype(np.float32),
         "cate_true_train": cate_true[tr].astype(np.float64),
         "cate_true_test": cate_true[te].astype(np.float64),
+        "pot0_test": mu[te].astype(np.float64),
+        "pot1_test": (mu + tau)[te].astype(np.float64),
         "ate_true": float(cate_true.mean()),
     }
 

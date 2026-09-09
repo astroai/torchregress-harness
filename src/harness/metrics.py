@@ -427,6 +427,14 @@ def compute_all_metrics(
     if "y_pred" in predictions:
         y_pred = np.asarray(predictions["y_pred"]).reshape(-1)
         metrics.update(compute_point_metrics(y_pred, y_true_np))
+        # Tail-risk point metrics (library; default 90% upper tail).
+        try:
+            from torchregress.metrics import tail_mae, tail_rmse
+
+            metrics["TailMAE"] = float(tail_mae(y_pred, y_true_np))
+            metrics["TailRMSE"] = float(tail_rmse(y_pred, y_true_np))
+        except Exception:
+            pass
 
     if "lower" in predictions and "upper" in predictions:
         metrics.update(

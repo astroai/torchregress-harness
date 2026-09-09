@@ -196,7 +196,7 @@ def _pzflow_density_grid(
                 df[target_col] = float(g)
                 lp = flow.log_prob(df)
                 col_vals[s:e] = np.asarray(lp, dtype=np.float64).reshape(-1)
-            dens[:, j] = col_vals
+            dens[:, j] = np.exp(col_vals)
         return grid.astype(np.float64), dens
     except Exception:
         return None
