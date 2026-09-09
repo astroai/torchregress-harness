@@ -123,6 +123,8 @@ pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertai
 pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests || log "LUQ/timm stack failed"
 log "installing comparator/data deps (lifelines/crepes/survset/folktables/openpyxl)"
 pixi run pip install -q lifelines crepes survset folktables openpyxl || log "comparator deps failed (offline?)"
+log "installing h5py (GalaxiesML HDF5)"
+pixi run pip install -q h5py || log "h5py failed (offline?)"
 log "installing econml (causal comparator)"
 pixi run pip install -q econml || log "econml failed (offline?)"
 # ppi-python pulls numba (~slow); only sessions that run ppi jobs need it.
