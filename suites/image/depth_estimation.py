@@ -783,9 +783,15 @@ class DepthEstimationSuite(ImageHarnessRunner):
         with torch.no_grad():
             for (Xb,) in loader:
                 out = model(Xb.to(device)).cpu().numpy()  # (B, 3, H, W)
-                los.append(out[:, 0].reshape(-1))
-                meds.append(out[:, len(quantiles) // 2].reshape(-1))
-                his.append(out[:, -1].reshape(-1))
+                # Quantile rearrangement (Chernozhukov et al. 2010): sort
+                # the predicted quantile levels per pixel so lower <= upper
+                # everywhere. Unconstrained quantile heads cross on some of
+                # the millions of dense pixels; without rearrangement a few
+                # crossed pixels fail the whole row's interval metrics.
+                q = np.sort(out, axis=1)
+                los.append(q[:, 0].reshape(-1))
+                meds.append(q[:, len(quantiles) // 2].reshape(-1))
+                his.append(q[:, -1].reshape(-1))
         return {
             "lower": np.concatenate(los),
             "upper": np.concatenate(his),

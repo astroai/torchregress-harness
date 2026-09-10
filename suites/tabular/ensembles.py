@@ -788,6 +788,9 @@ class EnsemblesSuite(HarnessRunner):
             lo = np.stack(los, axis=0).mean(axis=0)
             med = np.stack(meds, axis=0).mean(axis=0)
             hi = np.stack(his, axis=0).mean(axis=0)
+            # Rearrangement: member-mean quantiles can cross on some rows.
+            stacked = np.sort(np.stack([lo, med, hi], axis=-1), axis=-1)
+            lo, med, hi = stacked[..., 0], stacked[..., 1], stacked[..., 2]
             return {"y_pred": med, "lower": lo, "upper": hi}
 
         # --- torchregress: MDNEnsemble → mixture-mean point prediction ---

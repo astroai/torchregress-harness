@@ -1022,6 +1022,9 @@ class MultivariateIntervalsSuite(HarnessRunner):
             with torch.no_grad():
                 out = model(torch.from_numpy(X_test).float().to(current_device()))
             q = out.detach().cpu().numpy().astype(np.float64)  # (N, Q, D)
+            # Quantile rearrangement per (row, dim): unconstrained heads can
+            # cross on some rows, which fails interval metrics wholesale.
+            q = np.sort(q, axis=1)
             lo = q[:, 0, :]
             med = q[:, len(qs) // 2, :]
             hi = q[:, -1, :]

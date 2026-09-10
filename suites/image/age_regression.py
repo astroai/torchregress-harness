@@ -1094,6 +1094,9 @@ class AgeRegressionSuite(ImageHarnessRunner):
             for (X_batch,) in loader:
                 outs.append(model(X_batch.to(device)).cpu().numpy())
         arr = np.concatenate(outs, axis=0)
+        # Quantile rearrangement (Chernozhukov et al. 2010): sort predicted
+        # levels per row so lower <= upper (see depth suite for rationale).
+        arr = np.sort(arr, axis=1)
         return {
             "lower": arr[:, 0].reshape(-1),
             "upper": arr[:, -1].reshape(-1),

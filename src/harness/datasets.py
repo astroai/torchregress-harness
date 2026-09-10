@@ -3987,6 +3987,18 @@ def _density_from_points(points: np.ndarray, h: int, w: int, sigma: float = 4.0)
     return dens
 
 
+def _qnrf_has_pairs(candidate: Path) -> bool:
+    """True when a directory holds UCF-QNRF Train/Test jpg + _ann.mat pairs."""
+    for split in ("Train", "Test"):
+        d = candidate / split
+        if not d.is_dir():
+            continue
+        for jp in sorted(d.glob("*.jpg")):
+            if (d / f"{jp.stem}_ann.mat").is_file():
+                return True
+    return False
+
+
 def _load_ucf_qnrf(
     n_samples: int = 400,
     img_size: int = 128,
@@ -4006,8 +4018,21 @@ def _load_ucf_qnrf(
 
     cache_dir = _image_cache_dir()
     root = _os.environ.get("QNRF_ROOT", "")
+
     base = Path(root) if root else cache_dir / "qnrf" / "UCF-QNRF_ECCV18"
-    if not base.is_dir():
+    if not _qnrf_has_pairs(base):
+        # Shared staged mirrors (scratch + the CANFAR-visible ARC project
+        # allocation): the Kaggle layout nests UCF-QNRF_ECCV18/ one level
+        # down, so probe both depths.
+        staged, _ = _staged_roots(root, "qnrf")
+        for cand in staged:
+            for depth in (cand, cand / "UCF-QNRF_ECCV18"):
+                if _qnrf_has_pairs(depth):
+                    base = depth
+                    break
+            if _qnrf_has_pairs(base):
+                break
+    if not _qnrf_has_pairs(base):
         # Try a Kaggle fetch when credentials are available (sessions).
         ku, kk = _os.environ.get("KAGGLE_USERNAME", ""), _os.environ.get("KAGGLE_KEY", "")
         if ku and kk:
