@@ -41,6 +41,7 @@ how to install / re-pin them.
 | **Udacity steering (staged)** | Kaggle `andy8744/udacity-self-driving-car-behavioural-cloning` (CC0-1.0) | 2022-04-12 snapshot | 2026-09-09 | headerless `driving_log.csv` + `IMG/` frames (7,334 pairs across jungle/make); staged under `staged/udacity` on scratch + ARC allocation |
 | **Preprocessed IXI (staged)** | Kaggle `kingpowa/preprocessed-ixi-dataset-with-fs8` (Apache-2.0) | 2025-09-10 snapshot | 2026-09-09 | MNI-registered T1 volumes + `subjects.csv` ages (560 usable after -1.0 sentinel filter); staged under `staged/ixi`; requires `nibabel` |
 | **KITTI Eigen split (staged)** | Kaggle `aalniak/kitti-eigen-split-for-monocular-depth-estimation` | 2025-03-03 snapshot | 2026-09-09 | `gt_locations.txt` (train, single-col depth refs) + `test_locations.txt` (rgb/depth pairs); 652+652 resolved pairs; staged under `staged/kitti` |
+| **UCF-QNRF (staged)** | Kaggle `faihajalamtopu/ucf-qnrf` (4.5 GB) | 2024-11-14 snapshot | 2026-09-10 | `UCF-QNRF_ECCV18/{Train,Test}` jpg + `_ann.mat` pairs (3,072 files); staged under `staged/qnrf` on scratch + ARC allocation; loader prefers staged mirrors, Kaggle fetch is last resort |
 
 ## Install commands
 
