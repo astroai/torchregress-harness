@@ -4100,12 +4100,11 @@ def _load_ucf_qnrf(
         except Exception:
             pass  # fall through to synthetic proxy
 
-    # Synthetic fallback: reuse the Shanghai proxy generator inline.
-    synth = _load_shanghai_crowd(
-        n_samples=n_samples, img_size=img_size, test_size=test_size, seed=seed
-    )
-    synth["_synthetic_fallback"] = True
-    synth["_fallback_reason"] = "UCF-QNRF data unavailable"
+    # Synthetic fallback: pure seeded generator (must NOT route through
+    # the Shanghai loader — its real-data path would silently substitute a
+    # different real corpus while the artifact claims a synthetic proxy).
+    synth = _synthetic_crowd_splits(n_samples, img_size, test_size, seed)
+    synth["_fallback_reason"] = "UCF-QNRF data unavailable; synthetic crowd proxy"
     return synth
 
 
@@ -4246,7 +4245,21 @@ def _load_shanghai_crowd(
         except Exception:
             pass  # fall through to synthetic proxy
 
-    # Synthetic fallback: Poisson crowd counts + blob fields.
+    # Synthetic fallback: Poisson crowd counts + blob fields. Purely
+    # seeded (no network, no other dataset) so fallback artifacts can never
+    # masquerade as a different real corpus.
+    splits = _synthetic_crowd_splits(n_samples, img_size, test_size, seed)
+    splits["_fallback_reason"] = "ShanghaiTech unavailable; synthetic crowd proxy"
+    return splits
+
+
+def _synthetic_crowd_splits(
+    n_samples: int,
+    img_size: int,
+    test_size: float,
+    seed: int,
+) -> SplitsDict:
+    """Seeded synthetic crowd fields (no I/O): Poisson head counts + blobs."""
     rng = np.random.default_rng(seed)
     lam = rng.uniform(10, 120, n_samples)
     counts = rng.poisson(lam).astype(np.float32)
@@ -4268,7 +4281,6 @@ def _load_shanghai_crowd(
         for c in range(3):
             X[i, c] = np.clip(canvas * shade + 0.05 * rng.standard_normal(canvas.shape), 0, 1)
     X = X.astype(np.float32)
-    idx = np.arange(n_samples)
     Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
         X, Y, counts, test_size=test_size, random_state=seed
     )
@@ -4286,7 +4298,6 @@ def _load_shanghai_crowd(
         "_skip_y_standardization": True,
         "_synthetic_fallback": True,
     }
-    splits["_fallback_reason"] = "ShanghaiTech unavailable; synthetic crowd proxy"
     return splits
 
 

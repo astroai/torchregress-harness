@@ -69,6 +69,28 @@ def test_ixi_subjects_filters_sentinel_ages(tmp_path: Path) -> None:
     assert pairs[0][1] == pytest.approx(35.8)
 
 
+def test_ucf_fallback_is_pure_synthetic(tmp_path: Path, monkeypatch) -> None:
+    """UCF-QNRF fallback must be the seeded generator — never another corpus.
+
+    Regression test: the old fallback routed through the Shanghai loader,
+    whose real-data path silently substituted real ShanghaiTech data while
+    the artifact claimed a synthetic proxy (bit-identical metrics across
+    supposedly different datasets).
+    """
+    import numpy as np
+
+    monkeypatch.setenv("TORCHREGRESS_HARNESS_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("TORCHREGRESS_HARNESS_STAGED_ROOT", str(tmp_path / "arc"))
+    monkeypatch.delenv("QNRF_ROOT", raising=False)
+    monkeypatch.delenv("KAGGLE_USERNAME", raising=False)
+    monkeypatch.delenv("KAGGLE_KEY", raising=False)
+    splits = _datasets._load_ucf_qnrf(n_samples=20, img_size=32)
+    assert splits.get("_synthetic_fallback") is True
+    expected = _datasets._synthetic_crowd_splits(20, 32, 0.2, 42)
+    assert np.array_equal(np.asarray(splits["X_train"]), np.asarray(expected["X_train"]))
+    assert np.array_equal(np.asarray(splits["y_test"]), np.asarray(expected["y_test"]))
+
+
 def test_explicit_roots_refuse_synthetic_fallback(tmp_path: Path, monkeypatch) -> None:
     empty = tmp_path / "empty"
     empty.mkdir()
