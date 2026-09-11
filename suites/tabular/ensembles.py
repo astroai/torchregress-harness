@@ -385,7 +385,13 @@ class EnsemblesSuite(HarnessRunner):
                     batch_size=config.batch_size,
                     shuffle=True,
                 )
-                be.fit(loader, nn.CrossEntropyLoss(), epochs=config.epochs, verbose=False)
+                be.fit(
+                    loader,
+                    nn.CrossEntropyLoss(),
+                    epochs=config.epochs,
+                    verbose=False,
+                    device=str(current_device()),
+                )
                 # Store binning for expected-value predict.
                 qs = np.linspace(0, 1, n_bins + 1)
                 centers = ((np.quantile(y_np, qs)[:-1] + np.quantile(y_np, qs)[1:]) / 2.0).astype(
@@ -424,7 +430,12 @@ class EnsemblesSuite(HarnessRunner):
                         return o[:, 0:1], o[:, 1:2]
 
                 hl = HeteroscedasticLaplaceRegressor(base, _TupleHead(hidden))
-                hl.fit(loader, lr=config.lr, epochs=config.epochs)
+                hl.fit(
+                    loader,
+                    lr=config.lr,
+                    epochs=config.epochs,
+                    device=str(current_device()),
+                )
                 return {"type": "hlaplace", "model": hl}
 
             elif method == "VIDS":
@@ -838,8 +849,8 @@ class EnsemblesSuite(HarnessRunner):
                 mean, var = sn.predict_with_uncertainty(
                     torch.from_numpy(X_test).float().to(current_device())
                 )
-            mean_np = np.asarray(mean).reshape(-1)
-            std_np = np.sqrt(np.asarray(var).reshape(-1).clip(min=1e-12))
+            mean_np = np.asarray(mean.detach().cpu()).reshape(-1)
+            std_np = np.sqrt(np.asarray(var.detach().cpu()).reshape(-1).clip(min=1e-12))
             z = 1.645
             return {
                 "lower": mean_np - z * std_np,
@@ -884,7 +895,9 @@ class EnsemblesSuite(HarnessRunner):
             probs = dist["probabilities"]
             mean_np = (probs @ centers.reshape(-1)).reshape(-1).detach().cpu().numpy()
             if "variance" in dist and dist["variance"] is not None:
-                std_np = np.sqrt(np.asarray(dist["variance"]).reshape(-1).clip(min=1e-12))
+                _var_t = dist["variance"]
+                _var_np = np.asarray(_var_t.detach().cpu() if torch.is_tensor(_var_t) else _var_t)
+                std_np = np.sqrt(_var_np.reshape(-1).clip(min=1e-12))
             else:
                 var_np = (probs * (centers.reshape(-1) - mean_np.reshape(-1, 1)) ** 2).sum(-1)
                 std_np = np.sqrt(np.asarray(var_np).clip(min=1e-12))
@@ -935,10 +948,15 @@ class EnsemblesSuite(HarnessRunner):
                 std_t = torch.sqrt(_field("variance").clamp_min(1e-12))
             if std_t is None and _field("scale") is not None:
                 std_t = _field("scale") * np.sqrt(2.0)
-            mean_np = np.asarray(mean_t).reshape(-1)
-            std_np = (
-                np.asarray(std_t).reshape(-1) if std_t is not None else np.full_like(mean_np, 0.1)
-            )
+            mean_np = np.asarray(
+                mean_t.detach().cpu() if torch.is_tensor(mean_t) else mean_t
+            ).reshape(-1)
+            if std_t is None:
+                std_np = np.full_like(mean_np, 0.1)
+            else:
+                std_np = np.asarray(
+                    std_t.detach().cpu() if torch.is_tensor(std_t) else std_t
+                ).reshape(-1)
             z = 1.645
             return {
                 "lower": mean_np - z * std_np,
@@ -955,9 +973,9 @@ class EnsemblesSuite(HarnessRunner):
                 pb = vids.predict_distribution(
                     torch.from_numpy(X_test).float().to(current_device())
                 )
-            mean_np = np.asarray(pb.mean).reshape(-1)
+            mean_np = np.asarray(pb.mean.detach().cpu()).reshape(-1)
             std_np = (
-                np.asarray(pb.std).reshape(-1)
+                np.asarray(pb.std.detach().cpu()).reshape(-1)
                 if getattr(pb, "std", None) is not None
                 else np.full_like(mean_np, 0.1)
             )
