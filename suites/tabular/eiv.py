@@ -698,6 +698,10 @@ class EIVSuite(HarnessRunner):
                 encoder_hidden_dim=hidden,
                 backbone_hidden_dims=(hidden, hidden),
             )
+            # Explicit device placement (the regressor does not self-place
+            # like _MLP): without this, _train_one trains on CPU while
+            # predict() moves X to the session device → device mismatch.
+            nar.to(current_device())
 
             # Wrapper: makes forward(x) call nar(x, sigma_x) internally
             class _NARWrapper(torch.nn.Module):

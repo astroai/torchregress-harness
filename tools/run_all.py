@@ -252,7 +252,18 @@ def main() -> None:
 
                 for row in rows:
                     note = str(row.get("Notes", "")).lower()
-                    has_result = not ("error" in note or "failed" in note or "skipped" in note)
+                    # Colon-suffixed markers only: bare-substring matching
+                    # false-positives on innocent notes such as
+                    # "error-aware feature encoder". All failure notes use
+                    # the "failed: …" / "skipped: …" / "error: …" convention.
+                    # "known-bad: …" rows stay visibly flagged (documented
+                    # limitation, not a transient failure).
+                    has_result = not (
+                        "error:" in note
+                        or "failed:" in note
+                        or "skipped:" in note
+                        or note.startswith("known-bad:")
+                    )
                     status = "✓" if has_result else "✗"
                     suffix = f"  ({row['Notes'][:80]})" if not has_result else ""
                     print(f"  {status} {row['Method']}{suffix}")
