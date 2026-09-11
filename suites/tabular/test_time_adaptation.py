@@ -258,9 +258,15 @@ class TestTimeAdaptationSuite(HarnessRunner):
             interval = joint.predict_intervals(
                 result, torch.from_numpy(X_target.astype(np.float32))
             )
-            mean = np.asarray(interval["mean"], dtype=np.float64).reshape(-1)
-            lower = np.asarray(interval["lower"], dtype=np.float64).reshape(-1)
-            upper = np.asarray(interval["upper"], dtype=np.float64).reshape(-1)
+
+            def _to_numpy(value: Any) -> np.ndarray:
+                if torch.is_tensor(value):
+                    value = value.detach().cpu()
+                return np.asarray(value, dtype=np.float64).reshape(-1)
+
+            mean = _to_numpy(interval["mean"])
+            lower = _to_numpy(interval["lower"])
+            upper = _to_numpy(interval["upper"])
             bounds = result.diagnostics.get("coverage_bounds", (float("nan"), float("nan")))
             return {
                 "y_pred": mean,
