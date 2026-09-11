@@ -1422,10 +1422,73 @@ def _load_insurance_claims(
     }
 
 
+_US_STATES = [
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "PR",
+]
+
+
 def _fetch_folktables_xy(
-    seed: int = 42, *, published_acs_income_filter: bool = False
+    seed: int = 42,
+    *,
+    published_acs_income_filter: bool = False,
+    states: list[str] | tuple[str, ...] = ("CA",),
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Shared ACS 2018 CA fetch + encoding → (X features, continuous PINCP)."""
+    """Shared ACS 2018 fetch + encoding → (X features, continuous PINCP).
+
+    ``states`` selects the PUMS states (default CA-only, preserving the
+    existing benchmarks). Passing all US states yields ~3M person rows
+    (~1.5M after the employment filter) — the >1M-row likelihood scale.
+    """
     import folktables
     import pandas as pd
     from sklearn.preprocessing import OneHotEncoder
@@ -1434,7 +1497,7 @@ def _fetch_folktables_xy(
     ds = folktables.ACSDataSource(
         survey_year="2018", horizon="1-Year", survey="person", root_dir=root
     )
-    acs = ds.get_data(states=["CA"], download=True)
+    acs = ds.get_data(states=list(states), download=True)
     df = acs.copy()
     filt = (df["AGEP"] > 16) & (df["WKHP"] > 0) & (df["PINCP"] >= 100)
     if published_acs_income_filter:
@@ -1562,6 +1625,217 @@ def _load_folktables_acs_income_binary(
         "n_classes": 2,
         "_skip_y_standardization": True,
     }
+
+
+def _load_folktables_all(
+    n_samples: int | None = None,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """US Census income regression on ALL states (Folktables ACS 2018).
+
+    Same cohort/encoding as :func:`_load_folktables_income` but across all
+    50 states + PR: ~3M person rows (~1.5M after the employment filter) —
+    the >1M-row likelihood scale. ``n_samples=None`` (default) keeps the
+    full filtered set; pass an int for a seeded subsample (smoke/debug).
+    Falls back to California Housing if the fetch fails.
+    """
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.preprocessing import StandardScaler
+
+        X, y = _fetch_folktables_xy(seed, states=_US_STATES)
+        if n_samples is not None and n_samples < len(X):
+            rng = np.random.default_rng(seed)
+            idx = rng.choice(len(X), n_samples, replace=False)
+            X, y = X[idx], y[idx]
+    except Exception:
+        from sklearn.datasets import fetch_california_housing
+
+        data = fetch_california_housing(data_home=str(_image_cache_dir() / "sklearn"))
+        X, y = data.data.astype(np.float64), data.target.astype(np.float64)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "Folktables all-states fetch failed"
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        **splits,
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
+_TLC_MONTH = "2024-01"
+_TLC_URL = f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{_TLC_MONTH}.parquet"
+
+
+def _load_tlc_fare(
+    n_samples: int | None = None,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """NYC yellow-taxi fare regression (TLC trip records, pinned month).
+
+    ~3M trips for 2024-01; ``fare_amount`` is heavily right-skewed —
+    the second >1M-row likelihood domain next to Folktables income.
+    Features: passenger_count, trip_distance, PU/DO location IDs
+    (ordinal codes), payment_type, pickup hour + day-of-week, and
+    trip_duration_seconds from the timestamps. Filters: fare in
+    (0, 500], distance in (0, 100] miles, duration in [60s, 3h].
+    Targets stay RAW (``_skip_y_standardization``) so likelihood rows
+    see the true skew. Parquet is cached under the shared ``staged/tlc``
+    mirror (scratch, or the ARC project allocation on CANFAR); an
+    explicitly set but unusable ``TLC_ROOT`` raises instead of silently
+    substituting a proxy.
+    """
+    import os as _os
+
+    import pandas as _pd
+
+    root = _os.environ.get("TLC_ROOT", "")
+    staged, explicit = _staged_roots(root, "tlc")
+    parquet: Path | None = None
+    for cand in staged:
+        if not cand.is_dir():
+            continue
+        hits = sorted(cand.glob("yellow_tripdata_*.parquet"))
+        if hits:
+            # Prefer the pinned month, else the newest available file.
+            pinned = [h for h in hits if _TLC_MONTH in h.name]
+            parquet = pinned[0] if pinned else hits[-1]
+            break
+    if parquet is None:
+        target_dir = staged[0]
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            dest = target_dir / f"yellow_tripdata_{_TLC_MONTH}.parquet"
+            if not (dest.exists() and dest.stat().st_size > 0):
+                _download_with_progress(_TLC_URL, dest, desc="NYC TLC yellow")
+            parquet = dest
+        except Exception:
+            parquet = None
+    if parquet is None or not parquet.is_file():
+        if explicit:
+            raise RuntimeError(
+                f"TLC_ROOT={root!r} yielded no trip parquet; refusing synthetic fallback."
+            )
+        return _synthetic_tlc_proxy(n_samples or 20000, test_size, seed)
+
+    df = _pd.read_parquet(parquet)
+    needed = {
+        "passenger_count",
+        "trip_distance",
+        "PULocationID",
+        "DOLocationID",
+        "payment_type",
+        "tpep_pickup_datetime",
+        "tpep_dropoff_datetime",
+        "fare_amount",
+    }
+    if not needed.issubset(set(df.columns)):
+        if explicit:
+            raise RuntimeError(f"TLC parquet {parquet} lacks expected TLC columns.")
+        return _synthetic_tlc_proxy(n_samples or 20000, test_size, seed)
+    df = df.dropna(subset=list(needed)).copy()
+    df["pickup_ts"] = _pd.to_datetime(df["tpep_pickup_datetime"], errors="coerce")
+    df["dropoff_ts"] = _pd.to_datetime(df["tpep_dropoff_datetime"], errors="coerce")
+    df = df.dropna(subset=["pickup_ts", "dropoff_ts"])
+    df["duration_s"] = (df["dropoff_ts"] - df["pickup_ts"]).dt.total_seconds()
+    df["hour"] = df["pickup_ts"].dt.hour.astype(np.float64)
+    df["dow"] = df["pickup_ts"].dt.dayofweek.astype(np.float64)
+    filt = (
+        (df["fare_amount"] > 0)
+        & (df["fare_amount"] <= 500)
+        & (df["trip_distance"] > 0)
+        & (df["trip_distance"] <= 100)
+        & (df["duration_s"] >= 60)
+        & (df["duration_s"] <= 10800)
+        & (df["passenger_count"] >= 1)
+    )
+    df = df.loc[filt].reset_index(drop=True)
+    if len(df) < 1000:
+        if explicit:
+            raise RuntimeError(f"TLC parquet {parquet} yielded too few trips after filters.")
+        return _synthetic_tlc_proxy(n_samples or 20000, test_size, seed)
+    y = df["fare_amount"].to_numpy(dtype=np.float64)
+    X = np.column_stack(
+        [
+            df["passenger_count"].to_numpy(dtype=np.float64),
+            df["trip_distance"].to_numpy(dtype=np.float64),
+            df["PULocationID"].to_numpy(dtype=np.float64),
+            df["DOLocationID"].to_numpy(dtype=np.float64),
+            df["payment_type"].to_numpy(dtype=np.float64),
+            df["hour"].to_numpy(dtype=np.float64),
+            df["dow"].to_numpy(dtype=np.float64),
+            df["duration_s"].to_numpy(dtype=np.float64),
+        ]
+    )
+    if n_samples is not None and n_samples < len(X):
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(X), n_samples, replace=False)
+        X, y = X[idx], y[idx]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    return {
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "_skip_y_standardization": True,
+    }
+
+
+def _synthetic_tlc_proxy(n_samples: int, test_size: float, seed: int) -> SplitsDict:
+    """Seeded skewed-fare proxy (no I/O) — explicitly flagged fallback."""
+    rng = np.random.default_rng(seed)
+    n = n_samples
+    dist = rng.uniform(0.5, 20, n)
+    dur = dist * rng.uniform(120, 300, n) + rng.normal(0, 60, n)
+    fare = 2.5 + 2.5 * dist + 0.5 * dur / 60 + np.abs(rng.normal(0, 2, n))
+    X = np.column_stack(
+        [
+            rng.integers(1, 5, n).astype(np.float64),
+            dist,
+            rng.integers(1, 264, n).astype(np.float64),
+            rng.integers(1, 264, n).astype(np.float64),
+            rng.integers(1, 3, n).astype(np.float64),
+            rng.integers(0, 24, n).astype(np.float64),
+            rng.integers(0, 7, n).astype(np.float64),
+            np.clip(dur, 60, 10800),
+        ]
+    )
+    y = fare.astype(np.float64)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    splits: SplitsDict = {
+        "X_train": X_train.astype(np.float32),
+        "X_test": X_test.astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "_skip_y_standardization": True,
+        "_synthetic_fallback": True,
+    }
+    splits["_fallback_reason"] = "TLC parquet unavailable; synthetic fare proxy"
+    return splits
 
 
 def _load_folktables_decile(
@@ -5566,6 +5840,30 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "(Ding et al., NeurIPS 2021). Modern large-scale benchmark."
         ),
         loader=_registry_loader(_load_folktables_income, n_samples=20000),
+    ),
+    "folktables_all": DatasetInfo(
+        name="folktables_all",
+        category="tabular",
+        n_features=70,
+        n_samples=1500000,
+        description=(
+            "US Census income regression on ALL states (Folktables ACS 2018): "
+            "~3M person rows (~1.5M after the employment filter). "
+            ">1M-row likelihood scale; full filtered set by default."
+        ),
+        loader=_registry_loader(_load_folktables_all),
+    ),
+    "tlc_fare": DatasetInfo(
+        name="tlc_fare",
+        category="tabular",
+        n_features=8,
+        n_samples=2500000,
+        description=(
+            "NYC yellow-taxi fare regression (TLC 2024-01, ~3M trips): "
+            "right-skewed fare_amount with raw (unstandardized) targets. "
+            ">1M-row likelihood scale; pinned month, validated schema."
+        ),
+        loader=_registry_loader(_load_tlc_fare),
     ),
     "folktables_acs_income": DatasetInfo(
         name="folktables_acs_income",

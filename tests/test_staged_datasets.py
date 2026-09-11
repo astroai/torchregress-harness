@@ -91,6 +91,47 @@ def test_ucf_fallback_is_pure_synthetic(tmp_path: Path, monkeypatch) -> None:
     assert np.array_equal(np.asarray(splits["y_test"]), np.asarray(expected["y_test"]))
 
 
+def test_tlc_fare_real_data_contract() -> None:
+    """NYC TLC loader reads the staged parquet with raw skewed targets."""
+    import numpy as np
+
+    from harness.datasets import _load_tlc_fare
+
+    splits = _load_tlc_fare(n_samples=5000)
+    assert splits.get("_synthetic_fallback", False) is False
+    assert splits["X_train"].shape[1] == 8
+    y = np.concatenate([np.asarray(splits["y_train"]), np.asarray(splits["y_test"])]).astype(
+        np.float64
+    )
+    # Right-skewed fares on raw scale (no y standardization for likelihoods).
+    assert np.median(y) < y.mean()
+    assert float(y.min()) > 0.0
+    assert splits.get("_skip_y_standardization", False) is True
+
+
+def test_tlc_explicit_root_refuses_fallback(tmp_path: Path, monkeypatch) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setenv("TORCHREGRESS_HARNESS_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("TORCHREGRESS_HARNESS_STAGED_ROOT", str(tmp_path / "arc"))
+    monkeypatch.setenv("TLC_ROOT", str(empty))
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr(_datasets, "_download_with_progress", _boom)
+    with pytest.raises(RuntimeError):
+        _datasets._load_tlc_fare(n_samples=8)
+
+
+def test_folktables_all_registered() -> None:
+    from harness.datasets import _US_STATES, DATASET_REGISTRY
+
+    assert "folktables_all" in DATASET_REGISTRY
+    assert "tlc_fare" in DATASET_REGISTRY
+    assert len(_US_STATES) == 51
+
+
 def test_explicit_roots_refuse_synthetic_fallback(tmp_path: Path, monkeypatch) -> None:
     empty = tmp_path / "empty"
     empty.mkdir()
