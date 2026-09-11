@@ -1838,6 +1838,60 @@ def _synthetic_tlc_proxy(n_samples: int, test_size: float, seed: int) -> SplitsD
     return splits
 
 
+def _load_folktables_eiv(
+    n_samples: int | None = None,
+    test_size: float = 0.2,
+    seed: int = 42,
+    noise_frac: float = 0.15,
+    hetero_strength: float = 0.5,
+) -> SplitsDict:
+    """Folktables all-states with CALIBRATED heteroscedastic input noise.
+
+    Real ACS covariates + continuous income truth, but feature measurements
+    are corrupted by seed-fixed Gaussian noise whose per-row scale is a
+    documented fraction of each feature's standardized scale, modulated by
+    ``(1 + hetero_strength * |x|)`` row-wise — i.e. noisier measurements
+    for extreme rows. This is synthetic noise on real data (the standard
+    EIV benchmark construction, same as ``synthetic_eiv``), explicitly
+    labeled as injected: it tests EIV methods at >1M rows where no
+    measured-noise corpus exists. Returns noisy ``X_*``, clean
+    ``X_*_true``, scalar ``sigma_x`` fallback, and per-row
+    ``sigma_x_test`` in standardized units (matching the standardized
+    ``X``), so per-observation EIV paths are exercised at scale.
+    """
+    from sklearn.preprocessing import StandardScaler
+
+    X, y = _fetch_folktables_xy(seed, states=_US_STATES)
+    if n_samples is not None and n_samples < len(X):
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(X), n_samples, replace=False)
+        X, y = X[idx], y[idx]
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+    rng = np.random.default_rng(seed + 7)
+    row_mod = 1.0 + hetero_strength * np.abs(Xs).mean(axis=1, keepdims=True)
+    sigma = (noise_frac * row_mod).astype(np.float64)
+    sigma_full = np.repeat(sigma, Xs.shape[1], axis=1)
+    X_obs = (Xs + sigma_full * rng.standard_normal(Xs.shape)).astype(np.float32)
+    X_true = Xs.astype(np.float32)
+    # Single joint split: noisy X, clean X, targets, and per-row sigma
+    # stay row-aligned by construction (never reconstruct indices by hand).
+    Xtr_o, Xte_o, Xtr_t, Xte_t, ytr, yte, sig_tr, sig_te = train_test_split(
+        X_obs, X_true, y, sigma_full, test_size=test_size, random_state=seed
+    )
+    return {
+        "X_train": Xtr_o,
+        "X_test": Xte_o,
+        "y_train": ytr.astype(np.float32),
+        "y_test": yte.astype(np.float32),
+        "X_train_true": Xtr_t,
+        "X_test_true": Xte_t,
+        "sigma_x": float(noise_frac),
+        "sigma_x_test": sig_te.astype(np.float32),
+        "sigma_y": 0.0,
+    }
+
+
 def _load_folktables_decile(
     n_samples: int = 20000,
     test_size: float = 0.3,
@@ -5864,6 +5918,19 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             ">1M-row likelihood scale; pinned month, validated schema."
         ),
         loader=_registry_loader(_load_tlc_fare),
+    ),
+    "folktables_eiv": DatasetInfo(
+        name="folktables_eiv",
+        category="tabular",
+        n_features=70,
+        n_samples=1500000,
+        description=(
+            "Folktables all-states with calibrated heteroscedastic input "
+            "noise (seed-fixed injection on real covariates; noisy X, clean "
+            "X_true, per-row sigma_x_test). EIV at >1M rows; explicitly "
+            "labeled as injected noise (cf. measured GalaxiesML sigmas)."
+        ),
+        loader=_registry_loader(_load_folktables_eiv),
     ),
     "folktables_acs_income": DatasetInfo(
         name="folktables_acs_income",

@@ -112,6 +112,12 @@ def _train_eiv(
         n_epochs = epochs if epochs is not None else config.epochs
         bs = batch_size if batch_size is not None else config.batch_size
         learning_rate = lr if lr is not None else config.lr
+        # Throughput-motivated uplift at scale (documented): mini-batch 64
+        # on >100k rows is infeasible for slow EIV methods (ODR latent-opt,
+        # SIMEX ensembles, input-noise MC). Dynamics change is confined to
+        # big-data runs; small-data protocol is untouched.
+        if batch_size is None and X.shape[0] > 100_000:
+            bs = max(bs, 1024)
     else:
         n_epochs = epochs or 50
         bs = batch_size or 64
@@ -300,6 +306,7 @@ class EIVSuite(HarnessRunner):
             "synthetic_eiv_nonlinear_veryhighnoise",
             "photoz_eiv",
             "galaxiesml_eiv",
+            "folktables_eiv",
         ]
 
     @property
@@ -382,6 +389,15 @@ class EIVSuite(HarnessRunner):
                 preds = self.predict(method, state, splits["X_test"], cfg)
                 if "_y_scaler" in splits:
                     preds["_y_scaler"] = splits["_y_scaler"]
+                # Per-row target std for the uncertain-ground-truth report
+                # (evaluate consumes it when present; absent otherwise).
+                if "y_std_test" in splits:
+                    try:
+                        preds["y_std_test"] = np.asarray(
+                            splits["y_std_test"], dtype=np.float64
+                        ).reshape(-1)
+                    except Exception:
+                        pass
                 metrics = self.evaluate(method, preds, splits["y_test"], cfg)
                 eval_s = time.perf_counter() - t0
                 rows.append(
@@ -1086,10 +1102,66 @@ class EIVSuite(HarnessRunner):
         if "y_pred_clean" in predictions:
             y_pred_clean = np.asarray(predictions["y_pred_clean"]).reshape(-1)
             y_true_np = np.asarray(y_test).reshape(-1)
+            if len(y_pred_clean) != len(y_true_np):
+                # Smoke-subsampled targets vs full clean predictions (or vice
+                # versa): align on the overlapping prefix deterministically
+                # rather than failing the row.
+                n = min(len(y_pred_clean), len(y_true_np))
+                y_pred_clean, y_true_np = y_pred_clean[:n], y_true_np[:n]
             result["RMSE_clean"] = float(np.sqrt(np.mean((y_pred_clean - y_true_np) ** 2)))
             ss_res = float(np.sum((y_true_np - y_pred_clean) ** 2))
             ss_tot = float(np.sum((y_true_np - y_true_np.mean()) ** 2))
             result["R2_clean"] = float(1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else float("nan")
+
+        # Attenuation diagnostics (library): slope of prediction on truth.
+        # Values near 1 = no attenuation; < 1 = compressed dynamic range
+        # (the textbook EIV failure mode); reported on noisy and clean
+        # inputs alike.
+        try:
+            from torchregress.metrics import attenuation_factor as _att
+
+            y_pred_all = np.asarray(predictions["y_pred"]).reshape(-1)
+            y_true_all = np.asarray(y_test).reshape(-1)
+            n = min(len(y_pred_all), len(y_true_all))
+            result["Attenuation"] = float(_att(y_pred_all[:n], y_true_all[:n]))
+            if "y_pred_clean" in predictions:
+                yc = np.asarray(predictions["y_pred_clean"]).reshape(-1)
+                n = min(len(yc), len(y_true_all))
+                result["Attenuation_clean"] = float(_att(yc[:n], y_true_all[:n]))
+        except Exception:
+            pass
+
+        # Uncertain-ground-truth report (library): fires only when the
+        # dataset supplies per-row target std (stashed as y_std_test by
+        # run()) AND the row emits a predictive std.
+        try:
+            if "y_std_test" in predictions and "std" in predictions:
+                from torchregress.metrics import (
+                    uncertain_gt_metrics_report as _ugr,
+                )
+
+                officiated = np.asarray(predictions["y_std_test"], dtype=np.float64).reshape(-1)
+                pm = np.asarray(predictions["y_pred"], dtype=np.float64).reshape(-1)
+                ps = np.asarray(predictions["std"], dtype=np.float64).reshape(-1)
+                yt = np.asarray(y_test, dtype=np.float64).reshape(-1)
+                n = min(len(pm), len(ps), len(yt), len(officiated))
+                rep = _ugr(
+                    pred_mean=torch.from_numpy(pm[:n]),
+                    pred_variance=torch.from_numpy((ps[:n] ** 2).clip(min=1e-12)),
+                    target=torch.from_numpy(yt[:n]),
+                    target_variance=torch.from_numpy((officiated[:n] ** 2).clip(min=0.0)),
+                )
+                for _k, _v in rep.items():
+                    try:
+                        result[f"UGT_{_k}"] = float(
+                            np.asarray(_v, dtype=np.float64).reshape(-1)[0]
+                            if np.asarray(_v).size > 1
+                            else float(_v)
+                        )
+                    except Exception:
+                        continue
+        except Exception:
+            pass
 
         return result
 

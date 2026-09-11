@@ -28,6 +28,7 @@ from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.label_shift import LabelShiftSuite
+from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
@@ -66,6 +67,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "causal": CausalSuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
+    "likelihoods": LikelihoodsSuite,
     "classification_shift": ClassificationShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
