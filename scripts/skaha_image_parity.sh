@@ -123,6 +123,8 @@ pixi run pip install -q "git+https://github.com/torch-uncertainty/torch-uncertai
 pixi run pip install -q "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF" timm torchvision h5py Pillow requests nibabel || log "LUQ/timm stack failed"
 log "installing comparator/data deps (lifelines/crepes/survset/folktables/openpyxl)"
 pixi run pip install -q lifelines crepes survset folktables openpyxl || log "comparator deps failed (offline?)"
+log "installing likelihood deps (catboost/lightgbm/pyarrow for TLC parquet)"
+pixi run pip install -q catboost lightgbm pyarrow || log "likelihood deps failed (offline?)"
 log "installing h5py (GalaxiesML HDF5)"
 pixi run pip install -q h5py || log "h5py failed (offline?)"
 log "installing kaggle CLI (Kaggle dataset fetch, needs KAGGLE_USERNAME/KEY)"
