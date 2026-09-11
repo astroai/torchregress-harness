@@ -122,7 +122,7 @@ class CensoredSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_censored"]
+        return ["synthetic_censored", "survset_hdfail"]
 
     @property
     def canonical_scenarios(self) -> list[str]:
@@ -166,25 +166,41 @@ class CensoredSuite(HarnessRunner):
         if method == "MSE":
             model = _MLP(in_dim, hidden, out_dim=1)
             _train_one(model, WeightedMSELoss(), X, y.unsqueeze(1), config)
-            return {"type": "torch", "model": model}
+            return {
+                "type": "torch",
+                "model": model,
+                "censoring_test": np.asarray(splits["censoring_test"]).reshape(-1),
+            }
 
         elif method == "CensoredGaussianNLL":
             model = _MLP(in_dim, hidden, out_dim=out_dim)
             loss_fn = CensoredGaussianNLLLoss()
             _train_censored(model, loss_fn, X, y, censoring, config)
-            return {"type": "torch", "model": model}
+            return {
+                "type": "torch",
+                "model": model,
+                "censoring_test": np.asarray(splits["censoring_test"]).reshape(-1),
+            }
 
         elif method == "CensoredQuantile":
             model = _MLP(in_dim, hidden, out_dim=1)
             loss_fn = CensoredQuantileLoss(quantile=0.5)
             _train_censored(model, loss_fn, X, y, censoring, config)
-            return {"type": "torch", "model": model}
+            return {
+                "type": "torch",
+                "model": model,
+                "censoring_test": np.asarray(splits["censoring_test"]).reshape(-1),
+            }
 
         elif method == "AFT":
             model = _MLP(in_dim, hidden, out_dim=out_dim)
             loss_fn = AFTLoss()
             _train_censored(model, loss_fn, X, y, censoring, config)
-            return {"type": "torch", "model": model}
+            return {
+                "type": "torch",
+                "model": model,
+                "censoring_test": np.asarray(splits["censoring_test"]).reshape(-1),
+            }
 
         elif method == "lifelines_LogNormalAFT":
             # lifelines uses 1=observed, 0=censored (opposite of torchregress convention)
@@ -200,13 +216,17 @@ class CensoredSuite(HarnessRunner):
             df = pd.DataFrame(X_train_np, columns=feature_cols)
             df["duration"] = y_pos
             df["event"] = event.ravel()
-            aft = LogNormalAFTFitter()
+            # penalizer: unpenalized MLE explodes under heavy censoring
+            # (hdfail 94%: expectation RMSE 99066); median is the skew-robust
+            # point prediction for log-normal survival times.
+            aft = LogNormalAFTFitter(penalizer=0.1)
             aft.fit(df, duration_col="duration", event_col="event")
             return {
                 "type": "lifelines",
                 "model": aft,
                 "feature_cols": feature_cols,
                 "y_shift": y_shift,
+                "censoring_test": np.asarray(splits["censoring_test"]).reshape(-1),
             }
 
         raise ValueError(f"Unknown method: {method}")
@@ -230,10 +250,15 @@ class CensoredSuite(HarnessRunner):
             feature_cols = model_state["feature_cols"]
             y_shift = model_state.get("y_shift", 0.0)
             df_test = pd.DataFrame(X_test, columns=feature_cols)
-            y_pred = np.asarray(m.predict_expectation(df_test), dtype=np.float64)
+            y_pred = np.asarray(m.predict_median(df_test), dtype=np.float64)
             if y_shift != 0.0:
                 y_pred = y_pred - y_shift
-            return {"y_pred": y_pred}
+            return {
+                "y_pred": y_pred,
+                "censoring_test": np.asarray(
+                    model_state.get("censoring_test", np.zeros(len(y_pred), dtype=np.float32))
+                ).reshape(-1)[: len(y_pred)],
+            }
 
         # Torch models
         m = model_state["model"]
@@ -245,7 +270,12 @@ class CensoredSuite(HarnessRunner):
                 y_pred = raw[..., 0].squeeze(-1).detach().cpu().numpy()
             else:
                 y_pred = raw.squeeze(-1).detach().cpu().numpy()
-        return {"y_pred": y_pred}
+        return {
+            "y_pred": y_pred,
+            "censoring_test": np.asarray(
+                model_state.get("censoring_test", np.zeros(len(y_pred), dtype=np.float32))
+            ).reshape(-1)[: len(y_pred)],
+        }
 
     # ------------------------------------------------------------------
     # evaluate
@@ -275,7 +305,29 @@ class CensoredSuite(HarnessRunner):
         ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
         r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else float("nan")
 
-        return {"RMSE": rmse, "MAE": mae, "R2": r2}
+        out: dict[str, float] = {"RMSE": rmse, "MAE": mae, "R2": r2}
+        # Library censored metrics (dogfood): Harrell concordance on the
+        # observed ordering + MAE over uncensored points only.
+        try:
+            import torch as _torch
+            from torchregress.metrics import (
+                concordance_index as _cindex,
+            )
+            from torchregress.metrics import (
+                observed_mae as _omae,
+            )
+
+            codes = np.asarray(
+                predictions.get("censoring_test", np.zeros_like(y_true, dtype=np.float32))
+            ).reshape(-1)[: len(y_true)]
+            yp_t = _torch.from_numpy(y_pred.astype(np.float64))
+            yt_t = _torch.from_numpy(y_true.astype(np.float64))
+            yc_t = _torch.from_numpy(codes.astype(np.float64))
+            out["Concordance"] = float(_cindex(yp_t, yt_t, yc_t).item())
+            out["ObservedMAE"] = float(_omae(yp_t, yt_t, yc_t).item())
+        except Exception:
+            pass
+        return out
 
     # ------------------------------------------------------------------
     # notes

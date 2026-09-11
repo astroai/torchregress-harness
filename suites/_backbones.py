@@ -128,6 +128,11 @@ def _train_one(
 
     opt = optim.Adam(params, lr=_lr)
     device = next(model.parameters()).device
+    # Learnable losses (flows, SLS, dispersion params) must ride the model's
+    # device — mirrors _train_image_model. Without this, GPU runs mix
+    # accelerator inputs with CPU loss parameters (addmm device error).
+    if isinstance(loss_fn, nn.Module):
+        loss_fn.to(device)
     X_dev = X.to(device)
     y_dev = y.to(device)
     n = X_dev.shape[0]

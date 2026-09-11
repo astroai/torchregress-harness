@@ -36,10 +36,18 @@ set -euo pipefail
 
 # Skaha containers run as a non-root user without write access to the
 # system pixi/uv caches -- redirect every cache to $HOME (or /arc).
-export PIXI_HOME="${PIXI_HOME:-$HOME/.pixi}"
-export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}"
-export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-export PIXI_CACHE_DIR="${PIXI_CACHE_DIR:-$HOME/.cache/pixi}"
+# NOTE: some images pre-set PIXI_HOME to a non-writable path (e.g.
+# /usr/local/share/pixi); force a writable location instead of honoring it.
+ensure_writable() { [ -d "$1" ] && [ -w "$1" ] || mkdir -p "$1" 2>/dev/null && [ -w "$1" ]; }
+export PIXI_HOME="$HOME/.pixi"
+ensure_writable "$PIXI_HOME" || PIXI_HOME="/arc/home/sfabbro/.pixi"
+export PIXI_HOME
+export PIXI_CACHE_DIR="$HOME/.cache/pixi"
+export UV_CACHE_DIR="$HOME/.cache/uv"
+export XDG_CACHE_HOME="$HOME/.cache"
+ensure_writable "$UV_CACHE_DIR" || { export UV_CACHE_DIR="/arc/home/sfabbro/.cache/uv"; ensure_writable "$UV_CACHE_DIR"; }
+export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
+echo "[caches] PIXI_HOME=$PIXI_HOME UV_CACHE_DIR=$UV_CACHE_DIR"
 
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
 MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
@@ -90,24 +98,28 @@ clone_repo() { # <repo> <dest>
   git -C "$2" remote set-url origin "https://github.com/$1"
 }
 refresh_repo() { # <dest> <repo>
+  local url="https://github.com/$2"
   if [ -n "${GH_TOKEN:-}" ]; then
-    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 origin main
+    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 "$url" main
   else
-    git -C "$1" fetch --depth 1 origin main
+    git -C "$1" fetch --depth 1 "$url" main
   fi
-  git -C "$1" reset --hard origin/main
+  git -C "$1" reset --hard FETCH_HEAD
 }
 
 if [ ! -d "$SRC/torchregress/.git" ]; then
   log "cloning astroai/torchregress"
   clone_repo astroai/torchregress "$SRC/torchregress"
+else
+  log "torchregress clone exists; refreshing"
+  refresh_repo "$SRC/torchregress" sfabbro/torchregress 2>/dev/null || true
 fi
 if [ ! -d "$SRC/torchregress-harness/.git" ]; then
   log "cloning astroai/torchregress-harness"
   clone_repo astroai/torchregress-harness "$SRC/torchregress-harness"
 else
   log "harness clone exists; refreshing"
-  refresh_repo "$SRC/torchregress-harness" astroai/torchregress-harness 2>/dev/null || true
+  refresh_repo "$SRC/torchregress-harness" sfabbro/torchregress-harness 2>/dev/null || true
 fi
 cd "$SRC/torchregress-harness"
 HARNESS_SHA=$(git rev-parse HEAD)
@@ -124,6 +136,11 @@ EOF
 
 # --- 2. Pixi env --------------------------------------------------------------
 export PATH="$HOME/.pixi/bin:$PATH"
+# Mock the CUDA virtual package for every pixi invocation (install AND run):
+# the committed lock carries a CUDA pseudo-platform solve, which CPU-only
+# headless nodes reject with "unsupported-platform ... __cuda". Offsetting the
+# mock with CONDA_OVERRIDE_CUDA lets CPU nodes install and run the CPU parts.
+export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
 if ! command -v pixi >/dev/null 2>&1; then
   log "installing pixi"
   curl -fsSL https://pixi.sh/install.sh | bash
@@ -131,34 +148,85 @@ if ! command -v pixi >/dev/null 2>&1; then
 fi
 if [ "${SKIP_PIXI_INSTALL:-}" != "1" ]; then
   log "pixi install (locked env; may take several minutes)"
-  pixi install
+  # -e default: plain `pixi install` installs EVERY env incl. the CUDA `gpu`
+  # env, which fails on CPU-only headless nodes. Only default is needed here.
+  # CONDA_OVERRIDE_CUDA: the lock may carry a CUDA pseudo-platform solve from
+  # GPU machines; mock the virtual package so CPU nodes can install.
+  CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}" pixi install -e default
 fi
+# OFFLINE_MODE=1: Skaha headless nodes cannot reach pypi.org (egress blocked);
+# reuse the cached pixi env on /arc, take torchvision from conda-forge, and
+# wire torchregress/harness into the env with a .pth instead of pip -e.
+OFFLINE_MODE="${OFFLINE_MODE:-0}"
+# pixi_run: drop-in for `pixi run` that skips pixi's environment re-validation
+# (`pixi run` re-solves the lock and fails on CPU-only nodes when the lock
+# carries a CUDA pseudo-platform). In OFFLINE_MODE, invoke the cached env's
+# binaries directly instead.
+pixi_run() {
+  if [ "$OFFLINE_MODE" = "1" ]; then
+    local envbin="$SRC/torchregress-harness/.pixi/envs/default/bin"
+    case "$1" in
+      python) "$envbin/python" "${@:2}" ;;
+      pip)    "$envbin/python" -m pip "${@:2}" ;;
+      *)      "$envbin/$1" "${@:2}" ;;
+    esac
+  else
+    pixi run "$@"
+  fi
+}
 # The openworker image ships a read-only system venv on PATH; make sure the
-# pixi env owns pip/setuptools so `pixi run pip` installs into the writable
+# pixi env owns pip/setuptools so `pixi_run pip` installs into the writable
 # pixi env, not /opt/openworker/venv.
-pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
-# torch must pair with torchvision from the SAME source.  The conda-forge
-# torch in the pixi env is ABI-incompatible with a PyPI torchvision wheel
-# (torchvision::nms does not exist).  Install torchvision from conda-forge and
-# drop any pip-installed one so pip does not reinstall its own wheel during
-# the extras step.
-pixi run pip uninstall -y torchvision >/dev/null 2>&1 || true
-pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
+# NOTE: `pixi add` re-solves every environment and fails on CPU-only nodes
+# when the lock carries a CUDA pseudo-platform; the cached offline env already
+# contains pip/setuptools/torchvision, so skip adds there.
+if [ "$OFFLINE_MODE" != "1" ]; then
+  pixi add pip setuptools wheel >/dev/null 2>&1 || log "WARN: pixi add pip/setuptools/wheel failed"
+  # torch must pair with torchvision from the SAME source.  The conda-forge
+  # torch in the pixi env is ABI-incompatible with a PyPI torchvision wheel
+  # (torchvision::nms does not exist).  Install torchvision from conda-forge and
+  # drop any pip-installed one so pip does not reinstall its own wheel during
+  # the extras step.
+  pixi add torchvision >/dev/null 2>&1 || log "WARN: pixi add torchvision failed"
+fi
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: wiring local packages via .pth (no pypi)"
+  # Direct interpreter call: `pixi run` re-validates every environment and
+  # fails on CPU nodes when the lock carries a CUDA pseudo-platform.
+  PYBIN="$PWD/.pixi/envs/default/bin/python"
+  [ -x "$PYBIN" ] || { log "FATAL: cached pixi env python missing at $PYBIN"; exit 1; }
+  "$PYBIN" - <<'PY'
+import pathlib, sysconfig
+sp = pathlib.Path(sysconfig.get_paths()["purelib"])
+root = pathlib.Path.cwd().parent  # $SRC (torchregress-harness's parent)
+lines = [str(root / "torchregress" / "src"), str(root / "torchregress-harness" / "src")]
+(sp / "harness_local.pth").write_text("\n".join(lines) + "\n")
+print("wrote", sp / "harness_local.pth")
+PY
+fi
 
 # --- 3. Pinned external libraries (EXTERNAL_PINS.md) --------------------------
-log "installing MAPIE git pin"
-pixi run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
-log "installing torch-uncertainty git pin + lightning"
-pixi run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: skipping pypi/git pip installs (already in cached env)"
+else
+  log "installing MAPIE git pin"
+  pixi_run pip install --quiet "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
+  log "installing torch-uncertainty git pin + lightning"
+  pixi_run pip install --quiet "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
+fi
 
 # --- 4. Optional extras (best-effort; skips degrade gracefully) ---------------
-log "installing optional extras [all] (best-effort)"
-pixi run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
-log "installing pzflow (best-effort)"
-pixi run pip install --quiet pzflow || log "WARN: pzflow install failed"
+if [ "$OFFLINE_MODE" = "1" ]; then
+  log "OFFLINE_MODE: skipping [all] extras and pzflow pip installs"
+else
+  log "installing optional extras [all] (best-effort)"
+  pixi_run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
+  log "installing pzflow (best-effort)"
+  pixi_run pip install --quiet pzflow || log "WARN: pzflow install failed"
+fi
 
 log "recording installed versions"
-pixi run python - <<'PY' > "$OUT_DIR/versions.txt" 2>&1 || true
+pixi_run python - <<'PY' > "$OUT_DIR/versions.txt" 2>&1 || true
 import importlib.metadata as md
 for pkg in ("mapie", "torch-uncertainty", "torch", "lightning", "torchregress",
             "torchregress-harness", "pzflow", "jax", "crepes", "torchcp",
@@ -174,7 +242,9 @@ PY
 cat "$OUT_DIR/versions.txt"
 
 # --- 4b. Pre-flight import check (fail fast instead of 7 failing steps) ------
-if ! pixi run python -c "import torch, torchvision, torchregress, harness, mapie"; then
+# torchvision is NOT imported anywhere in harness/torchregress (datasets.py
+# resizes via numpy+PIL); only torch + the wired locals are load-bearing.
+if ! pixi_run python -c "import torch, torchregress, harness, mapie"; then
   log "FATAL: pre-flight import check failed (torch/torchvision ABI mismatch?) -- aborting"
   exit 1
 fi
@@ -186,27 +256,31 @@ run_bench() {
   "$@" || log "WARN: step failed (continuing): $*"
 }
 
-run_bench pixi run python tools/run_canonical.py --scenario mapie_reference \
+run_bench pixi_run python tools/run_canonical.py --scenario mapie_reference \
   --output "$OUT_DIR/canonical_mapie.json" --report "$OUT_DIR/canonical_mapie.md"
-run_bench pixi run python tools/run_canonical.py --scenario crepes_reference \
+run_bench pixi_run python tools/run_canonical.py --scenario crepes_reference \
   --output "$OUT_DIR/canonical_crepes.json" --report "$OUT_DIR/canonical_crepes.md"
-run_bench pixi run python leaderboard_conformal.py \
+run_bench pixi_run python leaderboard_conformal.py \
   --output "$OUT_DIR/leaderboard_conformal.json" --epochs 60
-run_bench pixi run python tools/leaderboard_regression.py \
+run_bench pixi_run python tools/leaderboard_regression.py \
   --output "$OUT_DIR/leaderboard_results.json" --markdown "$OUT_DIR/leaderboard_results.md"
-run_bench pixi run python tools/benchmark_pit_ensemble.py \
+run_bench pixi_run python tools/benchmark_pit_ensemble.py \
   --epochs 60 --output "$OUT_DIR/pit_ensemble.json"
-run_bench pixi run python tools/run_all.py --suites conformal \
+run_bench pixi_run python tools/run_all.py --suites conformal \
   --datasets california_housing --output "$OUT_DIR/run_all_conformal.json"
-run_bench pixi run python tools/run_all.py --suites age_regression \
+run_bench pixi_run python tools/run_all.py --suites age_regression \
   --datasets synthetic_image_regression --output "$OUT_DIR/run_all_image.json"
+# Diversity/stress matrix: 6 stress axes x methods x metrics (+ LUQ-box rows
+# when lightning-uq-box is importable in the env).
+run_bench pixi_run python tools/run_all.py --suites stress_matrix \
+  --output "$OUT_DIR/run_all_stress_matrix.json"
 
 # --- 6. Summary ---------------------------------------------------------------
 log "===== ARTIFACTS ====="
 ls -la "$OUT_DIR" || true
 
 log "===== EXTERNAL LIBRARY ROWS (LibraryVersion) ====="
-pixi run python - "$OUT_DIR" <<'PY' || true
+pixi_run python - "$OUT_DIR" <<'PY' || true
 import json, sys, glob, os
 root = sys.argv[1]
 def rows_of(path):

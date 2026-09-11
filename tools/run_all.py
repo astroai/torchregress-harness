@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(_repo_root) / "src"))
 from tools._suite_registry import ALL_SUITES
 from tools._validate import (
     validate_gaussiannll_coverage,
+    validate_image_backbones,
     validate_multivariate_gaussian_coverage,
     validate_nf_architecture,
     validate_sls_architecture,
@@ -91,6 +92,17 @@ def main() -> None:
         type=int,
         default=60,
         help="Training epochs per method",
+    )
+    parser.add_argument(
+        "--img-size",
+        type=int,
+        default=None,
+        help="Override image size for image datasets (e.g. 64 smoke, 128 default, 256 fullres)",
+    )
+    parser.add_argument(
+        "--pretrained",
+        action="store_true",
+        help="Use pretrained ResNet/timm weights for image backbones (default: random init)",
     )
     parser.add_argument(
         "--validate",
@@ -167,6 +179,12 @@ def main() -> None:
             print(m)
         print()
 
+        print("=== Image backbone smoketest ===")
+        img_ok, img_msgs = validate_image_backbones()
+        for m in img_msgs:
+            print(m)
+        print()
+
         if (
             not tr_ok
             or not suite_ok
@@ -175,6 +193,7 @@ def main() -> None:
             or not sls_arch_ok
             or not gnll_ok
             or not mvg_ok
+            or not img_ok
         ):
             print("Validation FAILED — fix the issues above before running benchmarks.")
             sys.exit(1)
@@ -211,27 +230,43 @@ def main() -> None:
             print(f"\n=== Suite: {suite.name} · Dataset: {dataset_name} ===")
             try:
                 try:
-                    split = load_dataset(
-                        dataset_name,
-                        n_samples=200 if args.smoke else None,
-                        standardize_targets=config.standardize_targets,
-                    )
+                    load_kw: dict[str, object] = {
+                        "standardize_targets": config.standardize_targets,
+                    }
+                    if args.smoke:
+                        load_kw["n_samples"] = 200
+                    if args.img_size is not None and "image" in dataset_name:
+                        load_kw["img_size"] = args.img_size
+                    split = load_dataset(dataset_name, **load_kw)  # type: ignore[arg-type]
                 except KeyError:
                     print(f"  Dataset {dataset_name!r} not found — skipping")
+                    continue
+                except Exception as exc:
+                    # Real datasets (NYU/IMDB-WIKI downloads, corrupt caches)
+                    # must not kill the whole run — report and continue.
+                    print(f"  Dataset {dataset_name!r} unavailable — skipping ({exc})")
                     continue
 
                 rows = suite.run(dataset_name, config, splits=split)
                 all_rows.extend(rows)
 
                 for row in rows:
-                    # Any non-structural key with a non-None value = has results
-                    has_result = any(
-                        v is not None
-                        and k not in ("Method", "Library", "Dataset", "Suite", "Notes")
-                        for k, v in row.items()
+                    note = str(row.get("Notes", "")).lower()
+                    # Colon-suffixed markers only: bare-substring matching
+                    # false-positives on innocent notes such as
+                    # "error-aware feature encoder". All failure notes use
+                    # the "failed: …" / "skipped: …" / "error: …" convention.
+                    # "known-bad: …" rows stay visibly flagged (documented
+                    # limitation, not a transient failure).
+                    has_result = not (
+                        "error:" in note
+                        or "failed:" in note
+                        or "skipped:" in note
+                        or note.startswith("known-bad:")
                     )
                     status = "✓" if has_result else "✗"
-                    print(f"  {status} {row['Method']}")
+                    suffix = f"  ({row['Notes'][:80]})" if not has_result else ""
+                    print(f"  {status} {row['Method']}{suffix}")
 
             except NotImplementedError:
                 print(f"  Suite {suite.name!r} not yet implemented — skipping")

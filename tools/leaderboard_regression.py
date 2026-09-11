@@ -191,7 +191,9 @@ def _is_skipped(row: dict[str, Any]) -> bool:
     notes = str(row.get("Notes", "")).lower()
     if notes.startswith("known-bad:"):
         return False
-    return any(token in notes for token in ("skipped", "failed", "error"))
+    # Colon-suffixed markers only (see tools/run_all.py): bare "error"
+    # false-positives on notes like "error-aware feature encoder".
+    return any(token in notes for token in ("skipped:", "failed:", "error:"))
 
 
 def _has_any_metric(row: dict[str, Any]) -> bool:

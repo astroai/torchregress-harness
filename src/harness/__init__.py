@@ -20,6 +20,13 @@ from harness.datasets import (
     list_datasets,
     load_dataset,
 )
+from harness.image_wrappers import (
+    ImageEvidentialRegressor,
+    ImageFlowRegressor,
+    ImageGaussianNLLRegressor,
+    ImageMDNRegressor,
+    ImageQuantileRegressor,
+)
 
 # Apply PROPOSAL #15 protocol patches to torchregress distribution losses.
 # Idempotent — guarded by the _PATCH_SENTINEL attribute on each class.
@@ -72,6 +79,12 @@ __all__ = [
     "MDNRegressor",
     "EvidentialRegressor",
     "NormalizingFlowRegressor",
+    # image wrappers (CNN/UNet backbones on (N, C, H, W))
+    "ImageGaussianNLLRegressor",
+    "ImageMDNRegressor",
+    "ImageFlowRegressor",
+    "ImageEvidentialRegressor",
+    "ImageQuantileRegressor",
     # report
     "load_run",
     "render_markdown",

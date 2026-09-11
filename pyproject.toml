@@ -69,6 +69,7 @@ image = [
     "torchvision",
     "torch-uncertainty>=0.13.0",
     "lightning",
+    "lightning-uq-box>=0.3.0",
     "timm",
     "requests",
     "Pillow",

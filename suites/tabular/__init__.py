@@ -18,6 +18,7 @@ from .multivariate_intervals import MultivariateIntervalsSuite
 from .pzflow_parity import PzflowParitySuite
 from .robust_regression import RobustRegressionSuite
 from .sklearn_baselines import SklearnBaselinesSuite
+from .stress_matrix import StressMatrixSuite
 from .tweedie import TweedieSuite
 from .uq import UQSuite
 
@@ -32,6 +33,7 @@ __all__ = [
     "PzflowParitySuite",
     "RobustRegressionSuite",
     "SklearnBaselinesSuite",
+    "StressMatrixSuite",
     "TweedieSuite",
     "UQSuite",
 ]

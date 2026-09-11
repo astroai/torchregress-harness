@@ -44,6 +44,38 @@ from suites._backbones import (
     _train_one,
 )
 
+try:
+    from crepes import ConformalRegressor as _CrepesRegressor
+
+    _CREPES_AVAILABLE = True
+except ImportError:
+    _CREPES_AVAILABLE = False
+
+# ---------------------------------------------------------------------------
+# Skew/shape family spec: method → (loss class, head width, notes)
+# Widths verified by forward probe; location is column 0 in all layouts.
+# ---------------------------------------------------------------------------
+
+_SKEW_METHODS: dict[str, dict[str, Any]] = {
+    "SkewNormal": {"loss": "SkewNormalNLLLoss", "width": 3, "note": "[ξ,ω,α] skew-normal MLE"},
+    "SkewT": {"loss": "SkewTLoss", "width": 4, "note": "[ξ,ω,α,ν] skew-t MLE"},
+    "BetaRegression": {
+        "loss": "BetaRegressionNLLLoss",
+        "width": 2,
+        "note": "beta MLE on min-max-normalized targets",
+        "normalize01": True,
+    },
+    "JohnsonSU": {"loss": "JohnsonSUNLLLoss", "width": 4, "note": "[ξ,λ,γ,δ] Johnson-SU MLE"},
+    "SinhArcsinh": {"loss": "SinhArcsinhNLLLoss", "width": 4, "note": "sinh-arcsinh MLE"},
+    "GEV": {"loss": "GEVNLLLoss", "width": 3, "note": "[μ,σ,ξ] extreme-value MLE"},
+    "AsymmetricLaplace": {
+        "loss": "AsymmetricLaplaceNLLLoss",
+        "width": 3,
+        "note": "asymmetric-Laplace (quantile-like) MLE",
+    },
+}
+
+
 # ---------------------------------------------------------------------------
 # Interval helpers
 # ---------------------------------------------------------------------------
@@ -67,6 +99,25 @@ def _split_cp_intervals(
     residuals = (y_cal - pred_cal).abs()
     q = torch.quantile(residuals, 1.0 - alpha).item()
     return (pred_test - q).cpu().numpy(), (pred_test + q).cpu().numpy()
+
+
+def _skew_cp_intervals(
+    model: nn.Module,
+    X_cal: torch.Tensor,
+    y_cal: torch.Tensor,
+    X_test: torch.Tensor,
+    *,
+    alpha: float = 0.1,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Split-conformal on a distribution head's location column (col 0)."""
+    model.eval()
+    with torch.no_grad():
+        loc_cal = model(X_cal)[:, 0]
+        loc_test = model(X_test)[:, 0]
+    residuals = (y_cal.reshape(-1) - loc_cal.reshape(-1)).abs()
+    q = torch.quantile(residuals, 1.0 - alpha).item()
+    loc = loc_test.reshape(-1).detach().cpu().numpy()
+    return loc - q, loc + q, loc
 
 
 def _bin_metrics(
@@ -150,16 +201,34 @@ class DistributionalBinsSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     def methods(self) -> list[str]:
-        return [
+        methods = [
             "Split_CP",
             "GaussianNLL",
             "NormalizingFlow",
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
+            "MC_CP",
+            "SLS_CP",
+            "CTI",
+            "ContrastiveFlow",
+            "SkewNormal",
+            "SkewT",
+            "BetaRegression",
+            "JohnsonSU",
+            "SinhArcsinh",
+            "GEV",
+            "AsymmetricLaplace",
+            "SQR",
+            "RandomPartition",
         ]
+        if _CREPES_AVAILABLE:
+            methods.append("crepes_CQR")
+        return methods
 
     def library_name(self, method: str) -> str:
+        if method.startswith("crepes_"):
+            return "crepes"
         return "torchregress"
 
     def method_notes(self, method: str) -> str:
@@ -188,12 +257,22 @@ class DistributionalBinsSuite(HarnessRunner):
                 f"{ctx_text} (Proposal #10 {section_text})"
             )
         notes = {
-            "Split_CP": "post-hoc split conformal \u2014 baseline, also defines bins",
-            "GaussianNLL": "diagonal Gaussian NLL \u2192 mean \u00b1 z\u00b7\u03c3 intervals",
-            "NormalizingFlow": "zuko NSF normalizing flow \u2192 sample-based quantile intervals",
-            "MDN_K3": "3-component mixture density network \u2192 sample-based quantile intervals",
-            "Evidential": "NIG evidential regression \u2192 Student-t predictive intervals",
+            "Split_CP": "post-hoc split conformal — baseline, also defines bins",
+            "GaussianNLL": "diagonal Gaussian NLL → mean ± z·σ intervals",
+            "NormalizingFlow": "zuko NSF normalizing flow → sample-based quantile intervals",
+            "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
+            "Evidential": "NIG evidential regression → Student-t predictive intervals",
+            "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
+            "SLS_CP": "SLS frontier (d=1) + SLSConformal grid predictor",
+            "CTI": "NSF flow density + Conformal Thresholded Intervals (level sets)",
+            "ContrastiveFlow": "NSF + in-batch negative contexts (contrastive shaping)",
+            "SQR": "32-level sorted quantiles → own 5/95% intervals (Duan et al. 2020)",
+            "RandomPartition": "3× binned heads on jittered partitions → CDF-average mean/var",
+            "crepes_CQR": "sklearn quantile GBRs + crepes score calibration (external)",
         }
+        if method in _SKEW_METHODS:
+            spec = _SKEW_METHODS[method]
+            return f"{spec['note']} → location ± conformal intervals"
         return notes.get(method, "")
 
     # ------------------------------------------------------------------
@@ -365,6 +444,266 @@ class DistributionalBinsSuite(HarnessRunner):
             model.eval()
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
 
+        # --- MonteCarloCP: NF samples + MonteCarloConformal (mean center) ---
+        elif method == "MC_CP":
+            from torchregress.losses.conformal import MonteCarloConformal
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(flow.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                cal_samples = loss_fn.sample(model(X_cal), n_samples=256).squeeze(-1)
+            predictor = MonteCarloConformal(alpha=0.1)
+            # mc_samples layout is [n_samples, batch, ...] → transpose (N, S).
+            predictor.calibrate(cal_samples.detach().T, y_cal.reshape(-1))
+            return {"type": "mc_cp", "model": model, "flow": loss_fn, "predictor": predictor}
+
+        # --- SLS_CP: SLS frontier (d=1) + SLSConformal grid predictor ---
+        elif method == "SLS_CP":
+            from torchregress.losses.conformal import SLSConformal
+            from torchregress.losses.sls import SLSLoss
+
+            context_dim = hidden
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = SLSLoss(
+                d=1,
+                context_dim=context_dim,
+                K=1,
+                mode="full",
+                hidden_dim=64,
+                n_transforms=4,
+                tau=0.9,
+                warmup_steps=50,
+            )
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(loss_fn.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                ctx_cal = model(X_cal)
+            predictor = SLSConformal(loss_fn, alpha=0.1)
+            predictor.calibrate(ctx_cal.detach(), y_cal.reshape(-1, 1))
+            y_min = float(y_train.min())
+            y_max = float(y_train.max())
+            pad = max(y_max - y_min, 1e-3) * 0.1
+            return {
+                "type": "sls_cp",
+                "model": model,
+                "predictor": predictor,
+                "y_min": y_min - pad,
+                "y_max": y_max + pad,
+            }
+
+        # --- ContrastiveFlow: NF + in-batch negative contexts ---
+        # Negatives are rolled-batch contexts (standard in-batch contrastive
+        # practice, documented — no external simulator needed).
+        elif method == "ContrastiveFlow":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.losses.nflows import ContrastiveFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = ContrastiveFlowLoss(flow=flow)
+            loader = DataLoader(
+                TensorDataset(X_train, y_train), batch_size=config.batch_size, shuffle=True
+            )
+            opt = optim.Adam(list(model.parameters()) + list(flow.parameters()), lr=config.lr)
+            device = next(model.parameters()).device
+            loss_fn.to(device)
+            model.train()
+            for _ in range(config.epochs):
+                for Xb, yb in loader:
+                    Xb, yb = Xb.to(device), yb.to(device)
+                    opt.zero_grad(set_to_none=True)
+                    ctx = model(Xb)
+                    neg = torch.roll(ctx.detach(), shifts=1, dims=0)
+                    loss = loss_fn(ctx, yb, negative_context=neg.unsqueeze(1))
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            return {"type": "nflow", "model": model, "flow": loss_fn}
+
+        # --- CTI: NF density + Conformal Thresholded Intervals ---
+        elif method == "CTI":
+            from torchregress.losses.conformal import CTI
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=context_dim,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(
+                model, loss_fn, X_train, y_train, config, loss_params=list(flow.parameters())
+            )
+            model.eval()
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            with torch.no_grad():
+                log_dens_cal = loss_fn.log_prob(model(X_cal), y_cal)
+            predictor = CTI(alpha=0.1)
+            predictor.calibrate(log_dens_cal.detach(), y_cal.reshape(-1))
+            y_min = float(y_train.min())
+            y_max = float(y_train.max())
+            pad = max(y_max - y_min, 1e-3) * 0.1
+            return {
+                "type": "cti",
+                "model": model,
+                "flow": loss_fn,
+                "predictor": predictor,
+                "y_min": y_min - pad,
+                "y_max": y_max + pad,
+            }
+
+        # --- Skew/shape NLLs: distribution-MLE head + split-conformal ---
+        # No samplers exist in families.py, so intervals come from conformal
+        # residuals on the location column (honest: likelihood trains the
+        # point, conformal covers the shape misspecification).
+        elif method in _SKEW_METHODS:
+            from torchregress.losses import families as _fam
+
+            spec = _SKEW_METHODS[method]
+            X_cal = torch.from_numpy(splits["X_cal"]).float().to(current_device())
+            y_cal = torch.from_numpy(splits["y_cal"]).float().to(current_device())
+            y_min = y_max = None
+            y_tr = y_train
+            if spec.get("normalize01"):
+                y_min = float(y_train.min())
+                y_max = float(y_train.max())
+                span = max(y_max - y_min, 1e-8)
+                # Map into (0, 1) strictly: beta NLL rejects exact 0/1.
+                y_tr = 0.01 + 0.98 * (y_train - y_min) / span
+                y_cal = 0.01 + 0.98 * (y_cal - y_min) / span
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=spec["width"])
+            loss_fn = getattr(_fam, spec["loss"])()
+            _train_one(model, loss_fn, X_train, y_tr, config)
+            model.eval()
+            return {
+                "type": "skew_cp",
+                "model": model,
+                "X_cal": X_cal,
+                "y_cal": y_cal,
+                "y_min": y_min,
+                "y_max": y_max,
+            }
+
+        # --- SQR: 32-level sorted-quantile head (own intervals) ---
+        elif method == "SQR":
+            from torchregress.losses import SQRLoss
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=32)
+            _train_one(model, SQRLoss(), X_train, y_train, config)
+            model.eval()
+            return {"type": "sqr", "model": model}
+
+        # --- crepes_CQR: sklearn quantile GBRs + crepes calibration ---
+        elif method == "crepes_CQR":
+            from sklearn.ensemble import GradientBoostingRegressor
+
+            if not _CREPES_AVAILABLE:
+                raise ImportError("crepes not installed")
+            alpha = 0.1
+            Xc = np.asarray(splits["X_cal"])
+            yc = np.asarray(splits["y_cal"]).reshape(-1)
+            lo = GradientBoostingRegressor(
+                loss="quantile", alpha=alpha / 2, random_state=config.seed
+            )
+            hi = GradientBoostingRegressor(
+                loss="quantile", alpha=1.0 - alpha / 2, random_state=config.seed
+            )
+            lo.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
+            hi.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
+            score = np.maximum(lo.predict(Xc) - yc, yc - hi.predict(Xc))
+            cr = _CrepesRegressor()
+            cr.fit(score)
+            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr}
+
+        # --- RandomPartition: M members on jittered target partitions ---        # CDF-space averaging onto the union grid; per-member CE training
+        # (members have incompatible out-dims, so no shared-target .fit).
+        elif method == "RandomPartition":
+            import torch.optim as optim
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.ensemble import RandomPartitionEnsembleModel
+
+            n_members, n_bins = 3, 8
+            dev = current_device()
+            y_np = y_train.reshape(-1).detach().cpu().numpy().astype(np.float64)
+            y_lo, y_hi = float(y_np.min()), float(y_np.max())
+            span = max(y_hi - y_lo, 1e-3)
+            rng = np.random.default_rng(config.seed)
+            member_edges = []
+            for _ in range(n_members):
+                e = np.quantile(y_np, np.linspace(0, 1, n_bins + 1))
+                e[1:-1] = e[1:-1] + rng.normal(0, 0.01 * span, n_bins - 1)
+                e = np.clip(np.sort(e), y_lo, y_hi)
+                e[0] = y_lo - 1e-6 * span
+                e[-1] = y_hi + 1e-6 * span
+                member_edges.append(torch.from_numpy(e.astype(np.float32)))
+            ens = RandomPartitionEnsembleModel(
+                _MLP,
+                ensemble_size=n_members,
+                device=str(dev),
+                member_bin_edges=member_edges,
+                in_dim=in_dim,
+                hidden=hidden,
+                out_dim=n_bins,
+            )
+            ens.to(dev)
+            ce = nn.CrossEntropyLoss()
+            for k, member in enumerate(ens.models):
+                y_idx = torch.from_numpy(
+                    np.clip(
+                        np.digitize(y_np, member_edges[k].detach().cpu().numpy()) - 1,
+                        0,
+                        n_bins - 1,
+                    )
+                ).long()
+                loader = DataLoader(
+                    TensorDataset(torch.from_numpy(splits["X_train"]).float(), y_idx),
+                    batch_size=config.batch_size,
+                    shuffle=True,
+                )
+                opt = optim.Adam(member.parameters(), lr=config.lr)
+                member.train()
+                for _ in range(config.epochs):
+                    for Xb, yb in loader:
+                        Xb, yb = Xb.to(dev), yb.to(dev)
+                        opt.zero_grad(set_to_none=True)
+                        ce(member(Xb), yb).backward()
+                        opt.step()
+                member.eval()
+            ens.eval()
+            return {"type": "randompartition", "model": ens}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -392,6 +731,140 @@ class DistributionalBinsSuite(HarnessRunner):
             )
             return {"lower": lo, "upper": hi}
 
+        # --- MonteCarloCP → sample-based conformal intervals ---
+        elif model_type == "mc_cp":
+            model = model_state["model"]
+            flow_loss = model_state["flow"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                samples = flow_loss.sample(model(X_t), n_samples=256).squeeze(-1)
+                samples_np = samples.detach().cpu().numpy()
+            lo, hi = predictor.predict_interval(samples.T)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": samples_np,
+            }
+
+        # --- SLS_CP → calibrated grid level-set intervals (d=1) ---
+        elif model_type == "sls_cp":
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            model.eval()
+            with torch.no_grad():
+                ctx = model(X_t)
+            lo, hi = predictor.predict_interval_from_grid(
+                ctx, model_state["y_min"], model_state["y_max"]
+            )
+            import numpy as _np
+
+            lo_np = _np.asarray(lo.detach().cpu()).reshape(-1)
+            hi_np = _np.asarray(hi.detach().cpu()).reshape(-1)
+            return {
+                "lower": lo_np,
+                "upper": hi_np,
+                "y_pred": ((lo_np + hi_np) / 2.0).reshape(-1),
+            }
+
+        # --- CTI → density level-set intervals from the NF ---
+        elif model_type == "cti":
+            model = model_state["model"]
+            flow_loss = model_state["flow"]
+            predictor = model_state["predictor"]
+            model.eval()
+
+            def _density_fn(y_grid: torch.Tensor, xb: torch.Tensor) -> torch.Tensor:
+                # (G,) grid × (B, f) inputs → (B, G) log-densities.
+                with torch.no_grad():
+                    ctx = model(xb)
+                    B = ctx.shape[0]
+                    G = y_grid.numel()
+                    ctx_rep = ctx.unsqueeze(1).expand(-1, G, -1).reshape(B * G, -1)
+                    y_rep = y_grid.reshape(1, -1, 1).expand(B, -1, -1).reshape(B * G, 1)
+                    return flow_loss.log_prob(ctx_rep, y_rep).reshape(B, G)
+
+            lo, hi = predictor.predict_intervals_from_density(
+                _density_fn, X_t, model_state["y_min"], model_state["y_max"]
+            )
+            import numpy as _np
+
+            lo_np = _np.asarray(lo.detach().cpu()).reshape(-1)
+            hi_np = _np.asarray(hi.detach().cpu()).reshape(-1)
+            with torch.no_grad():
+                mean_np = (
+                    flow_loss.sample(model(X_t), n_samples=64)
+                    .squeeze(-1)
+                    .mean(dim=1)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .reshape(-1)
+                )
+            return {"lower": lo_np, "upper": hi_np, "y_pred": mean_np}
+
+        # --- Skew/shape NLL + split-conformal on the location column ---
+        elif model_type == "skew_cp":
+            y_min, y_max = model_state.get("y_min"), model_state.get("y_max")
+            lo, hi, loc = _skew_cp_intervals(
+                model,
+                model_state["X_cal"],
+                model_state["y_cal"],
+                X_t,
+            )
+            if y_min is not None:
+                span = max(y_max - y_min, 1e-8)
+
+                def _inv(v: np.ndarray) -> np.ndarray:
+                    return (v - 0.01) / 0.98 * span + y_min  # type: ignore[no-any-return]
+
+                lo, hi, loc = _inv(lo), _inv(hi), _inv(loc)
+            return {"lower": lo, "upper": hi, "y_pred": loc}
+
+        # --- SQR → sorted-level intervals (own quantiles, no conformal) ---
+        elif model_type == "sqr":
+            model.eval()
+            with torch.no_grad():
+                arr = model(X_t).detach().cpu().numpy()  # (N, 32)
+            # Sort levels per row (SQR trains toward monotonicity but smoke
+            # budgets can leave crossings — same treatment as MultiExpectile).
+            arr = np.sort(arr, axis=1)
+
+            def _q(p: float) -> np.ndarray:
+                return arr[:, min(31, int(p * 32))].reshape(-1)
+
+            levels = (np.arange(1, 33) / 33.0).astype(np.float64)
+            return {
+                "lower": _q(0.05),
+                "upper": _q(0.95),
+                "y_pred": _q(0.5),
+                "quantile_values": arr.astype(np.float64),
+                "quantile_levels": levels,
+            }
+
+        # --- crepes_CQR → calibrated quantile intervals ---
+        elif model_type == "crepes_cqr":
+            lo_m, hi_m, cr = (
+                model_state["lo"],
+                model_state["hi"],
+                model_state["cr"],
+            )
+            q_lo = lo_m.predict(np.asarray(X_test)).reshape(-1)
+            q_hi = hi_m.predict(np.asarray(X_test)).reshape(-1)
+            # crepes ConformalRegressor only emits symmetric intervals; with
+            # CQR conformity scores fitted above, predict_int on zeros gives
+            # exactly ±Q (finite-sample corrected), applied to each quantile.
+            iv = np.asarray(cr.predict_int(np.zeros(len(q_lo)), confidence=0.9))
+            lo_np, hi_np = q_lo + iv[:, 0], q_hi + iv[:, 1]
+            return {
+                "lower": lo_np,
+                "upper": hi_np,
+                "y_pred": (lo_np + hi_np) / 2,
+            }
+
         # --- GaussianNLL → z-score intervals ---
         elif model_type == "gaussian_nll":
             mean, std = _gaussian_nll_predict(model, X_test)
@@ -403,6 +876,23 @@ class DistributionalBinsSuite(HarnessRunner):
                 # Gaussian-PIT branch (norm.cdf).
                 "mean": mean,
                 "std": std,
+            }
+
+        # --- RandomPartition → CDF-average mean/var intervals ---
+        elif model_type == "randompartition":
+            ens = model_state["model"]
+            ens.eval()
+            dev = next(ens.parameters()).device
+            with torch.no_grad():
+                d = ens.predict(torch.from_numpy(X_test).float().to(dev))
+            mean_np = np.asarray(d["mean"]).reshape(-1)
+            std_np = np.sqrt(np.asarray(d["variance"]).reshape(-1).clip(min=1e-12))
+            return {
+                "lower": mean_np - _Z_SCORE * std_np,
+                "upper": mean_np + _Z_SCORE * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
             }
 
         # --- NormalizingFlow → sample quantile intervals ---
@@ -553,6 +1043,18 @@ class DistributionalBinsSuite(HarnessRunner):
         predictions["_lo_raw"] = lo
         predictions["_hi_raw"] = hi
         predictions["_y_true_raw"] = y_true
+
+        # --- Library mean pinball over predicted quantile levels ---
+        if "quantile_values" in predictions and "quantile_levels" in predictions:
+            from torchregress.metrics import pinball_metric
+
+            try:
+                qv = np.asarray(predictions["quantile_values"], dtype=np.float64)
+                ql = np.asarray(predictions["quantile_levels"], dtype=np.float64)
+                qdict = {float(ql[j]): qv[:, j] for j in range(len(ql))}
+                metrics["Pinball"] = float(pinball_metric(qdict, y_true))
+            except Exception:
+                pass
 
         return metrics
 

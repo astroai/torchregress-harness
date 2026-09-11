@@ -97,14 +97,20 @@ class OrdinalSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_ordinal"]
+        return ["synthetic_ordinal", "folktables_decile"]
 
     @property
     def canonical_scenarios(self) -> list[str]:
         return []
 
     def methods(self) -> list[str]:
-        methods = ["MSE", "OrdinalCrossEntropy", "CumulativeLink", "CORAL"]
+        methods = [
+            "MSE",
+            "OrdinalCrossEntropy",
+            "CumulativeLink",
+            "CORAL",
+            "CumulativeLinkEnsemble",
+        ]
         if _CORAL_PYTORCH_AVAILABLE:
             methods.append("CORN")
         if _MORD_AVAILABLE:
@@ -171,6 +177,38 @@ class OrdinalSuite(HarnessRunner):
             _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
+        elif method == "CumulativeLinkEnsemble":
+            # 3× cumulative-link heads; PMF-space averaging via support moments.
+            from torch.utils.data import DataLoader, TensorDataset
+            from torchregress.ensemble import CumulativeLinkEnsembleModel
+
+            ens = CumulativeLinkEnsembleModel(
+                _MLP,
+                ensemble_size=3,
+                device=str(current_device()),
+                in_dim=in_dim,
+                hidden=_ordinal_hidden,
+                out_dim=n_classes - 1,
+                support_values=torch.arange(n_classes, dtype=torch.float32),
+            )
+            loader = DataLoader(
+                TensorDataset(
+                    torch.from_numpy(X_train_np).float(),
+                    torch.from_numpy(y_train_np).long(),
+                ),
+                batch_size=config.batch_size,
+                shuffle=True,
+            )
+            ens.fit(
+                loader,
+                CumulativeLinkLoss(),
+                epochs=_ordinal_epochs,
+                verbose=False,
+                device=str(current_device()),
+            )
+            ens.eval()
+            return {"type": "cumlink_ensemble", "model": ens, "n_classes": n_classes}
+
         elif method == "CORAL":
             # CORAL: shared-weight backbone + monotonic-bias CORAL head.
             # Backbone outputs feature vectors; CORALHead applies a single
@@ -180,7 +218,7 @@ class OrdinalSuite(HarnessRunner):
 
             backbone = _MLP(in_dim, _ordinal_hidden, out_dim=_ordinal_hidden)
             head = CORALHead(in_features=_ordinal_hidden, num_classes=n_classes)
-            model = nn.Sequential(backbone, head)
+            model = nn.Sequential(backbone, head).to(current_device())
             _train_one(model, CORALLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
@@ -265,6 +303,15 @@ class OrdinalSuite(HarnessRunner):
             probs = np.asarray(m.predict(X_test))
             y_pred = probs.argmax(axis=1).astype(np.int64)
 
+        elif model_type == "cumlink_ensemble":
+            # Ensemble PMF mean over class support → rounded class prediction.
+            m.eval()
+            with torch.no_grad():
+                d = m.predict(torch.from_numpy(X_test).float().to(current_device()))
+            y_pred = (
+                d["mean"].reshape(-1).round().clamp(0, n_classes - 1).long().detach().cpu().numpy()
+            )
+
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
@@ -290,7 +337,29 @@ class OrdinalSuite(HarnessRunner):
         mae = float(np.mean(np.abs(y_pred.astype(float) - y_true.astype(float))))
         rmse = float(np.sqrt(np.mean((y_pred.astype(float) - y_true.astype(float)) ** 2)))
 
-        return {"Accuracy": acc, "MAE": mae, "RMSE": rmse}
+        out: dict[str, float] = {"Accuracy": acc, "MAE": mae, "RMSE": rmse}
+        # Library ordinal metrics (dogfood): exact-match, QWK, class-MAE.
+        try:
+            import torch as _torch
+            from torchregress.metrics import (
+                mean_absolute_class_error as _mace,
+            )
+            from torchregress.metrics import (
+                ordinal_accuracy as _oacc,
+            )
+            from torchregress.metrics import (
+                quadratic_weighted_kappa as _qwk,
+            )
+
+            yp_t = _torch.from_numpy(y_pred.astype(np.int64))
+            yt_t = _torch.from_numpy(y_true.astype(np.int64))
+            n_cl = int(max(yp_t.max().item(), yt_t.max().item())) + 1
+            out["LibAccuracy"] = float(_oacc(yp_t, yt_t).item())
+            out["QWK"] = float(_qwk(yp_t, yt_t, num_classes=n_cl).item())
+            out["ClassMAE"] = float(_mace(yp_t, yt_t).item())
+        except Exception:
+            pass
+        return out
 
     # ------------------------------------------------------------------
     # notes
@@ -304,6 +373,9 @@ class OrdinalSuite(HarnessRunner):
             ),
             "CumulativeLink": (
                 "MLP + CumulativeLinkLoss — K-1 binary classifiers on cumulative logits"
+            ),
+            "CumulativeLinkEnsemble": (
+                "3× cumulative-link MLPs — PMF-space averaging + support-moment classes"
             ),
             "CORAL": (
                 "MLP + CORALHead + CORALLoss — shared-weight monotonic-bias head "

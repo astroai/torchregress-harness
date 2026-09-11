@@ -31,6 +31,41 @@ def _device_auto() -> torch.device:
     return torch.device("cpu")
 
 
+class _SweepCholeskyWrapper(torch.nn.Module):
+    """Adapt a (mean + Cholesky params) head to MultivariateGaussianLoss.
+
+    Closes the ``TODO: emit cholesky`` gap: full-covariance
+    ``gaussian_nll`` configs now emit ``D + D(D+1)/2`` head outputs and
+    route through this wrapper instead of silently falling back to
+    diagonal.
+    """
+
+    def __init__(self, D: int, mv_loss: torch.nn.Module) -> None:
+        super().__init__()
+        self.D = D
+        self.mv = mv_loss
+
+    def forward(self, y_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        D = self.D
+        mean = y_pred[:, :D]
+        raw = y_pred[:, D:]
+        N = y_pred.shape[0]
+        L = torch.zeros(N, D, D, device=y_pred.device, dtype=y_pred.dtype)
+        idx = 0
+        for i in range(D):
+            L[:, i, i] = torch.nn.functional.softplus(raw[:, idx]) + 1e-4
+            idx += 1
+            for j in range(i):
+                L[:, i, j] = raw[:, idx]
+                idx += 1
+        cov = L @ L.transpose(-1, -2)
+        return self.mv(mean, target, covariance_matrices=cov)
+
+
+def _cholesky_head_out(d_out: int) -> int:
+    return int(d_out + d_out * (d_out + 1) // 2)
+
+
 def run_sweep(config_path: Path, out_root: Path) -> Path:
     config_path = Path(config_path)
     out_root = Path(out_root)
@@ -130,10 +165,10 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                             model = backbone
                             loss_kwargs = {}  # prevent double creation
                         else:
-                            # gaussian, mdn, skew_t, etc: infer head size; handle full covariance ponytail
+                            # gaussian, mdn, skew_t, etc: infer head size
                             lk_cov_i = loss_kwargs.get("covariance_type")
                             if method_cfg["loss"] == "gaussian_nll" and lk_cov_i == "full":
-                                head_out = 2 * d_out  # fallback to diagonal
+                                head_out = _cholesky_head_out(d_out)
                             elif method_cfg["loss"] in ("skew_t_nll", "skew_t"):
                                 head_out = 4 * d_out
                             elif method_cfg["loss"] == "gaussian":
@@ -158,9 +193,17 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                 method_cfg["loss"] == "gaussian_nll"
                                 and lk_i.get("covariance_type") == "full"
                             ):
-                                lk_i["covariance_type"] = "diagonal"
-                            lk_i.setdefault("reduction", "mean")
-                            loss_fn = create_loss_from_config({"type": method_cfg["loss"], **lk_i})
+                                from torchregress.losses import MultivariateGaussianLoss
+
+                                lk_i.pop("covariance_type", None)
+                                lk_i.setdefault("reduction", "mean")
+                                mv = MultivariateGaussianLoss(n_features=d_out)
+                                loss_fn = _SweepCholeskyWrapper(d_out, mv)
+                            else:
+                                lk_i.setdefault("reduction", "mean")
+                                loss_fn = create_loss_from_config(
+                                    {"type": method_cfg["loss"], **lk_i}
+                                )
                         if method_cfg["loss"] not in ("nflow", "contrastive_nflow", "sls"):
                             model = torch.nn.Sequential(backbone, torch.nn.Linear(64, head_out))
                         elif method_cfg["loss"] == "sls":
@@ -215,18 +258,24 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                         else:
                             head_out = d_out
                         if method_cfg["loss"] not in ("nflow", "contrastive_nflow"):
-                            # handle full covariance: map to multivariate
+                            # handle full covariance via Cholesky + MultivariateGaussian
                             lk = dict(loss_kwargs)
                             if (
                                 method_cfg["loss"] == "gaussian_nll"
                                 and lk.get("covariance_type") == "full"
                             ):
-                                lk["covariance_type"] = (
-                                    "diagonal"  # ponytail: harness tabular MLP cannot emit full cov yet; keep diagonal for now
+                                from torchregress.losses import MultivariateGaussianLoss
+
+                                lk.pop("covariance_type", None)
+                                lk.setdefault("reduction", "mean")
+                                mv = MultivariateGaussianLoss(n_features=d_out)
+                                loss_fn = _SweepCholeskyWrapper(d_out, mv)
+                                head_out = _cholesky_head_out(d_out)
+                            else:
+                                lk.setdefault("reduction", "mean")
+                                loss_fn = create_loss_from_config(
+                                    {"type": method_cfg["loss"], **lk}
                                 )
-                                # TODO: emit cholesky and use MultivariateGaussianLoss
-                            lk.setdefault("reduction", "mean")
-                            loss_fn = create_loss_from_config({"type": method_cfg["loss"], **lk})
                         model = torch.nn.Sequential(
                             torch.nn.Linear(in_dim, hidden),
                             torch.nn.ReLU(),
@@ -313,13 +362,35 @@ def run_sweep(config_path: Path, out_root: Path) -> Path:
                                     else out_test.cpu()
                                 )
                         elif "gaussian" in method_cfg["loss"]:
-                            mu = out_test[:, :d_out]
-                            log_var = (
-                                out_test[:, d_out : 2 * d_out]
-                                if out_test.shape[1] >= 2 * d_out
-                                else torch.zeros_like(mu)
-                            )
-                            std = torch.exp(0.5 * log_var).clamp_min(1e-3)
+                            if isinstance(loss_fn, _SweepCholeskyWrapper):
+                                mu = out_test[:, :d_out]
+                                raw = out_test[:, d_out:]
+                                N = out_test.shape[0]
+                                L = torch.zeros(
+                                    N,
+                                    d_out,
+                                    d_out,
+                                    device=out_test.device,
+                                    dtype=out_test.dtype,
+                                )
+                                idx = 0
+                                for i in range(d_out):
+                                    L[:, i, i] = torch.nn.functional.softplus(raw[:, idx]) + 1e-4
+                                    idx += 1
+                                    for j in range(i):
+                                        L[:, i, j] = raw[:, idx]
+                                        idx += 1
+                                cov = L @ L.transpose(-1, -2)
+                                var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8)
+                                std = torch.sqrt(var)
+                            else:
+                                mu = out_test[:, :d_out]
+                                log_var = (
+                                    out_test[:, d_out : 2 * d_out]
+                                    if out_test.shape[1] >= 2 * d_out
+                                    else torch.zeros_like(mu)
+                                )
+                                std = torch.exp(0.5 * log_var).clamp_min(1e-3)
                             pred = PredictiveBatch(mean=mu.cpu(), std=std.cpu())
                         elif "skew_t" in method_cfg["loss"] or "gev" in method_cfg["loss"]:
                             # location is first d_out columns; treat as point/mean for metrics/corner

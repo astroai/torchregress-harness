@@ -744,6 +744,17 @@ class ConformalSuite(HarnessRunner):
             "CQR+MLP",
             "Split+Linear",
             "Split+Linear(post-hoc)",  # post-hoc cal → parity with MAPIE/crepes/torchcp
+            # torchregress predictor-zoo rows (post-hoc classes on an MLP base).
+            "Zoo_Split",
+            "Zoo_Distributional",
+            "Zoo_Density",
+            "Zoo_Prevalence",
+            "Zoo_Local",
+            "Zoo_LocalMAD",
+            "Zoo_UACQR",
+            "Zoo_CVPlus",
+            "Zoo_EnbPI",
+            "Zoo_NexCP",
         ]
         if _TABICL_AVAILABLE:
             methods.append("Split+TabICL")
@@ -786,6 +797,16 @@ class ConformalSuite(HarnessRunner):
     def method_notes(self, method: str) -> str:
         notes_map: dict[str, str] = {
             "Split+MLP": "point MLP + MSE → post-hoc residual calibration (ConformalLoss(split) ≡ MSE by design)",
+            "Zoo_Split": "torchregress SplitConformal class on MLP point base",
+            "Zoo_Distributional": "torchregress DistributionalConformal (PIT-band) on MLP base",
+            "Zoo_Density": "torchregress DensityConformal (density-adaptive) on MLP base",
+            "Zoo_Prevalence": "torchregress PrevalenceAdjustedCP (group-adjusted) on MLP base",
+            "Zoo_Local": "torchregress LocalConformal (kernel-weighted, x-passed) on MLP base",
+            "Zoo_UACQR": "torchregress UACQR (band-normalized) on MLP base",
+            "Zoo_NexCP": "torchregress NonExchangeableCP (recency-weighted threshold) on MLP base",
+            "Zoo_LocalMAD": "torchregress LocalConformalMAD (MAD-scaled) on Gaussian base",
+            "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
+            "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
             "Split+Linear": "single linear layer + ConformalLoss(split); matched-capacity baseline",
             "Split+Linear(post-hoc)": "single linear layer + MSE → post-hoc residual calibration; parity with MAPIE/crepes/torchcp",
@@ -895,6 +916,219 @@ class ConformalSuite(HarnessRunner):
                 "alpha": alpha,
             }
 
+        # --- torchregress predictor zoo: post-hoc classes on an MLP base ---
+        # Six share calibrate(y_pred_cal, target_cal) + predict_interval
+        # (Local also takes x=). CVPlus/EnbPI/LocalMAD need refit loops or
+        # special bases → own branches below. Fail-fast: no silent qhat reuse.
+        elif method.startswith("Zoo_") and method not in (
+            "Zoo_CVPlus",
+            "Zoo_EnbPI",
+            "Zoo_LocalMAD",
+            "Zoo_NexCP",
+        ):
+            from torchregress.losses.conformal import (
+                UACQR,
+                DensityConformal,
+                DistributionalConformal,
+                LocalConformal,
+                PrevalenceAdjustedCP,
+                SplitConformal,
+            )
+
+            zoo_cls = {
+                "Zoo_Split": SplitConformal,
+                "Zoo_Distributional": DistributionalConformal,
+                "Zoo_Density": DensityConformal,
+                "Zoo_Prevalence": PrevalenceAdjustedCP,
+                "Zoo_Local": LocalConformal,
+                "Zoo_UACQR": UACQR,
+            }[method]
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+            _train_one(model, nn.MSELoss(), X_train, y_train, config)
+            model.eval()
+            predictor = zoo_cls(alpha=alpha)
+            with torch.no_grad():
+                p_cal = model(X_cal)
+            if method == "Zoo_UACQR":
+                # UACQR subclasses CQR: needs a 2-quantile base, not points.
+                from torchregress.losses.quantile import MultiQuantileLoss
+
+                qmodel = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
+                _train_one(
+                    qmodel,
+                    MultiQuantileLoss(quantiles=[alpha / 2, 1.0 - alpha / 2]),
+                    X_train,
+                    y_train,
+                    config,
+                )
+                qmodel.eval()
+                model = qmodel
+                with torch.no_grad():
+                    p_cal = model(X_cal)
+            if method == "Zoo_Distributional":
+                # PIT-band scores need CDF values: GaussianNLL 2-head base.
+                from torchregress.losses import GaussianNLLLoss
+
+                gmodel = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
+                _train_one(gmodel, GaussianNLLLoss(), X_train, y_train, config)
+                gmodel.eval()
+                model = gmodel
+                with torch.no_grad():
+                    out_cal = model(X_cal)
+                    mean_c, std_c = (
+                        out_cal[:, 0:1],
+                        torch.exp(out_cal[:, 1:2]).sqrt().clamp_min(1e-6),
+                    )
+                    from torch.distributions import Normal as _Normal
+
+                    f_cal = _Normal(mean_c, std_c).cdf(y_cal.reshape(-1, 1))
+                predictor.calibrate(f_cal.detach(), y_cal)
+                return {
+                    "type": "zoo_distributional",
+                    "model": model,
+                    "predictor": predictor,
+                    "alpha": alpha,
+                }
+            if method == "Zoo_Local":
+                # Kernel inputs standardized above; bandwidth by p90
+                # heuristic so neighborhoods cover far test points (median
+                # strands them → unbounded/inf intervals by LVD design).
+                mu = X_train.mean(dim=0, keepdim=True)
+                sd = X_train.std(dim=0, keepdim=True).clamp_min(1e-8)
+                with torch.no_grad():
+                    d = torch.cdist(((X_cal - mu) / sd)[:256], ((X_cal - mu) / sd)[:256])
+                    bw = float(torch.quantile(d, 0.9).clamp_min(0.5))
+                predictor = zoo_cls(alpha=alpha, bandwidth=bw)
+                predictor.calibrate(p_cal, y_cal, x=(X_cal - mu) / sd)
+                return {
+                    "type": "zoo",
+                    "model": model,
+                    "predictor": predictor,
+                    "local": True,
+                    "kernel_mu": mu,
+                    "kernel_sd": sd,
+                    "alpha": alpha,
+                }
+            predictor.calibrate(p_cal, y_cal)
+            return {
+                "type": "zoo",
+                "model": model,
+                "predictor": predictor,
+                "local": method == "Zoo_Local",
+                "alpha": alpha,
+            }
+
+        # --- torchregress predictor zoo: CVPlus (K-fold refits) + EnbPI ---
+        # JackknifePlus is CVPlus with K=n (alias in the library) — no
+        # separate row: LOO refits don't scale; the K=5 row covers the API.
+        elif method in ("Zoo_CVPlus", "Zoo_EnbPI"):
+            from torchregress.losses.conformal import CVPlus, EnsembleBatchCP
+
+            n_folds, n_boot = 5, 5
+            members: list[nn.Module] = []
+            if method == "Zoo_CVPlus":
+                fold_id = torch.remainder(
+                    torch.randperm(
+                        X_train.shape[0], generator=torch.Generator().manual_seed(config.seed)
+                    ),
+                    n_folds,
+                ).to(dev)
+                oof = torch.empty_like(y_train)
+                for k in range(n_folds):
+                    mk = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+                    tr = fold_id != k
+                    _train_one(mk, nn.MSELoss(), X_train[tr], y_train[tr], config)
+                    mk.eval()
+                    with torch.no_grad():
+                        oof[~tr] = mk(X_train[~tr]).detach()
+                    members.append(mk)
+                predictor = CVPlus(alpha=alpha)
+                predictor.calibrate_ensemble(oof.detach(), y_train, fold_id)
+            else:
+                # True out-of-bag: per-sample mean over members whose
+                # bootstrap excluded it; ensemble-mean fallback if none did.
+                n = X_train.shape[0]
+                gen = torch.Generator().manual_seed(config.seed)
+                oob_sum = torch.zeros_like(y_train)
+                oob_cnt = torch.zeros_like(y_train)
+                for _ in range(n_boot):
+                    idx = torch.randint(0, n, (n,), generator=gen)
+                    mb = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+                    _train_one(mb, nn.MSELoss(), X_train[idx], y_train[idx], config)
+                    mb.eval()
+                    members.append(mb)
+                    seen = torch.zeros(n, dtype=torch.bool)
+                    seen[idx] = True
+                    with torch.no_grad():
+                        pred_all = mb(X_train).detach()
+                    oob_sum[~seen] += pred_all[~seen]
+                    oob_cnt[~seen] += 1.0
+                with torch.no_grad():
+                    ens_mean = torch.stack([m(X_train).detach() for m in members], dim=0).mean(
+                        dim=0
+                    )
+                oob_pred = torch.where(oob_cnt > 0, oob_sum / oob_cnt.clamp_min(1.0), ens_mean)
+                predictor = EnsembleBatchCP(alpha=alpha)
+                predictor.calibrate(oob_pred.detach(), y_train)
+            return {
+                "type": "zoo_members",
+                "members": members,
+                "predictor": predictor,
+                "alpha": alpha,
+            }
+
+        # --- torchregress: NonExchangeableCP (recency-weighted threshold) ---
+        # No time-series suite exists yet: simulate drift by recency weights
+        # w_i ∝ exp(λ·i/n) on cal order (documented stand-in; a future
+        # time-series suite should supply real timestamps).
+        elif method == "Zoo_NexCP":
+            from torchregress.losses.conformal import NonExchangeableConformalRegressor
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=1)
+            _train_one(model, nn.MSELoss(), X_train, y_train, config)
+            model.eval()
+            with torch.no_grad():
+                resid = (model(X_cal).reshape(-1) - y_cal.reshape(-1)).abs()
+            n_cal = resid.numel()
+            order = torch.arange(n_cal, device=resid.device, dtype=resid.dtype)
+            w = torch.exp(2.0 * order / max(n_cal, 1))
+            predictor = NonExchangeableConformalRegressor(alpha=alpha)
+            predictor.calibrate(resid.detach(), w.detach())
+            return {
+                "type": "nexcp",
+                "model": model,
+                "threshold": predictor.threshold_,
+            }
+
+        # --- torchregress: LocalConformalMAD on a Gaussian base ---
+        elif method == "Zoo_LocalMAD":
+            from torchregress.losses import GaussianNLLLoss
+            from torchregress.losses.conformal import LocalConformalMAD
+
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=2)
+            _train_one(model, GaussianNLLLoss(), X_train, y_train, config)
+            model.eval()
+            with torch.no_grad():
+                out_cal = model(X_cal)
+                mad_cal = torch.exp(out_cal[:, 1:2]).sqrt().clamp_min(1e-6)
+            mu = X_train.mean(dim=0, keepdim=True)
+            sd = X_train.std(dim=0, keepdim=True).clamp_min(1e-8)
+            with torch.no_grad():
+                d = torch.cdist(((X_cal - mu) / sd)[:256], ((X_cal - mu) / sd)[:256])
+                bw = float(torch.quantile(d, 0.9).clamp_min(0.5))
+            predictor = LocalConformalMAD(alpha=alpha, bandwidth=bw)
+            with torch.no_grad():
+                p_cal = model(X_cal)[:, 0:1]
+            predictor.calibrate(p_cal, y_cal, x=(X_cal - mu) / sd, mad=mad_cal)
+            return {
+                "type": "zoo_localmad",
+                "model": model,
+                "predictor": predictor,
+                "kernel_mu": mu,
+                "kernel_sd": sd,
+                "alpha": alpha,
+            }
+
         # --- External: run the fit-half here and carry the fitted predictor ---
         # (conformalization/calibration) through the state dict, so predict()
         # performs only inference and runner train_s/eval_s timings are truthful.
@@ -950,6 +1184,101 @@ class ConformalSuite(HarnessRunner):
             X_test_t = torch.from_numpy(X_test).float().to(current_device())
             lo, hi = _torch_cqr_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
+
+        # --- torchregress predictor zoo (fit carried predictor) ---
+        elif model_type == "zoo_distributional":
+            from torch.distributions import Normal as _Normal
+
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                out = model(X_test_t)
+                mean_t = out[:, 0:1]
+                std_t = torch.exp(out[:, 1:2]).sqrt().clamp_min(1e-6)
+
+            def _icdf(levels: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+                # levels (2,) [alpha_low, alpha_high]; x unused (params
+                # already condition on it via the Gaussian head).
+                d = _Normal(mean_t, std_t)
+                return torch.stack(
+                    [d.icdf(levels[0]).reshape(-1), d.icdf(levels[1]).reshape(-1)], dim=1
+                )
+
+            lo, hi = predictor.predict_intervals_from_cdf(_icdf, X_test_t)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+            }
+        elif model_type == "nexcp":
+            import numpy as _np
+
+            model = model_state["model"]
+            thr = model_state["threshold"]
+            thr_val = float(thr.detach().cpu()) if isinstance(thr, torch.Tensor) else float(thr)
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                pred = model(X_test_t).reshape(-1).detach().cpu().numpy()
+            return {"lower": pred - thr_val, "upper": pred + thr_val, "y_pred": pred}
+        elif model_type == "zoo_members":
+            # CVPlus takes the member stack [K, B, 1]; EnbPI the mean.
+            from torchregress.losses.conformal import CVPlus
+
+            members = model_state["members"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                stack = torch.stack([m(X_test_t) for m in members], dim=0)
+            import numpy as _np
+
+            if isinstance(predictor, CVPlus):
+                lo, hi = predictor.predict_interval(stack)
+            else:
+                lo, hi = predictor.predict_interval(stack.mean(dim=0))
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+                "y_pred": _np.asarray(stack.mean(dim=0).detach().cpu()).reshape(-1),
+            }
+        elif model_type == "zoo":
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                p_test = model(X_test_t)
+            if model_state.get("local"):
+                mu = model_state["kernel_mu"].to(X_test_t.device)
+                sd = model_state["kernel_sd"].to(X_test_t.device)
+                lo, hi = predictor.predict_interval(p_test, x=(X_test_t - mu) / sd)
+            else:
+                lo, hi = predictor.predict_interval(p_test)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+            }
+        elif model_type == "zoo_localmad":
+            import torch.nn.functional as _F
+
+            model = model_state["model"]
+            predictor = model_state["predictor"]
+            X_test_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                out = model(X_test_t)
+                p_test = out[:, 0:1]
+                mad_test = torch.exp(out[:, 1:2]).sqrt().clamp_min(1e-6)
+            mu = model_state["kernel_mu"].to(X_test_t.device)
+            sd = model_state["kernel_sd"].to(X_test_t.device)
+            lo, hi = predictor.predict_interval(p_test, x=(X_test_t - mu) / sd, mad=mad_test)
+            import numpy as _np
+
+            return {
+                "lower": _np.asarray(lo.detach().cpu()).reshape(-1),
+                "upper": _np.asarray(hi.detach().cpu()).reshape(-1),
+            }
 
         # --- External: predict-half only; all fitting happened in fit() ---
         elif model_type == "external":

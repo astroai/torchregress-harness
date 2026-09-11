@@ -51,18 +51,46 @@ os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
 # ============================================================================
 
 
+def _target_scaler(
+    y_train: np.ndarray, splits: dict[str, Any]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Standardize targets for flow training; return (y_std, mean, scale).
+
+    Spline flows have bounded tails — raw targets far outside [-5, 5]
+    (e.g. energy loads 6-48) sit in the identity region with zero learning
+    signal (flat NLL). Reuses the runner's scaler when it standardized,
+    else fits one here. All comparisons stay fair (both flows see identical
+    inputs); metrics are computed back in native units.
+    """
+    y2d = np.asarray(y_train, dtype=np.float64).reshape(len(y_train), -1)
+    scaler = splits.get("_y_scaler")
+    if scaler is not None:
+        # Runner already standardized: use as-is; native-inverse below.
+        mean = np.asarray(scaler.mean_).reshape(-1)
+        scale = np.asarray(scaler.scale_).reshape(-1)
+        return y2d.astype(np.float32), mean, scale
+    mean = y2d.mean(axis=0)
+    scale = y2d.std(axis=0)
+    scale[scale < 1e-12] = 1.0
+    return ((y2d - mean) / scale).astype(np.float32), mean, scale
+
+
 def _pzflow_conditional_nll(
     flow: Any,
     X: np.ndarray,
     y: np.ndarray,
     cols_x: list[str],
+    cols_y: list[str] | None = None,
     batch_size: int = 1024,
 ) -> float:
     """Compute mean conditional NLL of y | X under a pzflow Flow."""
     import pandas as pd
 
+    y_cols = cols_y if cols_y is not None else ["y"]
     df = pd.DataFrame(X, columns=cols_x)
-    df["y"] = y
+    y2d = np.asarray(y).reshape(len(df), -1)
+    for i, c in enumerate(y_cols):
+        df[c] = y2d[:, i]
     n = len(df)
     total_lp = 0.0
     for start in range(0, n, batch_size):
@@ -76,14 +104,118 @@ def _pzflow_sample_conditional(
     flow: Any,
     X: np.ndarray,
     cols_x: list[str],
+    cols_y: list[str] | None = None,
     n_samples: int = 512,
 ) -> np.ndarray:
-    """Draw conditional samples y ~ P(y|X) from pzflow. Returns (n_samples, N)."""
+    """Draw conditional samples y ~ P(y|X) from pzflow.
+
+    Returns (n_samples, N, D).
+    """
     import pandas as pd
 
+    y_cols = cols_y if cols_y is not None else ["y"]
     df_x = pd.DataFrame(X, columns=cols_x)
     samples = flow.sample(n_samples, conditions=df_x)
-    return np.asarray(samples["y"]).reshape(n_samples, -1)
+    arr = np.stack([np.asarray(samples[c]).reshape(n_samples, -1) for c in y_cols], axis=-1)
+    return arr
+
+
+_N_DENSITY_GRID = 48
+
+
+def _density_grid(
+    model: Any,
+    flow_loss: Any,
+    X_t: torch.Tensor,
+    samples_np: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """(support, density) on a 1-D grid for the torchregress NSF.
+
+    Grid spans the sample mass; density = exp(log_prob), chunked over
+    test points. Standardized units (both flows share them).
+    """
+    del seed
+    try:
+        s1 = np.asarray(samples_np).reshape(-1)
+        lo, hi = float(np.quantile(s1, 0.001)), float(np.quantile(s1, 0.999))
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+            return None
+        grid = np.linspace(lo, hi, _N_DENSITY_GRID).astype(np.float32)
+        n = X_t.shape[0]
+        model.eval()
+        with torch.no_grad():
+            dens = np.empty((n, _N_DENSITY_GRID), dtype=np.float64)
+            bs = 256
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+                c = model(X_t[s:e].detach())
+                c_rep = c.unsqueeze(1).expand(-1, _N_DENSITY_GRID, -1).reshape(-1, c.shape[-1])
+                y_rep = (
+                    torch.from_numpy(grid)
+                    .to(c.device)
+                    .unsqueeze(0)
+                    .expand(e - s, -1)
+                    .reshape(-1, 1)
+                )
+                lp = flow_loss.log_prob(c_rep, y_rep).reshape(e - s, _N_DENSITY_GRID)
+                dens[s:e] = np.exp(np.asarray(lp.detach().cpu(), dtype=np.float64))
+        return grid.astype(np.float64), dens
+    except Exception:
+        return None
+
+
+def _pzflow_density_grid(
+    flow: Any,
+    X_test: np.ndarray,
+    cols_x: list[str],
+    cols_y: list[str],
+    samples_np: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """(support, density) on a 1-D grid for a pzflow Flow (JAX)."""
+    del seed
+    try:
+        import pandas as pd
+
+        s1 = np.asarray(samples_np).reshape(-1)
+        lo, hi = float(np.quantile(s1, 0.001)), float(np.quantile(s1, 0.999))
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+            return None
+        grid = np.linspace(lo, hi, _N_DENSITY_GRID).astype(np.float32)
+        target_col = cols_y[0]
+        df_x = pd.DataFrame(np.asarray(X_test), columns=cols_x)
+        n = len(df_x)
+        dens = np.empty((n, _N_DENSITY_GRID), dtype=np.float64)
+        bs = 512
+        for j, g in enumerate(grid):
+            col_vals = np.empty(n, dtype=np.float64)
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+                df = df_x.iloc[s:e].copy()
+                df[target_col] = float(g)
+                lp = flow.log_prob(df)
+                col_vals[s:e] = np.asarray(lp, dtype=np.float64).reshape(-1)
+            dens[:, j] = np.exp(col_vals)
+        return grid.astype(np.float64), dens
+    except Exception:
+        return None
+
+
+def _native_samples(samples_std: np.ndarray, model_state: dict[str, Any]) -> np.ndarray:
+    """Inverse-transform standardized flow samples to native units."""
+    mean = np.asarray(model_state["y_mean"], dtype=np.float64).reshape(-1)
+    scale = np.asarray(model_state["y_scale"], dtype=np.float64).reshape(-1)
+    return samples_std.astype(np.float64) * scale.reshape(1, 1, -1) + mean.reshape(1, 1, -1)
+
+
+def _native_y(y_test: np.ndarray, predictions: dict[str, Any]) -> np.ndarray:
+    """Native-unit test targets (inverse-transform when runner standardized)."""
+    yt = np.asarray(y_test, dtype=np.float64)
+    scaler = predictions.get("_y_scaler")
+    if scaler is not None:
+        yt = np.asarray(scaler.inverse_transform(yt.reshape(-1, 1))).reshape(yt.shape)
+    return yt
 
 
 # ============================================================================
@@ -131,6 +263,8 @@ class PzflowParitySuite(HarnessRunner):
         return [
             "synthetic_cond_gaussian",
             "synthetic_cond_nongaussian",
+            "pzflow_galaxies",
+            "energy_efficiency",
         ]
 
     # ------------------------------------------------------------------
@@ -196,8 +330,10 @@ class PzflowParitySuite(HarnessRunner):
                 create_flow_model,
             )
 
+            y_std, y_mean, y_scale = _target_scaler(y_train, splits)
+            n_feat = y_std.shape[1]
             flow = create_flow_model(
-                n_features=1,
+                n_features=n_feat,
                 context_dim=hidden,
                 flow_type="nsf",
                 n_transforms=self.N_TRANSFORMS,
@@ -207,7 +343,7 @@ class PzflowParitySuite(HarnessRunner):
             loss_fn = NormalizingFlowLoss(flow=flow)
 
             X_t = torch.from_numpy(X_train).float().to(current_device())
-            y_t = torch.from_numpy(y_train).float().to(current_device()).unsqueeze(1)
+            y_t = torch.from_numpy(y_std).float().to(current_device())
             _train_one(
                 model,
                 loss_fn,
@@ -221,6 +357,9 @@ class PzflowParitySuite(HarnessRunner):
                 "type": "torchregress_nsf",
                 "model": model,
                 "flow": loss_fn,
+                "n_features": n_feat,
+                "y_mean": y_mean,
+                "y_scale": y_scale,
             }
 
         # --- pzflow NSF (default bijector — avoids JAX stax bug) ---
@@ -228,21 +367,25 @@ class PzflowParitySuite(HarnessRunner):
             import pandas as pd
             import pzflow
 
+            y_std, y_mean, y_scale = _target_scaler(y_train, splits)
+            n_feat = y_std.shape[1]
             cols_x = [f"x{i}" for i in range(in_dim)]
+            cols_y = [f"y{i}" for i in range(n_feat)]
             df_train = pd.DataFrame(
                 X_train,
                 columns=cols_x,
                 dtype=np.float32,
             )
-            df_train["y"] = y_train
+            for i, c in enumerate(cols_y):
+                df_train[c] = y_std[:, i]
 
             # Use default bijector — manual Chain(NSC+Reverse) hits a JAX
             # stax shape bug.  The default bijector is still a flow-based
             # architecture and gives a valid comparison.
             flow = pzflow.Flow(
-                data_columns=["y"],
+                data_columns=cols_y,
                 conditional_columns=cols_x,
-                latent=pzflow.distributions.Normal(input_dim=1),
+                latent=pzflow.distributions.Normal(input_dim=n_feat),
                 seed=int(config.seed),
             )
 
@@ -258,6 +401,10 @@ class PzflowParitySuite(HarnessRunner):
                 "type": "pzflow_nsf",
                 "flow": flow,
                 "cols_x": cols_x,
+                "cols_y": cols_y,
+                "n_features": n_feat,
+                "y_mean": y_mean,
+                "y_scale": y_scale,
             }
 
         raise ValueError(f"Unknown method: {method}")
@@ -280,6 +427,7 @@ class PzflowParitySuite(HarnessRunner):
         if model_type == "torchregress_nsf":
             model = model_state["model"]
             flow_loss = model_state["flow"]
+            n_feat = int(model_state.get("n_features", 1))
             model.eval()
             X_t = torch.from_numpy(X_test).float().to(current_device())
             with torch.no_grad():
@@ -288,31 +436,61 @@ class PzflowParitySuite(HarnessRunner):
                     context,
                     n_samples=self.N_SAMPLES,
                 )
-                samples_np = samples.squeeze(-1).detach().cpu().numpy()
-                if samples_np.ndim == 3:
-                    samples_np = samples_np[:, :, 0]
-                if samples_np.shape[0] == X_test.shape[0]:
-                    samples_np = samples_np.T
+                # zuko returns (N, S, D) → normalize to (S, N, D).
+                samples_np = np.asarray(samples.detach().cpu())
+                if samples_np.ndim == 2:
+                    samples_np = samples_np.reshape(len(X_test), self.N_SAMPLES, -1)
+                if samples_np.shape[0] == len(X_test):
+                    samples_np = np.swapaxes(samples_np, 0, 1)
 
             y_pred = samples_np.mean(axis=0)
             lo = np.quantile(samples_np, alpha / 2, axis=0)
             hi = np.quantile(samples_np, 1.0 - alpha / 2, axis=0)
-            return {"lower": lo, "upper": hi, "y_pred": y_pred}
+            native = _native_samples(samples_np, model_state)
+            lo_n = np.quantile(native, alpha / 2, axis=0)
+            hi_n = np.quantile(native, 1.0 - alpha / 2, axis=0)
+            out: dict[str, np.ndarray] = {
+                "lower": lo_n.reshape(-1),
+                "upper": hi_n.reshape(-1),
+                "y_pred": native.mean(axis=0).reshape(-1),
+                "samples": np.swapaxes(native, 0, 1),
+            }
+            # Density grid for library CDE/HPD (1-D targets only — the
+            # library scores are univariate; D>1 energy rows honestly skip).
+            if n_feat == 1:
+                grid = _density_grid(model, flow_loss, X_t, samples_np, config.seed)
+                if grid is not None:
+                    out["density_support"], out["density_values"] = grid
+            return out
 
         # --- pzflow NSF ---
         elif model_type == "pzflow_nsf":
             flow = model_state["flow"]
             cols_x = model_state["cols_x"]
+            cols_y = model_state.get("cols_y", ["y"])
             samples = _pzflow_sample_conditional(
                 flow,
                 X_test,
                 cols_x,
+                cols_y,
                 n_samples=self.N_SAMPLES,
-            )
-            lo = np.quantile(samples, alpha / 2, axis=0)
-            hi = np.quantile(samples, 1.0 - alpha / 2, axis=0)
-            y_pred = samples.mean(axis=0)
-            return {"lower": lo, "upper": hi, "y_pred": y_pred}
+            )  # (S, N, D)
+            native = _native_samples(samples, model_state)
+            lo = np.quantile(native, alpha / 2, axis=0)
+            hi = np.quantile(native, 1.0 - alpha / 2, axis=0)
+            y_pred = native.mean(axis=0)
+            out2: dict[str, np.ndarray] = {
+                "lower": lo.reshape(-1),
+                "upper": hi.reshape(-1),
+                "y_pred": y_pred.reshape(-1),
+                "samples": np.swapaxes(native, 0, 1),
+            }
+            # Density grid for library CDE/HPD (1-D targets only).
+            if len(cols_y) == 1:
+                grid = _pzflow_density_grid(flow, X_test, cols_x, cols_y, samples, config.seed)
+                if grid is not None:
+                    out2["density_support"], out2["density_values"] = grid
+            return out2
 
         raise ValueError(f"Unknown model type: {model_type}")
 
@@ -331,13 +509,60 @@ class PzflowParitySuite(HarnessRunner):
 
         lo = np.asarray(predictions["lower"]).reshape(-1)
         hi = np.asarray(predictions["upper"]).reshape(-1)
-        y_true = np.asarray(y_test).reshape(-1)
+        y_true = _native_y(y_test, predictions).reshape(-1)
 
         metrics = compute_interval_metrics(lo, hi, y_true)
 
         predictions["_lo_raw"] = lo
         predictions["_hi_raw"] = hi
         predictions["_y_true_raw"] = y_true
+
+        # PIT uniformity per dim (mean KS) + energy score — the
+        # flexible-density diagnostics. Samples are (N, S, D).
+        if "samples" in predictions:
+            try:
+                from torchregress.metrics import energy_score
+
+                samp = np.asarray(predictions["samples"], dtype=np.float64)
+                if samp.ndim == 2:
+                    samp = samp[:, :, None]
+                yt = y_true.reshape(samp.shape[0], -1)
+                ks_list = []
+                for d in range(yt.shape[1]):
+                    r = (samp[:, :, d] <= yt[:, d : d + 1]).mean(axis=1)
+                    r = np.clip(r, 1e-6, 1 - 1e-6)
+                    grid = np.linspace(0, 1, 101)
+                    ecdf = np.searchsorted(np.sort(r), grid, side="right") / len(r)
+                    ks_list.append(float(np.max(np.abs(ecdf - grid))))
+                metrics["PIT_KS"] = float(np.mean(ks_list))
+                # Library energy_score takes [S, N, D].
+                metrics["EnergyScore"] = float(energy_score(np.swapaxes(samp, 0, 1), yt))
+            except Exception:
+                pass
+
+        # Library density scores (CDE loss + HPD coverage) from stashed
+        # 1-D grids. Grids live in standardized units, so this only runs
+        # when the runner standardized (y_test standardized to match).
+        if (
+            "density_support" in predictions
+            and "density_values" in predictions
+            and "_y_scaler" in predictions
+        ):
+            try:
+                from torchregress.metrics import (
+                    conditional_density_estimation_loss as _cde,
+                )
+                from torchregress.metrics import (
+                    highest_posterior_density_coverage as _hpd,
+                )
+
+                sup = np.asarray(predictions["density_support"], dtype=np.float64)
+                den = np.asarray(predictions["density_values"], dtype=np.float64)
+                y_std = np.asarray(y_test, dtype=np.float64).reshape(-1)
+                metrics["CDELoss"] = float(_cde(sup, den, y_std))
+                metrics["HPDCoverage"] = float(_hpd(sup, den, y_std))
+            except Exception:
+                pass
 
         return metrics
 
@@ -373,7 +598,9 @@ class PzflowParitySuite(HarnessRunner):
             )
 
         X_test_np = splits["X_test"]
-        y_test_np = np.asarray(splits["y_test"]).reshape(-1)
+        y_test_np = np.asarray(splits["y_test"])
+        # NOTE: kept 2-D — an earlier .reshape(-1) flattened multi-target
+        # test arrays and silently broke the NLL block below.
         in_dim = splits["X_train"].shape[1]
         cols_x = [f"x{i}" for i in range(in_dim)]
 
@@ -416,29 +643,47 @@ class PzflowParitySuite(HarnessRunner):
                 t0 = perf_counter()
                 predictions = self.predict(method, model_state, X_test_np, cfg)
                 pred_time = perf_counter() - t0
+                # Mirror base run(): expose the runner scaler for native units.
+                if "_y_scaler" in splits:
+                    predictions["_y_scaler"] = splits["_y_scaler"]
 
                 metrics = self.evaluate(method, predictions, y_test_np, cfg)
 
-                # Compute NLL
+                # Compute NLL (native units = standardized NLL + log-det).
                 nll: float | None = None
                 try:
                     mtype = model_state["type"]
+                    y_mean = np.asarray(model_state.get("y_mean", 0.0), dtype=np.float64).reshape(
+                        -1
+                    )
+                    y_scale = np.asarray(model_state.get("y_scale", 1.0), dtype=np.float64).reshape(
+                        -1
+                    )
+                    logdet = float(np.log(y_scale).sum())
+                    y_2d = np.asarray(y_test_np, dtype=np.float64).reshape(
+                        np.asarray(y_test_np).shape[0], -1
+                    )
+                    y_std = (y_2d - y_mean) / y_scale
                     if mtype == "torchregress_nsf":
                         model = model_state["model"]
                         flow_loss = model_state["flow"]
                         model.eval()
                         X_t = torch.from_numpy(X_test_np).float().to(current_device())
-                        y_t = torch.from_numpy(y_test_np).float().to(current_device()).unsqueeze(1)
+                        y_t = torch.from_numpy(y_std.astype(np.float32)).to(current_device())
                         with torch.no_grad():
                             context = model(X_t)
-                            nll = float(-flow_loss.log_prob(context, y_t).mean().item())
+                            nll = float(-flow_loss.log_prob(context, y_t).mean().item()) + logdet
                     elif mtype == "pzflow_nsf":
-                        nll = _pzflow_conditional_nll(
-                            model_state["flow"],
-                            X_test_np,
-                            y_test_np,
-                            cols_x,
-                            batch_size=cfg.batch_size,
+                        nll = (
+                            _pzflow_conditional_nll(
+                                model_state["flow"],
+                                X_test_np,
+                                y_std.astype(np.float32),
+                                cols_x,
+                                model_state.get("cols_y"),
+                                batch_size=cfg.batch_size,
+                            )
+                            + logdet
                         )
                 except (ValueError, RuntimeError, ImportError, TypeError, OSError):
                     nll = None

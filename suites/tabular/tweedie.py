@@ -19,7 +19,13 @@ from typing import Any
 import numpy as np
 import torch
 from sklearn.metrics import mean_tweedie_deviance
-from torchregress.losses import CompoundPoissonLoss, TweedieLoss
+from torchregress.losses import (
+    BoxCoxTransformLoss,
+    CompoundPoissonLoss,
+    LogTransformLoss,
+    SqrtTransformLoss,
+    TweedieLoss,
+)
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
@@ -69,7 +75,7 @@ class TweedieSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["synthetic_tweedie"]
+        return ["synthetic_tweedie", "insurance_claims"]
 
     @property
     def canonical_scenarios(self) -> list[str]:
@@ -78,9 +84,17 @@ class TweedieSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         # Linear + LBFGS parity variants (match statsmodels GLM)
-        linear_methods = ["Tweedie_Linear", "CompoundPoisson_Linear"]
+        linear_methods = ["Tweedie_Linear", "CompoundPoisson_Linear", "Gamma_Linear"]
         # MLP + Adam variants (original)
-        mlp_methods = ["Tweedie", "CompoundPoisson"]
+        mlp_methods = [
+            "Tweedie",
+            "CompoundPoisson",
+            "Gamma",
+            "InverseGaussian",
+            "LogT",
+            "BoxCox",
+            "SqrtT",
+        ]
         methods = linear_methods + mlp_methods
         if _STATSMODELS_AVAILABLE:
             methods.append("statsmodels_GLM")
@@ -106,8 +120,16 @@ class TweedieSuite(HarnessRunner):
         X_train_np = splits["X_train"]
         y_train_np = splits["y_train"]
 
-        if method in ("Tweedie", "CompoundPoisson", "Tweedie_Linear", "CompoundPoisson_Linear"):
-            # Tweedie / compound Poisson require non-negative targets
+        if method in (
+            "Tweedie",
+            "CompoundPoisson",
+            "Tweedie_Linear",
+            "CompoundPoisson_Linear",
+            "Gamma",
+            "Gamma_Linear",
+            "InverseGaussian",
+        ):
+            # Tweedie family / fixed-p factories require non-negative targets
             if y_train_np.min() < 0:
                 raise ValueError(
                     f"{method} requires non-negative targets "
@@ -120,7 +142,15 @@ class TweedieSuite(HarnessRunner):
             y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
 
             p_power = float(splits.get("p_power", 1.5))
-            if "Tweedie" in method:
+            if method.startswith("Gamma"):
+                from torchregress.losses import GammaLoss
+
+                loss_fn = GammaLoss()
+            elif method == "InverseGaussian":
+                from torchregress.losses import InverseGaussianLoss
+
+                loss_fn = InverseGaussianLoss()
+            elif "Tweedie" in method:
                 loss_fn = TweedieLoss(p=p_power)
             else:
                 loss_fn = CompoundPoissonLoss(p=p_power)
@@ -139,6 +169,26 @@ class TweedieSuite(HarnessRunner):
                 model.eval()
 
             return {"type": "torch", "model": model, "p_power": p_power}
+
+        elif method in ("LogT", "BoxCox", "SqrtT"):
+            # Warped-target rows: loss warps internally; predict inverts.
+            if y_train_np.min() < 0:
+                raise ValueError(
+                    f"{method} requires non-negative targets (min={y_train_np.min():.2f})."
+                )
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+            in_dim = X.shape[1]
+            hidden = _hidden_size(in_dim)
+            model = _MLP(in_dim, hidden, out_dim=1)
+            loss_fn = {
+                "LogT": LogTransformLoss(),
+                "BoxCox": BoxCoxTransformLoss(),
+                "SqrtT": SqrtTransformLoss(),
+            }[method]
+            _train_one(model, loss_fn, X, y, config)
+            model.eval()
+            return {"type": "warped", "model": model, "loss_fn": loss_fn}
 
         elif method == "sklego_GLMRegressor":
             p_power = float(splits.get("p_power", 1.5))
@@ -184,6 +234,15 @@ class TweedieSuite(HarnessRunner):
                 mu = torch.exp(m(X)).squeeze(-1).detach().cpu().numpy()
             return {"y_pred": mu}
 
+        elif model["type"] == "warped":
+            m = model["model"]
+            loss_fn = model["loss_fn"]
+            with torch.no_grad():
+                X = torch.from_numpy(X_test).float().to(current_device())
+                warped = m(X).detach()
+                mu = loss_fn.inverse(warped).squeeze(-1).cpu().numpy()
+            return {"y_pred": np.clip(np.asarray(mu, dtype=np.float64), 0, None)}
+
         elif model["type"] == "sklego":
             glm = model["model"]
             mu = np.asarray(glm.predict(X_test), dtype=np.float64)
@@ -206,6 +265,18 @@ class TweedieSuite(HarnessRunner):
             return "MLP + torchregress.TweedieLoss on log-mean"
         elif method == "CompoundPoisson":
             return "MLP + torchregress.CompoundPoissonLoss on log-mean"
+        elif method == "Gamma":
+            return "MLP + GammaLoss factory (Tweedie p=2) on log-mean"
+        elif method == "Gamma_Linear":
+            return "linear model + GammaLoss via LBFGS"
+        elif method == "InverseGaussian":
+            return "MLP + InverseGaussianLoss factory (Tweedie p=3) on log-mean"
+        elif method == "LogT":
+            return "MLP + LogTransformLoss (log warp + MSE, inverted at predict)"
+        elif method == "BoxCox":
+            return "MLP + BoxCoxTransformLoss (λ=0 log-warp + MSE)"
+        elif method == "SqrtT":
+            return "MLP + SqrtTransformLoss (variance-stabilizing warp + MSE)"
         elif method == "statsmodels_GLM":
             return "GLM(family=Tweedie, link=log) via IRLS — gold-standard ground truth"
         elif method == "sklego_GLMRegressor":

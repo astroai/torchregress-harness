@@ -9,6 +9,11 @@ import pytest
 from suites._backbones import NF_ENSEMBLE_K_VARIANTS
 from suites.image.age_regression import AgeRegressionSuite
 from suites.image.depth_estimation import DepthEstimationSuite
+from suites.image.image_calibration import ImageCalibrationSuite
+from suites.image.image_conformal import ImageConformalSuite
+from suites.image.image_ensembles_uq import ImageEnsemblesUQSuite
+from suites.image.image_robust import ImageRobustSuite
+from suites.image.keypoint_regression import KeypointRegressionSuite
 
 # All suites should be importable
 from suites.tabular.bayesian_linear import BayesianLinearSuite
@@ -25,6 +30,7 @@ from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
+from suites.tabular.stress_matrix import StressMatrixSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
 
@@ -45,8 +51,14 @@ ALL_SUITES = [
     EIVSuite,
     OrdinalSuite,
     R2CConformalSuite,
+    StressMatrixSuite,
     AgeRegressionSuite,
     DepthEstimationSuite,
+    KeypointRegressionSuite,
+    ImageConformalSuite,
+    ImageEnsemblesUQSuite,
+    ImageRobustSuite,
+    ImageCalibrationSuite,
 ]
 
 
@@ -574,7 +586,7 @@ def test_torch_uncertainty_version_guard_rejects_v012() -> None:
     from suites.image.age_regression import _require_torch_uncertainty_version
 
     old = sys.modules.get("torch_uncertainty")
-    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.12.1")
+    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.12.1")  # type: ignore[assignment]
     try:
         with pytest.raises(ImportError, match="too old"):
             _require_torch_uncertainty_version()
@@ -593,7 +605,7 @@ def test_torch_uncertainty_version_guard_accepts_v013() -> None:
     from suites.image.age_regression import _require_torch_uncertainty_version
 
     old = sys.modules.get("torch_uncertainty")
-    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.13.0")
+    sys.modules["torch_uncertainty"] = SimpleNamespace(__version__="0.13.0")  # type: ignore[assignment]
     try:
         _require_torch_uncertainty_version()  # must not raise
     finally:
@@ -601,3 +613,87 @@ def test_torch_uncertainty_version_guard_accepts_v013() -> None:
             sys.modules["torch_uncertainty"] = old
         else:
             sys.modules.pop("torch_uncertainty", None)
+
+
+# ---------------------------------------------------------------------------
+# Image parity — K-sweep registration, timm gating, new-suite smoke
+# ---------------------------------------------------------------------------
+
+
+def test_age_regression_mdn_k_sweep_registered() -> None:
+    suite = AgeRegressionSuite()
+    for m in ("CNN+MDN_K2", "CNN+MDN_K3", "CNN+MDN_K5"):
+        assert m in suite.methods(), f"missing {m} from AgeRegressionSuite.methods()"
+
+
+def test_age_regression_timm_gated() -> None:
+    from suites.image import _base
+
+    suite = AgeRegressionSuite()
+    if _base._TIMM_AVAILABLE:
+        assert "timm_resnet18+GaussianNLL" in suite.methods()
+    else:
+        assert "timm_resnet18+GaussianNLL" not in suite.methods()
+
+
+def test_age_regression_new_methods_smoke() -> None:
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = AgeRegressionSuite()
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=16)
+    splits = load_dataset("synthetic_image_regression", n_samples=48, standardize_targets=True)
+    for method in ("CNN+MultiQuantile", "CNN+Huber", "CNN+MC_Dropout"):
+        state = suite.fit(method, splits, cfg)
+        preds = suite.predict(method, state, splits["X_test"], cfg)
+        assert "y_pred" in preds and len(preds["y_pred"]) == len(splits["X_test"])
+
+
+def test_keypoint_suite_smoke() -> None:
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = KeypointRegressionSuite()
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=8)
+    splits = load_dataset("synthetic_image_keypoint", n_samples=40)
+    state = suite.fit("CNN+GaussianNLL", splits, cfg)
+    preds = suite.predict("CNN+GaussianNLL", state, splits["X_test"], cfg)
+    assert "lower" in preds and "upper" in preds
+
+
+def test_image_conformal_smoke() -> None:
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    suite = ImageConformalSuite()
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=16)
+    splits = load_dataset("synthetic_image_regression", n_samples=60)
+    for method in ("Split+CNN", "CQR+CNN"):
+        state = suite.fit(method, splits, cfg)
+        preds = suite.predict(method, state, splits["X_test"], cfg)
+        assert np.all(np.asarray(preds["lower"]) <= np.asarray(preds["upper"]))
+
+
+def test_image_robust_calibration_ensembles_smoke() -> None:
+    from harness.datasets import load_dataset
+    from harness.runners import HarnessConfig
+
+    cfg = HarnessConfig(seed=42, epochs=1, batch_size=16)
+    splits = load_dataset("synthetic_image_regression", n_samples=48)
+    r_state = ImageRobustSuite().fit("Huber", splits, cfg)
+    assert "y_pred" in ImageRobustSuite().predict("Huber", r_state, splits["X_test"], cfg)
+    c_state = ImageCalibrationSuite().fit("VarianceTemperatureScaler", splits, cfg)
+    c_preds = ImageCalibrationSuite().predict(
+        "VarianceTemperatureScaler", c_state, splits["X_test"], cfg
+    )
+    assert "lower" in c_preds
+    e_state = ImageEnsemblesUQSuite().fit("MC_Dropout", splits, cfg)
+    e_preds = ImageEnsemblesUQSuite().predict("MC_Dropout", e_state, splits["X_test"], cfg)
+    assert "samples" in e_preds
+
+
+def test_image_backbone_validate() -> None:
+    from tools._validate import validate_image_backbones
+
+    ok, msgs = validate_image_backbones()
+    assert ok, msgs

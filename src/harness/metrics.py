@@ -345,7 +345,10 @@ def compute_distribution_metrics(
         )
     )
 
-    return {"NLL": nll, "CRPS": crps}
+    # Sharpness: mean predictive std (uncertainty-toolbox parity).
+    sharpness = float(np.mean(std_np))
+
+    return {"NLL": nll, "CRPS": crps, "Sharpness": sharpness}
 
 
 def compute_calibration_metrics(
@@ -354,6 +357,10 @@ def compute_calibration_metrics(
     """Compute calibration metrics from PIT (Probability Integral Transform) values.
 
     PIT values should be approximately Uniform(0, 1) for a well-calibrated model.
+    Adds uncertainty-toolbox parity metrics:
+    - ECE (legacy equal-mass binning, kept for back-compat)
+    - MACE: mean absolute calibration error vs uniform (equal-width bins)
+    - RMSCE: root-mean-square calibration error vs uniform
     """
     pit = np.asarray(pit_values).ravel()
     n = len(pit)
@@ -361,7 +368,12 @@ def compute_calibration_metrics(
     # ECE via equal-mass binning
     n_bins = min(10, n // 10)
     if n_bins < 2:
-        return {"ECE": float("nan"), "PIT_KS": float("nan")}
+        return {
+            "ECE": float("nan"),
+            "PIT_KS": float("nan"),
+            "MACE": float("nan"),
+            "RMSCE": float("nan"),
+        }
 
     bins = np.percentile(pit, np.linspace(0, 100, n_bins + 1))
     ece = 0.0
@@ -378,7 +390,15 @@ def compute_calibration_metrics(
     cdf_uniform = np.linspace(0, 1, n)
     ks = float(np.max(np.abs(sorted_pit - cdf_uniform)))
 
-    return {"ECE": ece, "PIT_KS": ks}
+    # MACE/RMSCE: equal-width bins on [0,1], |empirical mass - 1/B|.
+    n_eq = 10
+    hist, _ = np.histogram(pit, bins=n_eq, range=(0.0, 1.0))
+    freq = hist.astype(float) / max(n, 1)
+    dev = np.abs(freq - 1.0 / n_eq)
+    mace = float(np.mean(dev))
+    rmsce = float(np.sqrt(np.mean(dev**2)))
+
+    return {"ECE": ece, "PIT_KS": ks, "MACE": mace, "RMSCE": rmsce}
 
 
 def compute_all_metrics(
@@ -407,6 +427,14 @@ def compute_all_metrics(
     if "y_pred" in predictions:
         y_pred = np.asarray(predictions["y_pred"]).reshape(-1)
         metrics.update(compute_point_metrics(y_pred, y_true_np))
+        # Tail-risk point metrics (library; default 90% upper tail).
+        try:
+            from torchregress.metrics import tail_mae, tail_rmse
+
+            metrics["TailMAE"] = float(tail_mae(y_pred, y_true_np))
+            metrics["TailRMSE"] = float(tail_rmse(y_pred, y_true_np))
+        except Exception:
+            pass
 
     if "lower" in predictions and "upper" in predictions:
         metrics.update(
@@ -423,6 +451,16 @@ def compute_all_metrics(
         if "y_pred" not in predictions:
             metrics.update(compute_point_metrics(mean, y_true_np))
         metrics.update(compute_distribution_metrics(mean, std, y_true_np))
+        # Selective-prediction quality: area under the risk-coverage curve
+        # (library RiskCoverageCurve; lower = better uncertainty ranking).
+        try:
+            from torchregress.metrics import risk_coverage_curve
+
+            rc = risk_coverage_curve(mean, y_true_np, std)
+            aurc = rc.get("aurc")
+            metrics["AURC"] = float(aurc.item() if hasattr(aurc, "item") else aurc)
+        except Exception:
+            pass
 
     if "samples" in predictions and "y_pred" not in predictions:
         samples = np.asarray(predictions["samples"])
@@ -455,9 +493,36 @@ def compute_all_metrics(
         # Keep ECE parity for downstream metric_order consumers: re-use the
         # legacy calibration binning (still meaningful for PIT diagnostics).
         try:
-            pit_metrics["ECE"] = float(compute_calibration_metrics(pit).get("ECE", float("nan")))
+            cal = compute_calibration_metrics(pit)
+            pit_metrics["ECE"] = float(cal.get("ECE", float("nan")))
+            pit_metrics["MACE"] = float(cal.get("MACE", float("nan")))
+            pit_metrics["RMSCE"] = float(cal.get("RMSCE", float("nan")))
         except Exception:
             pit_metrics["ECE"] = float("nan")
+            pit_metrics["MACE"] = float("nan")
+            pit_metrics["RMSCE"] = float("nan")
         metrics.update(pit_metrics)
+
+    # --- Density-grid diagnostics (CDE loss + HPD coverage) ---
+    # Rows emitting a 1-D predictive density on a support grid
+    # (binned-PDF ensembles, flow grids) get proper density scores.
+    if "density_support" in predictions and "density_values" in predictions:
+        try:
+            from torchregress.metrics import (
+                conditional_density_estimation_loss as _cde,
+            )
+            from torchregress.metrics import (
+                highest_posterior_density_coverage as _hpd,
+            )
+
+            support = np.asarray(predictions["density_support"], dtype=np.float64)
+            dens = np.asarray(predictions["density_values"], dtype=np.float64)
+            if dens.ndim == 1:
+                dens = dens[None, :]
+            if dens.shape[0] == len(y_true_np) and support.ndim == 1:
+                metrics["CDELoss"] = float(_cde(support, dens, y_true_np))
+                metrics["HPDCoverage"] = float(_hpd(support, dens, y_true_np))
+        except Exception:
+            pass
 
     return metrics

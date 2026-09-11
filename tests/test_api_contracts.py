@@ -12,6 +12,13 @@ import pytest
 import torch
 import torchregress.losses as losses
 
+from harness.image_wrappers import (
+    ImageEvidentialRegressor,
+    ImageFlowRegressor,
+    ImageGaussianNLLRegressor,
+    ImageMDNRegressor,
+    ImageQuantileRegressor,
+)
 from harness.wrappers import (
     DeepEnsembleRegressor,
     EvidentialRegressor,
@@ -77,6 +84,34 @@ def test_wrapper_api_contract(wrapper_cls) -> None:
     assert "n_samples" in sample_sig.parameters, (
         f"{wrapper_cls.__name__}.sample missing n_samples parameter"
     )
+
+
+@pytest.mark.parametrize(
+    "wrapper_cls",
+    [
+        ImageGaussianNLLRegressor,
+        ImageMDNRegressor,
+        ImageFlowRegressor,
+        ImageEvidentialRegressor,
+        ImageQuantileRegressor,
+    ],
+)
+def test_image_wrapper_api_contract(wrapper_cls) -> None:
+    """Image wrappers implement the same fit/predict/interval/sample contract."""
+    for method_name in WRAPPER_METHODS:
+        assert hasattr(wrapper_cls, method_name), (
+            f"{wrapper_cls.__name__} is missing required method {method_name}"
+        )
+    interval_sig = inspect.signature(wrapper_cls.predict_interval)
+    assert interval_sig.parameters["confidence"].default == 0.9
+
+
+def test_image_wrapper_rejects_non4d() -> None:
+    import numpy as np
+
+    reg = ImageGaussianNLLRegressor(epochs=0)
+    with pytest.raises(ValueError, match="4D"):
+        reg.fit(np.zeros((8, 10), dtype=np.float32), np.zeros(8, dtype=np.float32))
 
 
 def test_distribution_loss_subclasses_contract() -> None:
