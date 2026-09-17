@@ -627,6 +627,13 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
             _UNet,
         )
 
+        from harness.devices import current_device
+
+        # Backbones auto-place themselves on ``current_device()`` in their
+        # constructors; synthetic smoketest inputs must live on the same
+        # device or the forward pass fails on CUDA hosts.
+        device = current_device()
+
         cnn = _ImageCNN(in_channels=1, out_dim=2)
         # Arch guard: default CNN fibres must stay at base_filters=16 → 64-dim head.
         if cnn.head.in_features != 64:
@@ -636,7 +643,7 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
             )
         else:
             msgs.append("  ✓ _ImageCNN head dim 64 (base_filters=16)")
-        x = torch.randn(4, 1, 32, 32)
+        x = torch.randn(4, 1, 32, 32, device=device)
         out = cnn(x)
         if tuple(out.shape) == (4, 2):
             msgs.append("  ✓ _ImageCNN (4,1,32,32)->(4,2)")
@@ -645,7 +652,7 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
             msgs.append(f"  ✗ _ImageCNN shape {tuple(out.shape)} != (4, 2)")
 
         drop = _ImageCNN_Dropout(in_channels=3, out_dim=1)
-        out_d = drop(torch.randn(2, 3, 32, 32))
+        out_d = drop(torch.randn(2, 3, 32, 32, device=device))
         if tuple(out_d.shape) == (2, 1):
             msgs.append("  ✓ _ImageCNN_Dropout (2,3,32,32)->(2,1)")
         else:
@@ -653,7 +660,7 @@ def validate_image_backbones() -> tuple[bool, list[str]]:
             msgs.append(f"  ✗ _ImageCNN_Dropout shape {tuple(out_d.shape)} != (2, 1)")
 
         unet = _UNet(in_channels=3, out_channels=2)
-        out_u = unet(torch.randn(2, 3, 64, 64))
+        out_u = unet(torch.randn(2, 3, 64, 64, device=device))
         if tuple(out_u.shape) == (2, 2, 64, 64):
             msgs.append("  ✓ _UNet (2,3,64,64)->(2,2,64,64)")
         else:
