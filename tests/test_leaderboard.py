@@ -143,7 +143,13 @@ def test_is_skipped_handles_variants() -> None:
     assert _is_skipped({"Notes": "skipped: foo"})
     assert _is_skipped({"Notes": "failed: foo"})
     assert _is_skipped({"Notes": "error: foo"})
-    assert _is_skipped({"Notes": "FAILED BAR"})
+    # Markers are matched case-insensitively, but only in colon-suffixed form:
+    # bare words must NOT flag a row ("error-aware feature encoder" is a
+    # legitimate note).  See ``_is_skipped`` and ``tools/run_all.py``.
+    assert _is_skipped({"Notes": "FAILED: BAR"})
+    assert not _is_skipped({"Notes": "FAILED BAR"})
+    assert not _is_skipped({"Notes": "error-aware feature encoder"})
+    assert not _is_skipped({"Notes": "skipped this step intentionally"})
     assert not _is_skipped({"Notes": ""})
     assert not _is_skipped({})
     assert not _is_skipped({"Notes": "ok"})
