@@ -44,9 +44,12 @@ def load_tabular(
 
         from sklearn.datasets import fetch_california_housing
 
-        data_home = os.environ.get("SKLEARN_DATA_HOME") or __import__("os").path.expanduser(
-            "~/.astroai/sklearn_data"
-        )
+        # Cache policy: datasets live on /scratch, never in $HOME (which maps
+        # to the tiny /arc/home quota on CANFAR). Same location the main
+        # harness loaders use, so the two share one copy.
+        from harness.datasets import _image_cache_dir
+
+        data_home = os.environ.get("SKLEARN_DATA_HOME") or str(_image_cache_dir() / "sklearn")
         raw = fetch_california_housing(data_home=data_home)
         idx = torch.randperm(raw.data.shape[0], generator=gen)[:n_cap]
         x = torch.as_tensor(raw.data[idx.numpy()], dtype=torch.float32)
