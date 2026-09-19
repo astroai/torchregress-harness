@@ -456,9 +456,9 @@ def compute_all_metrics(
         try:
             from torchregress.metrics import risk_coverage_curve
 
-            rc = risk_coverage_curve(mean, y_true_np, std)
-            aurc = rc.get("aurc")
-            metrics["AURC"] = float(aurc.item() if hasattr(aurc, "item") else aurc)
+            aurc = risk_coverage_curve(mean, y_true_np, std).get("aurc")
+            if aurc is not None:
+                metrics["AURC"] = float(aurc.item() if hasattr(aurc, "item") else aurc)
         except Exception:
             pass
 

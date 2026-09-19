@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, TypedDict, cast
 
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -40,7 +40,13 @@ class SplitMetadata(TypedDict, total=False):
     censoring_test: np.ndarray
     exposure_train: np.ndarray
     exposure_test: np.ndarray
-    sigma_x: float
+    # ``sigma_x`` is the scalar input-noise level for the classical EIV
+    # loaders, but the photo-z loaders return a per-band vector.
+    sigma_x: float | np.ndarray
+    sigma_x_train: np.ndarray
+    sigma_x_test: np.ndarray
+    sigma_image_train: np.ndarray
+    sigma_image_test: np.ndarray
     sigma_y: float
     n_classes: int
     _multi_output: bool
@@ -72,6 +78,19 @@ class SplitMetadata(TypedDict, total=False):
     prior_dist: Any
     sbc_theta: np.ndarray
     sbc_x: np.ndarray
+    # SBI tasks carry a vector-valued target.
+    n_targets: int
+    prior_low: float
+    prior_high: float
+    # Causal benchmarks (IHDP / semi-synthetic): treatment arm plus known
+    # ground truth (potential outcomes and the true CATE/ATE).
+    treatment_train: np.ndarray
+    treatment_test: np.ndarray
+    cate_true_train: np.ndarray
+    cate_true_test: np.ndarray
+    pot0_test: np.ndarray
+    pot1_test: np.ndarray
+    ate_true: float
 
 
 class SplitsDict(SplitArrays, SplitMetadata):
@@ -363,7 +382,7 @@ def _load_sbibm_task(
     """
     splits: SplitMetadata = {}
     try:
-        import sbibm
+        import sbibm  # ty: ignore[unresolved-import]  # optional SBI-benchmark dep
         import torch
 
         torch.manual_seed(seed)
@@ -620,7 +639,7 @@ def _load_galaxiesml_eiv(
     try:
         import urllib.request
 
-        import h5py
+        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
         from sklearn.preprocessing import StandardScaler
 
         bands = ["g", "r", "i", "z", "y"]
@@ -703,7 +722,7 @@ def _load_photoz_eiv(
     """
     splits: SplitMetadata = {}
     try:
-        from pzflow.examples import get_galaxy_data
+        from pzflow.examples import get_galaxy_data  # ty: ignore[unresolved-import]
         from sklearn.preprocessing import StandardScaler
 
         data = get_galaxy_data()
@@ -757,7 +776,7 @@ def _load_galaxiesml_cutouts(
     """
     splits: SplitMetadata = {}
     try:
-        import h5py
+        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
 
         cache = _image_cache_dir() / "galaxiesml"
         tr_path = cache / "training.hdf5"
@@ -839,7 +858,7 @@ def _load_pzflow_galaxies(
     """
     splits: SplitMetadata = {}
     try:
-        from pzflow.examples import get_galaxy_data
+        from pzflow.examples import get_galaxy_data  # ty: ignore[unresolved-import]
         from sklearn.preprocessing import StandardScaler
 
         data = get_galaxy_data()
@@ -893,7 +912,7 @@ def _load_survset_hdfail(
     splits: SplitMetadata = {}
     try:
         from sklearn.preprocessing import OneHotEncoder
-        from SurvSet.data import SurvLoader
+        from SurvSet.data import SurvLoader  # ty: ignore[unresolved-import]
 
         d = SurvLoader().load_dataset(ds_name="hdfail")
         df, _ = d.values()
@@ -1489,7 +1508,7 @@ def _fetch_folktables_xy(
     existing benchmarks). Passing all US states yields ~3M person rows
     (~1.5M after the employment filter) — the >1M-row likelihood scale.
     """
-    import folktables
+    import folktables  # ty: ignore[unresolved-import]  # optional ACS dep
     import pandas as pd
     from sklearn.preprocessing import OneHotEncoder
 
@@ -2398,7 +2417,7 @@ def _download_with_progress(url: str, dest: Path, desc: str = "") -> None:
         return
 
     try:
-        import requests  # ty: ignore[unresolved-import]  # optional dep, imported lazily with a friendly ImportError
+        import requests  # optional dep, imported lazily with a friendly ImportError
     except ImportError:
         raise ImportError(
             "requests is required to download image datasets. Install with: uv pip install requests"
@@ -3653,10 +3672,10 @@ def _prefer_ipv4() -> Any:
         res.sort(key=lambda r: 0 if r[0] == _socket.AF_INET else 1)
         return res
 
-    _socket.getaddrinfo = _patched  # type: ignore[assignment]
+    _socket.getaddrinfo = _patched  # ty: ignore[invalid-assignment]
 
     def _restore() -> None:
-        _socket.getaddrinfo = orig  # type: ignore[assignment]
+        _socket.getaddrinfo = orig
 
     return _restore
 
@@ -5522,7 +5541,7 @@ def _stress_registry_loader(name: str) -> Callable[..., "SplitsDict"]:
         from suites.tabular.stress_matrix import load_stress_dataset
 
         n = int(kwargs.get("n_samples") or 4000)
-        return load_stress_dataset(name, n=n)
+        return cast("SplitsDict", load_stress_dataset(name, n=n))
 
     return _loader
 
