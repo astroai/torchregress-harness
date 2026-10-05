@@ -32,6 +32,7 @@ from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
+from suites.tabular.orthogonal_inference import OrthogonalInferenceSuite
 from suites.tabular.ppi import PPISuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
@@ -65,6 +66,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "sbi_parity": SBIParitySuite,
     "streaming_tta": StreamingTTASuite,
     "causal": CausalSuite,
+    "orthogonal_inference": OrthogonalInferenceSuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "likelihoods": LikelihoodsSuite,
