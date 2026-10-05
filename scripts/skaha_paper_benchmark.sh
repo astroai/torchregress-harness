@@ -28,6 +28,12 @@
 #   RUN_ID       unique run suffix (default: YYYYMMDD_HHMMSS)
 #   OUT_ROOT     results root (default: persistent /arc when writable)
 #   SKIP_PIXI_INSTALL=1  reuse a prebuilt pixi env
+#   BENCH_PROFILE  paper (default: the 2026-08 paper steps) | release (0.3.0
+#                  release run: strict data, multi-seed, new suites, gates)
+#   SEEDS          release profile seeds (default "0 1 2")
+#   IMAGE_SUITES=1 release profile: also run the image suites (needs a GPU node)
+#   HF_TOKEN       Hugging Face token that accepted the TabPFN 3.5 terms; used to
+#                  prefetch TabPFN 9 / TabICL weights into $HF_HOME
 #
 # Pins (keep in sync with EXTERNAL_PINS.md):
 #   MAPIE           3b84b8212d    (branch master, 2026-09-30)
@@ -223,6 +229,11 @@ else
   pixi_run pip install --quiet -e ".[all]" || log "WARN: [all] extras install failed"
   log "installing pzflow (best-effort)"
   pixi_run pip install --quiet pzflow || log "WARN: pzflow install failed"
+  # sbibm 1.1.0 pins sbi<0.22; it only provides tasks + reference posteriors,
+  # which tools/freeze_sbibm.py freezes into the cache below.
+  log "installing sbibm --no-deps (+ pyro-ppl/future)"
+  pixi_run pip install --quiet pyro-ppl future || log "WARN: pyro-ppl install failed"
+  pixi_run pip install --quiet --no-deps "sbibm==1.1.0" || log "WARN: sbibm install failed"
 fi
 
 log "recording installed versions"
@@ -231,7 +242,9 @@ import importlib.metadata as md
 for pkg in ("mapie", "torch-uncertainty", "torch", "lightning", "torchregress",
             "torchregress-harness", "pzflow", "jax", "crepes", "torchcp",
             "lightgbm", "xgboost", "botorch", "gpytorch", "scikit-lego",
-            "tabpfn", "tabicl", "econml", "dowhy", "pytorch-lightning"):
+            "tabpfn", "tabicl", "econml", "dowhy", "pytorch-lightning",
+            "lightning-uq-box", "sbi", "sbibm", "doubleml", "ngboost",
+            "laplace-torch", "scoringrules", "scikit-learn"):
     try:
         d = md.distribution(pkg)
         url = d.read_text("direct_url.json") or ""
@@ -255,6 +268,64 @@ run_bench() {
   log "===== $* ====="
   "$@" || log "WARN: step failed (continuing): $*"
 }
+
+if [ "${BENCH_PROFILE:-paper}" = "release" ]; then
+  # 0.3.0 release run (plan step 1.5).  Real datasets must load for real:
+  # a missing mirror stops that dataset instead of benchmarking a synthetic
+  # stand-in (tools/check_provenance.py re-checks every artifact at the end).
+  export TORCHREGRESS_HARNESS_STRICT_DATA=1
+  export HF_HOME="${HF_HOME:-$ARC_ROOT/cache/huggingface}"
+  mkdir -p "$HF_HOME"
+  SEEDS="${SEEDS:-0 1 2}"
+  echo "profile: release seeds=[$SEEDS] image_suites=${IMAGE_SUITES:-0}" >> "$OUT_DIR/run_meta.txt"
+
+  log "freezing sbibm tasks into the harness cache"
+  run_bench pixi_run python tools/freeze_sbibm.py
+
+  if [ -n "${HF_TOKEN:-}" ]; then
+    log "prefetching TabPFN / TabICL weights into $HF_HOME"
+    run_bench pixi_run python - <<'PY'
+import numpy as np
+X, y = np.random.default_rng(0).normal(size=(64, 4)), np.arange(64.0)
+from tabpfn import TabPFNRegressor
+TabPFNRegressor(device="cpu").fit(X, y).predict(X[:2])
+from tabicl import TabICLRegressor
+TabICLRegressor(device="cpu").fit(X, y).predict(X[:2])
+print("weights cached")
+PY
+  else
+    log "WARN: HF_TOKEN unset; TabPFN 9 (gated) and TabICL rows will fail"
+  fi
+
+  TABULAR_SUITES="conformal,bayesian_linear,sklearn_baselines,distributional_bins,calibration,tweedie,ensembles,foundation_model,robust_regression,uq,pzflow_parity,likelihoods,censored,eiv,r2c_conformal,ppi"
+  for seed in $SEEDS; do
+    run_bench pixi_run python tools/leaderboard_regression.py --seed "$seed" \
+      --suites "$TABULAR_SUITES" \
+      --output "$OUT_DIR/leaderboard_seed$seed.json" --markdown "$OUT_DIR/leaderboard_seed$seed.md"
+    for suite in sbi_parity orthogonal_inference constrained_outputs multivariate_intervals stress_matrix; do
+      run_bench pixi_run python tools/run_all.py --suites "$suite" --seed "$seed" \
+        --output "$OUT_DIR/${suite}_seed$seed.json"
+    done
+    if [ "${IMAGE_SUITES:-0}" = "1" ]; then
+      for suite in age_regression cell_counting censored_imaging crowd_counting depth_estimation \
+        image_calibration image_conformal image_ensembles_uq image_robust keypoint_regression photoz_imaging; do
+        run_bench pixi_run python tools/run_all.py --suites "$suite" --seed "$seed" \
+          --output "$OUT_DIR/${suite}_seed$seed.json"
+      done
+    fi
+  done
+
+  log "===== GATES ====="
+  run_bench pixi_run python tools/check_provenance.py "$OUT_DIR"/*.json
+  run_bench pixi_run python tools/seed_spread.py "$OUT_DIR"/leaderboard_seed*.json \
+    --json-out "$OUT_DIR/seed_spread_leaderboard.json" --markdown-out "$OUT_DIR/seed_spread_leaderboard.md"
+  for suite in sbi_parity orthogonal_inference constrained_outputs multivariate_intervals stress_matrix; do
+    run_bench pixi_run python tools/seed_spread.py "$OUT_DIR/${suite}"_seed*.json \
+      --json-out "$OUT_DIR/seed_spread_$suite.json" --markdown-out "$OUT_DIR/seed_spread_$suite.md"
+  done
+  log "===== DONE $RUN_ID (release profile) ====="
+  exit 0
+fi
 
 run_bench pixi_run python tools/run_canonical.py --scenario mapie_reference \
   --output "$OUT_DIR/canonical_mapie.json" --report "$OUT_DIR/canonical_mapie.md"

@@ -141,6 +141,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--epochs", type=int, default=60, help="Training epochs for MLP methods.")
     p.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Harness seed (repeat with several seeds, then run tools/seed_spread.py).",
+    )
+    p.add_argument(
         "--device",
         type=str,
         default="auto",
@@ -212,12 +218,15 @@ def run_leaderboard(
     tabred_samples: int = 10000,
     target_coverage: float = 0.9,
     device: str = "auto",
+    seed: int = 42,
 ) -> None:
     """Run every requested suite × dataset pair and emit the leaderboard artifact."""
     from harness.devices import set_default_device
 
     resolved_device = set_default_device(device)
-    cfg = HarnessConfig(seed=42, smoke=smoke, standardize_targets=True, device=str(resolved_device))
+    cfg = HarnessConfig(
+        seed=seed, smoke=smoke, standardize_targets=True, device=str(resolved_device)
+    )
     if smoke:
         cfg.epochs = 10
 
@@ -259,6 +268,7 @@ def run_leaderboard(
             "smoke": smoke,
             "target_coverage": target_coverage,
             "device": str(resolved_device),
+            "seed": seed,
             "n_raw_rows": len(all_rows),
             "n_methods_total": len(summary),
             "n_attempts": n_attempts,
@@ -568,4 +578,5 @@ if __name__ == "__main__":
         markdown_path=args.markdown,
         device=args.device,
         target_coverage=args.target_coverage,
+        seed=args.seed,
     )
