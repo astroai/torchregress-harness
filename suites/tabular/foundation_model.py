@@ -25,6 +25,7 @@ Canonical scenarios
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
@@ -129,7 +130,9 @@ class FoundationModelSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         methods = ["GaussianNLL", "MDN"]
-        if _TABPFN_AVAILABLE:
+        # TabPFN is paused for the 0.3.0 release run (gated weights); opt back in with
+        # TORCHREGRESS_HARNESS_WITH_TABPFN=1.
+        if _TABPFN_AVAILABLE and os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1":
             methods.append("TabPFN")
         if _TABICL_AVAILABLE:
             methods.append("TabICL")

@@ -14,7 +14,7 @@
 #   HARNESS_REF    torchregress-harness commit to run (required)
 #   LIB_REF        torchregress commit to run (required)
 #   GH_TOKEN       read token for the private sfabbro/torchregress-harness fork
-#   HF_TOKEN       Hugging Face token (TabPFN 9 gated weights, TabICL/sdm checkpoints)
+#   HF_TOKEN       optional Hugging Face token (needed only with TORCHREGRESS_HARNESS_WITH_TABPFN=1)
 #   SEEDS          comma-separated, default "0,1,2"
 #   EPOCHS         default 60
 #   REPLICA_ID / REPLICA_COUNT   set by Skaha for --replicas sessions
@@ -109,7 +109,8 @@ case "$GROUP" in
     pip_install "jax[cpu]" pzflow
     ;;
   fm)
-    pip_install "tabpfn==9.1.0" "tabicl==2.2.0"
+    pip_install "tabicl==2.2.0"
+    [ "${TORCHREGRESS_HARNESS_WITH_TABPFN:-0}" = 1 ] && pip_install "tabpfn==9.1.0"
     pip_install "git+https://github.com/NVIDIA/structured-data-models.git@$SDM_PIN"
     ;;
   image)
@@ -134,16 +135,18 @@ for pkg in ("torchregress", "torchregress-harness", "mapie", "torch-uncertainty"
         print(f"{pkg}\tNOT INSTALLED")
 PY
 
-if [ "$GROUP" = "fm" ] && [ -n "${HF_TOKEN:-}" ]; then
+if [ "$GROUP" = "fm" ]; then
   log "prefetching foundation-model weights into $HF_HOME"
   prun python - <<'PY' || log "WARN: weight prefetch failed (rows will fail individually)"
+import os
 import numpy as np
 X, y = np.random.default_rng(0).normal(size=(64, 4)), np.arange(64.0)
-from tabpfn import TabPFNRegressor
-TabPFNRegressor().fit(X, y).predict(X[:2])
 from tabicl import TabICLRegressor
 TabICLRegressor().fit(X, y).predict(X[:2])
-print("tabpfn/tabicl weights cached")
+if os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1":
+    from tabpfn import TabPFNRegressor
+    TabPFNRegressor().fit(X, y).predict(X[:2])
+print("weights cached")
 PY
 fi
 if [ "$GROUP" = "sbi" ]; then

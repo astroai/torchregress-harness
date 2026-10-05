@@ -8,8 +8,9 @@
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
 # `gh` logged in (the token lets the sessions fetch the private harness fork), both forks
-# pushed (the script checks), and HF_TOKEN exported (a Hugging Face token that
-# accepted the TabPFN 3.5 terms; TabICL/sdm checkpoints also come from the Hub).
+# pushed (the script checks).  HF_TOKEN is optional (public TabICL/sdm checkpoints
+# download without it; TabPFN is paused for this run, set WITH_TABPFN=1 and a token
+# that accepted the TabPFN 3.5 terms to bring it back).
 #
 # Sizing (override with env): replicas x cores/RAM/GPU per group.
 #   tabular  TAB_REPLICAS=12  8 cores 32 GB          (116 suite x dataset jobs x seeds)
@@ -59,11 +60,15 @@ os.execvp("bash", ["bash", w + "/SCRIPT"])'
   printf 'exec(bytes.fromhex("%s").decode())' "$(printf '%s' "$code" | od -An -tx1 | tr -d ' \n')"
 }
 
+# Skaha session names allow only letters, digits and '-'.
+name_tag() { local t="${RUN_TAG#release_}"; echo "${t//_/}"; }
+
 ENV_ARGS=()
 set_env_args() {
   ENV_ARGS=(-e "RUN_TAG=$RUN_TAG" -e "HARNESS_REF=$HARNESS_REF" -e "LIB_REF=$LIB_REF"
     -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS")
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
+  [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
   return 0
 }
 DRY=()
@@ -73,7 +78,7 @@ launch_group() { # <group> <replicas> <cpu> <mem GB> <gpu>
   local group="$1" reps="$2" cpu="$3" mem="$4" gpu="$5" gpu_args=()
   [ "$gpu" -gt 0 ] && gpu_args=(--gpu "$gpu")
   echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
-  canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-${RUN_TAG#release_}" \
+  canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-$(name_tag)" \
     --cpu "$cpu" --memory "$mem" ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
     ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -e "GROUP=$group" \
     -- python3 -c "$(bootstrap scripts/skaha_release.sh)"
@@ -84,7 +89,6 @@ case "${1:-}" in
     HARNESS_REF=$(pushed_sha "$HERE")
     LIB_REF=$(pushed_sha "$LIB_DIR")
     GH_TOKEN=$(gh_token)
-    [ -n "${HF_TOKEN:-}" ] || echo "WARNING: HF_TOKEN unset; TabPFN 9 (gated) rows will fail" >&2
     RUN_TAG="release_$(date +%Y%m%d_%H%M)"
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
     set_env_args
@@ -99,7 +103,7 @@ case "${1:-}" in
     [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
     # shellcheck disable=SC1090
     . "$STATE"
-    canfar ps --all | grep -E "NAME|trr-.*-${RUN_TAG#release_}" || true
+    canfar ps --all | grep -E "NAME|trr-.*-$(name_tag)" || true
     echo "logs: /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/<group>/logs/"
     ;;
   report)
@@ -108,7 +112,7 @@ case "${1:-}" in
     . "$STATE"
     GH_TOKEN=$(gh_token)
     set_env_args
-    canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-${RUN_TAG#release_}" \
+    canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-$(name_tag)" \
       --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
