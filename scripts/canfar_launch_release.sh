@@ -18,6 +18,8 @@
 #   image    IMG_REPLICAS=6   8 cores 64 GB, 1 GPU   (image suites)
 # Results: /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/<group>/
 set -euo pipefail
+# macOS ships bash 3.2: empty arrays are expanded as ${a[@]+"${a[@]}"} so set -u
+# does not abort on them.
 
 IMAGE="${IMAGE:-astroai/base:latest}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -45,17 +47,15 @@ pushed_sha() { # <repo dir> -> HEAD sha, after checking it is on origin/main
 # python3 -c payload without spaces: `canfar create headless` word-splits the
 # command line, so the bootstrap travels hex-encoded and exec'd in the session.
 bootstrap() { # <script path inside the harness repo>
-  local code
-  code=$(cat <<PY
-import os, subprocess
+  # Single-quoted literal, not a heredoc inside $(...): bash 3.2 misparses those.
+  local code='import os, subprocess
 w = "/scratch/bootstrap-" + os.environ["RUN_TAG"] + "-" + os.environ.get("GROUP", "report") + "-" + os.environ.get("REPLICA_ID", "1")
 subprocess.run(["rm", "-rf", w], check=True)
 subprocess.run(["git", "init", "-q", w], check=True)
 subprocess.run(["git", "-C", w, "-c", "http.extraheader=Authorization: Bearer " + os.environ.get("GH_TOKEN", ""), "fetch", "-q", "--depth", "1", "https://github.com/sfabbro/torchregress-harness.git", os.environ["HARNESS_REF"]], check=True)
 subprocess.run(["git", "-C", w, "checkout", "-q", "FETCH_HEAD"], check=True)
-os.execvp("bash", ["bash", w + "/$1"])
-PY
-)
+os.execvp("bash", ["bash", w + "/SCRIPT"])'
+  code="${code/SCRIPT/$1}"
   printf 'exec(bytes.fromhex("%s").decode())' "$(printf '%s' "$code" | od -An -tx1 | tr -d ' \n')"
 }
 
@@ -73,9 +73,9 @@ launch_group() { # <group> <replicas> <cpu> <mem GB> <gpu>
   local group="$1" reps="$2" cpu="$3" mem="$4" gpu="$5" gpu_args=()
   [ "$gpu" -gt 0 ] && gpu_args=(--gpu "$gpu")
   echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
-  canfar create headless "$IMAGE" "${DRY[@]}" --name "trr-$group-${RUN_TAG#release_}" \
-    --cpu "$cpu" --memory "$mem" "${gpu_args[@]}" --replicas "$reps" \
-    "${ENV_ARGS[@]}" -e "GROUP=$group" \
+  canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-${RUN_TAG#release_}" \
+    --cpu "$cpu" --memory "$mem" ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
+    ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -e "GROUP=$group" \
     -- python3 -c "$(bootstrap scripts/skaha_release.sh)"
 }
 
@@ -108,8 +108,8 @@ case "${1:-}" in
     . "$STATE"
     GH_TOKEN=$(gh_token)
     set_env_args
-    canfar create headless "$IMAGE" "${DRY[@]}" --name "trr-report-${RUN_TAG#release_}" \
-      --cpu 4 --memory 16 "${ENV_ARGS[@]}" -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)"
+    canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-${RUN_TAG#release_}" \
+      --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
   *)
