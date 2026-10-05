@@ -14,7 +14,7 @@
 set -euo pipefail
 
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
-LUQBOX_REF="${LUQBOX_REF:-v0.3.0}"
+LUQBOX_REF="${LUQBOX_REF:-v0.4.0}"
 
 ensure_writable() { [ -d "$1" ] && [ -w "$1" ] || mkdir -p "$1" 2>/dev/null && [ -w "$1" ]; }
 export PIXI_HOME="$HOME/.pixi"

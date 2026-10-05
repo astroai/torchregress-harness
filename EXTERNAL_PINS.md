@@ -7,7 +7,7 @@ how to install / re-pin them.
 
 > **Why git, not PyPI?** At the time of writing, PyPI lags upstream:
 >
-> - **mapie** — PyPI is stuck at `1.4.1`, while `master` is far ahead
+> - **mapie** — PyPI (1.5.0, 2026-08-05) lags `master`
 >   (Cross-CQR, Automatically Adaptive Conformal Risk Control, LLM-as-Judge
 >   risk control, docs migrated to Read the Docs).  The harness calls the real
 >   `mapie.regression` v1 API (`SplitConformalRegressor` /
@@ -22,8 +22,12 @@ how to install / re-pin them.
 
 | Library | Source | Commit | Date | Reason for the pin |
 |---------|--------|--------|------|--------------------|
-| **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `6478f16c9a` | 2026-08-04 | Newest `master`; includes Cross-CQR + Adaptive Conformal Risk Control || **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (tag `v0.13.0`, main HEAD) | `94e511a737` | 2026-07-22 | v0.13.0 regression-routine rework the image suite is written against |
-| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.3.0`) | `df6366e` | 2026-09-03 | Stress-matrix + image comparator (`luqbox_*` rows); v0.3.0 MLP signature (`n_hidden`, `dropout_p`) is what the adapters are written against |
+| **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `3b84b8212d` | 2026-09-30 | Newest `master` (`1.5.1.dev6`), ahead of PyPI 1.5.0 (2026-08-05); includes Cross-CQR + Adaptive Conformal Risk Control. Previous pin `6478f16c9a` (2026-08-04) |
+| **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (branch `main`) | `3f82fe5d15` | 2026-08-07 | `main` HEAD after tag v0.13.0 (`94e511a737`, the previous pin); same v0.13 regression-routine API |
+| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.4.0`) | `2032b2e87a` | 2026-09-28 | Stress-matrix + image comparator (`luqbox_*` rows). v0.4.0 verified with the existing adapters on 2026-10-05 (MLP signature unchanged). Previous pin v0.3.0 `df6366e` |
+| **TabPFN** | PyPI `tabpfn` | `9.1.0` | 2026-10-02 | Foundation-model rows. **9.x downloads gated weights (`Prior-Labs/tabpfn_3_5`) and needs a Hugging Face token (`HF_TOKEN`) that has accepted the model terms.** Previous: 8.4.0 |
+| **TabICL** | PyPI `tabicl` | `2.2.0` | 2026-09-02 | `Split+TabICL` rows; checkpoint `tabicl-regressor-v2-20260212.ckpt` comes from the Hugging Face Hub (`jingang/TabICL`), so stage it for offline nodes. Previous: 2.1.1 |
+| **scikit-learn** | PyPI | `1.9.1` | 2026-09-10 | Baselines and MAPIE/crepes backends. Previous: 1.9.0 |
 | **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 | **lifelines** | PyPI `lifelines` | PyPI latest | — | `lifelines_LogNormalAFT` comparator (tabular censored suite) |
 | **crepes** | PyPI `crepes` | PyPI latest | — | `crepes_CQR` comparator (distributional_bins) + conformal suite |
@@ -34,7 +38,7 @@ how to install / re-pin them.
 | **h5py** | PyPI `h5py` | PyPI latest | — | HDF5 reader for GalaxiesML photometry (`galaxiesml_eiv`) |
 | **pzflow** | PyPI `pzflow` (Crenshaw et al., LSST-DESC) | PyPI latest | — | JAX conditional flows + bundled photo-z galaxies (`pzflow_NSF`, `pzflow_galaxies`) |
 | **sbibm** | PyPI `sbibm` (Lueckmann et al., NeurIPS 2021, `--no-deps` + pyro-ppl/future) | `1.1.0` | — | SBI tasks, reference posteriors/C2ST, and held-out simulator draws for SBC (`two_moons`, `slcp`, Gaussian Linear/Mixture, Bernoulli GLM) |
-| **sbi** | PyPI `sbi` (mackelab) | PyPI latest | — | amortized NPE comparator (`sbi_NPE`) |
+| **sbi** | PyPI `sbi` (mackelab) | `0.27.0` | 2026-08-04 | Amortized posterior comparators (`sbi_parity`) and SBC/TARP diagnostics. Previously unpinned |
 | **econml** | PyPI `econml` (Microsoft) | PyPI latest | — | DRLearner causal comparator (`EconML_DRLearner`) |
 | **Kaggle datasets** | Kaggle API (user token, `~/.kaggle/kaggle.json`) | — | — | IHDP (`konradb/ihdp-data`), UCF-QNRF mirrors; cached under the harness cache, never home |
 | **CSRNet** | native reimplementation from Li, Zhang, Chen (CVPR 2016), no external package | paper | — | VGG-16 frontend (conv1–conv3) + 6 dilated backend convs, 1/8-resolution density maps, MSE; unpretrained; `crowd_counting/CSRNet` with `LibraryVersion: Li-Zhang-Chen-2016-native-unpretrained` |
@@ -49,21 +53,25 @@ how to install / re-pin them.
 
 ```bash
 # MAPIE from git (records the commit for provenance via direct_url.json)
-pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a"
+pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d"
 
-# torch-uncertainty from git (v0.13.0 tag = main HEAD)
-pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737"
+# torch-uncertainty from git (main HEAD after v0.13.0)
+pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15"
 pip install lightning   # required by torch-uncertainty routines
 
 # Lightning-UQ-Box (stress-matrix comparator)
-pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@df6366e02055618873f2cc8711b2dbc22e131a12"
+pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@v0.4.0"
+
+# sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
+pip install "sbi==0.27.0" pyro-ppl future
+pip install --no-deps "sbibm==1.1.0"
 ```
 
 In the pixi env (linux CI box):
 
 ```bash
-pixi run pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a"
-pixi run pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737" lightning
+pixi run pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d"
+pixi run pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15" lightning
 ```
 
 > **⚠️ Git pins are enforced by these install commands, not by the lockfile.**
@@ -114,11 +122,18 @@ Cavern-backed mounts (`7a46993`).
 
 ## Status of older artifacts
 
+> **2026-10-05 re-pin.** The pins above moved for the 0.3.0 release run (MAPIE
+> `3b84b8212d`, torch-uncertainty `3f82fe5d15`, LUQ-Box v0.4.0, TabPFN 9.1.0,
+> TabICL 2.2.0, scikit-learn 1.9.1, sbi 0.27.0). Every artifact below predates
+> it and must be regenerated before the release (plan step 1.5). Tabular smoke
+> runs against the new pins pass for MAPIE, crepes, torchcp, BoTorch and
+> LUQ-Box; TabPFN/TabICL need their Hugging Face weights staged first.
+
 `PARITY_REPORT.md` and `results/` were regenerated on **2026-08-26**
-against the pinned commits above (`6478f16c9a` / `94e511a737`) on the
-CUDA phase and are **fresh** for external-comparison claims. Older
+against the previous pins (`6478f16c9a` / `94e511a737`) on the
+CUDA phase and were **fresh** for external-comparison claims until the 2026-10-05 re-pin. Older
 artifacts (pre-2026-08-04) generated against MAPIE 1.4.1 PyPI are stale.
 
 Stress-matrix artifacts (`results/latest/stress_matrix_luqboxfix.json` and
-the `/arc` runs under `runs/stress_*`) are fresh as of **2026-09-03** against
+the `/arc` runs under `runs/stress_*`) were fresh as of **2026-09-03** against
 the LUQ-box pin `df6366e` (harness `539e3a2`+).

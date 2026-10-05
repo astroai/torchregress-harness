@@ -30,8 +30,8 @@
 #   SKIP_PIXI_INSTALL=1  reuse a prebuilt pixi env
 #
 # Pins (keep in sync with EXTERNAL_PINS.md):
-#   MAPIE           6478f16c9a    (branch master)
-#   torch-uncertainty 94e511a737  (tag v0.13.0 / main HEAD)
+#   MAPIE           3b84b8212d    (branch master, 2026-09-30)
+#   torch-uncertainty 3f82fe5d15  (main HEAD, 2026-08-07; after tag v0.13.0)
 set -euo pipefail
 
 # Skaha containers run as a non-root user without write access to the
@@ -50,8 +50,8 @@ export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
 echo "[caches] PIXI_HOME=$PIXI_HOME UV_CACHE_DIR=$UV_CACHE_DIR"
 
 RUN_ID="${1:-${RUN_ID:-$(date +%Y%m%d_%H%M%S)}}"
-MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
-TU_PIN="${TU_PIN:-94e511a737}"
+MAPIE_PIN="${MAPIE_PIN:-3b84b8212d}"
+TU_PIN="${TU_PIN:-3f82fe5d15}"
 
 # --- persistent root ---------------------------------------------------------
 pick_root() {

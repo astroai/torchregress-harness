@@ -217,7 +217,7 @@ def _mapie_coverage_and_width(
 def _mapie_version() -> str:
     """Installed MAPIE version, annotated with the git commit when pip-installed from git.
 
-    e.g. ``"1.4.1"`` for a PyPI wheel or ``"1.5.0 (git 6478f16c9a)"`` for a
+    e.g. ``"1.4.1"`` for a PyPI wheel or ``"1.5.1.dev6 (git 3b84b8212d)"`` for a
     ``pip install git+https://github.com/scikit-learn-contrib/MAPIE.git`` install.
     """
     try:
@@ -239,7 +239,7 @@ def _require_mapie_version() -> None:
     except ImportError as exc:
         raise ImportError(
             "mapie not installed — install with: "
-            "pip install 'git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a' "
+            "pip install 'git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d' "
             "(see EXTERNAL_PINS.md)"
         ) from exc
     raw = getattr(mapie, "__version__", None)
@@ -1430,15 +1430,7 @@ class ConformalSuite(HarnessRunner):
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (
-                ValueError,
-                RuntimeError,
-                ImportError,
-                KeyError,
-                TypeError,
-                OSError,
-                NameError,
-            ) as exc:
+            except Exception as exc:  # noqa: BLE001 — one method failing must not drop the rest
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),

@@ -248,8 +248,7 @@ def run_leaderboard(
             n_attempts += 1
 
     if not all_rows:
-        print("No results collected; aborting.")
-        return
+        raise SystemExit("No results collected; aborting.")
 
     summary = aggregate_per_method(all_rows, target_coverage=target_coverage)
     artifact = {

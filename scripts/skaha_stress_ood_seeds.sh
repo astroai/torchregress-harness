@@ -44,7 +44,7 @@ cat > "$OUT_DIR/run_meta.txt" <<EOF
 run_id: $RUN_ID
 harness_sha: $(git rev-parse HEAD)
 torchregress_sha: $(git -C "$TR_DIR" rev-parse HEAD)
-luqbox_ref: v0.3.0
+luqbox_ref: v0.4.0
 seeds: $SEEDS
 epochs: $EPOCHS
 date: $(date -u +%Y-%m-%dT%H:%M:%SZ)

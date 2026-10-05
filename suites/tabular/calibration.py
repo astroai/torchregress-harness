@@ -354,15 +354,7 @@ class CalibrationSuite(HarnessRunner):
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (
-                ValueError,
-                RuntimeError,
-                ImportError,
-                KeyError,
-                TypeError,
-                OSError,
-                NameError,
-            ) as exc:
+            except Exception as exc:  # noqa: BLE001 — one method failing must not drop the rest
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),

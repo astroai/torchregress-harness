@@ -258,7 +258,7 @@ def _train_special(
 # Lightning-UQ-Box comparator (self-contained; any failure -> ImportError)
 # ---------------------------------------------------------------------------
 
-_LUQBOX_PIN = "v0.3.0 (git df6366e02055618873f2cc8711b2dbc22e131a12)"
+_LUQBOX_PIN = "v0.4.0 (git 2032b2e87a3e727a07d343ff52850e8070c5aed5)"
 
 
 def _luqbox_fit(

@@ -99,7 +99,7 @@ def _require_torch_uncertainty_version() -> None:
             f"torch-uncertainty {raw} is too old for the image regression suite "
             f"(needs >= {'.'.join(map(str, _TORCH_UNCERTAINTY_MIN_VERSION))}.0 for the reworked "
             "DistributionNLLLoss / distribution-parameter API).  Install from git main: "
-            "pip install 'git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737'"
+            "pip install 'git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15'"
         )
 
 
