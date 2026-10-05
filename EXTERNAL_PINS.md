@@ -27,6 +27,7 @@ how to install / re-pin them.
 | **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.4.0`) | `2032b2e87a` | 2026-09-28 | Stress-matrix + image comparator (`luqbox_*` rows). v0.4.0 verified with the existing adapters on 2026-10-05 (MLP signature unchanged). Previous pin v0.3.0 `df6366e` |
 | **TabPFN** | PyPI `tabpfn` | `9.1.0` | 2026-10-02 | Foundation-model rows. **9.x downloads gated weights (`Prior-Labs/tabpfn_3_5`) and needs a Hugging Face token (`HF_TOKEN`) that has accepted the model terms.** Previous: 8.4.0 |
 | **TabICL** | PyPI `tabicl` | `2.2.0` | 2026-09-02 | `Split+TabICL` rows; checkpoint `tabicl-regressor-v2-20260212.ckpt` comes from the Hugging Face Hub (`jingang/TabICL`), so stage it for offline nodes. Previous: 2.1.1 |
+| **structured-data-models (sdm)** | `https://github.com/NVIDIA/structured-data-models` (branch `main`, Apache-2.0) | `98f61289c7` | 2026-10-06 | One interface to the 2026 tabular foundation models: NVIDIA **KumoTabular** (large; weights OpenMDW-1.1), **TabICLv2** (ICML 2026) and Google **TabFM** v1.0.0 (weights `tabfm-non-commercial-v1.0`: benchmarking only, the suite passes `accept_license=True`). All return 999 regression quantiles (`foundation_model` suite). TabFM does not fit in 7 GB RAM: GPU sessions only |
 | **scikit-learn** | PyPI | `1.9.1` | 2026-09-10 | Baselines and MAPIE/crepes backends. Previous: 1.9.0 |
 | **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 | **lifelines** | PyPI `lifelines` | PyPI latest | — | `lifelines_LogNormalAFT` comparator (tabular censored suite) |
@@ -38,7 +39,7 @@ how to install / re-pin them.
 | **h5py** | PyPI `h5py` | PyPI latest | — | HDF5 reader for GalaxiesML photometry (`galaxiesml_eiv`) |
 | **pzflow** | PyPI `pzflow` (Crenshaw et al., LSST-DESC) | PyPI latest | — | JAX conditional flows + bundled photo-z galaxies (`pzflow_NSF`, `pzflow_galaxies`) |
 | **sbibm** | PyPI `sbibm` (Lueckmann et al., NeurIPS 2021, `--no-deps` + pyro-ppl/future) | `1.1.0` | — | SBI tasks, reference posteriors/C2ST, and held-out simulator draws for SBC (`two_moons`, `slcp`, Gaussian Linear/Mixture, Bernoulli GLM). Draws are frozen to `$TORCHREGRESS_HARNESS_CACHE/sbibm/` on first use (`tools/freeze_sbibm.py`); later runs never import sbibm |
-| **sbi** | PyPI `sbi` (mackelab) | `0.27.0` | 2026-08-04 | Amortized posterior comparators (`sbi_parity`) and SBC/TARP diagnostics. Previously unpinned |
+| **sbi** | `https://github.com/sbi-dev/sbi` (branch `main`) | `17ef00b8dd` | 2026-10-05 | Latest git, ahead of PyPI 0.27.0: amortized NPE (NSF/MAF/MDN), FMPE, NPSE comparators and SBC/TARP diagnostics (`sbi_parity`). `main` rejects estimator options a model does not use, so the suite passes per-model options |
 | **econml** | PyPI `econml` (Microsoft) | PyPI latest | — | DRLearner causal comparator (`EconML_DRLearner`) |
 | **Kaggle datasets** | Kaggle API (user token, `~/.kaggle/kaggle.json`) | — | — | IHDP (`konradb/ihdp-data`), UCF-QNRF mirrors; cached under the harness cache, never home |
 | **CSRNet** | native reimplementation from Li, Zhang, Chen (CVPR 2016), no external package | paper | — | VGG-16 frontend (conv1–conv3) + 6 dilated backend convs, 1/8-resolution density maps, MSE; unpretrained; `crowd_counting/CSRNet` with `LibraryVersion: Li-Zhang-Chen-2016-native-unpretrained` |
@@ -63,7 +64,10 @@ pip install lightning   # required by torch-uncertainty routines
 pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@v0.4.0"
 
 # sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
-pip install "sbi==0.27.0" pyro-ppl future
+pip install "git+https://github.com/sbi-dev/sbi.git@17ef00b8dd1f4a112cc065ef89031941196f25a9" pyro-ppl future
+
+# NVIDIA structured-data-models: KumoTabular, TabICLv2, TabFM
+pip install "git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19"
 pip install --no-deps "sbibm==1.1.0"
 ```
 
@@ -125,7 +129,9 @@ Cavern-backed mounts (`7a46993`).
 > **2026-10-05 re-pin.** The pins above moved for the 0.3.0 release run (MAPIE
 > `3b84b8212d`, torch-uncertainty `3f82fe5d15`, LUQ-Box v0.4.0, TabPFN 9.1.0,
 > TabICL 2.2.0, scikit-learn 1.9.1, sbi 0.27.0). Every artifact below predates
-> it and must be regenerated before the release (plan step 1.5). Tabular smoke
+> it and must be regenerated before the release (plan step 1.5). Later on
+> 2026-10-05: sbi moved to git `main` `17ef00b8dd`; KumoTabular, TabICLv2 and
+> TabFM added through structured-data-models `98f61289c7`. Tabular smoke
 > runs against the new pins pass for MAPIE, crepes, torchcp, BoTorch and
 > LUQ-Box; TabPFN/TabICL need their Hugging Face weights staged first.
 

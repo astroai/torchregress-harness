@@ -117,15 +117,21 @@ class SBIParitySuite(HarnessRunner):
         return {"pzflow_NSF": "pzflow"}.get(method, method)
 
     def library_version(self, method: str) -> str:
-        from importlib.metadata import PackageNotFoundError, version
+        import json
+        from importlib.metadata import PackageNotFoundError, distribution
 
-        dist = {"torchregress": "torchregress", "sbi": "sbi", "pzflow": "pzflow"}.get(
+        name = {"torchregress": "torchregress", "sbi": "sbi", "pzflow": "pzflow"}.get(
             self.library_name(method), ""
         )
+        if not name:
+            return ""
         try:
-            return version(dist) if dist else ""
+            dist = distribution(name)
         except PackageNotFoundError:
             return "not installed"
+        commit = json.loads(dist.read_text("direct_url.json") or "{}").get("vcs_info", {})
+        commit_id = commit.get("commit_id", "")
+        return f"{dist.version} (git {commit_id[:10]})" if commit_id else dist.version
 
     def method_notes(self, method: str) -> str:
         return {
@@ -242,12 +248,14 @@ class SBIParitySuite(HarnessRunner):
                 prior = BoxUniform(low=plo * _torch.ones(out_dim), high=phi * _torch.ones(out_dim))
             if method in _SBI_NPE_MODELS:
                 kind = _SBI_NPE_MODELS[method]
-                estimator = posterior_nn(
-                    model=kind,
-                    hidden_features=FLOW_HIDDEN,
-                    num_transforms=FLOW_TRANSFORMS,
-                    num_components=MDN_COMPONENTS,
+                # sbi main rejects options a model does not use, so pass only
+                # the ones that apply to each density estimator.
+                arch: dict[str, int] = (
+                    {"num_components": MDN_COMPONENTS}
+                    if kind == "mdn"
+                    else {"num_transforms": FLOW_TRANSFORMS}
                 )
+                estimator = posterior_nn(model=kind, hidden_features=FLOW_HIDDEN, **arch)
                 inference: Any = NPE(
                     prior=prior, density_estimator=estimator, show_progress_bars=False
                 )

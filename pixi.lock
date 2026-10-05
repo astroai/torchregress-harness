@@ -6068,20 +6068,20 @@ packages:
 - pypi: ../torchregress
   name: torchregress
   requires_dist:
-  - torch
-  - numpy
-  - torchmetrics
-  - scipy
-  - pytest ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - polars ; extra == 'test'
-  - pyarrow ; extra == 'test'
-  - pyyaml ; extra == 'test'
-  - scikit-learn ; extra == 'test'
-  - pandas ; extra == 'test'
-  - zensical ; extra == 'docs'
-  - matplotlib ; extra == 'viz'
-  - zuko ; extra == 'flows'
+  - torch>=2.13
+  - numpy>=2.5
+  - torchmetrics>=1.9
+  - scipy>=1.18
+  - pytest>=9.1 ; extra == 'test'
+  - pytest-cov>=7.1 ; extra == 'test'
+  - polars>=1.43 ; extra == 'test'
+  - pyarrow>=25.0 ; extra == 'test'
+  - pyyaml>=6.0.3 ; extra == 'test'
+  - scikit-learn>=1.9 ; extra == 'test'
+  - pandas>=3.0 ; extra == 'test'
+  - zensical>=0.0.52 ; extra == 'docs'
+  - matplotlib>=3.11 ; extra == 'viz'
+  - zuko>=1.6 ; extra == 'flows'
   - torchregress[test,docs,viz,flows] ; extra == 'all'
   requires_python: '>=3.12,<3.16'
 - pypi: ./
@@ -6095,28 +6095,37 @@ packages:
   - matplotlib
   - scipy
   - tqdm
-  - mapie>=1.4.1 ; extra == 'conformal'
+  - mapie>=1.5.0 ; extra == 'conformal'
   - crepes ; extra == 'conformal'
   - torchcp ; extra == 'conformal'
   - botorch ; extra == 'bayesian'
   - gpytorch ; extra == 'bayesian'
   - scikit-lego ; extra == 'tweedie'
-  - tabpfn ; extra == 'foundation'
-  - tabicl ; extra == 'foundation'
+  - tabpfn>=9.1 ; extra == 'foundation'
+  - tabicl>=2.2 ; extra == 'foundation'
+  - structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19 ; extra == 'foundation'
   - lightgbm ; extra == 'boosting'
   - xgboost ; extra == 'boosting'
   - torchvision ; extra == 'image'
   - torch-uncertainty>=0.13.0 ; extra == 'image'
   - lightning ; extra == 'image'
-  - lightning-uq-box>=0.3.0 ; extra == 'image'
+  - lightning-uq-box>=0.4.0 ; extra == 'image'
   - timm ; extra == 'image'
   - requests ; extra == 'image'
   - pillow ; extra == 'image'
   - h5py ; extra == 'image'
+  - sbi @ git+https://github.com/sbi-dev/sbi.git@17ef00b8dd1f4a112cc065ef89031941196f25a9 ; extra == 'sbi'
+  - pyro-ppl ; extra == 'sbi'
+  - econml>=0.17.0 ; extra == 'causal'
+  - doubleml>=0.11.4 ; extra == 'causal'
+  - ngboost>=0.5.11 ; extra == 'distributional'
+  - laplace-torch>=0.2.3 ; extra == 'distributional'
+  - scoringrules>=0.11.0 ; extra == 'scoring'
+  - properscoring ; extra == 'scoring'
   - pytest ; extra == 'test'
   - pytest-cov ; extra == 'test'
   - pyyaml ; extra == 'test'
   - ruff ; extra == 'dev'
   - ty ; extra == 'dev'
-  - torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,test,dev] ; extra == 'all'
+  - torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,test,dev] ; extra == 'all'
   requires_python: '>=3.12,<3.16'

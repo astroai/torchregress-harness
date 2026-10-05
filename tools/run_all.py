@@ -239,8 +239,13 @@ def main() -> None:
                         load_kw["img_size"] = args.img_size
                     split = load_dataset(dataset_name, **load_kw)  # type: ignore[arg-type]
                 except KeyError:
-                    print(f"  Dataset {dataset_name!r} not found — skipping")
-                    continue
+                    if dataset_name not in suite.supported_datasets:
+                        print(f"  Dataset {dataset_name!r} not found — skipping")
+                        continue
+                    # Suite-generated designs (orthogonal_inference,
+                    # constrained_outputs) are not registry datasets: the
+                    # suite draws them itself from the seed.
+                    split = None
                 except Exception as exc:
                     # Real datasets (NYU/IMDB-WIKI downloads, corrupt caches)
                     # must not kill the whole run — report and continue.

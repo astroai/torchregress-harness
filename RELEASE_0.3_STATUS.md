@@ -1,7 +1,7 @@
 # 0.3.0 release run — harness status
 
 Tracks plan Phase 1 (harness) for the torchregress 0.3.0 PyPI release.
-Last updated: 2026-10-05.
+Last updated: 2026-10-05 (afternoon). Algorithm development in torchregress is frozen for 0.3.0.
 
 ## Done (CPU, no network data)
 
@@ -15,11 +15,14 @@ Last updated: 2026-10-05.
 | 1.4 | New `orthogonal_inference` suite (vs DoubleML, EconML) | `1c93095` |
 | 1.4 | New `constrained_outputs` suite (all 5 `constraints` exports) | `6c944bc` |
 | 1.4 | `calibration` suite benchmarks the VarianceTemperatureScaler floor and clip options | `e3f7110` |
-| 1.5 | `--seed` for `leaderboard_regression.py`; `BENCH_PROFILE=release` in `scripts/skaha_paper_benchmark.sh` | this commit |
+| 1.5 | `--seed` for `leaderboard_regression.py`; `BENCH_PROFILE=release` in `scripts/skaha_paper_benchmark.sh` | `10cb870` |
+| 1.2 | sbi from git `main` (`17ef00b8dd`); per-model estimator options for the new sbi API | this commit |
+| 1.4 | KumoTabular, TabICLv2, TabFM (NVIDIA structured-data-models) in `foundation_model`; all foundation models scored on predictive quantiles | this commit |
+| 1.5 | `scripts/canfar_launch_release.sh` + `skaha_release.sh` + `skaha_release_report.sh`; `tools/release_jobs.py` | this commit |
 
 ## Findings so far
 
-1. **Library bug, fixed in torchregress `da4b3d0`.** `orthogonal_partially_linear`
+1. **Library bug, fixed in torchregress `63ecc3f`.** `orthogonal_partially_linear`
    used different cross-fitting splits for its two nuisances, biasing theta by
    −0.026 (≈7.7 SE) on the CCDDHNR-2018 design; DoubleML on the same basis
    −0.007. One shared split: −0.003.
@@ -53,18 +56,33 @@ Last updated: 2026-10-05.
 
 ## Launching the release run on CANFAR
 
-Headless job on an image with git + curl (e.g. `astroai/notebook:latest`):
+From your Mac (CANFAR is not reachable from the agent sandboxes), with both
+forks pushed, `canfar auth login` done, `gh` logged in and `HF_TOKEN` exported:
 
 ```bash
-export GH_TOKEN=...          # read access to the private repos
-export HF_TOKEN=...          # accepted the TabPFN 3.5 model terms
-export BENCH_PROFILE=release SEEDS="0 1 2"
-bash scripts/skaha_paper_benchmark.sh release_$(date +%Y%m%d)
-# GPU node, image suites too:
-IMAGE_SUITES=1 bash scripts/skaha_paper_benchmark.sh release_img_$(date +%Y%m%d)
+cd ~/src/astroai/torchregress-harness
+DRY_RUN=1 scripts/canfar_launch_release.sh launch   # check the four commands
+scripts/canfar_launch_release.sh launch             # submit
+scripts/canfar_launch_release.sh status             # watch
+scripts/canfar_launch_release.sh report             # after all groups finish
 ```
 
-Outputs land in `$ARC_ROOT/runs/<RUN_ID>/`: per-seed leaderboards and suite
-JSONs, `seed_spread_*.md`, and the provenance gate's verdict in the log.
-The script refreshes both repos from `sfabbro/*` `main`, so push the fork
-first.
+`launch` submits four headless groups on `astroai/base:latest`, each running
+`scripts/skaha_release.sh` on the pushed SHAs (checked against `origin/main`):
+
+| Group | Jobs (suite x dataset) | Default replicas | Resources |
+|---|---:|---:|---|
+| tabular | 116 | 12 | 8 cores, 32 GB |
+| sbi | 5 | 5 | 8 cores, 32 GB |
+| fm (foundation models) | 4 | 2 | 8 cores, 64 GB, 1 GPU |
+| image | 49 | 6 | 8 cores, 64 GB, 1 GPU |
+
+Every job runs seeds 0, 1, 2 at 60 epochs in strict data mode. Results land in
+`/arc/projects/ots/torchregress-harness/runs/<RUN_TAG>/<group>/`, one JSON per
+suite, dataset and seed, plus per-replica logs and installed versions. A
+replica skips jobs whose JSON already exists, so relaunching a group resumes
+it. `report` runs the provenance gate, per-group seed spread and a job ledger
+into `<RUN_TAG>/report/`.
+
+The sessions fetch the private harness fork with your `gh` token, passed as a
+session environment variable (visible in your own session listing).

@@ -60,6 +60,8 @@ tweedie = [
 foundation = [
     "tabpfn>=9.1",
     "tabicl>=2.2",
+    # KumoTabular, TabICLv2, TabFM (git only; pin in EXTERNAL_PINS.md)
+    "structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19",
 ]
 boosting = [
     "lightgbm",
@@ -79,7 +81,7 @@ image = [
 # (see EXTERNAL_PINS.md); the sbi_parity suite needs it for tasks and
 # reference posteriors.
 sbi = [
-    "sbi>=0.27.0",
+    "sbi @ git+https://github.com/sbi-dev/sbi.git@17ef00b8dd1f4a112cc065ef89031941196f25a9",
     "pyro-ppl",
 ]
 causal = [
