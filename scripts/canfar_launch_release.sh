@@ -6,8 +6,8 @@
 #   scripts/canfar_launch_release.sh report   # gates + summaries once groups finish
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
 #
-# Needs: `canfar` CLI already logged in (`canfar auth login`), `gh` logged in
-# (its token lets the sessions fetch the private harness fork), both forks
+# Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
+# `gh` logged in (the token lets the sessions fetch the private harness fork), both forks
 # pushed (the script checks), and HF_TOKEN exported (a Hugging Face token that
 # accepted the TabPFN 3.5 terms; TabICL/sdm checkpoints also come from the Hub).
 #
@@ -28,7 +28,11 @@ EPOCHS="${EPOCHS:-60}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 command -v canfar >/dev/null || die "canfar CLI not found (pip install canfar; canfar auth login)"
-command -v gh >/dev/null || die "gh CLI not found"
+gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
+  if [ -n "${GH_TOKEN:-}" ]; then echo "$GH_TOKEN"; return; fi
+  command -v gh >/dev/null || die "set GH_TOKEN (read access to sfabbro/torchregress-harness) or log in with gh"
+  gh auth token
+}
 
 pushed_sha() { # <repo dir> -> HEAD sha, after checking it is on origin/main
   local dir="$1" head remote
@@ -79,7 +83,7 @@ case "${1:-}" in
   launch)
     HARNESS_REF=$(pushed_sha "$HERE")
     LIB_REF=$(pushed_sha "$LIB_DIR")
-    GH_TOKEN=$(gh auth token)
+    GH_TOKEN=$(gh_token)
     [ -n "${HF_TOKEN:-}" ] || echo "WARNING: HF_TOKEN unset; TabPFN 9 (gated) rows will fail" >&2
     RUN_TAG="release_$(date +%Y%m%d_%H%M)"
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
@@ -102,7 +106,7 @@ case "${1:-}" in
     [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
     # shellcheck disable=SC1090
     . "$STATE"
-    GH_TOKEN=$(gh auth token)
+    GH_TOKEN=$(gh_token)
     set_env_args
     canfar create headless "$IMAGE" "${DRY[@]}" --name "trr-report-${RUN_TAG#release_}" \
       --cpu 4 --memory 16 "${ENV_ARGS[@]}" -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)"
