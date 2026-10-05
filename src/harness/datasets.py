@@ -6486,6 +6486,34 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
 }
 
 
+STRICT_DATA_ENV = "TORCHREGRESS_HARNESS_STRICT_DATA"
+
+
+class SyntheticFallbackError(RuntimeError):
+    """A real dataset could not be loaded and strict data mode forbids a synthetic proxy."""
+
+
+def strict_data_enabled() -> bool:
+    """True when ``TORCHREGRESS_HARNESS_STRICT_DATA`` is set to a truthy value.
+
+    Paper and release runs set it so a missing download or staged mirror stops
+    the run instead of silently benchmarking a synthetic stand-in.
+    """
+    return os.environ.get(STRICT_DATA_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _enforce_strict_data(name: str, splits: SplitsDict) -> None:
+    if not strict_data_enabled() or not splits.get("_synthetic_fallback"):
+        return
+    if DATASET_REGISTRY[name].category == "synthetic":
+        return
+    reason = splits.get("_fallback_reason", "loader returned a synthetic proxy")
+    raise SyntheticFallbackError(
+        f"{name}: real data unavailable ({reason}); {STRICT_DATA_ENV} forbids synthetic fallback. "
+        "Stage the dataset or drop it from the run."
+    )
+
+
 def load_dataset(name: str, **kwargs: Any) -> SplitsDict:
     """Load a dataset by name from the registry.
 
@@ -6513,6 +6541,7 @@ def load_dataset(name: str, **kwargs: Any) -> SplitsDict:
     # Pop harness-level kwargs before passing through to the dataset loader
     standardize = bool(kwargs.pop("standardize_targets", True))
     splits = DATASET_REGISTRY[name].loader(**kwargs)
+    _enforce_strict_data(name, splits)
 
     # Standardise targets unless the dataset opts out (Tweedie, censored)
     # or the harness is explicitly configured to skip standardisation.

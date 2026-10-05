@@ -48,7 +48,8 @@ lint = { cmd = "ruff check src/harness tests tools suites && ruff format --check
 format = "ruff format src/harness tests tools suites"
 typecheck = "ty check --python .pixi/envs/default src/harness"
 test = "pytest --cov=harness --cov-report=term"
-ci = { depends-on = ["lint", "typecheck", "test"] }
+provenance = "python tools/check_provenance.py leaderboard_results.json"
+ci = { depends-on = ["lint", "typecheck", "test", "provenance"] }
 experiments-smoke = "python -m suites.experiments.sweep --config experiments/configs/smoke.yaml --output results/experiments/smoke"
 experiments-tabular = "python -m suites.experiments.sweep --config experiments/configs/tabular-large.yaml --output results/experiments/tabular-large"
 experiments-image = "python -m suites.experiments.sweep --config experiments/configs/image-multitarget.yaml --output results/experiments/image-multitarget"
