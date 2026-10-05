@@ -23,6 +23,7 @@ from suites.tabular.causal import CausalSuite
 from suites.tabular.censored import CensoredSuite
 from suites.tabular.classification_shift import ClassificationShiftSuite
 from suites.tabular.conformal import ConformalSuite
+from suites.tabular.constrained_outputs import ConstrainedOutputsSuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
@@ -67,6 +68,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "streaming_tta": StreamingTTASuite,
     "causal": CausalSuite,
     "orthogonal_inference": OrthogonalInferenceSuite,
+    "constrained_outputs": ConstrainedOutputsSuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "likelihoods": LikelihoodsSuite,
