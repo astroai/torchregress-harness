@@ -69,7 +69,7 @@ fetch_repo() { # <repo> <ref>
   local url="https://github.com/sfabbro/$1.git"
   rm -rf "$1" && git init -q "$1"
   if [ -n "${GH_TOKEN:-}" ]; then
-    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch -q --depth 1 "$url" "$2"
+    git -C "$1" -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" fetch -q --depth 1 "$url" "$2"
   else
     git -C "$1" fetch -q --depth 1 "$url" "$2"
   fi && git -C "$1" checkout -q FETCH_HEAD

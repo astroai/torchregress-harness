@@ -21,7 +21,7 @@ mkdir -p "$WORK" && cd "$WORK" || exit 2
 for spec in "torchregress $LIB_REF" "torchregress-harness $HARNESS_REF"; do
   set -- $spec
   rm -rf "$1" && git init -q "$1"
-  git -C "$1" -c http.extraheader="Authorization: Bearer ${GH_TOKEN:-}" fetch -q --depth 1 \
+  git -C "$1" -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "${GH_TOKEN:-}" | base64 | tr -d '\n')" fetch -q --depth 1 \
     "https://github.com/sfabbro/$1.git" "$2" && git -C "$1" checkout -q FETCH_HEAD || exit 2
 done
 cd torchregress-harness || exit 2

@@ -106,7 +106,7 @@ clone_repo() { # <repo> <dest>
 refresh_repo() { # <dest> <repo>
   local url="https://github.com/$2"
   if [ -n "${GH_TOKEN:-}" ]; then
-    git -C "$1" -c http.extraheader="Authorization: Bearer $GH_TOKEN" fetch --depth 1 "$url" main
+    git -C "$1" -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" fetch --depth 1 "$url" main
   else
     git -C "$1" fetch --depth 1 "$url" main
   fi

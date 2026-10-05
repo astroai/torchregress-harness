@@ -4,6 +4,7 @@
 #   scripts/canfar_launch_release.sh launch   # submit all job groups
 #   scripts/canfar_launch_release.sh status   # canfar ps for this run
 #   scripts/canfar_launch_release.sh report   # gates + summaries once groups finish
+#   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
@@ -49,11 +50,12 @@ pushed_sha() { # <repo dir> -> HEAD sha, after checking it is on origin/main
 # command line, so the bootstrap travels hex-encoded and exec'd in the session.
 bootstrap() { # <script path inside the harness repo>
   # Single-quoted literal, not a heredoc inside $(...): bash 3.2 misparses those.
-  local code='import os, subprocess
+  local code='import base64, os, subprocess
 w = "/scratch/bootstrap-" + os.environ["RUN_TAG"] + "-" + os.environ.get("GROUP", "report") + "-" + os.environ.get("REPLICA_ID", "1")
 subprocess.run(["rm", "-rf", w], check=True)
 subprocess.run(["git", "init", "-q", w], check=True)
-subprocess.run(["git", "-C", w, "-c", "http.extraheader=Authorization: Bearer " + os.environ.get("GH_TOKEN", ""), "fetch", "-q", "--depth", "1", "https://github.com/sfabbro/torchregress-harness.git", os.environ["HARNESS_REF"]], check=True)
+auth = base64.b64encode(("x-access-token:" + os.environ.get("GH_TOKEN", "")).encode()).decode()
+subprocess.run(["git", "-C", w, "-c", "http.extraheader=Authorization: Basic " + auth, "fetch", "-q", "--depth", "1", "https://github.com/sfabbro/torchregress-harness.git", os.environ["HARNESS_REF"]], check=True)
 subprocess.run(["git", "-C", w, "checkout", "-q", "FETCH_HEAD"], check=True)
 os.execvp("bash", ["bash", w + "/SCRIPT"])'
   code="${code/SCRIPT/$1}"
@@ -80,11 +82,18 @@ launch_group() { # <group> <replicas> <cpu> <mem GB> <gpu>
   local group="$1" reps="$2" cpu="$3" mem="$4" gpu="$5" gpu_args=()
   [ "$gpu" -gt 0 ] && gpu_args=(--gpu "$gpu")
   echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
-  canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-$(name_tag)" \
+  local out
+  out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-$(name_tag)" \
     --cpu "$cpu" --memory "$mem" ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
     ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -e "GROUP=$group" \
-    -- python3 -c "$(bootstrap scripts/skaha_release.sh)"
+    -- python3 -c "$(bootstrap scripts/skaha_release.sh)" 2>&1) || { echo "$out" | redact; die "$group: canfar create failed"; }
+  echo "$out" | redact
+  # Remember the session ids so `logs` can fetch them.
+  echo "$out" | sed -n 's/^ *- \([a-z0-9]\{6,\}\)$/\1/p' | sed "s/^/SESSION_$group=/" >> "$STATE"
 }
+
+# canfar prints full request URLs (with the GH_TOKEN env) on errors: never echo the token.
+redact() { sed -E 's/(gh[opsu]_)[A-Za-z0-9]{20,}/\1REDACTED/g; s/(hf_)[A-Za-z0-9]{20,}/\1REDACTED/g'; }
 
 case "${1:-}" in
   launch)
@@ -108,14 +117,32 @@ case "${1:-}" in
     canfar ps --all | grep -E "NAME|trr-.*-$(name_tag)" || true
     echo "logs: /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/<group>/logs/"
     ;;
+  logs)
+    # Logs + events of the first session of each group (or of every session with ALL=1)
+    # into release_logs.txt, tokens redacted: paste or share that file.
+    [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
+    out="$HERE/release_logs.txt"; : > "$out"
+    for group in tabular sbi fm image report; do
+      ids=$(sed -n "s/^SESSION_$group=//p" "$STATE")
+      [ -n "$ids" ] || continue
+      [ "${ALL:-0}" = 1 ] || ids=$(echo "$ids" | head -n 1)
+      for id in $ids; do
+        { echo "===== $group $id ====="; canfar events "$id" 2>&1; canfar logs "$id" 2>&1 | tail -n "${TAIL:-80}"; } | redact >> "$out"
+      done
+    done
+    echo "wrote $out"
+    ;;
   report)
     [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
     # shellcheck disable=SC1090
     . "$STATE"
     GH_TOKEN=$(gh_token)
     set_env_args
-    canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-$(name_tag)" \
-      --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)"
+    out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-$(name_tag)" \
+      --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)" 2>&1) \
+      || { echo "$out" | redact; die "report: canfar create failed"; }
+    echo "$out" | redact
+    echo "$out" | sed -n 's/^ *- \([a-z0-9]\{6,\}\)$/\1/p' | sed "s/^/SESSION_report=/" >> "$STATE"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
   *)
