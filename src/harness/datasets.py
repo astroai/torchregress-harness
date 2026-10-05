@@ -365,11 +365,47 @@ def _load_synthetic_censored(
     }
 
 
+SBIBM_CACHE_VERSION = 1
+
+
+def _sbibm_cache_path(
+    task_name: str, n_samples: int, n_observations: int, n_sbc_simulations: int, seed: int
+) -> Path:
+    """Frozen copy of one sbibm task draw (training sims, observations, references)."""
+    name = (
+        f"{task_name}_n{n_samples}_o{n_observations}_sbc{n_sbc_simulations}_seed{seed}"
+        f"_v{SBIBM_CACHE_VERSION}.pt"
+    )
+    return _image_cache_dir() / "sbibm" / name
+
+
+def _sbibm_splits_from_arrays(arrays: dict[str, Any]) -> SplitsDict:
+    ref = [np.asarray(r, dtype=np.float32) for r in arrays["reference"]]
+    y = np.asarray(arrays["theta"], dtype=np.float32)
+    out: SplitsDict = {
+        "X_train": np.asarray(arrays["x"], dtype=np.float32),
+        "y_train": y,
+        "X_test": np.asarray(arrays["observations"], dtype=np.float32),
+        # Point target = reference posterior mean (diagnostic only).
+        "y_test": np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32),
+        "reference": ref,
+        "sbc_theta": np.asarray(arrays["sbc_theta"], dtype=np.float32),
+        "sbc_x": np.asarray(arrays["sbc_x"], dtype=np.float32),
+        "n_targets": y.shape[1],
+        "prior_low": float(y.min()),
+        "prior_high": float(y.max()),
+        "_skip_y_standardization": True,  # simulator + reference in native units
+    }
+    if arrays.get("prior_dist") is not None:
+        out["prior_dist"] = arrays["prior_dist"]
+    return out
+
+
 def _load_sbibm_task(
     task_name: str,
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """Shared sbibm task loader (Lueckmann et al., NeurIPS 2021 SBI bench).
@@ -379,11 +415,28 @@ def _load_sbibm_task(
     observations. ``sbc_theta``/``sbc_x`` are a separate held-out set of
     prior/simulator draws used only for posterior-calibration diagnostics.
     Seeded via torch (+numpy, unused by most simulators).
+
+    sbibm has had no release since 2023 and pins ``sbi<0.22`` (it is installed
+    ``--no-deps``).  The first successful draw is therefore frozen under
+    ``<cache>/sbibm/`` (see :func:`_sbibm_cache_path`) and later runs read the
+    frozen copy without importing sbibm, so a broken sbibm install cannot
+    change or break the suite.  ``tools/freeze_sbibm.py`` builds the copies
+    ahead of an offline run.
     """
-    splits: SplitMetadata = {}
+    import torch
+
+    cache = _sbibm_cache_path(task_name, n_samples, n_observations, n_sbc_simulations, seed)
+    if cache.exists():
+        try:
+            arrays = torch.load(cache, weights_only=False)
+            splits = _sbibm_splits_from_arrays(arrays)
+            splits["_source_url"] = f"frozen sbibm {task_name} ({cache.name})"
+            return splits
+        except Exception:
+            pass  # unreadable copy: rebuild from sbibm below
+
     try:
         import sbibm  # ty: ignore[unresolved-import]  # optional SBI-benchmark dep
-        import torch
 
         torch.manual_seed(seed)
         task = sbibm.get_task(task_name)
@@ -391,8 +444,6 @@ def _load_sbibm_task(
         simulator = task.get_simulator()
         theta = torch.as_tensor(np.asarray(prior(num_samples=n_samples)), dtype=torch.float32)
         x = torch.as_tensor(np.asarray(simulator(theta)), dtype=torch.float32)
-        X = x.numpy().astype(np.float32)
-        y = theta.numpy().astype(np.float32)
         obs, ref = [], []
         for k in range(1, n_observations + 1):
             o = np.asarray(task.get_observation(num_observation=k), dtype=np.float32)
@@ -402,9 +453,6 @@ def _load_sbibm_task(
             )
             obs.append(o.reshape(-1))
             ref.append(r)
-        X_test = np.stack(obs, axis=0).astype(np.float32)
-        # Point target = reference posterior mean (diagnostic only).
-        y_test = np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32)
         # Diagnostic simulations are independently seeded and never included in
         # the amortized training pairs above.
         torch.manual_seed(seed + 1)
@@ -412,27 +460,32 @@ def _load_sbibm_task(
             np.asarray(prior(num_samples=n_sbc_simulations)), dtype=torch.float32
         )
         sbc_x_t = torch.as_tensor(np.asarray(simulator(sbc_theta_t)), dtype=torch.float32)
+        arrays: dict[str, Any] = {
+            "task": task_name,
+            "theta": theta.numpy().astype(np.float32),
+            "x": x.numpy().astype(np.float32),
+            "observations": np.stack(obs, axis=0).astype(np.float32),
+            "reference": ref,
+            "sbc_theta": sbc_theta_t.numpy().astype(np.float32),
+            "sbc_x": sbc_x_t.numpy().astype(np.float32),
+            "prior_dist": task.get_prior_dist(),
+        }
     except Exception:
         synth = _load_synthetic_cond_nongaussian(n_samples=n_samples, seed=seed)
         synth["_synthetic_fallback"] = True
-        synth["_fallback_reason"] = f"sbibm {task_name} unavailable"
+        synth["_fallback_reason"] = f"sbibm {task_name} unavailable and no frozen copy"
         return synth
 
-    return {
-        **splits,
-        "X_train": X,
-        "y_train": y,
-        "X_test": X_test,
-        "y_test": y_test,
-        "reference": ref,
-        "prior_dist": task.get_prior_dist(),
-        "sbc_theta": sbc_theta_t.numpy().astype(np.float32),
-        "sbc_x": sbc_x_t.numpy().astype(np.float32),
-        "n_targets": y.shape[1],
-        "prior_low": float(y.min()),
-        "prior_high": float(y.max()),
-        "_skip_y_standardization": True,  # simulator + reference in native units
-    }
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache.with_suffix(".tmp")
+        torch.save(arrays, tmp)
+        tmp.replace(cache)
+    except Exception:
+        pass  # read-only cache: still return the fresh draw
+    splits = _sbibm_splits_from_arrays(arrays)
+    splits["_source_url"] = f"sbibm {task_name}"
+    return splits
 
 
 def _load_ihdp(
@@ -574,7 +627,7 @@ def _load_folktables_causal(
 def _load_sbibm_twomoons(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Two Moons (bimodal 2-D posterior + reference samples)."""
@@ -584,7 +637,7 @@ def _load_sbibm_twomoons(
 def _load_sbibm_slcp(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm SLCP (5-D params, 8-D obs, complex posterior + references)."""
@@ -594,7 +647,7 @@ def _load_sbibm_slcp(
 def _load_sbibm_gaussian_linear(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Gaussian Linear (10-D analytic Gaussian posterior)."""
@@ -604,7 +657,7 @@ def _load_sbibm_gaussian_linear(
 def _load_sbibm_gaussian_mixture(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Gaussian Mixture (2-D bimodal posterior)."""
@@ -614,7 +667,7 @@ def _load_sbibm_gaussian_mixture(
 def _load_sbibm_bernoulli_glm(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Bernoulli GLM with sufficient-statistic observations."""
