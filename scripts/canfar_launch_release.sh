@@ -57,7 +57,9 @@ subprocess.run(["git", "-C", w, "-c", "http.extraheader=Authorization: Bearer " 
 subprocess.run(["git", "-C", w, "checkout", "-q", "FETCH_HEAD"], check=True)
 os.execvp("bash", ["bash", w + "/SCRIPT"])'
   code="${code/SCRIPT/$1}"
-  printf 'exec(bytes.fromhex("%s").decode())' "$(printf '%s' "$code" | od -An -tx1 | tr -d ' \n')"
+  # No spaces (canfar word-splits the command) and no double quotes (Skaha
+  # embeds the args in a double-quoted YAML list).
+  printf "exec(bytes.fromhex('%s').decode())" "$(printf '%s' "$code" | od -An -tx1 | tr -d ' \n')"
 }
 
 # Skaha session names allow only letters, digits and '-'.
