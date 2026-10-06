@@ -5,6 +5,7 @@
 #   scripts/canfar_launch_release.sh status   # canfar ps for this run
 #   scripts/canfar_launch_release.sh report   # gates + summaries once groups finish
 #   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
+#   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
@@ -78,18 +79,79 @@ set_env_args() {
 DRY=()
 [ "${DRY_RUN:-0}" = 1 ] && DRY=(--dry-run)
 
-launch_group() { # <group> <replicas> <cpu> <mem GB> <gpu>
-  local group="$1" reps="$2" cpu="$3" mem="$4" gpu="$5" gpu_args=()
+group_spec() { # <group> -> "replicas cpu memGB gpu"
+  case "$1" in
+    tabular) echo "${TAB_REPLICAS:-12} 8 32 0" ;;
+    sbi) echo "${SBI_REPLICAS:-5} 8 32 0" ;;
+    fm) echo "${FM_REPLICAS:-2} 8 64 1" ;;
+    image) echo "${IMG_REPLICAS:-6} 8 64 1" ;;
+    *) die "unknown group: $1" ;;
+  esac
+}
+
+record_sessions() { # <group> <canfar output>: remember session ids for `logs`
+  echo "$2" | sed -n 's/^ *- \([a-z0-9]\{6,\}\)$/\1/p' | sed "s/^/SESSION_$1=/" >> "$STATE"
+}
+
+failed_replicas() { # <group> <canfar output> -> replica numbers Skaha refused to create
+  echo "$2" | sed -n "s/.*Failed to create session.*'trr-$1-[0-9]*-\([0-9][0-9]*\)'.*/\1/p" | sort -n | uniq
+}
+
+create() { # <name> <cpu> <mem> <gpu> <replicas> [-e K=V ...]: one canfar create, output on stdout
+  local name="$1" cpu="$2" mem="$3" gpu="$4" reps="$5" gpu_args=()
+  shift 5
   [ "$gpu" -gt 0 ] && gpu_args=(--gpu "$gpu")
-  echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
-  local out
-  out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-$group-$(name_tag)" \
+  canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "$name" \
     --cpu "$cpu" --memory "$mem" ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
-    ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -e "GROUP=$group" \
-    -- python3 -c "$(bootstrap scripts/skaha_release.sh)" 2>&1) || { echo "$out" | redact; die "$group: canfar create failed"; }
+    ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} "$@" \
+    -- python3 -c "$(bootstrap scripts/skaha_release.sh)" 2>&1
+}
+
+fill_group() { # <group> <replica ids...>: one single-replica session per missing shard
+  local group="$1" reps cpu mem gpu id out still=""
+  shift
+  read -r reps cpu mem gpu <<< "$(group_spec "$group")"
+  for id in "$@"; do
+    echo ">> $group: shard $id of $reps (single session)"
+    out=$(create "trr-$group-$(name_tag)-s$id" "$cpu" "$mem" "$gpu" 1 \
+      -e "GROUP=$group" -e "SHARD_ID=$id" -e "SHARD_COUNT=$reps") || true
+    echo "$out" | redact
+    if echo "$out" | grep -q "Successfully created"; then
+      record_sessions "$group" "$out"
+    else
+      still="${still:+$still,}$id"
+    fi
+  done
+  # Forget the old failure list for this group, keep what is still missing.
+  sed -i.bak "/^FAILED_$group=/d" "$STATE" && rm -f "$STATE.bak"
+  if [ -n "$still" ]; then
+    echo "FAILED_$group=$still" >> "$STATE"
+    echo "!! $group shards still not created: $still (retry: $0 fill $group)"
+  fi
+}
+
+launch_group() { # <group>
+  local group="$1" reps cpu mem gpu out failed
+  read -r reps cpu mem gpu <<< "$(group_spec "$group")"
+  echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
+  out=$(create "trr-$group-$(name_tag)" "$cpu" "$mem" "$gpu" "$reps" -e "GROUP=$group") \
+    || { echo "$out" | redact; die "$group: canfar create failed"; }
   echo "$out" | redact
-  # Remember the session ids so `logs` can fetch them.
-  echo "$out" | sed -n 's/^ *- \([a-z0-9]\{6,\}\)$/\1/p' | sed "s/^/SESSION_$group=/" >> "$STATE"
+  record_sessions "$group" "$out"
+  # Skaha sometimes refuses a few replicas of a batch: resubmit those shards once.
+  failed=$(failed_replicas "$group" "$out")
+  if [ -n "$failed" ]; then
+    echo "!! $group: replicas not created: $(echo $failed); resubmitting them in 30 s"
+    sleep "${FILL_DELAY:-30}"
+    # shellcheck disable=SC2086
+    fill_group "$group" $failed
+  fi
+}
+
+load_state() {
+  [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
+  # shellcheck disable=SC1090
+  . "$STATE"
 }
 
 # canfar prints full request URLs (with the GH_TOKEN env) on errors: never echo the token.
@@ -104,23 +166,19 @@ case "${1:-}" in
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
     set_env_args
     echo "run $RUN_TAG  harness $HARNESS_REF  torchregress $LIB_REF  image $IMAGE"
-    launch_group tabular "${TAB_REPLICAS:-12}" 8 32 0
-    launch_group sbi "${SBI_REPLICAS:-5}" 8 32 0
-    launch_group fm "${FM_REPLICAS:-2}" 8 64 1
-    launch_group image "${IMG_REPLICAS:-6}" 8 64 1
+    for group in tabular sbi fm image; do launch_group "$group"; done
     echo "state saved to $STATE; check progress with: $0 status"
     ;;
   status)
-    [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
-    # shellcheck disable=SC1090
-    . "$STATE"
+    load_state
     canfar ps --all | grep -E "NAME|trr-.*-$(name_tag)" || true
+    grep '^FAILED_' "$STATE" | sed 's/^FAILED_/never created: /' || true
     echo "logs: /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/<group>/logs/"
     ;;
   logs)
     # Logs + events of the first session of each group (or of every session with ALL=1)
     # into release_logs.txt, tokens redacted: paste or share that file.
-    [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
+    load_state
     out="$HERE/release_logs.txt"; : > "$out"
     for group in tabular sbi fm image report; do
       ids=$(sed -n "s/^SESSION_$group=//p" "$STATE")
@@ -132,19 +190,45 @@ case "${1:-}" in
     done
     echo "wrote $out"
     ;;
+  fill)
+    # fill                 every group's FAILED_<group> shards from the state file
+    # fill tabular 3,6     those replica numbers (1-based, as in the session names)
+    load_state
+    # Fill sessions run the harness HEAD (it must know SHARD_ID); the benchmark
+    # code itself is unchanged when only scripts/ moved since the launch.
+    HARNESS_REF=$(pushed_sha "$HERE")
+    echo "FILL_HARNESS_REF=$HARNESS_REF" >> "$STATE"
+    GH_TOKEN=$(gh_token)
+    set_env_args
+    echo "run $RUN_TAG  fill harness $HARNESS_REF  torchregress $LIB_REF"
+    if [ -n "${2:-}" ]; then
+      ids="${3:-$(sed -n "s/^FAILED_$2=//p" "$STATE")}"
+      [ -n "$ids" ] || die "no missing shards recorded for $2; pass ids, e.g. $0 fill $2 3,6"
+      # shellcheck disable=SC2086
+      fill_group "$2" ${ids//,/ }
+    else
+      found=0
+      for group in tabular sbi fm image; do
+        ids=$(sed -n "s/^FAILED_$group=//p" "$STATE")
+        [ -n "$ids" ] || continue
+        found=1
+        # shellcheck disable=SC2086
+        fill_group "$group" ${ids//,/ }
+      done
+      [ "$found" = 1 ] || echo "nothing to fill (no FAILED_<group> lines in $STATE)"
+    fi
+    ;;
   report)
-    [ -f "$STATE" ] || die "no run launched from here ($STATE missing)"
-    # shellcheck disable=SC1090
-    . "$STATE"
+    load_state
     GH_TOKEN=$(gh_token)
     set_env_args
     out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-$(name_tag)" \
       --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)" 2>&1) \
       || { echo "$out" | redact; die "report: canfar create failed"; }
     echo "$out" | redact
-    echo "$out" | sed -n 's/^ *- \([a-z0-9]\{6,\}\)$/\1/p' | sed "s/^/SESSION_report=/" >> "$STATE"
+    record_sessions report "$out"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
   *)
-    sed -n '2,20p' "$0"; exit 1 ;;
+    sed -n '2,21p' "$0"; exit 1 ;;
 esac

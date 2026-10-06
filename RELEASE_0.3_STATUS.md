@@ -81,7 +81,9 @@ Every job runs seeds 0, 1, 2 at 60 epochs in strict data mode. Results land in
 `/arc/projects/ots/torchregress-harness/runs/<RUN_TAG>/<group>/`, one JSON per
 suite, dataset and seed, plus per-replica logs and installed versions. A
 replica skips jobs whose JSON already exists, so relaunching a group resumes
-it. `report` runs the provenance gate, per-group seed spread and a job ledger
+it. Skaha sometimes refuses a few replicas of a batch; `launch` resubmits those
+shards once as single sessions, and `fill` (or `fill tabular 3,6`) retries any
+that are still missing. `report` runs the provenance gate, per-group seed spread and a job ledger
 into `<RUN_TAG>/report/`.
 
 The sessions fetch the private harness fork with your `gh` token, passed as a

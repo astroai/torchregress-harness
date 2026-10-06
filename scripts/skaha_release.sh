@@ -18,6 +18,7 @@
 #   SEEDS          comma-separated, default "0,1,2"
 #   EPOCHS         default 60
 #   REPLICA_ID / REPLICA_COUNT   set by Skaha for --replicas sessions
+#   SHARD_ID / SHARD_COUNT       override them (one session redoing one shard)
 #   OUT_ROOT       default /arc/projects/ots/torchregress-harness/runs
 set -uo pipefail
 
@@ -36,8 +37,10 @@ LUQBOX_REF="${LUQBOX_REF:-v0.4.0}"
 SBI_PIN="${SBI_PIN:-17ef00b8dd1f4a112cc065ef89031941196f25a9}"
 SDM_PIN="${SDM_PIN:-98f61289c7a4e1bce3b33771223ac2e123b63f19}"
 
-RID_RAW="${REPLICA_ID:-1}"
-RCNT="${REPLICA_COUNT:-1}"
+# SHARD_ID/SHARD_COUNT (set by `canfar_launch_release.sh fill`) override Skaha's
+# REPLICA_ID/REPLICA_COUNT so a single session can redo one shard of a group.
+RID_RAW="${SHARD_ID:-${REPLICA_ID:-1}}"
+RCNT="${SHARD_COUNT:-${REPLICA_COUNT:-1}}"
 RID=$(( (RID_RAW - 1) % RCNT ))
 (( RID < 0 )) && RID=0
 
