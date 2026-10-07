@@ -643,9 +643,11 @@ class DistributionalBinsSuite(HarnessRunner):
             lo.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
             hi.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
             score = np.maximum(lo.predict(Xc) - yc, yc - hi.predict(Xc))
+            # crepes takes |residuals|; CQR scores are signed -> shift (see conformal.py).
+            shift = float(min(score.min(), 0.0))
             cr = _CrepesRegressor()
-            cr.fit(score)
-            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr}
+            cr.fit(score - shift)
+            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr, "shift": shift}
 
         # --- RandomPartition: M members on jittered target partitions ---        # CDF-space averaging onto the union grid; per-member CE training
         # (members have incompatible out-dims, so no shared-target .fit).
@@ -858,7 +860,8 @@ class DistributionalBinsSuite(HarnessRunner):
             # CQR conformity scores fitted above, predict_int on zeros gives
             # exactly ±Q (finite-sample corrected), applied to each quantile.
             iv = np.asarray(cr.predict_int(np.zeros(len(q_lo)), confidence=0.9))
-            lo_np, hi_np = q_lo + iv[:, 0], q_hi + iv[:, 1]
+            q = iv[:, 1] + float(model_state.get("shift", 0.0))
+            lo_np, hi_np = q_lo - q, q_hi + q
             return {
                 "lower": lo_np,
                 "upper": hi_np,

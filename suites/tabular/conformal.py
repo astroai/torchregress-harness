@@ -404,9 +404,13 @@ def _crepes_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -
     q_hi_cal = hi.predict(splits["X_cal"])
     y_cal = np.asarray(splits["y_cal"]).reshape(-1)
     score = np.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
+    # crepes' fit takes |residuals|, but CQR scores are signed (negative when
+    # the quantile band is too wide). Shift them to be non-negative so crepes
+    # sees the same order statistics, and undo the shift at prediction.
+    shift = float(min(score.min(), 0.0))
     cr = ConformalRegressor()
-    cr.fit(score)
-    return {"lo": lo, "hi": hi, "cr": cr}
+    cr.fit(score - shift)
+    return {"lo": lo, "hi": hi, "cr": cr, "shift": shift}
 
 
 def _crepes_cqr_predict(
@@ -419,7 +423,7 @@ def _crepes_cqr_predict(
     q_lo_test = state["lo"].predict(X_test)
     q_hi_test = state["hi"].predict(X_test)
     intervals = np.asarray(state["cr"].predict_int(np.zeros(1), confidence=1.0 - alpha))
-    q = float(intervals[0, 1])
+    q = float(intervals[0, 1]) + float(state.get("shift", 0.0))
     return q_lo_test - q, q_hi_test + q
 
 
