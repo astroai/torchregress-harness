@@ -1,7 +1,7 @@
 # 0.3.0 release run — harness status
 
 Tracks plan Phase 1 (harness) for the torchregress 0.3.0 PyPI release.
-Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.3.0.
+Last updated: 2026-10-07. Algorithm development in torchregress is frozen for 0.3.0.
 
 ## Done (CPU, no network data)
 
@@ -26,6 +26,7 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
 | 1.4 | `label_shift`: `TT_BBSE` / `TT_EM` (`test_time.estimate_target_prior_bbse` / `_em` on binned Gaussian predictions, `PriorTV` vs the oracle prior) and `ShiftFactoredTransport` (+`Conformal`) on the label-shifted target | this change |
 | 1.4 | `ensembles`: `HeteroBatchEnsemble` (`HeteroscedasticBatchEnsembleModel` on a `BatchEnsembleLinear` stack) and `VariationalMLP` (`VariationalLinear` layers, NLL + KL/n) | this change |
 | 1.4 | `age_regression`: `CNN+RankNContrast` (`RankNContrastLoss` encoder + least-squares linear probe) | this change |
+| 2b | Wired the torchregress `d67289a3` features into the suites: `TabularMLP` rows (`sklearn_baselines`, `uq`, `uq_layer` base, `conformal`), library `random_fourier_features` + `ridge="gcv"` in `orthogonal_inference` (old recipe kept as `tr_Orthogonal_RFF_legacy`), the documented NSF training recipe (`pzflow_parity`, `distributional_bins`); `models` added to the export-coverage modules | this change |
 | 1.4 | `tools/export_coverage.py` → `EXPORT_COVERAGE.md` / `export_coverage.json`: 360 public exports of 10 modules, 213 covered by a suite, 147 allowlisted with a reason (`tools/export_coverage_allowlist.py`); `tests/test_export_coverage.py` fails on any export neither covered nor allowlisted, and on stale allowlist entries | this change |
 
 ## Findings so far
@@ -61,9 +62,28 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
 5. **`VarianceTemperatureScaler(clip=5)`** gives the best CRPS on
    `synthetic_outliers` but raises NLL (1.64 → 2.71): test outliers meet a
    variance fitted without them. Document the trade-off (Phase 2.5).
-6. `tr_Orthogonal_RFF` (random Fourier nuisances, default bandwidth) covers
-   only 59%: the feature map needs a bandwidth choice before it is shown as
-   a recommended nuisance.
+6. **Resolved by torchregress `d67289a3`.** `tr_Orthogonal_RFF` (hand-rolled random
+   Fourier nuisances, unit bandwidth, ridge 1e-2) covered only 59% at the time. The library now ships
+   `inference.random_fourier_features` (median bandwidth, linear columns) and
+   `ridge="gcv"`; the suite's `tr_Orthogonal_RFF` uses both, the old recipe stays as
+   `tr_Orthogonal_RFF_legacy`. 200 replications, seed 42, CPU (2026-10-07):
+
+   | Design | Method | Bias | RMSE | Coverage95 | SE ratio |
+   |---|---|---:|---:|---:|---:|
+   | plr_ccddhnr | tr_Orthogonal_RFF (new) | +0.005 | 0.048 | 0.925 | 0.93 |
+   | plr_ccddhnr | tr_Orthogonal_RFF_legacy | +0.011 | 0.075 | 0.780 | 0.62 |
+   | plr_ccddhnr | tr_Orthogonal_Poly3 | +0.006 | 0.057 | 0.875 | 0.80 |
+   | plr_ccddhnr | DoubleML_PLR_Lasso / RF | +0.007 / -0.005 | 0.047 / 0.048 | 0.940 / 0.935 | 0.97 / 0.93 |
+   | plr_cubic | tr_Orthogonal_RFF (new) | +0.015 | 0.074 | 0.895 | 0.84 |
+   | plr_cubic | tr_Orthogonal_RFF_legacy | +0.065 | 0.119 | 0.810 | 0.78 |
+   | plr_cubic | tr_Orthogonal_Poly3 | +0.002 | 0.046 | 0.930 | 0.96 |
+   | plr_cubic | DoubleML_PLR_Poly3Ridge | +0.003 | 0.046 | 0.930 | 0.96 |
+
+   The legacy recipe now reads 0.78 / 0.81 rather than 0.59 because the shared cross-fitting split
+   (`63ecc3f`) already removed part of its bias. The new RFF is within MC error of DoubleML's Lasso on
+   CCDDHNR (0.925 vs 0.940) and, unlike Lasso on raw covariates, does not fail the confounded cubic design
+   (0.895 vs 0.02), but it is less efficient there than the exactly specified cubic basis (RMSE 0.074 vs 0.046).
+   Cost: 0.23-0.25 s per replication (gcv SVD per fold) vs 0.002-0.004 s for Poly3.
 7. **Library bug (not fixed, torchregress 065d48d).** `SkewTLoss` / `skew_t_nll`
    has an exactly zero gradient in the skewness `alpha` at `alpha = 0`
    (the Student-t CDF term clamps its incomplete-beta argument at
@@ -72,13 +92,14 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
    `likelihoods` designs start skew-t fits at `alpha = 0.1`;
    `tests/test_likelihood_families.py` holds a strict xfail that flips when
    the library is fixed.
-8. **`ShiftFactoredPredictiveTransport` is inert under label shift.** On the
-   `label_shift` target (and a Ridge predictor on diabetes) the EM prior
-   collapses onto the two margin support bins, which hold no source mass
-   (`source_prior` there is `eps`, so the prior ratio explodes):
-   `PriorTV = 1.0` and `TransportApplied = 0` for every `n_support` in
-   16-256. The rows report the predictive unchanged; worth a library look
-   before transport is advertised for label shift.
+8. **Resolved by torchregress `d67289a3`** (transport ranks confident rows on the in-grid peak
+   mass; the EM prior no longer collapses onto the margin bins). Originally
+   `ShiftFactoredPredictiveTransport` was inert under label shift: on the `label_shift` target (and a
+   Ridge predictor on diabetes) the EM prior collapsed onto the two margin support bins, which hold no
+   source mass, giving `PriorTV = 1.0` and `TransportApplied = 0` for every `n_support` in 16-256.
+   Re-run of `label_shift` on diabetes (full, seed 42, `/tmp/claude-0/harness_smoke/b_label_shift.json`):
+   `ShiftFactoredTransport` `PriorTV = 0.438`, `TransportApplied = 1` (TT_BBSE 0.436, TT_EM 0.467).
+   Other datasets and seeds are not re-run.
 9. Test-time EM vs BBSE on binned Gaussian predictions: EM treats the
    Gaussian-bin probabilities as calibrated posteriors and stops at a biased
    fixed point (prior TV 0.26 vs 0.32 uncorrected on a synthetic 0.8 SD
@@ -104,7 +125,7 @@ New suite `uq_layer` (`suites/tabular/uq_layer.py`, 9 tabular datasets, 133 tabu
 Each base model is fitted once; torchregress, MAPIE and crepes are applied to the same cached base
 predictions on the same train / calibration / test split (alpha = 0.1, 25% calibration).
 Bases: LightGBM (point + quantile 0.05/0.5/0.95), RandomForest (per-tree spread), TabICL (quantiles;
-failed rows when the checkpoint cannot be downloaded, as here), 5-member Gaussian MLP ensemble.
+failed rows when the checkpoint cannot be downloaded, as here), 5-member Gaussian MLP ensemble, and a 5-member `TabularMLP` Gaussian ensemble (library defaults, see the follow-up below).
 Methods: split conformal (tr / MAPIE / crepes), normalized (tr / crepes), CQR (tr / MAPIE symmetric and
 asymmetric), CV+ (tr / MAPIE, LightGBM and RF), Jackknife+ (tr / MAPIE, LightGBM, pooled n <= 500),
 `VarianceTemperatureScaler`, `IsotonicMeanCalibrator`+VTS. No crepes CQR row: crepes'
@@ -155,6 +176,101 @@ Finding 12 (harness, pre-existing rows): `conformal.py` (`crepes_CQR+GBR`) and `
 (`crepes_CQR`) feed signed CQR scores to crepes, which takes absolute values, so those rows
 over-widen (not changed here).
 
+### Phase 2b follow-up: strong-default TabularMLP, library RFF, NSF recipe
+
+Torchregress `d67289a3` ships `torchregress.models` (`TabularMLP`, `TabularPreprocessor`, `fit_tabular`,
+`fit_tabular_ensemble`), `inference.random_fourier_features` and the NSF training recipe. The harness
+uses the **library defaults** (hidden 256x3, periodic embeddings, AdamW one-cycle, 15% validation split,
+patience 20) seeded with the harness seed (ensemble members `seed .. seed+4`); only the loss head changes,
+and `epochs = min(100, config.epochs)` (60 in the release run). The harness's `lr` / `batch_size` are not
+forwarded. Shared helper: `suites/_tabular_mlp.py`.
+
+New rows: `sklearn_baselines` `TabularMLP`, `TabularMLP_Ens5`; `uq` `TabularMLP_GaussianNLL`,
+`TabularMLP_Ens5_GaussianNLL`, `TabularMLP_Ens5_GaussianNLL_carve` (control: ensemble on the training data
+minus a 20% carve) and `TabularMLP_Ens5_GaussianNLL+VTS` (VTS fitted on the carve); `uq_layer` base
+`TabularMLP` (5-member Gaussian ensemble, mixture; 11 UQ methods, no refit methods); `conformal`
+`CQR+TabularMLP` (MultiQuantile head at alpha/2, 1-alpha/2, post-hoc CQR); `pzflow_parity`
+`torchregress_NSF_recipe` and `distributional_bins` `NormalizingFlow_recipe` (`suites/_flow_recipe.py`:
+15% validation, patience 10, restore best, `bound=recommended_tail_bound(y_std)`, `bins=16`, up to 200
+epochs); `orthogonal_inference` `tr_Orthogonal_RFF` now library RFF + `ridge="gcv"`, old recipe
+`tr_Orthogonal_RFF_legacy`.
+
+Full run (60-epoch cap, seed 42, one split, so single-seed numbers; `/tmp/claude-0/harness_full/b_*.json`).
+Point RMSE, `sklearn_baselines` (LightGBM is not a row of this suite: 300 trees, lr 0.05, 15 leaves from
+`uq_layer`, fitted on the same split in a scratch script):
+
+| Model | diabetes RMSE | synthetic_hetero RMSE |
+|---|---:|---:|
+| TabularMLP_Ens5 | 51.97 | 0.3594 |
+| TabularMLP | 52.65 | 0.3649 |
+| MSE (harness MLP, Kaiming) | 54.02 | 0.3793 |
+| sklearn_MLPRegressor | 53.01 | 0.3949 |
+| sklearn_ExtraTrees | 51.46 | 0.3797 |
+| sklearn_RandomForest | 53.58 | 0.3893 |
+| sklearn_HistGradientBoosting | 56.77 | 0.3834 |
+| sklearn_GradientBoosting | 58.53 | 0.3865 |
+| LightGBM (scratch) | 57.83 | 0.3927 |
+| sklearn_Ridge | 53.10 | 0.3850 |
+
+TabularMLP beats the old harness MLP, sklearn MLP, HistGBR and LightGBM on both datasets; ExtraTrees
+is ahead of the single TabularMLP on diabetes (n_test = 89, within noise) and the ensemble is first on
+synthetic_hetero. Training cost on synthetic_hetero: TabularMLP 1.6 s, Ens5 9.3 s, MSE MLP 1.3 s.
+
+`uq` (distribution metrics, lower is better; ECE is the harness Gaussian PIT):
+
+| Dataset | Row | RMSE | NLL | CRPS | ECE |
+|---|---|---:|---:|---:|---:|
+| diabetes | TabularMLP_GaussianNLL | 51.88 | 5.3370 | 28.94 | 0.0047 |
+| diabetes | TabularMLP_Ens5_GaussianNLL | 51.46 | 5.3203 | 28.60 | 0.0073 |
+| diabetes | TabularMLP_Ens5_GaussianNLL_carve | 51.41 | 5.3330 | 28.70 | 0.0073 |
+| diabetes | TabularMLP_Ens5_GaussianNLL+VTS | 51.41 | 5.3270 | 28.66 | 0.0071 |
+| diabetes | sklearn_GP | 51.82 | 5.3728 | 29.33 | 0.0091 |
+| diabetes | DeepEnsemble_K5 / +VTS | 53.21 | 5.3735 / 5.3429 | 29.77 / 29.51 | 0.0063 / 0.0080 |
+| diabetes | DeepEnsemble_K10 | 51.49 | 5.3087 | 28.69 | 0.0084 |
+| synthetic_hetero | TabularMLP_GaussianNLL | 0.3673 | 0.3168 | 0.1972 | 0.0024 |
+| synthetic_hetero | TabularMLP_Ens5_GaussianNLL | 0.3595 | 0.2828 | 0.1926 | 0.0047 |
+| synthetic_hetero | TabularMLP_Ens5_GaussianNLL_carve | 0.3676 | 0.3006 | 0.1953 | 0.0024 |
+| synthetic_hetero | TabularMLP_Ens5_GaussianNLL+VTS | 0.3676 | 0.3003 | 0.1953 | 0.0024 |
+| synthetic_hetero | sklearn_GP | 0.3808 | 0.4468 | 0.2108 | 0.0027 |
+| synthetic_hetero | DeepEnsemble_K5 / +VTS | 0.3846 | 0.4173 / 0.4157 | 0.2091 / 0.2092 | 0.0021 / 0.0021 |
+| synthetic_hetero | DeepEnsemble_K10 | 0.3682 | 0.3521 | 0.1992 | 0.0033 |
+
+Every TabularMLP row beats `sklearn_GP` on NLL and CRPS on both datasets; ECE is within 0.003 of the GP
+everywhere (diabetes better, synthetic_hetero slightly worse for the ensemble). VTS again changes little
+(diabetes NLL -0.006, synthetic_hetero -0.0003): the ensembles are already calibrated. Note the 20%
+carve costs the ensemble 0.012 NLL (diabetes) and 0.018 (synthetic_hetero) against using all the data.
+
+`uq_layer` interval score (alpha = 0.1, 25% calibration; diabetes / synthetic_hetero; TabularMLP rows
+trained on the same 75% as the other bases):
+
+| Method | LightGBM | RF | DeepEnsK5 | TabularMLP |
+|---|---:|---:|---:|---:|
+| Raw | 279.9 / 1.924 | 207.3 / 1.706 | 216.6 / 1.543 | 214.3 / 1.394 |
+| tr_Split | 257.7 / 1.779 | 209.9 / 1.754 | 225.2 / 1.636 | 217.5 / 1.605 |
+| tr_CQR | 213.2 / 1.728 | 193.6 / 1.659 | 204.0 / 1.549 | 207.4 / 1.399 |
+| tr_VTS | 254.6 / 1.662 | 202.2 / 1.636 | 203.3 / 1.550 | 209.1 / 1.398 |
+| base RMSE | 59.48 / 0.3935 | 52.67 / 0.3934 | 54.35 / 0.3710 | 52.59 / 0.3606 |
+
+On synthetic_hetero TabularMLP is the best base for every method (tr_CQR 1.399 vs 1.549 DeepEnsK5, 1.659
+RF, 1.728 LightGBM) and its raw 90% interval already covers 0.898. On diabetes (n_cal = 77) it is
+second to RF on CQR (207.4 vs 193.6) and its split / CQR coverage is 0.865 / 0.857 against the nominal
+0.90 (one calibration split; torchregress, MAPIE and crepes agree on identical base predictions, see
+`tests/test_uq_layer.py`). Conformal suite, `CQR+TabularMLP` vs `CQR+MLP` (full, seed 42, coverage / width /
+interval score): diabetes 0.895 / 187.6 / 217.9 vs 0.895 / 179.7 / 224.2; synthetic_hetero 0.902 / 1.209 /
+1.461 vs 0.915 / 1.366 / 1.644.
+
+NSF recipe (`pzflow_parity`, full, seed 42, NLL / 90% coverage / interval score):
+synthetic_cond_nongaussian: fixed-budget `torchregress_NSF` 3.996 / 0.877 / 3.343, `_recipe` 3.697 / 0.837 /
+3.327, pzflow 4.930 / 0.892 / 12.60; energy_efficiency: 0.476 / 0.811 / 1.243, `_recipe` 0.437 / 0.885 /
+1.302, pzflow 2.838 / 0.883 / 3.188. The recipe lowers NLL on both (-0.30, -0.04) and trains faster
+(9.2 s vs 13.1 s; 4.1 s vs 7.4 s); coverage moves toward nominal on energy_efficiency and away from it on
+the non-Gaussian design.
+
+Finding 13 (library, torchregress `d67289a3`): `fit_tabular` with `scheduler="onecycle"` raises
+`ZeroDivisionError` when `epochs * ceil(n_train / batch_size)` is exactly 10 (torch `OneCycleLR` with
+`pct_start=0.1`: the first phase ends at step 0). The harness bumps the epoch count by one in that case
+(`suites/_tabular_mlp.py::_onecycle_safe_epochs`); the library should do the same or clamp `total_steps`.
+
 ## Still to do
 
 - [ ] **Re-run the CANFAR release run on the post-audit library.** Run
@@ -169,8 +285,8 @@ over-widen (not changed here).
       tests against `scoringrules` (the allowlisted metric exports in
       `tools/export_coverage_allowlist.py` point here),
       `SemiConformalCalibrator`, `DiscreteWasserstein1Loss`.
-- [ ] Library follow-ups for findings 7 and 8 (skew-t alpha gradient at 0;
-      transport EM on empty margin bins).
+- [ ] Library follow-up for finding 7 (skew-t alpha gradient at 0). Finding 8 is resolved
+      by `d67289a3`; finding 13 (OneCycleLR) is new.
 - [ ] Full release run on CANFAR (below), then regenerate `PARITY_REPORT.md`
       and `EXPORT_COVERAGE.md` (`python tools/export_coverage.py`).
 

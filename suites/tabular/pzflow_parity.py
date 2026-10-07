@@ -41,6 +41,7 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
+from suites._flow_recipe import fit_nsf_recipe
 
 # Prevent JAX from preallocating all GPU memory at import time.
 # Must be set before any JAX call (pzflow uses JAX internally).
@@ -274,6 +275,7 @@ class PzflowParitySuite(HarnessRunner):
     def methods(self) -> list[str]:
         return [
             "torchregress_NSF",
+            "torchregress_NSF_recipe",
             "pzflow_NSF",
             "normflows_NSF",
         ]
@@ -281,6 +283,7 @@ class PzflowParitySuite(HarnessRunner):
     def library_name(self, method: str) -> str:
         libs = {
             "torchregress_NSF": "torchregress",
+            "torchregress_NSF_recipe": "torchregress",
             "pzflow_NSF": "pzflow",
             "normflows_NSF": "normflows",
         }
@@ -291,6 +294,11 @@ class PzflowParitySuite(HarnessRunner):
             "torchregress_NSF": (
                 "zuko Neural Spline Flow (3 transforms, 64-dim hidden) "
                 "via NormalizingFlowLoss (PyTorch)"
+            ),
+            "torchregress_NSF_recipe": (
+                "torchregress_NSF trained with the docs/losses/nflows.md recipe: 15% validation "
+                "split, early stopping (patience 10, best weights restored, <= 200 epochs), "
+                "bound=recommended_tail_bound(y_std), bins=16"
             ),
             "pzflow_NSF": (
                 "pzflow Flow with default bijector, "
@@ -360,6 +368,22 @@ class PzflowParitySuite(HarnessRunner):
                 "n_features": n_feat,
                 "y_mean": y_mean,
                 "y_scale": y_scale,
+            }
+
+        # --- torchregress NSF, documented NLL / calibration recipe ---
+        elif method == "torchregress_NSF_recipe":
+            y_std, y_mean, y_scale = _target_scaler(y_train, splits)
+            X_t = torch.from_numpy(X_train).float().to(current_device())
+            y_t = torch.from_numpy(y_std).float().to(current_device())
+            model, loss_fn, info = fit_nsf_recipe(X_t, y_t, config, in_dim=in_dim, hidden=hidden)
+            return {
+                "type": "torchregress_nsf",
+                "model": model,
+                "flow": loss_fn,
+                "n_features": y_std.shape[1],
+                "y_mean": y_mean,
+                "y_scale": y_scale,
+                "recipe": info,
             }
 
         # --- pzflow NSF (default bijector — avoids JAX stax bug) ---

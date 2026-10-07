@@ -102,6 +102,7 @@ from suites._backbones import (
     _train_lbfgs,
     _train_one,
 )
+from suites._tabular_mlp import fit_tabmlp, predict_quantiles
 
 # ---------------------------------------------------------------------------
 # Interval helpers — torchregress
@@ -746,6 +747,7 @@ class ConformalSuite(HarnessRunner):
         methods = [
             "Split+MLP",
             "CQR+MLP",
+            "CQR+TabularMLP",
             "Split+Linear",
             "Split+Linear(post-hoc)",  # post-hoc cal → parity with MAPIE/crepes/torchcp
             # torchregress predictor-zoo rows (post-hoc classes on an MLP base).
@@ -812,6 +814,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
             "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
+            "CQR+TabularMLP": "torchregress.models TabularMLP (library defaults, MultiQuantileLoss alpha/2, 1-alpha/2) + fit_tabular + post-hoc CQR calibration; epochs = min(100, config.epochs)",
             "Split+Linear": "single linear layer + ConformalLoss(split); matched-capacity baseline",
             "Split+Linear(post-hoc)": "single linear layer + MSE → post-hoc residual calibration; parity with MAPIE/crepes/torchcp",
             "MAPIE_Split+Linear": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn LinearRegression — MAPIE canonical",
@@ -917,6 +920,23 @@ class ConformalSuite(HarnessRunner):
                 "model": model,
                 "X_cal": X_cal,
                 "y_cal": y_cal,
+                "alpha": alpha,
+            }
+
+        # --- torchregress: CQR + TabularMLP quantile head (library defaults) ---
+        elif method == "CQR+TabularMLP":
+            fit = fit_tabmlp(
+                splits["X_train"],
+                splits["y_train"],
+                config,
+                kind="quantile",
+                quantiles=(alpha / 2, 1.0 - alpha / 2),
+            )
+            return {
+                "type": "cqr_tabular",
+                "fit": fit,
+                "X_cal": splits["X_cal"],
+                "y_cal": splits["y_cal"],
                 "alpha": alpha,
             }
 
@@ -1188,6 +1208,17 @@ class ConformalSuite(HarnessRunner):
             X_test_t = torch.from_numpy(X_test).float().to(current_device())
             lo, hi = _torch_cqr_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
+
+        elif model_type == "cqr_tabular":
+            q_cal = torch.from_numpy(predict_quantiles(model_state["fit"], model_state["X_cal"]))
+            q_test = torch.from_numpy(predict_quantiles(model_state["fit"], X_test))
+            y_cal = torch.from_numpy(np.asarray(model_state["y_cal"], dtype=np.float64))
+            score = torch.maximum(q_cal[:, 0] - y_cal, y_cal - q_cal[:, 1])
+            q = finite_sample_quantile(score, alpha).item()
+            return {
+                "lower": (q_test[:, 0] - q).numpy(),
+                "upper": (q_test[:, 1] + q).numpy(),
+            }
 
         # --- torchregress predictor zoo (fit carried predictor) ---
         elif model_type == "zoo_distributional":

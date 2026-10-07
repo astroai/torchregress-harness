@@ -151,6 +151,7 @@ class OrthogonalInferenceSuite(HarnessRunner):
         return [
             "tr_Orthogonal_Poly3",
             "tr_Orthogonal_RFF",
+            "tr_Orthogonal_RFF_legacy",
             "tr_Orthogonal_NoCrossFit",
             "tr_Naive",
             "DoubleML_PLR_Poly3Ridge",
@@ -175,7 +176,14 @@ class OrthogonalInferenceSuite(HarnessRunner):
     def method_notes(self, method: str) -> str:
         return {
             "tr_Orthogonal_Poly3": "orthogonal_partially_linear, cubic per-covariate ridge, 5 folds",
-            "tr_Orthogonal_RFF": "orthogonal_partially_linear, 256 random Fourier features",
+            "tr_Orthogonal_RFF": (
+                "orthogonal_partially_linear with inference.random_fourier_features "
+                "(256 features, median bandwidth, polynomial_degree=1) and ridge='gcv'"
+            ),
+            "tr_Orthogonal_RFF_legacy": (
+                "pre-d67289a3 hand-rolled recipe for comparison: 256 random Fourier features, "
+                "W ~ N(0, 1/K) (unit bandwidth, unstandardised), no linear terms, ridge=1e-2"
+            ),
             "tr_Orthogonal_NoCrossFit": "folds=1 (no cross-fitting): diagnostic only",
             "tr_Naive": "naive_linear_estimate: OLS of y on d, ignores x (biased baseline)",
             "DoubleML_PLR_Poly3Ridge": "DoubleMLPLR, same cubic ridge basis; pair: tr_Orthogonal_Poly3",
@@ -203,6 +211,11 @@ class OrthogonalInferenceSuite(HarnessRunner):
             else:
                 kwargs: dict[str, Any] = {"folds": FOLDS, "confidence": CONFIDENCE, "seed": seed}
                 if method == "tr_Orthogonal_RFF":
+                    from torchregress.inference import random_fourier_features
+
+                    kwargs["nuisance_features"] = lambda z: random_fourier_features(z, seed=seed)
+                    kwargs["ridge"] = "gcv"
+                elif method == "tr_Orthogonal_RFF_legacy":
                     kwargs["nuisance_features"] = lambda z: torch.as_tensor(
                         _rff(z.numpy(), seed=seed)
                     )

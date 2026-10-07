@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "cba4c01f",
+  "torchregress_commit": "d67289a3",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -345,8 +345,10 @@
           "multivariate_intervals",
           "photoz_imaging",
           "semi_supervised",
+          "sklearn_baselines",
           "stress_matrix",
           "test_time_adaptation",
+          "uq",
           "uq_layer"
         ],
         "status": "covered",
@@ -517,6 +519,7 @@
           "r2c_conformal",
           "robust_regression",
           "sklearn_baselines",
+          "uq",
           "uq_layer"
         ],
         "status": "covered",
@@ -848,6 +851,7 @@
         "suites": [
           "censored",
           "censored_imaging",
+          "conformal",
           "constrained_outputs",
           "eiv",
           "label_shift",
@@ -855,8 +859,11 @@
           "ordinal",
           "ppi",
           "robust_regression",
+          "sklearn_baselines",
           "streaming_tta",
-          "stress_matrix"
+          "stress_matrix",
+          "uq",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -989,6 +996,14 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "functional kernel of RankNContrastLoss (covered in age_regression)"
+      },
+      "recommended_tail_bound": {
+        "suites": [
+          "distributional_bins",
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "sinh_arcsinh_nll": {
         "suites": [
@@ -2261,6 +2276,11 @@
         "status": "covered",
         "reason": ""
       },
+      "median_heuristic_bandwidth": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "bandwidth rule called inside random_fourier_features(bandwidth='median') (covered by orthogonal_inference)"
+      },
       "naive_linear_estimate": {
         "suites": [
           "orthogonal_inference"
@@ -2313,6 +2333,13 @@
       "ppi_quantile_ci": {
         "suites": [
           "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "random_fourier_features": {
+        "suites": [
+          "orthogonal_inference"
         ],
         "status": "covered",
         "reason": ""
@@ -2447,15 +2474,82 @@
         "status": "covered",
         "reason": ""
       }
+    },
+    "models": {
+      "PeriodicEmbedding": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "embedding layer built inside TabularMLP (embedding='periodic', covered)"
+      },
+      "TabularEnsembleFit": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TabularFit": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TabularMLP": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TabularPreprocessor": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "fit_tabular": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "fit_tabular_ensemble": {
+        "suites": [
+          "conformal",
+          "sklearn_baselines",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      }
     }
   },
   "summary": {
-    "exports": 360,
-    "covered": 214,
-    "allowlisted": 146,
+    "exports": 370,
+    "covered": 222,
+    "allowlisted": 148,
     "uncovered": 0,
-    "unique_names": 352,
-    "unique_covered": 212
+    "unique_names": 362,
+    "unique_covered": 220
   },
   "stale_allowlist": []
 }

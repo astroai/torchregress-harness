@@ -43,6 +43,8 @@ def test_method_grid() -> None:
     assert "tr_CVPlus" in suite.base_methods("RF")
     assert "tr_JackknifePlus" not in suite.base_methods("RF")
     assert "tr_CVPlus" not in suite.base_methods("DeepEnsK5")
+    assert "tr_CVPlus" not in suite.base_methods("TabularMLP")
+    assert suite.bases()[-1] == "TabularMLP"
     # crepes would take |CQR score|: no crepes CQR row.
     assert not any("crepes_CQR" in m for m in suite.methods())
     assert len(set(suite.methods())) == len(suite.methods())
@@ -51,7 +53,7 @@ def test_method_grid() -> None:
 def test_same_base_same_numbers(rows: dict[str, dict]) -> None:
     """torchregress, MAPIE and crepes see identical base predictions: split rows agree."""
     gbm = uq_layer._GBM_BASE
-    for base in (gbm, "RF", "DeepEnsK5"):
+    for base in (gbm, "RF", "DeepEnsK5", "TabularMLP"):
         tr, mp, cr = (rows[f"{m}+{base}"] for m in ("tr_Split", "MAPIE_Split", "crepes_Split"))
         assert tr["RMSE"] == mp["RMSE"] == cr["RMSE"]
         for key in ("Coverage", "Width", "IntervalScore"):
@@ -73,7 +75,7 @@ def test_cv_plus_matches_mapie(rows: dict[str, dict]) -> None:
 
 
 def test_distribution_metrics_only_where_a_distribution_exists(rows: dict[str, dict]) -> None:
-    for m in ("Raw+DeepEnsK5", "tr_VTS+RF", "tr_IsoMean+VTS+DeepEnsK5"):
+    for m in ("Raw+DeepEnsK5", "tr_VTS+RF", "tr_IsoMean+VTS+DeepEnsK5", "Raw+TabularMLP"):
         assert all(rows[m][k] is not None for k in ("NLL", "CRPS", "ECE")), m
     assert rows["tr_Split+RF"].get("NLL") is None
     for r in rows.values():

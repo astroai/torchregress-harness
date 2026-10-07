@@ -10,6 +10,7 @@ Methods
 * ``Split_CP`` — post-hoc split conformal (baseline, also used for binning)
 * ``GaussianNLL`` — diagonal Gaussian NLL → mean ± z·σ intervals
 * ``NormalizingFlow`` — zuko NSF flow → sample-based quantile intervals
+* ``NormalizingFlow_recipe`` — the same flow trained with the documented NLL / calibration recipe (``suites/_flow_recipe.py``)
 * ``NF_Ensemble_K{2,5,10,20}`` — K seeded NormalizingFlows with pooled
   samples for per-row quantile intervals (Proposal #10 + K-sweep validation §14).
   Architecture (hidden layers + transforms + per-member sample count) is
@@ -43,6 +44,7 @@ from suites._backbones import (
     _hidden_size,
     _train_one,
 )
+from suites._flow_recipe import fit_nsf_recipe
 
 try:
     from crepes import ConformalRegressor as _CrepesRegressor
@@ -205,6 +207,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "Split_CP",
             "GaussianNLL",
             "NormalizingFlow",
+            "NormalizingFlow_recipe",
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
@@ -260,6 +263,11 @@ class DistributionalBinsSuite(HarnessRunner):
             "Split_CP": "post-hoc split conformal — baseline, also defines bins",
             "GaussianNLL": "diagonal Gaussian NLL → mean ± z·σ intervals",
             "NormalizingFlow": "zuko NSF normalizing flow → sample-based quantile intervals",
+            "NormalizingFlow_recipe": (
+                "NormalizingFlow trained with the docs/losses/nflows.md recipe: 15% validation "
+                "split, early stopping (patience 10, best weights restored), "
+                "bound=recommended_tail_bound(y_std), bins=16 → sample-based quantile intervals"
+            ),
             "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
             "Evidential": "NIG evidential regression → Student-t predictive intervals",
             "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
@@ -376,6 +384,13 @@ class DistributionalBinsSuite(HarnessRunner):
             )
             model.eval()
             return {"type": "nflow", "model": model, "flow": loss_fn}
+
+        # --- NormalizingFlow_recipe: documented NLL / calibration recipe ---
+        elif method == "NormalizingFlow_recipe":
+            model, loss_fn, info = fit_nsf_recipe(
+                X_train, y_train.reshape(len(y_train), -1), config, in_dim=in_dim, hidden=hidden
+            )
+            return {"type": "nflow", "model": model, "flow": loss_fn, "recipe": info}
 
         # --- NF_Ensemble_K{2,5,10,20}: K-sweep NormalizingFlows (Proposal #10 + §14) ---
         elif method in ("NF_Ensemble_K2", "NF_Ensemble_K5", "NF_Ensemble_K10", "NF_Ensemble_K20"):

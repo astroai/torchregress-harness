@@ -20,6 +20,9 @@ Base models
   every row fails with the reason when the checkpoint cannot be downloaded.
 * ``DeepEnsK5`` -- 5 Gaussian MLPs (``BetaNLLLoss(beta=0.5)``, the ``uq``
   suite recipe) combined as a Gaussian mixture.
+* ``TabularMLP`` -- 5 ``torchregress.models.TabularMLP`` Gaussian members
+  (``fit_tabular_ensemble`` with library defaults, seeds ``seed..seed+4``)
+  combined as a Gaussian mixture; the "strong by default" base.
 
 UQ methods (row ``<method>+<base>``)
 -----------------------------------
@@ -44,7 +47,7 @@ UQ methods (row ``<method>+<base>``)
   base's Gaussian view (and ``IsotonicMeanCalibrator`` on the mean first,
   fitted on one half of the calibration split, VTS on the other).
 
-"Gaussian view": ``DeepEnsK5`` is Gaussian; RF uses the forest mean and the
+"Gaussian view": ``DeepEnsK5`` and ``TabularMLP`` are Gaussian; RF uses the forest mean and the
 per-tree std; quantile bases use the point prediction and
 ``(q_hi - q_lo) / (2 z_{1-alpha/2})``.  Rows with a Gaussian view get
 NLL / CRPS / ECE (the harness Gaussian PIT, as in ``uq``); interval-only
@@ -87,6 +90,7 @@ from suites._backbones import (
     _mixture_gaussian_stats,
     _train_one,
 )
+from suites._tabular_mlp import fit_tabmlp, predict_gaussian
 from suites.tabular.conformal import (
     _as_float64,
     _mapie_coverage_and_width,
@@ -342,6 +346,33 @@ def _fit_deep_ensemble(s: dict[str, Any], *, alpha: float, config: HarnessConfig
 
     mu_c, sd_c = _mix(s["X_cal"])
     mu_t, sd_t = _mix(s["X_test"])
+    z = _z(alpha)
+    return _BasePreds(
+        point_cal=mu_c,
+        point_test=mu_t,
+        q_cal=np.stack([mu_c - z * sd_c, mu_c, mu_c + z * sd_c], axis=1),
+        q_test=np.stack([mu_t - z * sd_t, mu_t, mu_t + z * sd_t], axis=1),
+        mean_cal=mu_c,
+        std_cal=sd_c,
+        mean_test=mu_t,
+        std_test=sd_t,
+        spread_cal=sd_c,
+        spread_test=sd_t,
+        library="torchregress",
+    )
+
+
+def _fit_tabular_mlp(s: dict[str, Any], *, alpha: float, config: HarnessConfig) -> _BasePreds:
+    """5-member TabularMLP Gaussian ensemble (library defaults) as a Gaussian base."""
+    fit = fit_tabmlp(
+        np.asarray(s["X_train"]),
+        np.asarray(s["y_train"]).reshape(-1),
+        config,
+        kind="gaussian",
+        n_members=_N_ENSEMBLE,
+    )
+    mu_c, sd_c = predict_gaussian(fit, s["X_cal"])
+    mu_t, sd_t = predict_gaussian(fit, s["X_test"])
     z = _z(alpha)
     return _BasePreds(
         point_cal=mu_c,
@@ -635,6 +666,7 @@ class UQLayerSuite(HarnessRunner):
         if _TABICL_AVAILABLE:
             out.append("TabICL")
         out.append("DeepEnsK5")
+        out.append("TabularMLP")
         return out
 
     def base_methods(self, base: str) -> list[str]:
@@ -674,9 +706,12 @@ class UQLayerSuite(HarnessRunner):
         if uq.startswith("crepes"):
             return "crepes"
         if uq == "Raw":
-            return {"RF": "sklearn", "TabICL": "tabicl", "DeepEnsK5": "torchregress"}.get(
-                base, "lightgbm" if _LIGHTGBM_AVAILABLE else "sklearn"
-            )
+            return {
+                "RF": "sklearn",
+                "TabICL": "tabicl",
+                "DeepEnsK5": "torchregress",
+                "TabularMLP": "torchregress",
+            }.get(base, "lightgbm" if _LIGHTGBM_AVAILABLE else "sklearn")
         return "torchregress"
 
     def library_version(self, method: str) -> str:
@@ -690,6 +725,7 @@ class UQLayerSuite(HarnessRunner):
             "RF": "RandomForest mean; quantiles/std over per-tree predictions",
             "TabICL": "TabICLRegressor point + predictive quantiles",
             "DeepEnsK5": "5x Gaussian MLP (BetaNLL 0.5) mixture",
+            "TabularMLP": "5x torchregress.models TabularMLP Gaussian head (library defaults) mixture",
         }.get(base, "")
         uq_note = {
             "Raw": "uncalibrated base interval; NLL/CRPS/ECE from the base's Gaussian view",
@@ -726,6 +762,8 @@ class UQLayerSuite(HarnessRunner):
             out = _fit_tabicl(s, alpha=alpha, seed=config.seed, smoke=config.smoke)
         elif base == "DeepEnsK5":
             out = _fit_deep_ensemble(s, alpha=alpha, config=config)
+        elif base == "TabularMLP":
+            out = _fit_tabular_mlp(s, alpha=alpha, config=config)
         else:
             raise ValueError(f"Unknown base model: {base}")
         out.fit_s = perf_counter() - t0

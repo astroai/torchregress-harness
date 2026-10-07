@@ -60,6 +60,7 @@ from suites._backbones import (
     _mixture_gaussian_stats,
     _train_one,
 )
+from suites._tabular_mlp import N_MEMBERS, fit_tabmlp, predict_gaussian
 
 # ---------------------------------------------------------------------------
 # MC-dropout forward pass
@@ -162,6 +163,13 @@ class UQSuite(HarnessRunner):
         "DeepEnsemble_K5",
         "DeepEnsemble_K5+VTS",
         "DeepEnsemble_K5+CQR",
+        # torchregress.models strong-default TabularMLP with a Gaussian head.
+        "TabularMLP_GaussianNLL",
+        "TabularMLP_Ens5_GaussianNLL",
+        # Same 5-member ensemble fitted on the training data minus the 20% carve
+        # (control), then recalibrated with VTS on that carve.
+        "TabularMLP_Ens5_GaussianNLL_carve",
+        "TabularMLP_Ens5_GaussianNLL+VTS",
     ]
 
     # Fraction of the training data held out to fit the post-hoc layer.
@@ -170,6 +178,8 @@ class UQSuite(HarnessRunner):
     def __init__(self) -> None:
         # The three K5 recipe rows share one ensemble per (data, seed, budget).
         self._k5_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+        # The two carved TabularMLP rows share one ensemble per (data, seed, budget).
+        self._tab_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
 
     _SKLEARN_METHODS: list[str] = [
         "sklearn_GP",
@@ -202,6 +212,22 @@ class UQSuite(HarnessRunner):
                 "DeepEnsemble_K5 + torchregress CQR on the Gaussian 5%/95% quantiles, calibrated on "
                 "the validation split; distribution = mean, std + q/z (the conformal widening as "
                 "extra std) so NLL/CRPS/ECE are comparable; train_s excludes the shared ensemble"
+            ),
+            "TabularMLP_GaussianNLL": (
+                "torchregress.models TabularMLP (Gaussian head) + fit_tabular, library defaults, "
+                "epochs = min(100, config.epochs); 15% internal early-stopping split"
+            ),
+            "TabularMLP_Ens5_GaussianNLL": (
+                "5 TabularMLP Gaussian members (fit_tabular_ensemble, library defaults) combined as "
+                "a Gaussian mixture (mixture mean and total variance)"
+            ),
+            "TabularMLP_Ens5_GaussianNLL_carve": (
+                f"TabularMLP_Ens5_GaussianNLL fitted on the training data minus a "
+                f"{self._RECIPE_VAL_FRAC:.0%} carve, uncalibrated (control for the +VTS row)"
+            ),
+            "TabularMLP_Ens5_GaussianNLL+VTS": (
+                "TabularMLP_Ens5_GaussianNLL_carve + torchregress VarianceTemperatureScaler fitted "
+                "on the carve (std x sqrt(T)); train_s excludes the ensemble shared with the control"
             ),
             "sklearn_GP": "GaussianProcessRegressor(RBF+WhiteKernel) → posterior mean & std",
             "sklearn_QuantileGBR": "GradientBoostingRegressor(q=0.05,0.5,0.95) → median & 90% intervals",
@@ -250,6 +276,40 @@ class UQSuite(HarnessRunner):
             "y_val": np.asarray(y_train_np[val_idx], dtype=np.float64).reshape(-1),
         }
         self._k5_cache = {key: out}  # keep only the current dataset's ensemble
+        return out
+
+    def _tab_ensemble(
+        self, X_train_np: np.ndarray, y_train_np: np.ndarray, config: HarnessConfig
+    ) -> dict[str, Any]:
+        """5-member TabularMLP Gaussian ensemble on the training data minus a carve (cached)."""
+        key = (
+            X_train_np.shape,
+            hash(np.ascontiguousarray(X_train_np).tobytes()),
+            hash(np.ascontiguousarray(y_train_np).tobytes()),
+            config.seed,
+            config.epochs,
+        )
+        if key in self._tab_cache:
+            return self._tab_cache[key]
+        n = len(X_train_np)
+        n_val = max(20, int(round(self._RECIPE_VAL_FRAC * n)))
+        if n - n_val < 10:
+            raise ValueError(f"training split too small for a validation carve: n={n}")
+        perm = np.random.default_rng(config.seed).permutation(n)
+        fit_idx, val_idx = perm[n_val:], perm[:n_val]
+        fit = fit_tabmlp(
+            X_train_np[fit_idx],
+            y_train_np[fit_idx],
+            config,
+            kind="gaussian",
+            n_members=N_MEMBERS,
+        )
+        out = {
+            "fit": fit,
+            "X_val": X_train_np[val_idx],
+            "y_val": np.asarray(y_train_np[val_idx], dtype=np.float64).reshape(-1),
+        }
+        self._tab_cache = {key: out}
         return out
 
     @staticmethod
@@ -349,6 +409,31 @@ class UQSuite(HarnessRunner):
             )
             return {"type": "deep_ensemble_cqr", "models": models, "cqr": cqr, "z": z}
 
+        # --- TabularMLP (library defaults) with a Gaussian head ---
+        elif method in ("TabularMLP_GaussianNLL", "TabularMLP_Ens5_GaussianNLL"):
+            fit = fit_tabmlp(
+                X_train_np,
+                y_train_np,
+                config,
+                kind="gaussian",
+                n_members=N_MEMBERS if "Ens5" in method else 1,
+            )
+            return {"type": "tabular_gaussian", "fit": fit}
+
+        elif method in ("TabularMLP_Ens5_GaussianNLL_carve", "TabularMLP_Ens5_GaussianNLL+VTS"):
+            ens = self._tab_ensemble(X_train_np, y_train_np, config)
+            if method.endswith("_carve"):
+                return {"type": "tabular_gaussian", "fit": ens["fit"]}
+            from torchregress.calibration import VarianceTemperatureScaler
+
+            mu_val, sd_val = predict_gaussian(ens["fit"], ens["X_val"])
+            vts = VarianceTemperatureScaler().fit(
+                torch.as_tensor(mu_val, dtype=torch.float64),
+                torch.as_tensor(sd_val**2, dtype=torch.float64),
+                torch.as_tensor(ens["y_val"], dtype=torch.float64),
+            )
+            return {"type": "tabular_gaussian_vts", "fit": ens["fit"], "scaler": vts}
+
         # --- sklearn GP: subsample if dataset is large ---
         elif method == "sklearn_GP":
             n_train = len(X_train_np)
@@ -432,6 +517,15 @@ class UQSuite(HarnessRunner):
                 stds.append(std)
             mixture_mean, mixture_std = _mixture_gaussian_stats(means, stds)
             return {"mean": mixture_mean, "std": mixture_std}
+
+        elif model_type == "tabular_gaussian":
+            mean, std = predict_gaussian(model_state["fit"], X_test)
+            return {"mean": mean, "std": std}
+
+        elif model_type == "tabular_gaussian_vts":
+            mean, std = predict_gaussian(model_state["fit"], X_test)
+            var = model_state["scaler"].transform(torch.as_tensor(std**2, dtype=torch.float64))
+            return {"mean": mean, "std": np.sqrt(var.numpy()).reshape(-1)}
 
         # --- K5 + VarianceTemperatureScaler → mean & recalibrated std ---
         elif model_type == "deep_ensemble_vts":

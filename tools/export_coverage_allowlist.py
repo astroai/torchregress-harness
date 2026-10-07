@@ -194,6 +194,9 @@ ALLOWLIST: dict[str, str] = {
     "gaussian_moments_from_binned_probabilities": "inverse map used inside correct_gaussian_predictions_for_label_shift (covered)",
     # --------------------------------------------------------------- inference
     "OrthogonalEstimate": _RESULT,
+    "median_heuristic_bandwidth": "bandwidth rule called inside random_fourier_features(bandwidth='median') (covered by orthogonal_inference)",
+    # ------------------------------------------------------------------ models
+    "PeriodicEmbedding": "embedding layer built inside TabularMLP (embedding='periodic', covered)",
     # --------------------------------------------------------- semi_supervised
     "SAGERegAgreement": _RESULT,
     "SAGERegOutput": _RESULT,

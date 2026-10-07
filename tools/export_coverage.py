@@ -47,6 +47,7 @@ MODULES: tuple[str, ...] = (
     "causal",
     "semi_supervised",
     "constraints",
+    "models",
 )
 SUITES_DIR = _REPO / "suites"
 DEFAULT_MD = _REPO / "EXPORT_COVERAGE.md"
