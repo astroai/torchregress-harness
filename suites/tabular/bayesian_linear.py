@@ -78,6 +78,7 @@ class BayesianLinearSuite(HarnessRunner):
             "sklearn_BayesianRidge",  # sklearn — ground truth
             "BayesianLinearHead",  # torchregress — RBF kernel
             "RecursiveBayesianHead",  # torchregress — streaming partial_fit
+            "BLR+VTS",  # torchregress — RBF head + VarianceTemperatureScaler
         ]
         if _BOTORCH_AVAILABLE:
             methods.append("BoTorch_SingleTaskGP")
@@ -189,6 +190,39 @@ class BayesianLinearSuite(HarnessRunner):
                 "X_test_np": splits["X_test"],
             }
 
+        elif method == "BLR+VTS":
+            # Same RBF head as BayesianLinearHead, but within the same
+            # 50-label budget: fit on 70%, VarianceTemperatureScaler on the
+            # remaining 30% (the predictive variance includes the noise).
+            from torchregress.calibration import VarianceTemperatureScaler
+            from torchregress.test_time import BayesianLinearHead
+
+            n_val = max(2, int(round(0.3 * len(X))))
+            X_fit, y_fit = X[n_val:], y[n_val:]  # X is already a random subset
+            X_val, y_val = X[:n_val], y[:n_val]
+            head = BayesianLinearHead(
+                in_features=in_dim,
+                fit_intercept=True,
+                prior_precision=10.0,
+                noise_variance=1.0,
+                auto_noise=True,
+                rbf_centers=20,
+            ).fit(
+                torch.from_numpy(X_fit).float().to(current_device()),
+                torch.from_numpy(y_fit).float().to(current_device()).unsqueeze(-1),
+            )
+            pred = head.predict(
+                torch.from_numpy(X_val).float().to(current_device()),
+                return_std=True,
+                include_noise=True,
+            )
+            mu_val = pred["mean"].detach().cpu().double().reshape(-1)
+            var_val = pred["std"].detach().cpu().double().reshape(-1) ** 2
+            vts = VarianceTemperatureScaler().fit(
+                mu_val, var_val, torch.from_numpy(np.asarray(y_val, dtype=np.float64)).reshape(-1)
+            )
+            return {"type": "blr", "head": head, "scaler": vts, "X_test_np": splits["X_test"]}
+
         elif method == "sklearn_BayesianRidge":
             sk_br = BayesianRidge(fit_intercept=True)
             sk_br.fit(X, y)
@@ -224,7 +258,7 @@ class BayesianLinearSuite(HarnessRunner):
         X_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, np.ndarray]:
-        if method in ("BLR_Linear", "BayesianLinearHead", "RecursiveBayesianHead"):
+        if method in ("BLR_Linear", "BayesianLinearHead", "RecursiveBayesianHead", "BLR+VTS"):
             head = model["head"]
             X_t = torch.from_numpy(X_test).float().to(current_device())
 
@@ -235,6 +269,9 @@ class BayesianLinearSuite(HarnessRunner):
             pred = head.predict(X_t, return_std=True, include_noise=True)
             mean = pred["mean"].detach().cpu().detach().cpu().numpy().reshape(-1)
             std = pred["std"].detach().cpu().detach().cpu().numpy().reshape(-1).clip(1e-8)
+            if "scaler" in model:
+                var = model["scaler"].transform(torch.from_numpy(std.astype(np.float64) ** 2))
+                std = np.sqrt(var.numpy()).reshape(-1)
 
             # BLR_Linear: add back y_mean
             if method == "BLR_Linear" and "y_mean" in model:
@@ -277,6 +314,11 @@ class BayesianLinearSuite(HarnessRunner):
             return "BLR with RBF(20) kernel, γ auto-tuned, auto_noise"
         elif method == "RecursiveBayesianHead":
             return "RBF BLR via fit(half) + partial_fit(half) streaming"
+        elif method == "BLR+VTS":
+            return (
+                "RBF BLR fitted on 35 of the 50 labels + VarianceTemperatureScaler on the other 15; "
+                "ECE from the same Gaussian PIT as BoTorch_SingleTaskGP"
+            )
         elif method == "BoTorch_SingleTaskGP":
             return "GP hyperparameter marginal-likelihood fit; capacity not matched"
         return ""

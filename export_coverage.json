@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "6f8426cf",
+  "torchregress_commit": "cba4c01f",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -63,7 +63,8 @@
           "photoz_imaging",
           "sklearn_baselines",
           "stress_matrix",
-          "uq"
+          "uq",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -100,7 +101,8 @@
       },
       "CVPlus": {
         "suites": [
-          "conformal"
+          "conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -152,7 +154,8 @@
       },
       "ConformalLoss": {
         "suites": [
-          "conformal"
+          "conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -185,7 +188,8 @@
       "DensityConformal": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -211,7 +215,8 @@
       "DistributionalConformal": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -225,7 +230,8 @@
       },
       "EnsembleBatchCP": {
         "suites": [
-          "conformal"
+          "conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -340,7 +346,8 @@
           "photoz_imaging",
           "semi_supervised",
           "stress_matrix",
-          "test_time_adaptation"
+          "test_time_adaptation",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -382,9 +389,11 @@
         "reason": ""
       },
       "JackknifePlus": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "CV+ conformal; conformal suite benchmarks CVPlus and MAPIE's jackknife+ instead (same estimator family)"
+        "suites": [
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "JohnsonSUNLLLoss": {
         "suites": [
@@ -417,14 +426,16 @@
       "LocalConformal": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
       },
       "LocalConformalMAD": {
         "suites": [
-          "conformal"
+          "conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -505,7 +516,8 @@
           "photoz_imaging",
           "r2c_conformal",
           "robust_regression",
-          "sklearn_baselines"
+          "sklearn_baselines",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -609,7 +621,8 @@
       "PrevalenceAdjustedCP": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -738,7 +751,8 @@
       "SplitConformal": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -788,7 +802,8 @@
       "UACQR": {
         "suites": [
           "conformal",
-          "image_conformal"
+          "image_conformal",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -1070,7 +1085,8 @@
           "photoz_imaging",
           "pzflow_parity",
           "r2c_conformal",
-          "streaming_tta"
+          "streaming_tta",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -1619,7 +1635,8 @@
       "IsotonicMeanCalibrator": {
         "suites": [
           "calibration",
-          "image_calibration"
+          "image_calibration",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -1650,8 +1667,11 @@
       },
       "VarianceTemperatureScaler": {
         "suites": [
+          "bayesian_linear",
           "calibration",
-          "image_calibration"
+          "image_calibration",
+          "uq",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -2431,11 +2451,11 @@
   },
   "summary": {
     "exports": 360,
-    "covered": 213,
-    "allowlisted": 147,
+    "covered": 214,
+    "allowlisted": 146,
     "uncovered": 0,
     "unique_names": 352,
-    "unique_covered": 211
+    "unique_covered": 212
   },
   "stale_allowlist": []
 }

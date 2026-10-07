@@ -46,6 +46,7 @@ from suites.tabular.stress_matrix import StressMatrixSuite
 from suites.tabular.test_time_adaptation import TestTimeAdaptationSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
+from suites.tabular.uq_layer import UQLayerSuite
 
 from harness.runners import HarnessRunner
 
@@ -62,6 +63,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "test_time_adaptation": TestTimeAdaptationSuite,
     "ensembles": EnsemblesSuite,
     "uq": UQSuite,
+    "uq_layer": UQLayerSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
     "ordinal": OrdinalSuite,
     "ppi": PPISuite,

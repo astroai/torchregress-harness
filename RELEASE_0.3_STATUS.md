@@ -98,6 +98,63 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
     in a regenerated `leaderboard_results.json` drop accordingly;
     `metadata.skipped_unsupported` lists the pairs.
 
+## Phase 2b: torchregress as the UQ layer (A2, A3)
+
+New suite `uq_layer` (`suites/tabular/uq_layer.py`, 9 tabular datasets, 133 tabular release jobs).
+Each base model is fitted once; torchregress, MAPIE and crepes are applied to the same cached base
+predictions on the same train / calibration / test split (alpha = 0.1, 25% calibration).
+Bases: LightGBM (point + quantile 0.05/0.5/0.95), RandomForest (per-tree spread), TabICL (quantiles;
+failed rows when the checkpoint cannot be downloaded, as here), 5-member Gaussian MLP ensemble.
+Methods: split conformal (tr / MAPIE / crepes), normalized (tr / crepes), CQR (tr / MAPIE symmetric and
+asymmetric), CV+ (tr / MAPIE, LightGBM and RF), Jackknife+ (tr / MAPIE, LightGBM, pooled n <= 500),
+`VarianceTemperatureScaler`, `IsotonicMeanCalibrator`+VTS. No crepes CQR row: crepes'
+`ConformalRegressor.fit` takes `np.abs(residuals)`, so signed CQR scores come out wider (see below).
+Recipe rows: `uq` gains `DeepEnsemble_K5`, `+VTS`, `+CQR` (VTS / CQR fitted on a 20% validation carve of
+the training data); `bayesian_linear` gains `BLR+VTS`. ECE is the harness Gaussian PIT, as for GP / BoTorch.
+Tests: `tests/test_uq_layer.py`. Full run (60 epochs, seed 42, diabetes + synthetic_hetero):
+
+| Dataset | Base | Method | Coverage | Width | IntervalScore |
+|---|---|---|---:|---:|---:|
+| diabetes | LightGBM | Raw | 0.647 | 107.0 | 279.9 |
+| diabetes | LightGBM | tr_Split = MAPIE_Split = crepes_Split | 0.917 | 202.0 | 257.7 |
+| diabetes | LightGBM | tr_CQR = MAPIE_CQR | 0.887 | 161.9 | 213.2 |
+| diabetes | LightGBM | tr_CVPlus = MAPIE_CVPlus | 0.962 | 230.1 | 254.8 |
+| diabetes | LightGBM | tr_JackknifePlus = MAPIE_JackknifePlus | 0.940 | 216.1 | 251.9 |
+| diabetes | RF | tr_Split = MAPIE = crepes | 0.925 | 169.4 | 209.9 |
+| diabetes | RF | tr_Normalized = crepes_Normalized | 0.865 | 150.5 | 202.5 |
+| diabetes | RF | tr_CQR = MAPIE_CQR | 0.895 | 153.5 | 193.6 |
+| diabetes | DeepEnsK5 | tr_Split = MAPIE = crepes | 0.925 | 184.8 | 225.2 |
+| diabetes | DeepEnsK5 | tr_VTS | 0.902 | 175.1 | 203.3 |
+| synthetic_hetero | LightGBM | tr_Split = MAPIE = crepes | 0.875 | 1.239 | 1.779 |
+| synthetic_hetero | LightGBM | tr_CQR = MAPIE_CQR | 0.922 | 1.479 | 1.728 |
+| synthetic_hetero | RF | tr_CQR = MAPIE_CQR | 0.913 | 1.350 | 1.659 |
+| synthetic_hetero | DeepEnsK5 | tr_Split = MAPIE = crepes | 0.908 | 1.251 | 1.636 |
+| synthetic_hetero | DeepEnsK5 | tr_VTS | 0.913 | 1.254 | 1.550 |
+
+On identical base predictions torchregress matches MAPIE and crepes to 1e-6 on every shared method
+(split, normalized, CQR, CV+, Jackknife+); the interval quality is set by the base model and the score,
+not by the library. Jackknife+ is skipped (row note) on synthetic_hetero (n = 1400 > 500). TabICL rows fail
+with `ProxyError: 403` here (no Hugging Face access).
+
+Recipe-row ECE (full run, diabetes; lower is better):
+
+| Row | RMSE | NLL | CRPS | ECE |
+|---|---:|---:|---:|---:|
+| DeepEnsemble_K5 | 53.21 | 5.3735 | 29.77 | 0.0063 |
+| DeepEnsemble_K5+VTS | 53.21 | 5.3429 | 29.51 | 0.0080 |
+| DeepEnsemble_K5+CQR (Gaussian view) | 53.21 | 5.3397 | 29.52 | 0.0073 (coverage 0.917) |
+| sklearn_GP | 51.82 | 5.3728 | 29.33 | 0.0091 |
+| BLR+VTS | 55.29 | 5.4633 | 31.74 | 0.0065 |
+| BayesianLinearHead (no VTS) | 56.79 | 9.8232 | 39.29 | 0.0139 |
+| BoTorch_SingleTaskGP | 69.37 | 5.6553 | 40.07 | 0.0074 |
+
+VTS improves NLL / CRPS everywhere but ECE is already ~0.006 on the K5 ensemble, so it does not
+improve (0.0063 to 0.0080 on diabetes; synthetic_hetero unchanged at 0.0021). BLR+VTS cuts NLL from 9.82 to 5.46.
+
+Finding 12 (harness, pre-existing rows): `conformal.py` (`crepes_CQR+GBR`) and `distributional_bins.py`
+(`crepes_CQR`) feed signed CQR scores to crepes, which takes absolute values, so those rows
+over-widen (not changed here).
+
 ## Still to do
 
 - [ ] **Re-run the CANFAR release run on the post-audit library.** Run
@@ -135,7 +192,7 @@ scripts/canfar_launch_release.sh report             # after all groups finish
 
 | Group | Jobs (suite x dataset) | Default replicas | Resources |
 |---|---:|---:|---|
-| tabular | 124 | 12 | 8 cores, 32 GB |
+| tabular | 133 | 12 | 8 cores, 32 GB |
 | sbi | 5 | 5 | 8 cores, 32 GB |
 | fm (foundation models) | 4 | 2 | 8 cores, 64 GB, 1 GPU |
 | image | 49 | 6 | 8 cores, 64 GB, 1 GPU |

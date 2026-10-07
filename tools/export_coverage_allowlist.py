@@ -61,7 +61,6 @@ ALLOWLIST: dict[str, str] = {
     "WeightedLossWrapper": "masking/weighting wrapper around torch losses; weighting is exercised via covered losses",
     "WeightedNLLLoss": "classification NLL wrapper (torch.nn.NLLLoss); no regression benchmark",
     "AsymmetricLeastSquaresLoss": "alias of ExpectileLoss (covered in robust_regression)",
-    "JackknifePlus": "CV+ conformal; conformal suite benchmarks CVPlus and MAPIE's jackknife+ instead (same estimator family)",
     "ConsistencyRegLoss": "uncertain-ground-truth teacher/student loss; semi_supervised covers TeacherStudentTrainer/SAGEReg instead",
     "PseudoLabelConsistencyLoss": "uncertain-ground-truth pseudo-label loss; no pseudo-label suite beyond semi_supervised yet",
     "DiscreteWasserstein1Loss": "W1 between binned PDFs; distributional_bins scores bins with CRPS/NLL, a W1 row is not wired yet",
