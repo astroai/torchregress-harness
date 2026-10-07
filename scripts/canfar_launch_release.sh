@@ -7,6 +7,8 @@
 #   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
 #   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
+#   ALL_GPU=1 scripts/canfar_launch_release.sh launch   # every group on a GPU session
+#   RUN_GROUPS="fm image" scripts/canfar_launch_release.sh launch   # only some groups
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
 # `gh` logged in (the token lets the sessions fetch the private harness fork), both forks
@@ -74,12 +76,20 @@ set_env_args() {
     -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS")
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
   [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
+  [ "${ALL_GPU:-0}" = 1 ] && ENV_ARGS+=(-e "USE_GPU=1")
   return 0
 }
 DRY=()
 [ "${DRY_RUN:-0}" = 1 ] && DRY=(--dry-run)
 
 group_spec() { # <group> -> "replicas cpu memGB gpu"
+  # ALL_GPU=1 gives every group one GPU (and the CUDA pixi env in the session).
+  if [ "${ALL_GPU:-0}" = 1 ]; then
+    case "$1" in
+      tabular) echo "${TAB_REPLICAS:-12} 8 32 1" ; return ;;
+      sbi) echo "${SBI_REPLICAS:-5} 8 32 1" ; return ;;
+    esac
+  fi
   case "$1" in
     tabular) echo "${TAB_REPLICAS:-12} 8 32 0" ;;
     sbi) echo "${SBI_REPLICAS:-5} 8 32 0" ;;
@@ -166,7 +176,8 @@ case "${1:-}" in
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
     set_env_args
     echo "run $RUN_TAG  harness $HARNESS_REF  torchregress $LIB_REF  image $IMAGE"
-    for group in tabular sbi fm image; do launch_group "$group"; done
+    # RUN_GROUPS="fm image" launches a subset (default: all four).
+    for group in ${RUN_GROUPS:-tabular sbi fm image}; do launch_group "$group"; done
     echo "state saved to $STATE; check progress with: $0 status"
     ;;
   status)
@@ -230,5 +241,5 @@ case "${1:-}" in
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
   *)
-    sed -n '2,21p' "$0"; exit 1 ;;
+    sed -n '2,23p' "$0"; exit 1 ;;
 esac

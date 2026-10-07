@@ -87,6 +87,7 @@ cd "$WORK/torchregress-harness" || exit 2
 # --- 2. environment -------------------------------------------------------------
 # GPU groups use the pixi `gpu` env (CUDA pytorch); the default env is CPU-only.
 case "$GROUP" in fm|image) PENV=gpu ;; *) PENV=default ;; esac
+[ "${USE_GPU:-0}" = 1 ] && PENV=gpu  # ALL_GPU=1 launches: CUDA env for every group
 if ! command -v pixi >/dev/null 2>&1; then
   curl -fsSL https://pixi.sh/install.sh | bash
   export PATH="$HOME/.pixi/bin:$PATH"
