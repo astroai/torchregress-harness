@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "065d48d",
+  "torchregress_commit": "6f8426cf",
   "modules": {
     "losses": {
       "AFTLoss": {
