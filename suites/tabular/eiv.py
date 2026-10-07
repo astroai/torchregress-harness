@@ -19,7 +19,7 @@ Methods
 - NoiseAware       : NoiseAwareRegressor — error-aware feature encoder + backbone
 - SIMEX            : SIMEX algorithm — simulation-extrapolation with matched-noise predict fix
 - RC               : RegressionCalibration — pre-processing input calibration via reliability
-- TLS              : Total Least Squares via SVD (numpy-only)
+- TLS              : noise-weighted Total Least Squares via SVD (numpy-only)
 - SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
 - MSE_WarmupMC     : MSE pre-training (20 epochs) → FunctionalEIV_MC — warmup for linear data
 """
@@ -150,6 +150,68 @@ def _train_eiv(
 
 
 # --- Shared prediction helper (noisy and clean X paths) ---
+
+
+class TLSIllConditionedError(RuntimeError):
+    """Total least squares has no stable finite solution for this design."""
+
+
+def tls_solve(
+    X: np.ndarray,
+    y: np.ndarray,
+    sigma_x: Any = 1.0,
+    sigma_y: float = 1.0,
+    *,
+    min_v_last: float = 0.05,
+    max_sv_ratio: float = 0.98,
+) -> tuple[np.ndarray, float]:
+    """Noise-weighted total least squares via SVD (Deming for one feature).
+
+    Columns of X are divided by ``sigma_x`` and y by ``sigma_y`` before the
+    SVD of ``[X | y]`` so that errors are unit-variance in every coordinate
+    (the TLS assumption).  Without this, unequal feature/target scales make
+    the orthogonal fit meaningless (the "smallest singular vector" simply
+    tracks the lowest-variance direction).  For one feature this is exactly
+    Deming regression with ``delta = sigma_y**2 / sigma_x**2``.
+
+    Raises :class:`TLSIllConditionedError` when the solution is not stable:
+    the smallest right singular vector has (almost) no y-component
+    (``|V[-1]| < min_v_last``) so the coefficients blow up like
+    ``1 / V[-1]``, or ``sigma_min([X|y])`` is within ``max_sv_ratio`` of
+    ``sigma_min(X)`` (the classical TLS existence condition is barely met,
+    typical for collinear features).
+
+    Returns ``(coef, intercept)`` in the units of the inputs.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    sx = np.broadcast_to(
+        np.asarray(
+            sigma_x.detach().cpu().numpy() if isinstance(sigma_x, torch.Tensor) else sigma_x,
+            dtype=np.float64,
+        ).reshape(-1),
+        (X.shape[1],),
+    )
+    sy = float(sigma_y)
+    if not (np.all(sx > 0) and sy > 0):
+        raise ValueError("TLS noise scales must be positive")
+    x_mean = X.mean(axis=0)
+    y_mean = float(y.mean())
+    Zx = (X - x_mean) / sx
+    Z = np.column_stack([Zx, (y - y_mean) / sy])
+    _, sv, Vt = np.linalg.svd(Z, full_matrices=False)
+    v = Vt[-1]
+    sv_x_min = np.linalg.svd(Zx, compute_uv=False)[-1]
+    if abs(v[-1]) < min_v_last or sv[-1] > max_sv_ratio * sv_x_min:
+        raise TLSIllConditionedError(
+            f"TLS ill-conditioned: |V[-1]|={abs(v[-1]):.3g}, "
+            f"sigma_min([X|y])/sigma_min(X)={sv[-1] / max(sv_x_min, 1e-300):.4f} "
+            "(collinear features / noise-dominated target; no stable finite solution)"
+        )
+    beta_scaled = -v[:-1] / v[-1]
+    coef = beta_scaled * sy / sx
+    intercept = float(y_mean - x_mean @ coef)
+    return coef, intercept
 
 
 def _eiv_sigma(value: Any) -> Any:
@@ -808,21 +870,9 @@ class EIVSuite(HarnessRunner):
             return {"type": "scipy_odr", "coef": output.beta}
 
         elif method == "TLS":
-            # Total Least Squares via SVD — minimises orthogonal distances
-            X_np = X_train_np.astype(np.float64)
-            y_np = y_train_np.ravel().astype(np.float64)
-            # Centre the data
-            X_mean = X_np.mean(axis=0)
-            y_mean = y_np.mean()
-            X_c = X_np - X_mean
-            y_c = y_np - y_mean
-            # SVD of the augmented matrix [X_c | y_c]
-            Z = np.column_stack([X_c, y_c])
-            _, _, Vt = np.linalg.svd(Z, full_matrices=False)
-            # Solution from the right singular vector of the smallest singular value
-            V = Vt[-1]  # last row = smallest singular vector
-            beta = -V[:-1] / V[-1]
-            intercept = y_mean - X_mean @ beta
+            # Noise-weighted TLS (see tls_solve): same sigma_x / sigma_y
+            # assumptions as the other EIV rows; raises if ill-conditioned.
+            beta, intercept = tls_solve(X_train_np, y_train_np, sigma_x, sigma_y)
             return {"type": "tls", "coef": beta, "intercept": intercept}
 
         # --- Composability methods ---
@@ -882,15 +932,7 @@ class EIVSuite(HarnessRunner):
             # Address attenuation bias: initialize with unbiased TLS β,
             # then fine-tune with FunctionalEIV. Tests whether the EIV
             # loss can preserve the TLS solution (vs sliding back to MSE β).
-            X_np = X_train_np.astype(np.float64)
-            y_np = y_train_np.ravel().astype(np.float64)
-            X_mean = X_np.mean(axis=0)
-            y_mean = y_np.mean()
-            Z = np.column_stack([X_np - X_mean, y_np - y_mean])
-            _, _, Vt = np.linalg.svd(Z, full_matrices=False)
-            V = Vt[-1]
-            beta = -V[:-1] / V[-1]
-            intercept = y_mean - X_mean @ beta
+            beta, intercept = tls_solve(X_train_np, y_train_np, sigma_x, sigma_y)
 
             model = _Linear(in_dim, out_dim=1)
             with torch.no_grad():
@@ -1182,7 +1224,9 @@ class EIVSuite(HarnessRunner):
             "ODR": ("MLP + OrthogonalDistanceRegressionLoss — iterative latent-x optimisation"),
             "EnsembleEIV": ("MLP + EnsembleEIVLoss — Monte-Carlo input perturbation averaging"),
             "TLS": (
-                "Total Least Squares via SVD — minimises orthogonal distances (self-contained, numpy-only)"
+                "Noise-weighted Total Least Squares via SVD (columns scaled by sigma_x / sigma_y; "
+                "Deming for one feature) — self-contained, numpy-only; reported as skipped "
+                "when ill-conditioned (collinear features)"
             ),
             "SciPyODR": (
                 "scipy.odr.ODR — classical orthogonal distance regression (external, linear model)"
