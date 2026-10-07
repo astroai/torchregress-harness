@@ -33,7 +33,22 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
 1. **Library bug, fixed in torchregress `63ecc3f`.** `orthogonal_partially_linear`
    used different cross-fitting splits for its two nuisances, biasing theta by
    −0.026 (≈7.7 SE) on the CCDDHNR-2018 design; DoubleML on the same basis
-   −0.007. One shared split: −0.003.
+   −0.007. One shared split: −0.003. **Re-run on post-audit torchregress
+   (`efbaf2b`, 200 replications, CPU, run 2026-10-07):**
+
+   | Design | Method | Bias | Coverage95 | SE ratio |
+   |---|---|---:|---:|---:|
+   | plr_ccddhnr | tr_Orthogonal_Poly3 | +0.006 | 0.875 | 0.80 |
+   | plr_ccddhnr | DoubleML_PLR_Poly3Ridge (same basis) | +0.005 | 0.900 | 0.82 |
+   | plr_ccddhnr | DoubleML_PLR_Lasso | +0.007 | 0.940 | 0.97 |
+   | plr_cubic | tr_Orthogonal_Poly3 | +0.002 | 0.930 | 0.96 |
+   | plr_cubic | DoubleML_PLR_Poly3Ridge | +0.003 | 0.930 | 0.96 |
+   | plr_cubic | DoubleML_PLR_Lasso / EconML Lasso | +0.48 | 0.02 | 0.88 |
+
+   torchregress now matches DoubleML on the same nuisance basis on both designs;
+   the under-coverage on CCDDHNR is shared by both (cubic ridge basis, SE ratio
+   0.8), and on the confounded cubic design the Lasso-on-raw-covariates
+   comparators fail while the cubic basis does not.
 2. **Silent synthetic rows in committed artifacts.** `results/latest/harness_conformal.json`
    and `_cuda_smoke.json` hold 86 rows where TabReD (cooking, delivery, maps,
    sberbank, weather) and `insurance_claims` ran on their synthetic fallbacks.
@@ -91,7 +106,7 @@ Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.
       SIMEX predict and per-output R² all changed in the 0.3.0 audit, 99
       findings). Its results must be re-run on torchregress `065d48d` or later
       before `PARITY_REPORT.md` is regenerated; do not mix the two.
-- [ ] Re-run `orthogonal_inference` after the torchregress fix (bias table above is pre-fix).
+- [x] Re-run `orthogonal_inference` after the torchregress fix (table under finding 1).
 - [ ] Remaining coverage gaps from plan 1.4: level-set conformal
       (`LevelSetConformalPredictor`) in `multivariate_intervals`, metrics parity
       tests against `scoringrules` (the allowlisted metric exports in
