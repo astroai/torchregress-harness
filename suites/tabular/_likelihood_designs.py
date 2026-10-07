@@ -325,10 +325,10 @@ def initial_raw(family: Family, y: np.ndarray) -> np.ndarray:
         return b
     b[0] = float(np.mean(y))
     b[1] = inv_softplus(float(np.std(y)))
-    # Skew-t starts at alpha = 0.1, not 0: torchregress SkewTLoss has an exactly
-    # zero gradient in alpha at alpha = 0 (the Student-t CDF term clamps its
-    # incomplete-beta argument at 1 - 1e-15 when w = 0), so a symmetric start
-    # never learns skewness. Both fits share the start.
+    # Skew-t starts at alpha = 0.1, not 0: torchregress before e02d186 had an
+    # exactly zero gradient in alpha at alpha = 0, so a symmetric start never
+    # learned skewness. Kept at 0.1 so results stay comparable across library
+    # versions. Both fits share the start.
     neutral = {"skewnormal": (0.0,), "skewt": (0.1, 10.0), "johnsonsu": (0.0, 1.0)}
     neutral |= {"sinharcsinh": (0.0, 1.0), "gev": (0.01,)}
     name = next(n for n, f in FAMILIES.items() if f is family)

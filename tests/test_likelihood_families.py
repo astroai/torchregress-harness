@@ -66,14 +66,9 @@ def test_smoke_rows_linear_fit_matches_scipy(family: str) -> None:
     assert by["tr_Linear"]["LocRMSE"] < 0.2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="torchregress SkewTLoss: d NLL / d alpha is exactly 0 at alpha = 0 (incomplete-beta "
-    "argument clamped at 1 - 1e-15 when w = 0); the suite starts skew-t fits at alpha = 0.1",
-)
 def test_skew_t_alpha_gradient_at_zero() -> None:
-    """Once the library fixes the gradient this XPASSes (strict): drop the
-    alpha = 0.1 start in ``_likelihood_designs.initial_raw`` and the xfail."""
+    """Regression test for torchregress e02d186: the skewness gradient is
+    non-zero at alpha = 0, so skew-t fits can start from a symmetric model."""
     from torchregress.losses import skew_t_nll
 
     y = torch.tensor([[0.7], [-1.2], [2.5]], dtype=torch.float64)
