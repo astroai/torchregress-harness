@@ -1,0 +1,2441 @@
+{
+  "torchregress_version": "0.2.0",
+  "torchregress_commit": "065d48d",
+  "modules": {
+    "losses": {
+      "AFTLoss": {
+        "suites": [
+          "censored",
+          "censored_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "AdaptiveRobustLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "AsymmetricLaplaceNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "AsymmetricLeastSquaresLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "alias of ExpectileLoss (covered in robust_regression)"
+      },
+      "BalancedMSELoss": {
+        "suites": [
+          "image_robust"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BarronLoss": {
+        "suites": [
+          "age_regression",
+          "image_robust",
+          "photoz_imaging",
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BaseLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "BetaNLLLoss": {
+        "suites": [
+          "age_regression",
+          "calibration",
+          "depth_estimation",
+          "ensembles",
+          "foundation_model",
+          "photoz_imaging",
+          "sklearn_baselines",
+          "stress_matrix",
+          "uq"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BetaRegressionNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BinReweightedMSELoss": {
+        "suites": [
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BoxCoxTransformLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CORALLoss": {
+        "suites": [
+          "ordinal",
+          "r2c_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CVPlus": {
+        "suites": [
+          "conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CVaRLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CauchyLoss": {
+        "suites": [
+          "image_robust",
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CensoredGaussianNLLLoss": {
+        "suites": [
+          "censored",
+          "censored_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CensoredQuantileLoss": {
+        "suites": [
+          "censored",
+          "censored_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CharbonnierLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CompoundPoissonLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ConformalLoss": {
+        "suites": [
+          "conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ConformalPredictor": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "ConsistencyRegLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "uncertain-ground-truth teacher/student loss; semi_supervised covers TeacherStudentTrainer/SAGEReg instead"
+      },
+      "ContrastiveFlowLoss": {
+        "suites": [
+          "distributional_bins"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CumulativeLinkLoss": {
+        "suites": [
+          "ordinal",
+          "r2c_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DensityConformal": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DensityWeightedLoss": {
+        "suites": [
+          "image_robust",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DiscreteWasserstein1Loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "W1 between binned PDFs; distributional_bins scores bins with CRPS/NLL, a W1 row is not wired yet"
+      },
+      "DistributionLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "DistributionalConformal": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EnhancedPoissonGaussianMixtureLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EnsembleBatchCP": {
+        "suites": [
+          "conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EnsembleEIVLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EvidentialRegressionLoss": {
+        "suites": [
+          "age_regression",
+          "depth_estimation",
+          "distributional_bins",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ExpectileCrossover": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ExpectileCrossoverLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ExpectileLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "FaithfulGaussianLoss": {
+        "suites": [
+          "age_regression",
+          "depth_estimation",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "FeatureDistributionSmoother": {
+        "suites": [
+          "image_robust"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "FocalRLoss": {
+        "suites": [
+          "image_robust"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "FunctionalEIVLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GEVNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GammaLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GaussianCRPSLoss": {
+        "suites": [
+          "age_regression",
+          "depth_estimation",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GaussianNLLLoss": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "conformal",
+          "crowd_counting",
+          "depth_estimation",
+          "distributional_bins",
+          "eiv",
+          "ensembles",
+          "image_calibration",
+          "image_conformal",
+          "keypoint_regression",
+          "likelihoods",
+          "multivariate_intervals",
+          "photoz_imaging",
+          "semi_supervised",
+          "stress_matrix",
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GaussianWassersteinBoundLoss": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "InputNoiseAugmentationLoss": {
+        "suites": [
+          "eiv",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "InputNoiseBinnedPDFLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "InputNoiseMDNLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "InverseGaussianLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "JackknifePlus": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "CV+ conformal; conformal suite benchmarks CVPlus and MAPIE's jackknife+ instead (same estimator family)"
+      },
+      "JohnsonSUNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LDSLoss": {
+        "suites": [
+          "image_robust",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LatentMarginalizationLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LevelSetConformalPredictor": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "base of SLSConformal (covered); level-set conformal in multivariate_intervals is still to do (RELEASE_0.3_STATUS)"
+      },
+      "LocalConformal": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LocalConformalMAD": {
+        "suites": [
+          "conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LogCoshLoss": {
+        "suites": [
+          "image_robust",
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LogTransformLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LowRankGaussianLoss": {
+        "suites": [
+          "keypoint_regression",
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MDNLoss": {
+        "suites": [
+          "sbi_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MahalanobisFrontier": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "SLS frontier component built inside SLSLoss/SLSConformal (covered)"
+      },
+      "MixtureDensityLoss": {
+        "suites": [
+          "age_regression",
+          "depth_estimation",
+          "distributional_bins",
+          "eiv",
+          "ensembles",
+          "foundation_model",
+          "likelihoods",
+          "multivariate_intervals",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MonteCarloConformal": {
+        "suites": [
+          "distributional_bins"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MultiExpectileLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MultiQuantileLoss": {
+        "suites": [
+          "age_regression",
+          "conformal",
+          "constrained_outputs",
+          "depth_estimation",
+          "ensembles",
+          "image_conformal",
+          "multivariate_intervals",
+          "photoz_imaging",
+          "r2c_conformal",
+          "robust_regression",
+          "sklearn_baselines"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MultiTargetConformal": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MultivariateGaussianLoss": {
+        "suites": [
+          "keypoint_regression",
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NegativeBinomialNLLLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NoisyInputPredictor": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NoisyTargetGaussianNLL": {
+        "suites": [
+          "age_regression",
+          "photoz_imaging",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NormalizingFlowLoss": {
+        "suites": [
+          "age_regression",
+          "distributional_bins",
+          "keypoint_regression",
+          "likelihoods",
+          "multivariate_intervals",
+          "photoz_imaging",
+          "pzflow_parity",
+          "sbi_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "OrdinalCrossEntropyLoss": {
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "OrthogonalDistanceRegressionLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PoissonDevianceLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PoissonGaussianLikelihoodRatioLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PoissonGaussianMixtureLoss": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PoissonLikelihoodRatioLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PrevalenceAdjustedCP": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PropensityWeightedLoss": {
+        "suites": [
+          "missing_data"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PseudoHuberLoss": {
+        "suites": [
+          "age_regression",
+          "crowd_counting",
+          "depth_estimation",
+          "image_robust",
+          "photoz_imaging",
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PseudoLabelConsistencyLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "uncertain-ground-truth pseudo-label loss; no pseudo-label suite beyond semi_supervised yet"
+      },
+      "PseudoLabelNLL": {
+        "suites": [
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "QuantileCrossover": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "QuantileCrossoverLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "QuantileLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "R2CConformal": {
+        "suites": [
+          "photoz_imaging",
+          "r2c_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RankNContrastLoss": {
+        "suites": [
+          "age_regression",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RegressionLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "SLSConformal": {
+        "suites": [
+          "distributional_bins"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SLSLoss": {
+        "suites": [
+          "age_regression",
+          "distributional_bins",
+          "multivariate_intervals",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SQRLoss": {
+        "suites": [
+          "distributional_bins"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SinhArcsinhNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SkewNormalNLLLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SkewTLoss": {
+        "suites": [
+          "distributional_bins",
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SplitConformal": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SqrtTransformLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "StructuralEIVLoss": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "StudentTLoss": {
+        "suites": [
+          "age_regression",
+          "depth_estimation",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TransformedTargetLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "generic target-transform wrapper; its concrete LogTransform/BoxCox/YeoJohnson losses are covered"
+      },
+      "TukeyBiweightLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TweedieLoss": {
+        "suites": [
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "UACQR": {
+        "suites": [
+          "conformal",
+          "image_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "UnionFrontier": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "SLS multimodal frontier component built inside SLSLoss (covered)"
+      },
+      "VolumePreservingFlow": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "SLS flow component built inside SLSLoss (covered)"
+      },
+      "WeightedCrossEntropyLoss": {
+        "suites": [
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WeightedHuberLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WeightedL1Loss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WeightedLossWrapper": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "masking/weighting wrapper around torch losses; weighting is exercised via covered losses"
+      },
+      "WeightedMSELoss": {
+        "suites": [
+          "censored",
+          "censored_imaging",
+          "constrained_outputs",
+          "eiv",
+          "label_shift",
+          "missing_data",
+          "ordinal",
+          "ppi",
+          "robust_regression",
+          "streaming_tta",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WeightedNLLLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "classification NLL wrapper (torch.nn.NLLLoss); no regression benchmark"
+      },
+      "YeoJohnsonTransformLoss": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ZeroInflatedPoissonNLLLoss": {
+        "suites": [
+          "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "asymmetric_laplace_nll": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of AsymmetricLaplaceNLLLoss (covered in likelihoods)"
+      },
+      "beta_nll_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of BetaNLLLoss (covered)"
+      },
+      "beta_regression_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "create_contrastive_flow_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "create_flow_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "create_flow_model": {
+        "suites": [
+          "age_regression",
+          "distributional_bins",
+          "keypoint_regression",
+          "likelihoods",
+          "multivariate_intervals",
+          "photoz_imaging",
+          "pzflow_parity",
+          "sbi_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "create_gaussian_nll": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "create_loss_from_config": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "create_mdn_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "discrete_wasserstein1": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of DiscreteWasserstein1Loss (not benchmarked yet)"
+      },
+      "expectile_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of ExpectileLoss (covered)"
+      },
+      "gaussian_wasserstein_bound_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of GaussianWassersteinBoundLoss (covered)"
+      },
+      "get_regression_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "gev_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "johnson_su_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "list_regression_losses": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+      },
+      "low_rank_output_dim": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "shape helper for LowRankGaussianLoss heads (covered in multivariate_intervals)"
+      },
+      "quantile_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of QuantileLoss (covered)"
+      },
+      "rank_n_contrast_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional kernel of RankNContrastLoss (covered in age_regression)"
+      },
+      "sinh_arcsinh_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "skew_normal_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "skew_t_nll": {
+        "suites": [
+          "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "split_low_rank_gaussian_output": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "output-parsing helper used inside LowRankGaussianLoss (covered)"
+      },
+      "sqr_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of SQRLoss (covered)"
+      },
+      "symmetric_spd_matrix_sqrt": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "linear-algebra helper inside GaussianWassersteinBoundLoss (covered)"
+      },
+      "tweedie_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of TweedieLoss (covered in tweedie)"
+      }
+    },
+    "metrics": {
+      "ContinuousRankedProbabilityScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "DawidSebastianiScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "EnergyScore": {
+        "suites": [
+          "multivariate_intervals",
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EnsembleIntervalMetrics": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "EntropyScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "ExpectedCalibrationError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "GaussianNLLEnsemble": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "HuberMetric": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "IntervalScore": {
+        "suites": [
+          "conformal",
+          "distributional_bins",
+          "photoz_imaging",
+          "pzflow_parity",
+          "r2c_conformal",
+          "streaming_tta"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "KernelDensityScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "MahalanobisDistance": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "MarginalCalibrationError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "MeanPredictionIntervalWidth": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes width in harness.metrics.compute_interval_metrics (inf-aware)"
+      },
+      "MedianAbsoluteDeviation": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "MedianAbsoluteError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "MultivariateMAE": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "multivariate point metric; multivariate_intervals scores regions (volume/coverage), not vector MAE"
+      },
+      "MultivariateRMSE": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "multivariate point metric; multivariate_intervals scores regions (volume/coverage), not vector RMSE"
+      },
+      "NormalizedMedianAbsoluteDeviation": {
+        "suites": [
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NormalizedRMSE": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "OutlierFraction": {
+        "suites": [
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PinballMetric": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "PredictionIntervalCoverageProbability": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes coverage in harness.metrics.compute_interval_metrics"
+      },
+      "RejectionPolicy": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "fixed-threshold rejection evaluation; harness reports the threshold-free AURC instead"
+      },
+      "RiskCoverageCurve": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "class twin of risk_coverage_curve (AURC reported for every Gaussian row by harness.metrics)"
+      },
+      "Sharpness": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness reports Sharpness (mean std) in harness.metrics.compute_distribution_metrics"
+      },
+      "TaskAgnosticCorrelations": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "representation-quality metric (TAC); no representation-learning suite yet"
+      },
+      "TrimmedMeanSquaredError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "TypicalityScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "VarioScore": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "VariogramScore": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WassersteinGaussian": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "attenuation_factor": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "bias": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "censored_imaging",
+          "crowd_counting",
+          "depth_estimation",
+          "eiv",
+          "image_calibration",
+          "image_conformal",
+          "image_ensembles_uq",
+          "image_robust",
+          "keypoint_regression",
+          "likelihoods",
+          "photoz_imaging",
+          "sklearn_baselines"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "calibration_metrics_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "report aggregator over calibration metrics; harness reports PIT-based ECE/MACE"
+      },
+      "calibration_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "censoring_rate": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "censored-data descriptor (fraction censored), not a model score"
+      },
+      "concordance_index": {
+        "suites": [
+          "censored"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "conditional_density_estimation_loss": {
+        "suites": [
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "consistency_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "teacher/student diagnostic for the uncertain-GT losses (not benchmarked yet)"
+      },
+      "continuous_ranked_probability_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "crps_from_samples": {
+        "suites": [
+          "likelihoods",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "crps_gaussian": {
+        "suites": [
+          "multivariate_intervals",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "distribution_metrics_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "report aggregator over covered distribution metrics"
+      },
+      "dss_score": {
+        "suites": [
+          "multivariate_intervals",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "energy_score": {
+        "suites": [
+          "multivariate_intervals",
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ensemble_interval_bounds": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "ensemble_interval_metrics": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "ensemble_mean": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "ensemble_statistics": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "ensemble_std": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "ensemble statistics helper; ensemble suites compute mixture moments in suites/_backbones._mixture_gaussian_stats and score them via harness metrics"
+      },
+      "ensemble_variance_decomposition": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "alias of uncertainty_decomposition (covered in ensembles)"
+      },
+      "entropy_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "expected_calibration_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "gaussian_nll": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "crowd_counting",
+          "depth_estimation",
+          "distributional_bins",
+          "foundation_model",
+          "keypoint_regression",
+          "likelihoods",
+          "multivariate_intervals",
+          "photoz_imaging",
+          "sklearn_baselines",
+          "uq"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "gaussian_nll_ensemble": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of GaussianNLLEnsemble (covered in ensembles)"
+      },
+      "highest_posterior_density_coverage": {
+        "suites": [
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "highest_posterior_density_level": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "HPD level helper; suites use highest_posterior_density_coverage (covered)"
+      },
+      "huber_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "interval_metrics_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "report aggregator; harness computes interval metrics in harness.metrics.compute_interval_metrics"
+      },
+      "interval_overlap_rate": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "censored-interval overlap diagnostic; censored suite scores C-index and observed MAE"
+      },
+      "interval_score": {
+        "suites": [
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "kernel_density_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "kolmogorov_smirnov_uniform_statistic": {
+        "suites": [
+          "likelihoods",
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "mahalanobis_distance": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "marginal_calibration_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "mean_absolute_class_error": {
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "mean_absolute_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "mean_squared_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "median_absolute_deviation": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "median_absolute_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "noisy_target_gaussian_nll": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of NoisyTargetGaussianNLL (covered in age_regression)"
+      },
+      "normalized_rmse": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "observed_mae": {
+        "suites": [
+          "censored"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ood_metrics_report": {
+        "suites": [
+          "stress_matrix",
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ordinal_accuracy": {
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "pinball_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "pinball_metric": {
+        "suites": [
+          "distributional_bins",
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "prediction_interval_coverage": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "compatibility alias of prediction_interval_coverage_probability"
+      },
+      "prediction_interval_coverage_probability": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes coverage in harness.metrics.compute_interval_metrics"
+      },
+      "probability_integral_transform": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes PIT itself (harness.metrics.compute_pit_values); parity pending metrics parity tests"
+      },
+      "pseudo_label_acceptance_rate": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "pseudo-label diagnostic for the uncertain-GT losses (not benchmarked yet)"
+      },
+      "quadratic_weighted_kappa": {
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "r2_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "regression_metrics_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "report aggregator; harness computes point metrics in harness.core"
+      },
+      "risk_coverage_curve": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "called for every row by harness.metrics.compute_all_metrics (src/, outside the suite scan)"
+      },
+      "rmse": {
+        "suites": [
+          "censored",
+          "censored_imaging",
+          "ordinal",
+          "ppi",
+          "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "sharpness": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional twin of Sharpness; harness computes it itself"
+      },
+      "tail_mae": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "called for every row by harness.metrics.compute_all_metrics (src/, outside the suite scan)"
+      },
+      "tail_rmse": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "called for every row by harness.metrics.compute_all_metrics (src/, outside the suite scan)"
+      },
+      "task_agnostic_correlations": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "trimmed_mean_squared_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "typicality_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
+      },
+      "uncertain_gt_metrics_report": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "uncertainty_decomposition": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "vario_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      },
+      "variogram_score": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "wasserstein_gaussian_p2": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+      }
+    },
+    "calibration": {
+      "BinnedLabelShiftEstimator": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ExpectedCalibrationError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "IsotonicMeanCalibrator": {
+        "suites": [
+          "calibration",
+          "image_calibration"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MarginalCalibrationError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "PITCalibrator": {
+        "suites": [
+          "calibration"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RepresentationShiftInflator": {
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SemiConformalCalibrator": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "semi-supervised conformal under shift; no suite yet (candidate: label_shift)"
+      },
+      "VarianceTemperatureScaler": {
+        "suites": [
+          "calibration",
+          "image_calibration"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "bias": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "censored_imaging",
+          "crowd_counting",
+          "depth_estimation",
+          "eiv",
+          "image_calibration",
+          "image_conformal",
+          "image_ensembles_uq",
+          "image_robust",
+          "keypoint_regression",
+          "likelihoods",
+          "photoz_imaging",
+          "sklearn_baselines"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "calibration_metrics_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "report aggregator over calibration metrics; harness reports PIT-based ECE/MACE"
+      },
+      "calibration_score": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "expected_calibration_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      },
+      "marginal_calibration_error": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+      }
+    },
+    "ensemble": {
+      "BaseEnsembleModel": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "BatchEnsembleLinear": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BatchEnsembleMLPBackbone": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BatchEnsembleOutput": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "structured return type of BatchEnsembleRegressor.predict_output; suite uses predict()"
+      },
+      "BatchEnsembleRegressor": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BayesianNeuralNetwork": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "BinnedPDFEnsembleModel": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CumulativeLinkEnsembleModel": {
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "EnsembleFitConfig": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration dataclass consumed by a covered estimator; no behaviour to score"
+      },
+      "FullNetworkLaplace": {
+        "suites": [
+          "ensembles",
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "HeteroscedasticBNN": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "HeteroscedasticBatchEnsembleModel": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "HeteroscedasticEnsembleModel": {
+        "suites": [
+          "ensembles",
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MCDropoutWrapper": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MDNEnsembleModel": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "MultiSWAG": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RandomPartitionEnsembleModel": {
+        "suites": [
+          "distributional_bins"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SWAG": {
+        "suites": [
+          "image_ensembles_uq"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SnapshotEnsemble": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SoftmaxModelCombiner": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "learned softmax combiner; ensembles suite benchmarks StackingEnsemble as the learned combiner"
+      },
+      "StackingEnsemble": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "VariationalLinear": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "enable_dropout": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "helper used inside MCDropoutWrapper (covered)"
+      },
+      "parse_heteroscedastic_output": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "output-parsing helper inside heteroscedastic ensembles (covered)"
+      }
+    },
+    "algorithms": {
+      "AdaptivePriorGuide": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "guide network built inside VIDSRegressor (covered in ensembles)"
+      },
+      "ErrorAwareFeatureEncoder": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "feature encoder for inputs with known errors; eiv benchmarks NoiseAwareRegressor/SIMEX instead"
+      },
+      "HeteroscedasticLaplaceRegressor": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "IRLSConfig": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "IVON": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LatentNN": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NaturalHeteroscedasticHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "head module inside HeteroscedasticLaplaceRegressor (covered)"
+      },
+      "NaturalReparamHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "reparameterization helper inside HeteroscedasticLaplaceRegressor (covered)"
+      },
+      "NeighborhoodCovarianceConfig": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration dataclass consumed by a covered estimator; no behaviour to score"
+      },
+      "NeighborhoodCovariancePseudoLabeler": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NoiseAwareRegressor": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RegressionCalibration": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SIMEX": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "TaylorInducedCovarianceHead": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "VIDSRegressor": {
+        "suites": [
+          "ensembles"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WarmupMCTrainer": {
+        "suites": [
+          "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "iteratively_reweighted_least_squares": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "sample_synthetic_environments": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "environment sampler used inside VIDSRegressor (covered)"
+      }
+    },
+    "test_time": {
+      "AdaptationBatch": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "BayesianLinearHead": {
+        "suites": [
+          "bayesian_linear"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CausalTTAHarness": {
+        "suites": [
+          "streaming_tta"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DelayedLabelResidualAdapter": {
+        "suites": [
+          "streaming_tta"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DomainClassifierRatioEstimator": {
+        "suites": [
+          "classification_shift",
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "FeatureStatNormalizer": {
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GaussianLabelShiftConfig": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration dataclass consumed by a covered estimator; no behaviour to score"
+      },
+      "JointDistributionalTTA": {
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "JointTTAResult": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "LabelShiftEMConfig": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "LabelShiftEstimate": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "EM result container (target_prior/iterations read in label_shift TT_EM)"
+      },
+      "LocalConsistencyConfig": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration dataclass consumed by a covered estimator; no behaviour to score"
+      },
+      "OptimalTransportCoverageGap": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ParameterEMA": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "parameter-EMA utility for user-written adaptation loops; no behaviour to score on its own"
+      },
+      "PosteriorLabelShiftAdapter": {
+        "suites": [
+          "classification_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RecursiveBayesianHead": {
+        "suites": [
+          "bayesian_linear"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "RepresentationShiftInflator": {
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ScoreCDFReweighter": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "base of the OT weight estimator behind JointDistributionalTTA(weight_estimator='ot') (JointTTA_OTScore row)"
+      },
+      "ShiftFactoredPredictiveTransport": {
+        "suites": [
+          "label_shift",
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ShiftFactoredTransportConfig": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ShiftFactoredTransportState": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "SubspaceAlignmentState": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "SupportsPredictiveBatch": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "typing Protocol; no behaviour"
+      },
+      "WeightedConformalRegressionAdapter": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WeightedSplitConformalAdapter": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "classification-only test-time helper; regression suites have no use for it"
+      },
+      "WeightedSubspaceMomentAligner": {
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "apply_label_shift_correction": {
+        "suites": [
+          "classification_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "confidence_scores": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "classification-only test-time helper; regression suites have no use for it"
+      },
+      "correct_gaussian_predictions_for_label_shift": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "entropy_scores": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "classification-only test-time helper; regression suites have no use for it"
+      },
+      "estimate_label_shift_weights": {
+        "suites": [
+          "classification_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "estimate_target_prior_bbse": {
+        "suites": [
+          "classification_shift",
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "estimate_target_prior_em": {
+        "suites": [
+          "classification_shift",
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "flatten_adaptation_parameters": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "parameter-collection utility for user adaptation loops; no behaviour to score"
+      },
+      "gaussian_bin_edges_from_targets": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "gaussian_bin_probabilities": {
+        "suites": [
+          "label_shift"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "gaussian_moments_from_binned_probabilities": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "inverse map used inside correct_gaussian_predictions_for_label_shift (covered)"
+      },
+      "local_consistency_weights": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "low-level helper called inside covered adapters (ShiftFactoredPredictiveTransport, Gaussian label-shift correction)"
+      },
+      "pseudo_label_targets": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "pseudo-label helper for user loops; test_time_adaptation runs JointTTA with pseudo-label rounds disabled"
+      },
+      "select_high_confidence": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "low-level helper called inside covered adapters (ShiftFactoredPredictiveTransport, Gaussian label-shift correction)"
+      },
+      "weighted_split_classification_predictive_batch": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "classification-only test-time helper; regression suites have no use for it"
+      }
+    },
+    "inference": {
+      "OrthogonalEstimate": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "PPIConfig": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "naive_linear_estimate": {
+        "suites": [
+          "orthogonal_inference"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "orthogonal_partially_linear": {
+        "suites": [
+          "orthogonal_inference"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_calibrated_mean_ci": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_diagnostics": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_mean_ci": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_ols_ci": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_pp_mean_ci": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "ppi_quantile_ci": {
+        "suites": [
+          "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      }
+    },
+    "causal": {
+      "causal_overlap_report": {
+        "suites": [
+          "causal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "dr_ate": {
+        "suites": [
+          "causal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "dr_cate": {
+        "suites": [
+          "causal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "dr_policy_value": {
+        "suites": [
+          "causal"
+        ],
+        "status": "covered",
+        "reason": ""
+      }
+    },
+    "semi_supervised": {
+      "SAGERegAgreement": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "SAGERegLoss": {
+        "suites": [
+          "semi_supervised",
+          "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SAGERegOutput": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "TeacherStudentTrainer": {
+        "suites": [
+          "semi_supervised"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "build_consensus_predictive_batch": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "consensus builder called inside TeacherStudentTrainer and SAGERegLoss (covered)"
+      },
+      "conformal_width_to_weight": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "needs per-batch conformal intervals on unlabeled rows; no conformal pseudo-labeling row yet"
+      },
+      "disagreement_to_weight": {
+        "suites": [
+          "semi_supervised"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "distributional_pseudo_loss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "pseudo-label loss called inside TeacherStudentTrainer and SAGERegLoss (covered)"
+      },
+      "predictive_agreement_score": {
+        "suites": [
+          "semi_supervised"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "uncertainty_to_weight": {
+        "suites": [
+          "semi_supervised"
+        ],
+        "status": "covered",
+        "reason": ""
+      }
+    },
+    "constraints": {
+      "BoundedHead": {
+        "suites": [
+          "constrained_outputs"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NonCrossingSort": {
+        "suites": [
+          "constrained_outputs"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NonNegativeHead": {
+        "suites": [
+          "constrained_outputs"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SimplexHead": {
+        "suites": [
+          "constrained_outputs"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SpectralNormWrapper": {
+        "suites": [
+          "constrained_outputs"
+        ],
+        "status": "covered",
+        "reason": ""
+      }
+    }
+  },
+  "summary": {
+    "exports": 360,
+    "covered": 213,
+    "allowlisted": 147,
+    "uncovered": 0,
+    "unique_names": 352,
+    "unique_covered": 211
+  },
+  "stale_allowlist": []
+}

@@ -1,7 +1,7 @@
 # 0.3.0 release run — harness status
 
 Tracks plan Phase 1 (harness) for the torchregress 0.3.0 PyPI release.
-Last updated: 2026-10-05 (afternoon). Algorithm development in torchregress is frozen for 0.3.0.
+Last updated: 2026-10-06. Algorithm development in torchregress is frozen for 0.3.0.
 
 ## Done (CPU, no network data)
 
@@ -18,7 +18,15 @@ Last updated: 2026-10-05 (afternoon). Algorithm development in torchregress is f
 | 1.5 | `--seed` for `leaderboard_regression.py`; `BENCH_PROFILE=release` in `scripts/skaha_paper_benchmark.sh` | `10cb870` |
 | 1.2 | sbi from git `main` (`17ef00b8dd`); per-model estimator options for the new sbi API | this commit |
 | 1.4 | KumoTabular, TabICLv2, TabFM (NVIDIA structured-data-models) in `foundation_model`; all foundation models scored on predictive quantiles | this commit |
-| 1.5 | `scripts/canfar_launch_release.sh` + `skaha_release.sh` + `skaha_release_report.sh`; `tools/release_jobs.py` | this commit |
+| 1.5 | `scripts/canfar_launch_release.sh` + `skaha_release.sh` + `skaha_release_report.sh`; `tools/release_jobs.py` | `f73aa3c` and earlier |
+| 1.4 | `run_all.py` and `leaderboard_regression.py` skip suite x dataset pairs a suite does not declare (`tools/_suite_registry.split_supported`); skipped pairs listed in the artifact notes / `metadata.skipped_unsupported`, no failed rows (fixes `multivariate_intervals` on univariate data) | this change |
+| 1.4 | Audit follow-up: interval metrics survive the post-audit conformal `±inf` bounds. `Coverage` counts infinite intervals as covering; `Width` and `IntervalScore` average the finite intervals; new `InfiniteIntervalFrac` column (+ row note, report and leaderboard footnotes); PIT proxy and Gaussian NLL/CRPS skip non-finite rows (`NonFiniteStdFrac`); leaderboard means use finite cells only and rank methods with infinite intervals after all-finite ones | this change |
+| 1.4 | New `semi_supervised` suite: `TeacherStudentTrainer` (default, batch-relative `disagreement_to_weight`, `uncertainty_to_weight`), `SAGERegLoss` self-agreement vs labeled-only Gaussian MLP, RidgeCV, MLPRegressor, random-forest self-training and a fully-labeled oracle; `ssl_friedman` (100 labels) and `diabetes` (50 labels, strict-data aware) | this change |
+| 1.4 | `likelihoods`: six synthetic true-model designs (`lik_skewnormal`, `lik_skewt`, `lik_johnsonsu`, `lik_sinharcsinh`, `lik_gev`, `lik_beta`): library NLL vs `scipy.stats` at the truth, linear-head conditional MLE (torchregress L-BFGS vs `scipy.optimize`), MLP, Gaussian baseline, unconditional `scipy.stats` MLE; parameter recovery | this change |
+| 1.4 | `label_shift`: `TT_BBSE` / `TT_EM` (`test_time.estimate_target_prior_bbse` / `_em` on binned Gaussian predictions, `PriorTV` vs the oracle prior) and `ShiftFactoredTransport` (+`Conformal`) on the label-shifted target | this change |
+| 1.4 | `ensembles`: `HeteroBatchEnsemble` (`HeteroscedasticBatchEnsembleModel` on a `BatchEnsembleLinear` stack) and `VariationalMLP` (`VariationalLinear` layers, NLL + KL/n) | this change |
+| 1.4 | `age_regression`: `CNN+RankNContrast` (`RankNContrastLoss` encoder + least-squares linear probe) | this change |
+| 1.4 | `tools/export_coverage.py` → `EXPORT_COVERAGE.md` / `export_coverage.json`: 360 public exports of 10 modules, 213 covered by a suite, 147 allowlisted with a reason (`tools/export_coverage_allowlist.py`); `tests/test_export_coverage.py` fails on any export neither covered nor allowlisted, and on stale allowlist entries | this change |
 
 ## Findings so far
 
@@ -41,18 +49,58 @@ Last updated: 2026-10-05 (afternoon). Algorithm development in torchregress is f
 6. `tr_Orthogonal_RFF` (random Fourier nuisances, default bandwidth) covers
    only 59%: the feature map needs a bandwidth choice before it is shown as
    a recommended nuisance.
+7. **Library bug (not fixed, torchregress 065d48d).** `SkewTLoss` / `skew_t_nll`
+   has an exactly zero gradient in the skewness `alpha` at `alpha = 0`
+   (the Student-t CDF term clamps its incomplete-beta argument at
+   `1 - 1e-15` when `w = 0`); finite differences give -0.29 on a 3-row
+   example. A zero-initialised skewness head never learns skew. The
+   `likelihoods` designs start skew-t fits at `alpha = 0.1`;
+   `tests/test_likelihood_families.py` holds a strict xfail that flips when
+   the library is fixed.
+8. **`ShiftFactoredPredictiveTransport` is inert under label shift.** On the
+   `label_shift` target (and a Ridge predictor on diabetes) the EM prior
+   collapses onto the two margin support bins, which hold no source mass
+   (`source_prior` there is `eps`, so the prior ratio explodes):
+   `PriorTV = 1.0` and `TransportApplied = 0` for every `n_support` in
+   16-256. The rows report the predictive unchanged; worth a library look
+   before transport is advertised for label shift.
+9. Test-time EM vs BBSE on binned Gaussian predictions: EM treats the
+   Gaussian-bin probabilities as calibrated posteriors and stops at a biased
+   fixed point (prior TV 0.26 vs 0.32 uncorrected on a synthetic 0.8 SD
+   shift), BBSE needs only the confusion matrix (TV 0.06). BBSE raises on an
+   ill-conditioned confusion, which the 2-epoch smoke model produces on
+   diabetes (failed `TT_BBSE` row in smoke only; fine at 60 epochs).
+10. On the synthetic family designs the linear-head torchregress fit matches
+    the `scipy.optimize` MLE of the same model to < 0.01 nats for every
+    family, and the library NLL equals the `scipy.stats` density at the true
+    parameters to 1e-6 (smoke, seed 0). GEV needed a finite barrier for
+    infeasible L-BFGS steps (a target outside the support gives an infinite
+    NLL and stalls torch's strong-Wolfe line search).
+11. Skipping unsupported pairs changes the default leaderboard: with the
+    default `diabetes,california_housing,synthetic_hetero,house_sales`, a
+    suite now runs only on the datasets it declares (e.g. `uq` no longer runs
+    on `house_sales`, `multivariate_intervals` on none of them). Cell counts
+    in a regenerated `leaderboard_results.json` drop accordingly;
+    `metadata.skipped_unsupported` lists the pairs.
 
 ## Still to do
 
+- [ ] **Re-run the CANFAR release run on the post-audit library.** Run
+      `release_20261005_1650` used torchregress `5a334d3` (pre-audit: conformal
+      bounds, ensemble eval mode, VarianceTemperatureScaler clamp, IRLS weights,
+      SIMEX predict and per-output R² all changed in the 0.3.0 audit, 99
+      findings). Its results must be re-run on torchregress `065d48d` or later
+      before `PARITY_REPORT.md` is regenerated; do not mix the two.
 - [ ] Re-run `orthogonal_inference` after the torchregress fix (bias table above is pre-fix).
-- [ ] Remaining coverage gaps from plan 1.4: `semi_supervised`, likelihood families
-      (Johnson SU, sinh-arcsinh, skew-normal, GEV, beta), `RankNContrastLoss` in
-      `age_regression`, level-set conformal in `multivariate_intervals`,
-      `test_time` label-shift and transport, BatchEnsemble/`VariationalLinear`,
-      metrics parity tests against `scoringrules`.
-- [ ] `multivariate_intervals` fails noisily when the leaderboard hands it a
-      univariate dataset; skip unsupported datasets instead.
-- [ ] Full release run on CANFAR (below), then regenerate `PARITY_REPORT.md`.
+- [ ] Remaining coverage gaps from plan 1.4: level-set conformal
+      (`LevelSetConformalPredictor`) in `multivariate_intervals`, metrics parity
+      tests against `scoringrules` (the allowlisted metric exports in
+      `tools/export_coverage_allowlist.py` point here),
+      `SemiConformalCalibrator`, `DiscreteWasserstein1Loss`.
+- [ ] Library follow-ups for findings 7 and 8 (skew-t alpha gradient at 0;
+      transport EM on empty margin bins).
+- [ ] Full release run on CANFAR (below), then regenerate `PARITY_REPORT.md`
+      and `EXPORT_COVERAGE.md` (`python tools/export_coverage.py`).
 
 ## Launching the release run on CANFAR
 
@@ -72,7 +120,7 @@ scripts/canfar_launch_release.sh report             # after all groups finish
 
 | Group | Jobs (suite x dataset) | Default replicas | Resources |
 |---|---:|---:|---|
-| tabular | 116 | 12 | 8 cores, 32 GB |
+| tabular | 124 | 12 | 8 cores, 32 GB |
 | sbi | 5 | 5 | 8 cores, 32 GB |
 | fm (foundation models) | 4 | 2 | 8 cores, 64 GB, 1 GPU |
 | image | 49 | 6 | 8 cores, 64 GB, 1 GPU |

@@ -28,6 +28,11 @@ def test_gone_mirrors_are_excluded() -> None:
 def test_new_suites_and_models_are_scheduled() -> None:
     tab = {s for s, _ in jobs("tabular")}
     assert {"orthogonal_inference", "constrained_outputs", "calibration"} <= tab
+    assert "semi_supervised" in tab
+    tab_pairs = set(jobs("tabular"))
+    assert {("semi_supervised", "diabetes"), ("semi_supervised", "ssl_friedman")} <= tab_pairs
+    families = ("skewnormal", "skewt", "johnsonsu", "sinharcsinh", "gev", "beta")
+    assert {("likelihoods", f"lik_{f}") for f in families} <= tab_pairs
     assert {d for _, d in jobs("sbi")} == set(ALL_SUITES["sbi_parity"]().supported_datasets)
     assert jobs("fm") and all(s == "foundation_model" for s, _ in jobs("fm"))
 
@@ -35,3 +40,9 @@ def test_new_suites_and_models_are_scheduled() -> None:
 def test_unknown_group() -> None:
     with pytest.raises(ValueError, match="unknown group"):
         jobs("nope")
+
+
+def test_group_job_counts() -> None:
+    """Job counts quoted in RELEASE_0.3_STATUS.md (update both together)."""
+    counts = {g: len(jobs(g)) for g in ("tabular", *GROUPS)}
+    assert counts == {"tabular": 124, "sbi": 5, "fm": 4, "image": 49}

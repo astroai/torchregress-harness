@@ -11,10 +11,21 @@ the library elementwise functionals, CRPS/PIT from predictive samples,
 90% sample-quantile coverage/width, plus rows/sec throughput (efficiency
 is part of any SOTA claim at >1M rows).
 
+Synthetic family designs
+------------------------
+``lik_skewnormal``, ``lik_skewt``, ``lik_johnsonsu``, ``lik_sinharcsinh``,
+``lik_gev`` and ``lik_beta`` draw ``y | x`` from each family as the TRUE
+model (see ``suites/tabular/_likelihood_designs.py``) and compare the
+torchregress loss (linear head by L-BFGS, MLP by Adam) with the same linear
+model fitted through ``scipy.stats`` + ``scipy.optimize``, the unconditional
+``scipy.stats`` MLE on the training targets, and the true-model NLL, plus
+per-row parameter recovery.  GEV and beta regression are benchmarked there
+only: GEV needs an extreme-value framing and beta needs (0, 1) targets,
+neither of which the real skewed datasets provide.
+
 Design notes
 ------------
-* GEV/BetaRegression/SQR are intentionally excluded: GEV needs an
-  extreme-value framing and Beta needs (0, 1) targets.
+* SQR is not benchmarked here (quantile, not likelihood, objective).
 * NSF standardizes targets internally (z-score from train) because the
   zuko spline bound cannot represent raw dollar-scale mass; samples are
   mapped back and NLL is corrected by ``+ log(std)`` to native units.
@@ -35,6 +46,8 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
+from suites.tabular._likelihood_designs import DESIGNS as FAMILY_DESIGNS
+from suites.tabular._likelihood_designs import run_design as run_family_design
 
 _N_SAMPLES = 256
 _BIG_BATCH = 1024
@@ -142,7 +155,7 @@ class LikelihoodsSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["folktables_all", "tlc_fare", "insurance_claims"]
+        return ["folktables_all", "tlc_fare", "insurance_claims", *FAMILY_DESIGNS]
 
     def methods(self) -> list[str]:
         return [
@@ -531,6 +544,9 @@ class LikelihoodsSuite(HarnessRunner):
         from harness.devices import current_device as _dev
 
         cfg = config or HarnessConfig()
+        if dataset_name in FAMILY_DESIGNS:
+            # Synthetic true-model designs: generated in-suite from the seed.
+            return run_family_design(dataset_name, cfg, self.name)
         dataset_name, splits = self._prepare_scenario_run(scenario_name, dataset_name, splits)
         if splits is None:
             from harness.datasets import load_dataset

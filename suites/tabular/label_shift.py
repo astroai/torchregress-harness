@@ -5,6 +5,19 @@ The TARGET is a label-shifted resample of test (P(select) logistic in
 standardized y, known true weights). Rows: Unweighted, BBSE, Oracle,
 DomainClassifier. Metrics: weight-recovery RMSE + weighted MAE.
 
+``torchregress.test_time`` label-shift rows bin the target (quantile bins of
+the source targets, ``gaussian_bin_edges_from_targets``), turn the Gaussian
+predictions into bin probabilities (``gaussian_bin_probabilities``) and
+estimate the target bin prior: ``TT_BBSE`` with
+``estimate_target_prior_bbse`` (confusion-matrix inversion, Lipton et al.
+2018), ``TT_EM`` with ``estimate_target_prior_em`` (Saerens et al. EM).
+Importance weights are prior ratios; ``PriorTV`` is the total-variation
+distance to the empirical target bin prior (the oracle). The
+``ShiftFactoredTransport`` rows transport the Gaussian predictive to the
+unlabeled shifted target (``ShiftFactoredPredictiveTransport``; the
+``+Conformal`` variant calibrates on the last 20% of the training rows) and
+are scored on the shifted target rows (TargetMAE, NLL, 90% coverage/width).
+
 COVARIATE-shift protocol (WeightedCP rows): the target is resampled by
 P(select) logistic in X (known shift on features). A split-CP baseline vs
 the WeightedConformalRegressionAdapter (classifier density-ratio weighted
@@ -26,6 +39,84 @@ from suites._backbones import _MLP, _hidden_size, _train_one
 
 _SHIFT_STRENGTH = 1.5
 _COV_SHIFT_STRENGTH = 1.0
+# Target bins for the test_time BBSE/EM rows (BBSE needs a well-conditioned confusion).
+_N_SHIFT_BINS = 5
+_Z90 = 1.6448536269514722
+_TRANSPORT_METHODS = ("ShiftFactoredTransport", "ShiftFactoredTransport+Conformal")
+_CAL_METHODS = ("SplitCP", "WeightedCP", "ShiftFactoredTransport+Conformal")
+
+
+def _finite_interval_stats(lo: np.ndarray, hi: np.ndarray, y: np.ndarray) -> dict[str, float]:
+    """Coverage over all rows; width over finite intervals + infinite-interval fraction.
+
+    Conformal calibration with too few points returns infinite bounds (the
+    finite-sample quantile does not exist): those rows cover, but would make
+    the mean width infinite.
+    """
+    finite = np.isfinite(lo) & np.isfinite(hi)
+    return {
+        "ShiftCoverage": float(np.mean((y >= lo) & (y <= hi))),
+        "ShiftWidth": float(np.mean(hi[finite] - lo[finite])) if finite.any() else float("nan"),
+        "InfiniteIntervalFrac": float(np.mean(~finite)),
+    }
+
+
+def _bin_index(values: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Bin of each value for ``edges`` (values beyond the outer edges go to the end bins)."""
+    return np.clip(np.searchsorted(edges, values, side="right") - 1, 0, len(edges) - 2)
+
+
+def _bin_prior(values: np.ndarray, edges: np.ndarray, eps: float = 1e-8) -> np.ndarray:
+    counts = np.bincount(_bin_index(values, edges), minlength=len(edges) - 1).astype(np.float64)
+    counts = np.clip(counts, eps, None)
+    return counts / counts.sum()
+
+
+def prior_ratio_weights(
+    method: str,
+    *,
+    y_train: np.ndarray,
+    p_src: np.ndarray,
+    p_tgt: np.ndarray,
+    y_tgt: np.ndarray,
+    n_bins: int = _N_SHIFT_BINS,
+) -> tuple[np.ndarray, dict[str, float]]:
+    """Per-row importance weights (mean 1) from a test_time target-prior estimate.
+
+    All arrays in the same (native) target units.  ``y_tgt`` only indexes
+    the estimated prior ratio at each target row and builds the oracle prior
+    for ``PriorTV``; the estimators see source labels and target predictions.
+    """
+    from torchregress.test_time import (
+        LabelShiftEMConfig,
+        estimate_target_prior_bbse,
+        estimate_target_prior_em,
+        gaussian_bin_edges_from_targets,
+        gaussian_bin_probabilities,
+    )
+
+    edges = gaussian_bin_edges_from_targets(y_train, n_bins)
+    sigma = np.full_like(p_src, max(float(np.std(y_train - p_src)), 1e-6))
+    probs_src = gaussian_bin_probabilities(p_src, sigma, edges)
+    probs_tgt = gaussian_bin_probabilities(p_tgt, np.full_like(p_tgt, sigma[0]), edges)
+    source_prior = _bin_prior(y_train, edges)
+    extra: dict[str, float] = {}
+    if method == "TT_BBSE":
+        q = estimate_target_prior_bbse(probs_src, _bin_index(y_train, edges), probs_tgt)
+        q = np.clip(q, 0.0, None)  # BBSE is an unconstrained moment estimate
+        q = q / max(q.sum(), 1e-12)
+    elif method == "TT_EM":
+        est = estimate_target_prior_em(
+            probs_tgt, source_prior=source_prior, config=LabelShiftEMConfig()
+        )
+        q = est.target_prior
+        extra = {"EMIterations": float(est.iterations), "EMConverged": float(est.converged)}
+    else:
+        raise ValueError(f"Unknown test_time prior method: {method}")
+    true_prior = _bin_prior(y_tgt, edges)
+    extra["PriorTV"] = float(0.5 * np.abs(q - true_prior).sum())
+    w = q[_bin_index(y_tgt, edges)] / source_prior[_bin_index(y_tgt, edges)]
+    return w / max(float(w.mean()), 1e-12), extra
 
 
 def _shift_target(
@@ -86,6 +177,9 @@ class LabelShiftSuite(HarnessRunner):
             "GaussShiftCorrect",
             "SplitCP",
             "WeightedCP",
+            "TT_BBSE",
+            "TT_EM",
+            *_TRANSPORT_METHODS,
         ]
 
     def library_name(self, method: str) -> str:
@@ -103,6 +197,10 @@ class LabelShiftSuite(HarnessRunner):
             "GaussShiftCorrect": "Gaussian predictions corrected for label shift (EM priors)",
             "SplitCP": "split conformal on source cal — undercovers shifted target",
             "WeightedCP": "WeightedConformalRegressionAdapter (density-ratio CP)",
+            "TT_BBSE": "test_time estimate_target_prior_bbse on 5 target bins (prior-ratio weights)",
+            "TT_EM": "test_time estimate_target_prior_em on 5 target bins (prior-ratio weights)",
+            "ShiftFactoredTransport": "ShiftFactoredPredictiveTransport of the Gaussian predictive",
+            "ShiftFactoredTransport+Conformal": "transport + conformal on the last 20% of train rows",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -153,7 +251,7 @@ class LabelShiftSuite(HarnessRunner):
         else:
             state["y_smean"] = 0.0
             state["y_sscale"] = 1.0
-        if method in ("SplitCP", "WeightedCP"):
+        if method in _CAL_METHODS:
             # Calibration split = last 20% of train (residuals + features).
             n_cal = max(16, len(X_train_np) // 5)
             X_cal = np.asarray(X_train_np)[-n_cal:]
@@ -229,6 +327,13 @@ class LabelShiftSuite(HarnessRunner):
                 )
                 out["lower"] = np.asarray(lo_t, dtype=np.float64).reshape(-1) * sscale + smean
                 out["upper"] = np.asarray(hi_t, dtype=np.float64).reshape(-1) * sscale + smean
+        if method in _TRANSPORT_METHODS:
+            # The label-shifted target is drawn from y_test, which predict()
+            # does not see: transport runs in evaluate() on these features.
+            out["_X_test"] = np.asarray(X_test, dtype=np.float64)
+            out["_X_train"] = np.asarray(model_state["X_train"], dtype=np.float64)
+            if method.endswith("+Conformal"):
+                out["_y_cal"] = np.asarray(model_state["y_cal"], dtype=np.float64)
         if method == "DomainClassifier":
             # Discriminative density-ratio (Bickel et al. 2009): P(target|x)
             # odds from a source-vs-target domain classifier (external).
@@ -373,11 +478,32 @@ class LabelShiftSuite(HarnessRunner):
             except Exception:
                 pass
             return {
-                "ShiftCoverage": float(np.mean((yt >= lo) & (yt <= hi))),
-                "ShiftWidth": float(np.mean(hi - lo)),
+                **_finite_interval_stats(lo, hi, yt),
                 "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
                 **gap,
             }
+        elif method in ("TT_BBSE", "TT_EM"):
+            y_train = np.asarray(predictions["y_train"]).reshape(-1)
+            p_src = np.asarray(predictions["p_src"]).reshape(-1)
+            if y_scaler is not None:
+                y_train = y_scaler.inverse_transform(y_train.reshape(-1, 1)).ravel()
+                p_src = y_scaler.inverse_transform(p_src.reshape(-1, 1)).ravel()
+            w_est, extra = prior_ratio_weights(
+                method,
+                y_train=y_train,
+                p_src=p_src,
+                p_tgt=y_pred[tgt_idx],
+                y_tgt=y_true[tgt_idx],
+            )
+            w_mae = float(np.sum(w_est * err) / max(w_est.sum(), 1e-12))
+            return {
+                "WeightRMSE": float(np.sqrt(np.mean((w_est - w_true) ** 2))),
+                "TargetMAE": w_mae,
+                "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
+                **extra,
+            }
+        elif method in _TRANSPORT_METHODS:
+            return self._evaluate_transport(method, predictions, y_pred, y_true, tgt_idx)
         else:
             raise ValueError(f"Unknown method: {method}")
         w_mae = float(np.sum(w_est * err) / max(w_est.sum(), 1e-12))
@@ -385,4 +511,86 @@ class LabelShiftSuite(HarnessRunner):
             "WeightRMSE": float(np.sqrt(np.mean((w_est - w_true) ** 2))),
             "TargetMAE": w_mae,
             "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
+        }
+
+    # ------------------------------------------------------------------
+    # ShiftFactoredPredictiveTransport on the label-shifted target
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _evaluate_transport(
+        method: str,
+        predictions: dict[str, np.ndarray],
+        y_pred: np.ndarray,
+        y_true: np.ndarray,
+        tgt_idx: np.ndarray,
+    ) -> dict[str, float]:
+        """Transport the Gaussian predictive to the unlabeled shifted target (native units)."""
+        from torchregress.prediction import PredictiveBatch
+        from torchregress.test_time import (
+            ShiftFactoredPredictiveTransport,
+            ShiftFactoredTransportConfig,
+        )
+
+        from harness.metrics import compute_distribution_metrics
+
+        y_scaler = predictions.get("_y_scaler")
+
+        def native(v: np.ndarray) -> np.ndarray:
+            v = np.asarray(v, dtype=np.float64).reshape(-1)
+            if y_scaler is None:
+                return v
+            return y_scaler.inverse_transform(v.reshape(-1, 1)).ravel()
+
+        y_train = native(predictions["y_train"])
+        p_src = native(predictions["p_src"])
+        sigma = max(float(np.std(y_train - p_src)), 1e-6)
+
+        def batch(mean: np.ndarray) -> PredictiveBatch:
+            m = torch.from_numpy(np.asarray(mean, dtype=np.float32))
+            return PredictiveBatch(point=m, mean=m, std=torch.full_like(m, sigma))
+
+        X_tr = torch.from_numpy(np.asarray(predictions["_X_train"], dtype=np.float32))
+        X_tgt = torch.from_numpy(np.asarray(predictions["_X_test"], dtype=np.float32)[tgt_idx])
+        # alpha = 0.1: the harness's 90% interval level (also the library default).
+        transport = ShiftFactoredPredictiveTransport(
+            ShiftFactoredTransportConfig(alpha=0.1)
+        ).fit_source(
+            batch(p_src),
+            torch.from_numpy(y_train.astype(np.float32)),
+            source_inputs=X_tr,
+        )
+        conformal = method.endswith("+Conformal")
+        if conformal:
+            # The calibration rows are the last n_cal training rows, so their
+            # predictive is the tail of the source predictions.
+            n_cal = len(np.asarray(predictions["_y_cal"]).reshape(-1))
+            transport.calibrate_target(
+                batch(p_src[-n_cal:]),
+                torch.from_numpy(native(predictions["_y_cal"]).astype(np.float32)),
+            )
+        out = transport.predict(
+            target_predictions=batch(y_pred[tgt_idx]),
+            target_inputs=X_tgt,
+            apply_conformal=conformal,
+        )
+        mean = np.asarray(out.mean, dtype=np.float64).reshape(-1)
+        std = np.asarray(out.std, dtype=np.float64).reshape(-1)
+        meta = out.extra or {}
+        if conformal and "interval_lower" in meta:
+            lo = np.asarray(meta["interval_lower"], dtype=np.float64)
+            hi = np.asarray(meta["interval_upper"], dtype=np.float64)
+        else:
+            lo, hi = mean - _Z90 * std, mean + _Z90 * std
+        y_shift = y_true[tgt_idx]
+        dist = compute_distribution_metrics(mean, std, y_shift)
+        return {
+            "TargetMAE": float(np.mean(np.abs(mean - y_shift))),
+            "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
+            "NLL": dist["NLL"],
+            "CRPS": dist["CRPS"],
+            **_finite_interval_stats(lo, hi, y_shift),
+            "PriorTV": float(meta.get("prior_source_target_tv", float("nan"))),
+            "TransportApplied": float(bool(meta.get("transport_applied", False))),
+            "EMConverged": float(bool(meta.get("estimate_converged", False))),
         }
