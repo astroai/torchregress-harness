@@ -17,7 +17,7 @@ from harness.devices import current_device
 
 from .core import set_harness_seed
 from .datasets import SplitsDict
-from .metrics import compute_all_metrics
+from .metrics import compute_all_metrics, infinite_interval_note
 
 
 def _inverse_transform_y(y: np.ndarray, y_scaler: Any) -> np.ndarray:
@@ -402,7 +402,9 @@ class HarnessRunner(ABC):
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Device": str(current_device()),
-                    "Notes": self.method_notes(method),
+                    "Notes": "; ".join(
+                        n for n in (self.method_notes(method), infinite_interval_note(metrics)) if n
+                    ),
                 }
 
             except ImportError as exc:

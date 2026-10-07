@@ -152,6 +152,7 @@ def print_comparison_summary(
         "Sharpness",
         "Coverage",
         "Width",
+        "InfiniteIntervalFrac",
         "IntervalScore",
         "ECE",
         "MACE",

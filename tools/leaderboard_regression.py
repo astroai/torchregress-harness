@@ -82,7 +82,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from tools._suite_registry import ALL_SUITES  # noqa: E402
+from tools._suite_registry import ALL_SUITES, split_supported  # noqa: E402
 
 from harness.runners import HarnessConfig  # noqa: E402
 
@@ -231,6 +231,7 @@ def run_leaderboard(
         cfg.epochs = 10
 
     all_rows: list[dict[str, Any]] = []
+    skipped_unsupported: list[list[str]] = []
     n_attempts = 0
     n_completed = 0
 
@@ -244,7 +245,13 @@ def run_leaderboard(
         if hasattr(suite, "tabred_samples"):
             suite.tabred_samples = tabred_samples
 
-        for ds in datasets:
+        supported, unsupported = split_supported(suite, datasets)
+        for ds in unsupported:
+            # Not a failure: the suite does not declare this dataset (e.g. a
+            # univariate dataset for multivariate_intervals). No rows.
+            print(f"  Suite={suite_name}  Dataset={ds} skipped (not supported)", flush=True)
+            skipped_unsupported.append([suite_name, ds])
+        for ds in supported:
             print(f"  Suite={suite_name}  Dataset={ds} ...", flush=True)
             try:
                 rows = suite.run(ds, config=cfg)
@@ -273,6 +280,7 @@ def run_leaderboard(
             "n_methods_total": len(summary),
             "n_attempts": n_attempts,
             "n_completed": n_completed,
+            "skipped_unsupported": skipped_unsupported,
         },
         "rows": all_rows,
         "leaderboard": summary,
@@ -332,10 +340,14 @@ def aggregate_per_method(
         # exposed separately for forensic inspection.
         n_cells = len({(r.get("Suite", "?"), r.get("Dataset", "?")) for r in method_rows})
         n_datasets_distinct = len({r.get("Dataset", "?") for r in method_rows})
-        rmse_vals = [r["RMSE"] for r in method_rows if r.get("RMSE") is not None]
-        is_vals = [r["IntervalScore"] for r in method_rows if r.get("IntervalScore") is not None]
-        cov_vals = [r["Coverage"] for r in method_rows if r.get("Coverage") is not None]
-        ece_vals = [r["ECE"] for r in method_rows if r.get("ECE") is not None]
+        # Finite values only: a NaN/inf cell (e.g. an interval score over a
+        # conformal interval with an infinite bound) would otherwise turn the
+        # whole suite-mean into NaN/inf. Dropped cells are counted below.
+        rmse_vals, n_nonfinite_rmse = _finite_values(method_rows, "RMSE")
+        is_vals, n_nonfinite_is = _finite_values(method_rows, "IntervalScore")
+        cov_vals, _ = _finite_values(method_rows, "Coverage")
+        ece_vals, _ = _finite_values(method_rows, "ECE")
+        inf_vals, _ = _finite_values(method_rows, "InfiniteIntervalFrac")
 
         coverages_np = np.asarray(cov_vals, dtype=np.float64) if cov_vals else None
         cov_dev = (
@@ -368,6 +380,13 @@ def aggregate_per_method(
                 "mean_Coverage": (float(np.mean(cov_vals)) if cov_vals else float("nan")),
                 "CoverageDeviation": cov_dev,
                 "mean_ECE": float(np.mean(ece_vals)) if ece_vals else float("nan"),
+                # Mean fraction of test rows whose interval has an infinite
+                # bound; IntervalScore cells average the finite rows only.
+                "mean_InfiniteIntervalFrac": (
+                    float(np.mean(inf_vals)) if inf_vals else float("nan")
+                ),
+                "n_nonfinite_rmse": n_nonfinite_rmse,
+                "n_nonfinite_is": n_nonfinite_is,
                 "n_metric_rmse": len(rmse_vals),
                 "n_metric_is": len(is_vals),
                 "n_metric_cov": len(cov_vals),
@@ -389,12 +408,19 @@ def aggregate_per_method(
     # because 0.5 < 250 numerically.
     _METRIC_RANK = {"IntervalScore": 0, "RMSE": 1}
 
-    def sort_key(s: dict[str, Any]) -> tuple[int, float, float, float, int]:
+    def sort_key(s: dict[str, Any]) -> tuple[int, int, float, float, float, int]:
         # More runs (-N_Runs) is "better" so less-noise methods win ties
         # all the way down.  Numerically we encode this as a smaller sort
         # key — e.g. N_Runs=10 sorts before N_Runs=2.
+        # A method that emitted any infinite interval (or an inf/NaN interval
+        # score) has an infinite all-row interval score: it ranks after every
+        # method whose intervals were all finite.
+        has_infinite = int(
+            _positive(s.get("mean_InfiniteIntervalFrac")) or s.get("n_nonfinite_is", 0) > 0
+        )
         return (
             _METRIC_RANK.get(s["primary_metric"], 2),
+            has_infinite if s["primary_metric"] == "IntervalScore" else 0,
             _safe_finite(s["primary_value"]),
             _safe_finite(s["CoverageDeviation"]),
             _safe_finite(s["mean_ECE"]),
@@ -439,19 +465,23 @@ def render_leaderboard_markdown(
     out.append("")
     out.append(
         "| Rank | Method | Library | N Suites | N Runs | "
-        "RMSE | IntervalScore | Coverage | Coverage Dev | ECE |",
+        "RMSE | IntervalScore | Inf. Interval Frac | Coverage | Coverage Dev | ECE |",
     )
-    out.append("|---:|:---|:---|---:|---:|---:|---:|---:|---:|---:|")
+    out.append("|---:|:---|:---|---:|---:|---:|---:|---:|---:|---:|---:|")
 
     for i, s in enumerate(summary, start=1):
         out.append(
             f"| {i} | {s['Method']} | {s['Library']} | "
             f"{s['N_Suites']} | {s['N_Runs']} | "
             f"{_fmt(s['mean_RMSE'])} | {_fmt(s['mean_IntervalScore'])} | "
+            f"{_fmt(s.get('mean_InfiniteIntervalFrac'))} | "
             f"{_fmt(s['mean_Coverage'])} | {_fmt(s['CoverageDeviation'])} | "
             f"{_fmt(s['mean_ECE'])} |",
         )
     out.append("")
+    if any(_positive(s.get("mean_InfiniteIntervalFrac")) for s in summary):
+        out.append(INFINITE_INTERVAL_NOTE)
+        out.append("")
 
     # ----- Per-suite × per-dataset breakdown -----
     out.append("## Per-Suite Breakdown")
@@ -476,22 +506,22 @@ def render_leaderboard_markdown(
             # Sort the per-dataset table by IntervalScore-then-RMSE for
             # forensic inspection.  NaN-aware: missing values sink to the
             # bottom.
-            def _sort_key(row: dict[str, Any]) -> tuple[float, float]:
+            def _sort_key(row: dict[str, Any]) -> tuple[int, float]:
                 is_val = row.get("IntervalScore")
                 rmse_val = row.get("RMSE")
-                return (
-                    is_val
-                    if is_val is not None
-                    else (rmse_val if rmse_val is not None else float("inf")),
-                )
+                val = is_val if is_val is not None else rmse_val
+                has_inf = int(_positive(row.get("InfiniteIntervalFrac")))
+                if not isinstance(val, (int, float)) or not np.isfinite(val):
+                    return (has_inf, float("inf"))
+                return (has_inf, float(val))
 
             ds_rows.sort(key=_sort_key)
             out.append(f"#### Dataset: `{ds_name}`")
             out.append("")
             out.append(
-                "| Method | Library | RMSE | IntervalScore | Coverage | ECE |",
+                "| Method | Library | RMSE | IntervalScore | Inf. Interval Frac | Coverage | ECE |",
             )
-            out.append("|:---|:---|---:|---:|---:|---:|")
+            out.append("|:---|:---|---:|---:|---:|---:|---:|")
             for row in ds_rows:
                 method = row.get("Method", "?")
                 if "/" in str(method):
@@ -500,10 +530,14 @@ def render_leaderboard_markdown(
                     f"| {method} | {row.get('Library', '?')} | "
                     f"{_fmt(row.get('RMSE'))} | "
                     f"{_fmt(row.get('IntervalScore'))} | "
+                    f"{_fmt(row.get('InfiniteIntervalFrac'))} | "
                     f"{_fmt(row.get('Coverage'))} | "
                     f"{_fmt(row.get('ECE'))} |",
                 )
             out.append("")
+            if any(_positive(r.get("InfiniteIntervalFrac")) for r in ds_rows):
+                out.append(INFINITE_INTERVAL_NOTE)
+                out.append("")
     return "\n".join(out)
 
 
@@ -540,6 +574,36 @@ def print_leaderboard_stdout(
         f"{n_with_rmse} methods produce point predictions (RMSE available) — "
         f"ranked by primary metric (IntervalScore where available, else RMSE).",
     )
+
+
+INFINITE_INTERVAL_NOTE = (
+    "_Inf. Interval Frac: fraction of test rows whose prediction interval has an "
+    "infinite bound (conformal calibration set too small for alpha). IntervalScore "
+    "is the mean over finite intervals only; methods with any infinite interval rank "
+    "after all methods with finite intervals._"
+)
+
+
+def _finite_values(rows: list[dict[str, Any]], key: str) -> tuple[list[float], int]:
+    """Finite numeric ``rows[*][key]`` values, and how many non-finite ones were dropped."""
+    vals: list[float] = []
+    n_nonfinite = 0
+    for r in rows:
+        v = r.get(key)
+        if v is None or isinstance(v, bool) or not isinstance(v, (int, float)):
+            continue
+        if np.isfinite(v):
+            vals.append(float(v))
+        else:
+            n_nonfinite += 1
+    return vals, n_nonfinite
+
+
+def _positive(value: Any) -> bool:
+    """True for a finite number > 0 (None/NaN/non-numeric are False)."""
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return bool(np.isfinite(value) and value > 0)
 
 
 def _fmt(value: Any) -> str:

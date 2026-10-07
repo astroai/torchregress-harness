@@ -33,7 +33,7 @@ _repo_root = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, _repo_root)
 sys.path.insert(0, str(Path(_repo_root) / "src"))
 
-from tools._suite_registry import ALL_SUITES
+from tools._suite_registry import ALL_SUITES, split_supported
 from tools._validate import (
     validate_gaussiannll_coverage,
     validate_image_backbones,
@@ -224,8 +224,19 @@ def main() -> None:
     dataset_names = args.datasets.split(",") if args.datasets else None
     all_rows: list[dict[str, object]] = []
 
+    skipped_unsupported: list[tuple[str, str]] = []
+
     for suite in suites:
         datasets = dataset_names or suite.supported_datasets
+        # A suite only runs on the datasets it declares: an explicit
+        # --datasets list is intersected per suite, so e.g.
+        # multivariate_intervals is never handed a univariate dataset.
+        datasets, unsupported = split_supported(suite, list(datasets))
+        for dataset_name in unsupported:
+            skipped_unsupported.append((suite.name, dataset_name))
+            print(
+                f"\n=== Suite: {suite.name} · Dataset: {dataset_name} === skipped (not supported)"
+            )
         for dataset_name in datasets:
             print(f"\n=== Suite: {suite.name} · Dataset: {dataset_name} ===")
             try:
@@ -239,9 +250,6 @@ def main() -> None:
                         load_kw["img_size"] = args.img_size
                     split = load_dataset(dataset_name, **load_kw)  # type: ignore[arg-type]
                 except KeyError:
-                    if dataset_name not in suite.supported_datasets:
-                        print(f"  Dataset {dataset_name!r} not found — skipping")
-                        continue
                     # Suite-generated designs (orthogonal_inference,
                     # constrained_outputs) are not registry datasets: the
                     # suite draws them itself from the seed.
@@ -277,6 +285,12 @@ def main() -> None:
                 print(f"  Suite {suite.name!r} not yet implemented — skipping")
                 continue
 
+    if skipped_unsupported:
+        print(
+            f"\nSkipped {len(skipped_unsupported)} unsupported suite x dataset pair(s): "
+            + ", ".join(f"{s}/{d}" for s, d in skipped_unsupported)
+        )
+
     if not all_rows:
         print("\nNo rows produced — exiting.")
         sys.exit(0)
@@ -295,6 +309,7 @@ def main() -> None:
         rows=all_rows,
         suites=[s.name for s in suites],
         datasets=sorted({r.get("Dataset", "?") for r in all_rows}),
+        notes=[f"skipped (not supported): {s}/{d}" for s, d in skipped_unsupported],
     )
     print(f"\nWrote harness artifact: {out_path}")
 

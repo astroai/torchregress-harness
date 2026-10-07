@@ -208,10 +208,16 @@ def compute_pit_values(
         # ones saturate and fail the uniformity tests.
         lower = np.asarray(predictions["lower"], dtype=float).reshape(-1)
         upper = np.asarray(predictions["upper"], dtype=float).reshape(-1)
-        width = upper - lower
-        if len(lower) != len(y_arr) or np.any(width <= 0):
+        if len(lower) != len(y_arr):
             raise ValueError("interval predictions require upper > lower per test point")
-        return np.clip((y_arr - lower) / width, 0.0, 1.0)
+        # An infinite conformal interval has no relative position: its rows
+        # are left out of the proxy (InfiniteIntervalFrac reports them).
+        finite = np.isfinite(lower) & np.isfinite(upper)
+        lower, upper, y_fin = lower[finite], upper[finite], y_arr[finite]
+        width = upper - lower
+        if np.any(width <= 0):
+            raise ValueError("interval predictions require upper > lower per test point")
+        return np.clip((y_fin - lower) / width, 0.0, 1.0)
 
     return np.array([], dtype=np.float64)
 
@@ -293,24 +299,59 @@ def compute_interval_metrics(
 
     Interval score is the proper scoring rule for (1-alpha) prediction intervals:
         S = (u - l) + (2/alpha)*(l - y)_+ + (2/alpha)*(y - u)_+
+
+    Infinite bounds
+    ---------------
+    Conformal predictors return ``±inf`` bounds when the calibration set is too
+    small for ``alpha`` (finite-sample guarantee: the ``ceil((n+1)(1-alpha))``-th
+    score does not exist).  Such an interval covers every target, so
+    ``Coverage`` counts it as covering; its width and interval score are
+    infinite, so ``Width`` and ``IntervalScore`` are means over the rows with
+    finite bounds only (NaN when there are none), and ``InfiniteIntervalFrac``
+    reports the fraction of rows with an infinite bound.  Read ``Width`` and
+    ``IntervalScore`` together with that column: a method with
+    ``InfiniteIntervalFrac > 0`` has an infinite all-row interval score.
     """
-    lower_np = np.asarray(lower).reshape(-1)
-    upper_np = np.asarray(upper).reshape(-1)
-    y_true_np = np.asarray(y_true).reshape(-1)
+    lower_np = np.asarray(lower, dtype=np.float64).reshape(-1)
+    upper_np = np.asarray(upper, dtype=np.float64).reshape(-1)
+    y_true_np = np.asarray(y_true, dtype=np.float64).reshape(-1)
 
     coverage = float(np.mean((y_true_np >= lower_np) & (y_true_np <= upper_np)))
-    width = float(np.mean(upper_np - lower_np))
     alpha = 1.0 - target_coverage
 
-    below = np.maximum(lower_np - y_true_np, 0)
-    above = np.maximum(y_true_np - upper_np, 0)
-    interval_score_val = float(np.mean((upper_np - lower_np) + (2.0 / alpha) * (below + above)))
+    finite = np.isfinite(lower_np) & np.isfinite(upper_np)
+    infinite = np.isinf(lower_np) | np.isinf(upper_np)
+    if finite.any():
+        lo, hi, yy = lower_np[finite], upper_np[finite], y_true_np[finite]
+        width = float(np.mean(hi - lo))
+        below = np.maximum(lo - yy, 0)
+        above = np.maximum(yy - hi, 0)
+        interval_score_val = float(np.mean((hi - lo) + (2.0 / alpha) * (below + above)))
+    else:
+        width = float("nan")
+        interval_score_val = float("nan")
 
     return {
         "Coverage": coverage,
         "Width": width,
         "IntervalScore": interval_score_val,
+        "InfiniteIntervalFrac": float(np.mean(infinite)) if len(infinite) else 0.0,
     }
+
+
+def infinite_interval_note(metrics: dict[str, Any]) -> str:
+    """Row note for metrics with infinite interval bounds ("" when there are none)."""
+    frac = metrics.get("InfiniteIntervalFrac")
+    try:
+        frac_f = float(frac)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return ""
+    if not np.isfinite(frac_f) or frac_f <= 0.0:
+        return ""
+    return (
+        f"inf-intervals: {frac_f:.1%} of rows have an infinite bound "
+        "(calibration set too small for alpha); Width/IntervalScore are over finite rows"
+    )
 
 
 def compute_distribution_metrics(
@@ -319,9 +360,22 @@ def compute_distribution_metrics(
     y_true: np.ndarray,
 ) -> dict[str, float]:
     """Compute NLL and CRPS for Gaussian predictive distributions."""
-    mean_np = np.asarray(mean).reshape(-1)
-    std_np = np.asarray(std).reshape(-1).clip(1e-8)
-    y_true_np = np.asarray(y_true).reshape(-1)
+    mean_np = np.asarray(mean, dtype=np.float64).reshape(-1)
+    std_np = np.asarray(std, dtype=np.float64).reshape(-1).clip(1e-8)
+    y_true_np = np.asarray(y_true, dtype=np.float64).reshape(-1)
+    # A std derived from an infinite conformal interval is infinite: score the
+    # finite rows and report the rest instead of returning an infinite NLL.
+    finite = np.isfinite(mean_np) & np.isfinite(std_np)
+    nonfinite_frac = float(1.0 - finite.mean()) if len(finite) else 0.0
+    if not finite.all():
+        mean_np, std_np, y_true_np = mean_np[finite], std_np[finite], y_true_np[finite]
+        if len(mean_np) == 0:
+            return {
+                "NLL": float("nan"),
+                "CRPS": float("nan"),
+                "Sharpness": float("nan"),
+                "NonFiniteStdFrac": nonfinite_frac,
+            }
 
     # Gaussian NLL (up to additive constant from log(2π))
     nll = float(
@@ -348,7 +402,10 @@ def compute_distribution_metrics(
     # Sharpness: mean predictive std (uncertainty-toolbox parity).
     sharpness = float(np.mean(std_np))
 
-    return {"NLL": nll, "CRPS": crps, "Sharpness": sharpness}
+    out = {"NLL": nll, "CRPS": crps, "Sharpness": sharpness}
+    if nonfinite_frac > 0.0:
+        out["NonFiniteStdFrac"] = nonfinite_frac
+    return out
 
 
 def compute_calibration_metrics(

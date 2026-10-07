@@ -39,6 +39,7 @@ from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sbi_parity import SBIParitySuite
+from suites.tabular.semi_supervised import SemiSupervisedSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.streaming_tta import StreamingTTASuite
 from suites.tabular.stress_matrix import StressMatrixSuite
@@ -72,6 +73,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "likelihoods": LikelihoodsSuite,
+    "semi_supervised": SemiSupervisedSuite,
     "classification_shift": ClassificationShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
@@ -89,3 +91,20 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "image_robust": ImageRobustSuite,
     "image_calibration": ImageCalibrationSuite,
 }
+
+
+def supports_dataset(suite: HarnessRunner, dataset: str) -> bool:
+    """True when ``dataset`` is one of ``suite.supported_datasets``.
+
+    Drivers (``run_all.py``, ``leaderboard_regression.py``) consult this before
+    calling ``suite.run``: a suite handed a dataset it does not declare (e.g. a
+    univariate dataset for ``multivariate_intervals``) is skipped, not run into
+    a column of failed rows.
+    """
+    return dataset in suite.supported_datasets
+
+
+def split_supported(suite: HarnessRunner, datasets: list[str]) -> tuple[list[str], list[str]]:
+    """Partition ``datasets`` into (supported, unsupported) for ``suite``, order kept."""
+    supported = set(suite.supported_datasets)
+    return [d for d in datasets if d in supported], [d for d in datasets if d not in supported]

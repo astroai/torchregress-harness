@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -16,10 +17,29 @@ def load_run(path: str | Path) -> dict[str, Any]:
     return data
 
 
+INFINITE_INTERVAL_FOOTNOTE = (
+    "_Note: rows with `InfiniteIntervalFrac` > 0 have prediction intervals with an "
+    "infinite bound (a conformal calibration set too small for alpha). `Width` and "
+    "`IntervalScore` are means over the finite intervals only; such a row's all-row "
+    "interval score is infinite. `Coverage` counts infinite intervals as covering._"
+)
+
+
+def _positive(value: Any) -> bool:
+    """True for a finite number > 0 (None/NaN/non-numeric are False)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return math.isfinite(value) and value > 0
+
+
 def _format_val(value: Any) -> str:
     if value is None:
         return "-"
     if isinstance(value, float):
+        if math.isnan(value):
+            return "nan"
+        if math.isinf(value):
+            return "inf" if value > 0 else "-inf"
         return f"{value:.4f}"
     return str(value)
 
@@ -80,6 +100,9 @@ def render_markdown(run: dict[str, Any]) -> str:
             table_lines = _render_table(dataset_rows)
             lines.extend(table_lines)
             lines.append("")
+            if any(_positive(r.get("InfiniteIntervalFrac")) for r in dataset_rows):
+                lines.append(INFINITE_INTERVAL_FOOTNOTE)
+                lines.append("")
 
     # Notes
     notes = run.get("notes", [])
