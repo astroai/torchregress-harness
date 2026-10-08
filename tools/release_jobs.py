@@ -35,6 +35,7 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "depth_estimation",
         "image_calibration",
         "image_conformal",
+        "image_density_parity",
         "image_ensembles_uq",
         "image_robust",
         "keypoint_regression",
@@ -43,7 +44,22 @@ GROUPS: dict[str, tuple[str, ...]] = {
 }
 # Upstream mirror gone (ETH wiki_meta.tar 404s since 2026-08) or full-resolution
 # variants that exceed one session; tiny variants of the same data still run.
-EXCLUDED_DATASETS = frozenset({"imdb_wiki", "imdb_wiki_fullres", "nyu_depth_v2_fullres"})
+# Not staged on /arc (licence agreement or Kaggle login needed; see
+# RELEASE_0.3_STATUS.md) -- strict mode would only log a skip for each.
+_NOT_STAGED = (
+    "utkface_age",
+    "utkface_age_tiny",
+    "boneage",
+    "boneage_tiny",
+    "biwi_head_pose",
+    "biwi_head_pose_tiny",
+    "appa_age",
+    "appa_age_tiny",
+    "galaxiesml_cutouts",
+)
+EXCLUDED_DATASETS = frozenset(
+    {"imdb_wiki", "imdb_wiki_fullres", "nyu_depth_v2_fullres", *_NOT_STAGED}
+)
 
 
 def jobs(group: str) -> list[tuple[str, str]]:

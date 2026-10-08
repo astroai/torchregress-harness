@@ -6,7 +6,7 @@ density-estimator family:
 
 * NSF: ``torchregress_NSF`` (zuko) vs ``sbi_NPE`` (sbi NPE, NSF) vs ``pzflow_NSF`` (JAX)
 * MAF: ``torchregress_MAF`` vs ``sbi_NPE_MAF``
-* MDN: ``torchregress_MDN`` (``MDNLoss``, K=10) vs ``sbi_NPE_MDN`` (K=10)
+* MDN: ``torchregress_MDN`` (``MDNLoss``, K=10, full covariance) vs ``sbi_NPE_MDN`` (K=10, full)
 
 ``sbi_FMPE`` (flow matching) and ``sbi_NPSE`` (score-based) are reference rows
 with no torchregress counterpart.
@@ -191,7 +191,8 @@ class SBIParitySuite(HarnessRunner):
         if method == "torchregress_MDN":
             from torchregress.losses.mdn import MDNLoss
 
-            mdn = MDNLoss(n_components=MDN_COMPONENTS, n_features=out_dim)
+            # Full covariance, as sbi_NPE_MDN (needs torchregress >= 0.3 sampling).
+            mdn = MDNLoss(n_components=MDN_COMPONENTS, n_features=out_dim, covariance_type="full")
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=mdn.expected_output_size)
             _train_one(
                 model,

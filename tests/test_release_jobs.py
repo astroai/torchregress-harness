@@ -9,7 +9,13 @@ from tools.release_jobs import EXCLUDED_DATASETS, GROUPS, jobs
 
 def test_groups_partition_every_suite() -> None:
     covered = {s for g in ("tabular", *GROUPS) for s, _ in jobs(g)}
-    assert covered == set(ALL_SUITES)
+    # Suites whose datasets are all excluded (e.g. photoz_imaging: GalaxiesML not staged).
+    runnable = {
+        name
+        for name, cls in ALL_SUITES.items()
+        if set(cls().supported_datasets) - EXCLUDED_DATASETS
+    }
+    assert covered == runnable
 
 
 def test_groups_do_not_overlap() -> None:
@@ -35,6 +41,8 @@ def test_new_suites_and_models_are_scheduled() -> None:
     assert {("likelihoods", f"lik_{f}") for f in families} <= tab_pairs
     assert {d for _, d in jobs("sbi")} == set(ALL_SUITES["sbi_parity"]().supported_datasets)
     assert jobs("fm") and all(s == "foundation_model" for s, _ in jobs("fm"))
+    assert ("density_parity", "mt_rf1") in tab_pairs
+    assert ("image_density_parity", "udacity_steering") in set(jobs("image"))
 
 
 def test_unknown_group() -> None:
@@ -45,4 +53,4 @@ def test_unknown_group() -> None:
 def test_group_job_counts() -> None:
     """Job counts quoted in RELEASE_0.3_STATUS.md (update both together)."""
     counts = {g: len(jobs(g)) for g in ("tabular", *GROUPS)}
-    assert counts == {"tabular": 133, "sbi": 5, "fm": 4, "image": 49}
+    assert counts == {"tabular": 140, "sbi": 5, "fm": 4, "image": 31}

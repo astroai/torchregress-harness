@@ -69,6 +69,7 @@ fi
 export XDG_CACHE_HOME="$HOME/.cache"
 export HF_HOME="$ARC_PROJ/cache/huggingface"  # override image presets too
 export TORCHREGRESS_HARNESS_STRICT_DATA=1
+export DENSITY_PARITY_DUMP_DIR="$OUT_DIR/density_samples"
 export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
 export PYTORCH_NVML_BASED_CUDA_CHECK=1
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
@@ -157,15 +158,17 @@ case "$GROUP" in
     ;;
   image)
     pip_install timm torchvision Pillow requests nibabel
+    pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # image_density_parity
     ;;
   tabular)
     pip_install "jax[cpu]" pzflow
+    pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # density_parity
     ;;
 esac
 
 case "$GROUP" in
   sbi) REQ="mapie sbi sbibm" ;; fm) REQ="mapie tabicl" ;;
-  image) REQ="mapie timm nibabel crepes torchcp lightgbm xgboost" ;; *) REQ="mapie torch_uncertainty lifelines crepes torchcp" ;;
+  image) REQ="mapie timm nibabel crepes torchcp lightgbm xgboost sbi" ;; *) REQ="mapie torch_uncertainty lifelines crepes torchcp sbi pzflow" ;;
 esac
 for mod in $REQ; do
   err=$(prun python -c "import $mod" 2>&1) || { echo "$err" | tail -n 5; log "FATAL: required comparator '$mod' not importable"; exit 4; }

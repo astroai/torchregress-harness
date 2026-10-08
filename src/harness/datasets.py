@@ -2013,6 +2013,81 @@ def _load_folktables_decile(
     }
 
 
+# OpenML copies of the MULAN multi-target regression collection (Spyromitros-
+# Xioufis et al., 2016). Targets are
+# the dataset's declared target attributes; continuous only (wq/oes dropped:
+# integer abundances / not hosted; OpenML's SARCOS keeps one torque only).
+_OPENML_MULTITARGET: dict[str, tuple[int, tuple[str, ...]]] = {
+    "mt_rf1": (
+        41483,
+        (
+            "CHSI2_48H__0",
+            "NASI2_48H__0",
+            "EADM7_48H__0",
+            "SCLM7_48H__0",
+            "CLKM7_48H__0",
+            "VALI2_48H__0",
+            "NAPM7_48H__0",
+            "DLDI4_48H__0",
+        ),
+    ),
+    "mt_scm20d": (
+        41486,
+        ("LBL",) + tuple(f"MTLp{k}A" for k in range(2, 17)),
+    ),
+    "mt_enb": (41478, ("Y1", "Y2")),
+    "mt_jura": (41479, ("Cd", "Co", "Cu")),
+}
+
+
+def _load_openml_multitarget(
+    name: str,
+    n_samples: int | None = None,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Real multi-target regression set from OpenML (no synthetic fallback).
+
+    Features are standardised on the training split; targets stay in native
+    units with shape ``(N, D)`` (``_skip_y_standardization``) so density suites
+    can standardise per target themselves. Rows with missing values are
+    dropped; ``n_samples`` subsamples (seeded) before the split.
+    """
+    import pandas as pd
+    from sklearn.datasets import fetch_openml
+    from sklearn.preprocessing import StandardScaler
+
+    data_id, targets = _OPENML_MULTITARGET[name]
+    frame = fetch_openml(
+        data_id=data_id,
+        parser="pandas",
+        as_frame=True,
+        data_home=str(_image_cache_dir() / "sklearn"),
+    ).frame
+    frame = frame.apply(pd.to_numeric, errors="coerce").dropna()
+    y = frame[list(targets)].to_numpy(dtype=np.float64)
+    X = frame.drop(columns=list(targets)).to_numpy(dtype=np.float64)
+    keep = X.std(axis=0) > 0
+    X = X[:, keep]
+    if n_samples is not None and len(X) > n_samples:
+        idx = np.random.default_rng(seed).choice(len(X), n_samples, replace=False)
+        X, y = X[idx], y[idx]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler().fit(X_train)
+    return {
+        "X_train": scaler.transform(X_train).astype(np.float32),
+        "X_test": scaler.transform(X_test).astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "n_targets": y.shape[1],
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+        "_source_url": f"https://www.openml.org/d/{data_id}",
+    }
+
+
 def _load_energy_efficiency(
     n_samples: int = 768,
     test_size: float = 0.3,
@@ -6066,6 +6141,38 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "loads. Standard real-data MULTI-TARGET regression benchmark."
         ),
         loader=_registry_loader(_load_energy_efficiency),
+    ),
+    "mt_rf1": DatasetInfo(
+        name="mt_rf1",
+        category="tabular",
+        n_features=64,
+        n_samples=9125,
+        description="MULAN rf1: river-flow sensor readings, 8 targets (48 h ahead). Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_rf1"),
+    ),
+    "mt_scm20d": DatasetInfo(
+        name="mt_scm20d",
+        category="tabular",
+        n_features=61,
+        n_samples=8966,
+        description="MULAN scm20d: supply-chain management, 16 price targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_scm20d"),
+    ),
+    "mt_enb": DatasetInfo(
+        name="mt_enb",
+        category="tabular",
+        n_features=8,
+        n_samples=768,
+        description="MULAN enb (UCI Energy Efficiency): heating/cooling load, 2 targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_enb"),
+    ),
+    "mt_jura": DatasetInfo(
+        name="mt_jura",
+        category="tabular",
+        n_features=15,
+        n_samples=359,
+        description="MULAN jura: Swiss Jura soil, Cd/Co/Cu concentrations, 3 targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_jura"),
     ),
     "make_regression_synthetic": DatasetInfo(
         name="make_regression_synthetic",

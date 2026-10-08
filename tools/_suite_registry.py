@@ -24,6 +24,7 @@ from suites.tabular.censored import CensoredSuite
 from suites.tabular.classification_shift import ClassificationShiftSuite
 from suites.tabular.conformal import ConformalSuite
 from suites.tabular.constrained_outputs import ConstrainedOutputsSuite
+from suites.tabular.density_parity import DensityParitySuite, ImageDensityParitySuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
@@ -80,6 +81,8 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
     "pzflow_parity": PzflowParitySuite,
+    "density_parity": DensityParitySuite,
+    "image_density_parity": ImageDensityParitySuite,
     "r2c_conformal": R2CConformalSuite,
     "age_regression": AgeRegressionSuite,
     "cell_counting": CellCountingSuite,
