@@ -3,7 +3,7 @@
 #
 # Launched by scripts/canfar_launch_release.sh (on the operator's machine) on
 # CANFAR Skaha headless sessions, image astroai/base:latest.  Each replica
-# clones the pushed fork SHAs, builds the pixi env (caches on /arc), installs
+# clones the pushed fork SHAs, builds the pixi env (package caches on /scratch, HF weights on /arc), installs
 # the pinned comparators, then runs its shard of the group's (suite, dataset)
 # jobs for every seed.  Real datasets run in strict mode: a missing mirror
 # fails that job instead of silently benchmarking a synthetic stand-in.
@@ -54,9 +54,12 @@ export PIXI_HOME="$HOME/.pixi"
 # Always override: astroai/base presets PIXI_CACHE_DIR to a read-only
 # /usr/local/share/pixi/cache, so `${VAR:-default}` kept the image value and
 # every pixi install failed with "Permission denied" creating uv-cache.
-export PIXI_CACHE_DIR="$ARC_PROJ/cache/pixi"
+# Package caches live on per-session local /scratch (fast, same filesystem as
+# the env, no 25-writer contention on CephFS); only HF weights are shared on /arc.
+CACHE_ROOT="/scratch/cache-$RUN_TAG-$GROUP-$RID_RAW"
+export PIXI_CACHE_DIR="$CACHE_ROOT/pixi"
 export RATTLER_CACHE_DIR="$PIXI_CACHE_DIR"
-export UV_CACHE_DIR="$ARC_PROJ/cache/uv"
+export UV_CACHE_DIR="$CACHE_ROOT/uv"
 export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
 if ! mkdir -p "$PIXI_CACHE_DIR" "$UV_CACHE_DIR" 2>/dev/null || [ ! -w "$PIXI_CACHE_DIR" ]; then
   export PIXI_CACHE_DIR="$HOME/.cache/pixi" RATTLER_CACHE_DIR="$HOME/.cache/pixi"
