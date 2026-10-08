@@ -109,6 +109,13 @@ for attempt in 1 2 3 4 5; do
   [ "$attempt" = 5 ] && { log "FATAL: pixi install failed 5x (infra)"; exit 3; }
 done
 prun() { pixi run -e "$PENV" "$@"; }
+# The conda-forge env ships without pip; bootstrap it or every comparator
+# install silently fails (run #3 benchmarked torchregress alone).
+if ! prun python -m pip --version >/dev/null 2>&1; then
+  prun python -m ensurepip --upgrade >/dev/null 2>&1 \
+    || { curl -fsSL https://bootstrap.pypa.io/get-pip.py -o "$WORK/get-pip.py" && prun python "$WORK/get-pip.py" -q; }
+  prun python -m pip --version || { log "FATAL: cannot bootstrap pip in env $PENV"; exit 3; }
+fi
 pip_install() { prun python -m pip install -q "$@" || log "WARN: pip install failed: $*"; }
 
 log "installing pinned comparators"
@@ -135,6 +142,15 @@ case "$GROUP" in
     pip_install "jax[cpu]" pzflow
     ;;
 esac
+
+case "$GROUP" in
+  sbi) REQ="mapie sbi sbibm" ;; fm) REQ="mapie tabicl" ;;
+  image) REQ="mapie timm nibabel" ;; *) REQ="mapie torch_uncertainty lifelines" ;;
+esac
+for mod in $REQ; do
+  prun python -c "import $mod" >/dev/null 2>&1 || { log "FATAL: required comparator '$mod' not importable"; exit 4; }
+done
+log "comparators OK: $REQ"
 
 prun python - > "$OUT_DIR/versions_replica_${RID}.txt" 2>&1 <<'PY' || true
 import importlib.metadata as md, platform, torch
