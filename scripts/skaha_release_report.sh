@@ -14,7 +14,7 @@ mkdir -p "$RUN_DIR/report"
 exec > >(tee "$RUN_DIR/report/report.log") 2>&1
 export NO_COLOR=1 TERM=dumb PIXI_NO_PROGRESS=true PYTHONNOUSERSITE=1
 export PIXI_CACHE_DIR="$ARC_PROJ/cache/pixi" UV_CACHE_DIR="$ARC_PROJ/cache/uv"
-export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
+export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR" RATTLER_CACHE_DIR="$PIXI_CACHE_DIR"
 
 WORK="/scratch/release-report-$RUN_TAG"
 mkdir -p "$WORK" && cd "$WORK" || exit 2

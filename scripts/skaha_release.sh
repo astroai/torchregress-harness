@@ -51,11 +51,19 @@ export NO_COLOR=1 TERM=dumb PIXI_NO_PROGRESS=true
 export PYTHONNOUSERSITE=1
 unset PYTHONPATH
 export PIXI_HOME="$HOME/.pixi"
-export PIXI_CACHE_DIR="${PIXI_CACHE_DIR:-$ARC_PROJ/cache/pixi}"
-export UV_CACHE_DIR="${UV_CACHE_DIR:-$ARC_PROJ/cache/uv}"
+# Always override: astroai/base presets PIXI_CACHE_DIR to a read-only
+# /usr/local/share/pixi/cache, so `${VAR:-default}` kept the image value and
+# every pixi install failed with "Permission denied" creating uv-cache.
+export PIXI_CACHE_DIR="$ARC_PROJ/cache/pixi"
+export RATTLER_CACHE_DIR="$PIXI_CACHE_DIR"
+export UV_CACHE_DIR="$ARC_PROJ/cache/uv"
 export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR"
+if ! mkdir -p "$PIXI_CACHE_DIR" "$UV_CACHE_DIR" 2>/dev/null || [ ! -w "$PIXI_CACHE_DIR" ]; then
+  export PIXI_CACHE_DIR="$HOME/.cache/pixi" RATTLER_CACHE_DIR="$HOME/.cache/pixi"
+  export UV_CACHE_DIR="$HOME/.cache/uv" PIXI_UV_CACHE_DIR="$HOME/.cache/uv"
+fi
 export XDG_CACHE_HOME="$HOME/.cache"
-export HF_HOME="${HF_HOME:-$ARC_PROJ/cache/huggingface}"
+export HF_HOME="$ARC_PROJ/cache/huggingface"  # override image presets too
 export TORCHREGRESS_HARNESS_STRICT_DATA=1
 export CONDA_OVERRIDE_CUDA="${CONDA_OVERRIDE_CUDA:-12.0}"
 export PYTORCH_NVML_BASED_CUDA_CHECK=1
