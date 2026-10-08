@@ -22,6 +22,14 @@ matplotlib = "*"
 tqdm = "*"
 zuko = "*"
 torchmetrics = "*"
+# Comparator deps from conda-forge so pip never swaps in a PyPI torch build
+# (CUDA 13) or builds against a mismatched toolkit on headless GPU nodes.
+pip = "*"
+torchvision = "*"
+lightning = "*"
+einops = "*"
+seaborn = "*"
+timm = "*"
 
 [feature.dev.dependencies]
 ruff = ">=0.6"

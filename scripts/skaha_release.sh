@@ -117,12 +117,24 @@ if ! prun python -m pip --version >/dev/null 2>&1; then
   prun python -m pip --version || { log "FATAL: cannot bootstrap pip in env $PENV"; exit 3; }
 fi
 pip_install() { prun python -m pip install -q "$@" || log "WARN: pip install failed: $*"; }
+# Freeze the conda-forge torch stack so no comparator's pip deps replace it with
+# a PyPI wheel built for another CUDA.
+prun python -m pip list --format=freeze 2>/dev/null \
+  | grep -iE '^(torch|torchvision|numpy|scipy)==' > "$WORK/constraints.txt"
+export PIP_CONSTRAINT="$WORK/constraints.txt"
+# torchcp needs torchsort, a CUDA extension: build it against the env's torch
+# (build isolation pulls the newest PyPI torch, CUDA 13 vs the node's 12.9).
+pip_install setuptools wheel ninja
+pip_install --no-build-isolation torchsort
 
 log "installing pinned comparators"
 pip_install "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
 pip_install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@$TU_PIN" lightning
 pip_install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@$LUQBOX_REF"
-pip_install -e ".[conformal,bayesian,tweedie,boosting,causal,distributional,scoring]"
+# One extra per call: a single unbuildable package must not drop every extra.
+for extra in conformal bayesian tweedie boosting causal distributional scoring; do
+  pip_install -e ".[$extra]"
+done
 pip_install lifelines survset folktables openpyxl h5py pyarrow kaggle ppi-python catboost
 case "$GROUP" in
   sbi)
@@ -145,10 +157,10 @@ esac
 
 case "$GROUP" in
   sbi) REQ="mapie sbi sbibm" ;; fm) REQ="mapie tabicl" ;;
-  image) REQ="mapie timm nibabel" ;; *) REQ="mapie torch_uncertainty lifelines" ;;
+  image) REQ="mapie timm nibabel" ;; *) REQ="mapie torch_uncertainty lifelines crepes torchcp" ;;
 esac
 for mod in $REQ; do
-  prun python -c "import $mod" >/dev/null 2>&1 || { log "FATAL: required comparator '$mod' not importable"; exit 4; }
+  err=$(prun python -c "import $mod" 2>&1) || { echo "$err" | tail -n 5; log "FATAL: required comparator '$mod' not importable"; exit 4; }
 done
 log "comparators OK: $REQ"
 
