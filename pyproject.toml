@@ -81,7 +81,7 @@ image = [
 # (see EXTERNAL_PINS.md); the sbi_parity suite needs it for tasks and
 # reference posteriors.
 sbi = [
-    "sbi @ git+https://github.com/sbi-dev/sbi.git@17ef00b8dd1f4a112cc065ef89031941196f25a9",
+    "sbi @ git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881",
     "pyro-ppl",
 ]
 causal = [

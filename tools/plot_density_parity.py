@@ -21,7 +21,9 @@ import numpy as np  # noqa: E402
 
 PAIRS = [
     ("torchregress_NSF", "sbi_NSF"),
+    ("torchregress_NSF", "sbi_zuko_NSF"),
     ("torchregress_MAF", "sbi_MAF"),
+    ("torchregress_MAF", "sbi_zuko_MAF"),
     ("torchregress_MDN", "sbi_MDN"),
 ]
 

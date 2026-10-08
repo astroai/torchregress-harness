@@ -14,7 +14,8 @@ implementation alone:
 
 * NSF: ``torchregress_NSF`` (zuko) vs ``sbi_NSF`` (sbi default, nflows) vs
   ``sbi_zuko_NSF`` (sbi wrapper of zuko) vs ``pzflow_NSF`` (JAX, own trainer)
-* MAF: ``torchregress_MAF`` (zuko) vs ``sbi_MAF`` (nflows)
+* MAF: ``torchregress_MAF`` (zuko) vs ``sbi_MAF`` (nflows) vs ``sbi_zuko_MAF``
+  (sbi wrapper of zuko: same backend, so gaps come from the wrapper)
 * MDN, full covariance, K=10: ``torchregress_MDN`` vs ``sbi_MDN``
 
 ``sbi_NPE_NSF`` is a reference row: sbi's own NPE trainer and defaults
@@ -60,7 +61,13 @@ N_DUMP_ROWS = 5
 DUMP_ENV = "DENSITY_PARITY_DUMP_DIR"
 
 _TR_FLOWS = {"torchregress_NSF": "nsf", "torchregress_MAF": "maf"}
-_SBI_MODELS = {"sbi_NSF": "nsf", "sbi_MAF": "maf", "sbi_MDN": "mdn", "sbi_zuko_NSF": "zuko_nsf"}
+_SBI_MODELS = {
+    "sbi_NSF": "nsf",
+    "sbi_MAF": "maf",
+    "sbi_MDN": "mdn",
+    "sbi_zuko_NSF": "zuko_nsf",
+    "sbi_zuko_MAF": "zuko_maf",
+}
 _METRICS = (
     "NLL",
     "ES",
@@ -244,6 +251,7 @@ class DensityParitySuite(HarnessRunner):
             "pzflow_NSF",
             "torchregress_MAF",
             "sbi_MAF",
+            "sbi_zuko_MAF",
             "torchregress_MDN",
             "sbi_MDN",
             "sbi_NPE_NSF",
@@ -271,6 +279,7 @@ class DensityParitySuite(HarnessRunner):
             "pzflow_NSF": "pzflow Flow (default bijector), conditional columns = x; pzflow's own trainer",
             "torchregress_MAF": "zuko MAF (3 transforms, 64 hidden) on shared encoder; shared trainer",
             "sbi_MAF": "sbi posterior_nn('maf') = nflows MAF (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
+            "sbi_zuko_MAF": "sbi posterior_nn('zuko_maf') (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "torchregress_MDN": "MixtureDensityLoss K=10, full covariance; shared encoder + 2x64 hidden head (as sbi MDN); shared trainer",
             "sbi_MDN": "sbi posterior_nn('mdn') K=10 full covariance, shared encoder as embedding_net; shared trainer",
             "sbi_NPE_NSF": "reference: sbi NPE trainer and defaults (5 transforms, 50 hidden, own early stopping)",
