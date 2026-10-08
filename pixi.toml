@@ -30,6 +30,7 @@ lightning = "*"
 einops = "*"
 seaborn = "*"
 timm = "*"
+rich = "*"
 
 [feature.dev.dependencies]
 ruff = ">=0.6"

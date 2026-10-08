@@ -125,7 +125,10 @@ export PIP_CONSTRAINT="$WORK/constraints.txt"
 # torchcp needs torchsort, a CUDA extension: build it against the env's torch
 # (build isolation pulls the newest PyPI torch, CUDA 13 vs the node's 12.9).
 pip_install setuptools wheel ninja
-pip_install --no-build-isolation torchsort
+# The node has nvcc but no CUDA headers: hide nvcc so torchsort builds its CPU
+# kernel only (enough for torchcp's regression predictors).
+NOCUDA_PATH=$(echo "$PATH" | tr ':' '\n' | while read -r d; do [ -x "$d/nvcc" ] || echo "$d"; done | paste -sd: -)
+PATH="$NOCUDA_PATH" pip_install --no-build-isolation torchsort
 
 log "installing pinned comparators"
 pip_install "git+https://github.com/scikit-learn-contrib/MAPIE.git@$MAPIE_PIN"
