@@ -178,7 +178,7 @@ class OrthogonalInferenceSuite(HarnessRunner):
             "tr_Orthogonal_Poly3": "orthogonal_partially_linear, cubic per-covariate ridge, 5 folds",
             "tr_Orthogonal_RFF": (
                 "orthogonal_partially_linear with inference.random_fourier_features "
-                "(256 features, median bandwidth, polynomial_degree=1) and ridge='gcv'"
+                "(256 features, median bandwidth, polynomial_degree=3) and ridge='gcv'"
             ),
             "tr_Orthogonal_RFF_legacy": (
                 "pre-d67289a3 hand-rolled recipe for comparison: 256 random Fourier features, "
