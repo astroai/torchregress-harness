@@ -269,7 +269,11 @@ class FoundationModelSuite(HarnessRunner):
                 torch.as_tensor(y_train_np, dtype=torch.float32).reshape(-1, 1)
             )
             model.fit(
-                x.to(device), y.to(device), generator=torch.Generator().manual_seed(config.seed)
+                x.to(device),
+                y.to(device),
+                # sdm samples context on the model device; a CPU generator raises
+                # "Expected a 'cuda' device type for generator" on GPU nodes.
+                generator=torch.Generator(device=device).manual_seed(config.seed),
             )
             return {"type": "sdm", "model": model}
 

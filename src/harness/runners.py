@@ -31,15 +31,27 @@ def _inverse_transform_predictions(
 ) -> dict[str, np.ndarray]:
     """Inverse-transform predictions back to original target scale.
 
-    Point estimates (``y_pred``, ``mean``, ``lower``, ``upper``) are fully
-    inverse-transformed.  Standard deviations (``std``) are scaled by the
+    Point estimates (``y_pred``, ``mean``, ``lower``, ``upper``) and predictive
+    ``samples`` are fully inverse-transformed.  Standard deviations (``std``) are scaled by the
     y-scaler's scale_ only (they don't have a location shift).
     """
     out = dict(predictions)
-    scale = float(y_scaler.scale_.item())
+    scale = float(np.asarray(y_scaler.scale_).reshape(-1)[0])
     for key in ("y_pred", "mean", "lower", "upper"):
         if key in out:
             out[key] = _inverse_transform_y(out.pop(key), y_scaler)
+    # Samples / quantile grids ([N, S] or any shape) are an elementwise affine
+    # map; leaving them standardized silently broke point and CRPS metrics for
+    # every sample-based method (TabICL, TabPFN, sdm models, ...).
+    if "samples" in out:
+        s = np.asarray(out.pop("samples"), dtype=np.float64)
+        mu = np.asarray(y_scaler.mean_, dtype=np.float64).reshape(-1)
+        sc = np.asarray(y_scaler.scale_, dtype=np.float64).reshape(-1)
+        if mu.size == 1:
+            s = s * sc[0] + mu[0]
+        elif s.shape[-1] == mu.size:  # multi-target: targets on the last axis
+            s = s * sc + mu
+        out["samples"] = s
     if "std" in out and scale != 0:
         out["std"] = (out.pop("std") * scale).astype(np.float64)
     return out
