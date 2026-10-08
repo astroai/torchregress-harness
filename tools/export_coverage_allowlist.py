@@ -55,8 +55,8 @@ ALLOWLIST: dict[str, str] = {
     "DistributionLoss": _BASE,
     "ConformalPredictor": _BASE,
     "LevelSetConformalPredictor": (
-        "base of SLSConformal (covered); level-set conformal in multivariate_intervals "
-        "is still to do (RELEASE_0.3_STATUS)"
+        "base of SLSConformal (covered in distributional_bins SLS_CP and the "
+        "multivariate_intervals SLS+SLSConformal rows)"
     ),
     "WeightedLossWrapper": "masking/weighting wrapper around torch losses; weighting is exercised via covered losses",
     "WeightedNLLLoss": "classification NLL wrapper (torch.nn.NLLLoss); no regression benchmark",

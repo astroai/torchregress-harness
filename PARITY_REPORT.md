@@ -34,7 +34,7 @@ Rank within each suite/dataset combo (1 = best); wins = # of 1st-place finishes.
 | **6** | **Split_CP** ★ | distributional_bins, 3 datasets | 2 | 2.3 | Dist bins calibration (0.020) | Dist bins california_housing IS (4th) | Guaranteed 90% coverage; baseline, not a competitor |
 | **7** | **Evidential** | distributional_bins, 3 datasets | 1 | 2.8 | Dist bins diabetes IS (3rd) | Dist bins california_housing IS (5th) | Best-calibrated non-CP method; conservative over-coverage |
 | **8** | **Split+TabICL** ★ | conformal | 0* | 3.0 | Zero-training IS (131K) | — | Best zero-training method; beats trained MLP by 16% |
-| **9** | **SLS** | multivariate_intervals, 4 datasets | 1 | 3.6 | MV coverage (0.980) | MV bimodal IS (8.45) | Guaranteed coverage; backfires on disconnected modes |
+| **9** | **SLS** | multivariate_intervals, 4 datasets | 1 | 3.6 | MV coverage (0.980) | MV bimodal IS (8.45) | Guaranteed coverage (STALE: raw SLS threshold does not guarantee coverage, see RELEASE_0.3_STATUS Phase 2b; pending regeneration); backfires on disconnected modes |
 | **10** | **MAPIE_CQR+GBR** ★ | conformal | 0 | 2.0 | — | — | Best non-torchregress conformal; 14% behind CQR+MLP |
 | **11** | **Split+MLP** ★ | conformal | 0 | 5.0 | — | — | MLP + residual cal; 43% behind CQR+MLP |
 | — | **torchregress_NSF** | pzflow_parity, 2 datasets | 2 | 1.0 | All metrics (both datasets) | — | zuko NSF wins decisively over pzflow on NLL, IS, Width |
@@ -50,7 +50,7 @@ pzflow_parity methods ranked separately (different metric space — raw NLL, not
 - **NormalizingFlow** is the best on non-Gaussian/misspecified distributions (wins non-Gaussian IS: 4.067) and wins california_housing IS (2.00).  The [64,64] hidden-layer fix improves scalar calibration but hurts multivariate — NF lost its IS lead on bimodal to GaussianNLL and JointCoverage dropped further.  Best where expressivity matters more than exact calibration; for joint intervals, GaussianNLL is safer.
 - **Evidential** is the best non-conformal calibration (DevAbsMean=0.033 vs NF's 0.175)
 - **MultivariateGaussian** wins on its native distribution but offers no benefit over diagonal on complex data
-- **SLS** guarantees coverage at τ=0.9 but produces wide intervals (1.4–1.8× GaussianNLL).  The [64,4] architecture fix narrowed intervals 2–7% while maintaining coverage.  Backfires on disconnected modes where the minimum-volume level set is two separated regions.  Best when coverage guarantee is paramount.
+- **SLS** guarantees coverage at τ=0.9 but produces wide intervals (1.4–1.8× GaussianNLL).  **[STALE, pending regeneration: the raw `SLSLoss` threshold covers only 0.45–0.56 of held-out targets and the guarantee comes from `SLSConformal`; the "guarantees coverage" and "1.4–1.8×" wording predates `docs/losses/sls.md` "Intervals from a level set" and the `SLS_earlystop` / `SLS+SLSConformal` rows.]**  The [64,4] architecture fix narrowed intervals 2–7% while maintaining coverage.  Backfires on disconnected modes where the minimum-volume level set is two separated regions.  Best when coverage guarantee is paramount.
 - **5 methods achieve exact parity** with reference implementations (OLS, BLR, Tweedie, Split+Linear, GaussianNLL_Linear) — torchregress is trustworthy
 
 ---

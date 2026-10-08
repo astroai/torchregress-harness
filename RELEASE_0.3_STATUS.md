@@ -271,6 +271,30 @@ Finding 13 (library, torchregress `d67289a3`): `fit_tabular` with `scheduler="on
 `pct_start=0.1`: the first phase ends at step 0). The harness bumps the epoch count by one in that case
 (`suites/_tabular_mlp.py::_onecycle_safe_epochs`); the library should do the same or clamp `total_steps`.
 
+SLS interval rows (`multivariate_intervals`, 90% nominal, 60 epochs, seed 42, one split; box of the region,
+joint coverage / marginal coverage / mean width; `/tmp/claude-0/harness_full/sls.json`). New rows
+`SLS_earlystop` (15% validation carve of the training rows, stop on held-out region coverage vs tau,
+patience 10, best epoch restored), `SLS+SLSConformal` and `SLS_lowrank+SLSConformal` (25% calibration
+carve, `SLSConformal`, box of the calibrated region) plus the matched `MultivariateGaussian+Conformal`
+(`MultivariateScoreConformal` ellipsoid box, same carve); tests `tests/test_mv_conformal_rows.py`. The raw
+SLS rows are unchanged, so the raw threshold still under-covers held-out regions (`docs/losses/sls.md`,
+"Intervals from a level set"); `NF_Ensemble_K{5,10,20}` were skipped in this run (their pooled sampling
+exceeds the 8 GB sandbox; the suite itself is unchanged).
+
+| Design | GaussianNLL | MultivariateGaussian | SLS raw | SLS_earlystop | SLS+SLSConformal |
+|---|---:|---:|---:|---:|---:|
+| synthetic_mv_gaussian | 0.657 / 0.852 / 3.11 | 0.685 / 0.863 / 3.15 | 0.748 / 0.898 / 3.87 | 0.952 / 0.983 / 5.27 | 0.987 / 0.996 / 8.19 |
+| synthetic_mv_nongaussian | 0.783 / 0.922 / 3.03 | 0.763 / 0.916 / 3.02 | 0.847 / 0.943 / 3.99 | 0.938 / 0.979 / 5.37 | 0.990 / 0.997 / 7.72 |
+| synthetic_mv_bimodal | 0.740 / 0.902 / 5.23 | 0.767 / 0.912 / 5.44 | 0.880 / 0.956 / 6.22 | 0.993 / 0.998 / 8.43 | 0.997 / 0.999 / 10.20 |
+
+Only the conformal rows carry a guarantee, and it is on the region, not the box: the box of a 90%-region
+ellipsoid has joint coverage 0.99, so these intervals are conservative (the matched
+`MultivariateGaussian+Conformal` box is 5.51 / 4.99 / 8.53 wide at joint 0.975 / 0.938 / 0.988, i.e. 0.67x
+/ 0.65x / 0.84x of `SLS+SLSConformal`). `SLS_earlystop` stops at the first epochs where held-out region
+coverage is closest to 0.9, which gives a wide, under-trained box (joint 0.94-0.99) without a guarantee.
+`PARITY_REPORT.md` SLS wording ("guarantees coverage", "1.4-1.8x GaussianNLL") is stale pending
+regeneration: raw SLS is 1.2-1.3x GaussianNLL width at joint coverage 0.75-0.88, not a guarantee.
+
 ## Still to do
 
 - [ ] **Re-run the CANFAR release run on the post-audit library.** Run
@@ -280,8 +304,8 @@ Finding 13 (library, torchregress `d67289a3`): `fit_tabular` with `scheduler="on
       findings). Its results must be re-run on torchregress `065d48d` or later
       before `PARITY_REPORT.md` is regenerated; do not mix the two.
 - [x] Re-run `orthogonal_inference` after the torchregress fix (table under finding 1).
-- [ ] Remaining coverage gaps from plan 1.4: level-set conformal
-      (`LevelSetConformalPredictor`) in `multivariate_intervals`, metrics parity
+- [ ] Remaining coverage gaps from plan 1.4: (level-set conformal in
+      `multivariate_intervals` is done: `SLS+SLSConformal` rows), metrics parity
       tests against `scoringrules` (the allowlisted metric exports in
       `tools/export_coverage_allowlist.py` point here),
       `SemiConformalCalibrator`, `DiscreteWasserstein1Loss`.

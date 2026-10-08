@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "d67289a3",
+  "torchregress_commit": "a0291e1e",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -423,7 +423,7 @@
       "LevelSetConformalPredictor": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "base of SLSConformal (covered); level-set conformal in multivariate_intervals is still to do (RELEASE_0.3_STATUS)"
+        "reason": "base of SLSConformal (covered in distributional_bins SLS_CP and the multivariate_intervals SLS+SLSConformal rows)"
       },
       "LocalConformal": {
         "suites": [
@@ -705,7 +705,8 @@
       },
       "SLSConformal": {
         "suites": [
-          "distributional_bins"
+          "distributional_bins",
+          "multivariate_intervals"
         ],
         "status": "covered",
         "reason": ""
