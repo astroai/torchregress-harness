@@ -77,6 +77,9 @@ set_env_args() {
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
   [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
   [ "${ALL_GPU:-0}" = 1 ] && ENV_ARGS+=(-e "USE_GPU=1")
+  # RERUN_SUITES=image_conformal,image_robust: overwrite those suites' existing
+  # artifacts (comma-separated: canfar word-splits env values).
+  [ -n "${RERUN_SUITES:-}" ] && ENV_ARGS+=(-e "RERUN_SUITES=$RERUN_SUITES")
   return 0
 }
 DRY=()

@@ -19,6 +19,7 @@
 #   EPOCHS         default 60
 #   REPLICA_ID / REPLICA_COUNT   set by Skaha for --replicas sessions
 #   SHARD_ID / SHARD_COUNT       override them (one session redoing one shard)
+#   RERUN_SUITES   comma-separated suites whose existing artifacts are overwritten
 #   OUT_ROOT       default /arc/projects/ots/torchregress-harness/runs
 set -uo pipefail
 
@@ -164,7 +165,7 @@ esac
 
 case "$GROUP" in
   sbi) REQ="mapie sbi sbibm" ;; fm) REQ="mapie tabicl" ;;
-  image) REQ="mapie timm nibabel" ;; *) REQ="mapie torch_uncertainty lifelines crepes torchcp" ;;
+  image) REQ="mapie timm nibabel crepes torchcp lightgbm xgboost" ;; *) REQ="mapie torch_uncertainty lifelines crepes torchcp" ;;
 esac
 for mod in $REQ; do
   err=$(prun python -c "import $mod" 2>&1) || { echo "$err" | tail -n 5; log "FATAL: required comparator '$mod' not importable"; exit 4; }
@@ -217,7 +218,12 @@ for seed in ${SEEDS//,/ }; do
   for job in "${JOBS[@]}"; do
     suite="${job%% *}"; dataset="${job##* }"
     out="$OUT_DIR/${suite}__${dataset}__seed${seed}.json"
-    [ -s "$out" ] && { log "skip (exists): $out"; continue; }
+    if [ -s "$out" ]; then
+      case ",${RERUN_SUITES:-}," in
+        *",$suite,"*) log "rerun (RERUN_SUITES): $out" ;;
+        *) log "skip (exists): $out"; continue ;;
+      esac
+    fi
     log "=== $suite / $dataset / seed $seed ==="
     if prun python tools/run_all.py --suites "$suite" --datasets "$dataset" \
         --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
