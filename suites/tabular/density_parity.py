@@ -150,10 +150,15 @@ def _scores(
     Y = torch.as_tensor(y, dtype=torch.float64)
     S = torch.as_tensor(samples, dtype=torch.float64)
     N, n_s, D = S.shape
-    es = (S - Y[:, None, :]).norm(dim=-1).mean(1) - 0.5 * _pairwise_mean_dist(S)
-    crps = (S - Y[:, None, :]).abs().mean(1) - 0.5 * (
-        S[:, :, None, :] - S[:, None, :, :]
-    ).abs().mean((1, 2))
+    # Row chunks keep the [rows, S, S, D] pairwise terms bounded (rf1/scm20d OOM'd).
+    es_parts, crps_parts = [], []
+    for start in range(0, N, 50):
+        Sb, Yb = S[start : start + 50], Y[start : start + 50]
+        es_parts.append((Sb - Yb[:, None, :]).norm(dim=-1).mean(1) - 0.5 * _pairwise_mean_dist(Sb))
+        spread = (Sb[:, :, None, :] - Sb[:, None, :, :]).abs().mean((1, 2))
+        crps_parts.append((Sb - Yb[:, None, :]).abs().mean(1) - 0.5 * spread)
+    es = torch.cat(es_parts)
+    crps = torch.cat(crps_parts)
     out: dict[str, float | None] = {
         "NLL": float(-np.mean(lp_true)),
         "ES": float(es.mean()),
