@@ -52,6 +52,13 @@ torchregress-harness = { path = ".", editable = true }
 default = { features = ["dev", "test"], solve-group = "default" }
 gpu = { features = ["gpu", "dev", "test"], solve-group = "gpu" }
 
+[feature.gpu.dependencies]
+# Headers for in-env CUDA extension builds (torchsort, needed by torchcp):
+# pytorch-gpu ships nvcc tools but not cuda_runtime.h.
+cuda-cudart-dev = "12.9.*"
+cuda-cccl = "12.9.*"
+cuda-nvcc = "12.9.*"
+
 [feature.gpu.system-requirements]
 cuda = "12"
 
