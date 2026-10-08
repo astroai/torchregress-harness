@@ -536,9 +536,14 @@ class SBIParitySuite(HarnessRunner):
                 for k in range(n_obs):
                     approx = self._posterior_samples(model_state, X_test[k], cfg, n_draws=n_draws)
                     ref = np.asarray(reference[k], dtype=np.float64)
+                    # C2ST needs balanced classes: sbibm ships 10k reference draws
+                    # against n_draws=2k here, and a 5:1 split puts the
+                    # chance-level floor at 0.833 instead of 0.5.
+                    n_bal = min(len(ref), len(approx))
+                    pick = np.random.default_rng(cfg.seed + k).permutation(len(ref))[:n_bal]
                     c = c2st(
-                        torch.as_tensor(ref, dtype=torch.float32),
-                        torch.as_tensor(np.asarray(approx, dtype=np.float32)),
+                        torch.as_tensor(ref[pick], dtype=torch.float32),
+                        torch.as_tensor(np.asarray(approx, dtype=np.float32)[:n_bal]),
                         z_score=False,
                     )
                     c2sts.append(float(c.item() if hasattr(c, "item") else c))
