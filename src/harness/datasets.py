@@ -3864,6 +3864,30 @@ def _load_tcga_survival(
     return splits
 
 
+def _tcga_cache_name(projects: tuple[str, ...], n_samples: int, img_size: int) -> str:
+    return f"tcga_{'-'.join(sorted(projects))}_n{n_samples}_s{img_size}.npz"
+
+
+def _tcga_split(
+    X: np.ndarray, T: np.ndarray, E: np.ndarray, img_size: int, test_size: float, seed: int
+) -> SplitsDict:
+    C = (1.0 - E).astype(np.float32)  # harness: 1 = censored
+    Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(X, T, C, test_size=test_size, random_state=seed)
+    return {
+        "X_train": Xtr,
+        "X_test": Xte,
+        "y_train": Ytr,
+        "y_test": Yte,
+        "censoring_train": Ctr,
+        "censoring_test": Cte,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_n_real_slides": len(X),
+    }
+
+
 def _load_tcga_survival_real(
     n_samples: int,
     img_size: int,
@@ -3871,11 +3895,24 @@ def _load_tcga_survival_real(
     test_size: float,
     seed: int,
 ) -> SplitsDict:
-    """GDC real path for :func:`_load_tcga_survival` (may raise)."""
+    """GDC real path for :func:`_load_tcga_survival` (may raise).
+
+    The harvest (one GDC tile request per ~1 s, up to 25 tiles per slide)
+    takes 35-90 min for 200 slides, so it is cached once as
+    ``staged/tcga/<name>.npz`` (seed-independent; the split is per seed).
+    """
     import io as _io
     import math as _math
     import os as _os
     import time as _time
+
+    cache_name = _tcga_cache_name(projects, n_samples, img_size)
+    staged, _ = _staged_roots(_os.environ.get("TCGA_ROOT", ""), "tcga")
+    for cand in staged:
+        f = cand / cache_name
+        if f.is_file():
+            z = np.load(f)
+            return _tcga_split(z["X"], z["T"], z["E"], img_size, test_size, seed)
 
     import requests as _requests
     from PIL import Image as _Image
@@ -4112,23 +4149,16 @@ def _load_tcga_survival_real(
         X = np.stack(imgs).astype(np.float32)
         T = np.array(times, dtype=np.float32)
         E = np.array(events, dtype=np.float32)
-        C = (1.0 - E).astype(np.float32)  # harness: 1 = censored
-        Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
-            X, T, C, test_size=test_size, random_state=seed
-        )
-        return {
-            "X_train": Xtr,
-            "X_test": Xte,
-            "y_train": Ytr,
-            "y_test": Yte,
-            "censoring_train": Ctr,
-            "censoring_test": Cte,
-            "_image_data": True,
-            "_image_size": img_size,
-            "_n_channels": 3,
-            "_skip_y_standardization": True,
-            "_n_real_slides": len(imgs),
-        }
+        for cand in staged:  # first writable mirror wins; caching is best-effort
+            try:
+                cand.mkdir(parents=True, exist_ok=True)
+                tmp = cand / (cache_name + ".tmp.npz")
+                np.savez_compressed(tmp, X=X, T=T, E=E)
+                tmp.replace(cand / cache_name)
+                break
+            except OSError:
+                continue
+        return _tcga_split(X, T, E, img_size, test_size, seed)
     raise RuntimeError(f"only {len(imgs)} slides harvested")
 
 
