@@ -35,6 +35,10 @@ except ImportError:
     _LIFELINES_AVAILABLE = False
 
 
+# lifelines baseline sees this many PCA components of the pixels (<= n_train / 5).
+_AFT_PCA_COMPONENTS = 20
+
+
 def _train_censored_image(
     model: torch.nn.Module,
     loss_fn: torch.nn.Module,
@@ -97,7 +101,7 @@ class CensoredImagingSuite(ImageHarnessRunner):
             "CensoredGaussianNLL": "CNN + censored Gaussian NLL (detection-limit aware)",
             "CensoredQuantile": "CNN + censored median regression (τ=0.5)",
             "AFT": "CNN + log-normal AFT on counts",
-            "lifelines_LogNormalAFT": "lifelines LogNormalAFT on flattened pixels (external)",
+            "lifelines_LogNormalAFT": "lifelines LogNormalAFT on 20 PCA components of the pixels (external)",
         }.get(method, "")
 
     # ------------------------------------------------------------------
@@ -140,18 +144,27 @@ class CensoredImagingSuite(ImageHarnessRunner):
             _train_censored_image(model, AFTLoss(), X, y, c, config)
             return {"type": "torch", "model": model}
         if method == "lifelines_LogNormalAFT":
-            Xf = np.asarray(splits["X_train"]).reshape(len(X), -1)
+            from sklearn.decomposition import PCA
+
+            # Raw pixels (3x128x128 = 49k columns for tcga_survival) make the
+            # AFT Newton Hessian ~10^10 entries: the session ran out of memory
+            # and died silently. Fit on a PCA basis of the training images.
+            Xraw = np.asarray(splits["X_train"]).reshape(len(X), -1)
+            n_comp = int(min(_AFT_PCA_COMPONENTS, len(Xraw) // 5, Xraw.shape[1]))
+            pca = PCA(n_components=n_comp, random_state=config.seed).fit(Xraw)
+            Xf = pca.transform(Xraw)
             event = 1 - np.asarray(splits["censoring_train"]).astype(int)
             y_raw = np.asarray(splits["y_train"]).ravel()
             y_shift = float(abs(y_raw.min()) + 1.0) if y_raw.min() <= 0 else 0.0
             df = pd.DataFrame(Xf, columns=[f"x{i}" for i in range(Xf.shape[1])])
             df["duration"] = y_raw + y_shift
             df["event"] = event.ravel()
-            aft = LogNormalAFTFitter()
+            aft = LogNormalAFTFitter(penalizer=1e-3)
             aft.fit(df, duration_col="duration", event_col="event")
             return {
                 "type": "lifelines",
                 "model": aft,
+                "pca": pca,
                 "n_features": Xf.shape[1],
                 "y_shift": y_shift,
             }
@@ -171,8 +184,12 @@ class CensoredImagingSuite(ImageHarnessRunner):
         if model_state.get("type") == "lifelines":
             m = model_state["model"]
             Xf = np.asarray(X_test).reshape(len(np.asarray(X_test)), -1)
+            if model_state.get("pca") is not None:
+                Xf = model_state["pca"].transform(Xf)
             df = pd.DataFrame(Xf, columns=[f"x{i}" for i in range(Xf.shape[1])])
-            y_pred = np.asarray(m.predict_expectation(df), dtype=np.float64)
+            # Median, like the other point predictions (CensoredQuantile tau=0.5);
+            # the log-normal mean exp(mu + sigma^2/2) explodes for wide fits.
+            y_pred = np.asarray(m.predict_median(df), dtype=np.float64).ravel()
             return {"y_pred": y_pred - model_state.get("y_shift", 0.0)}
         m = model_state["model"]
         loader = _image_to_dataloader(X_test, y=None, batch_size=64, shuffle=False)
