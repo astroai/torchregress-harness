@@ -28,6 +28,7 @@ from suites.tabular.density_parity import DensityParitySuite, ImageDensityParity
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
+from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.label_shift import LabelShiftSuite
 from suites.tabular.likelihoods import LikelihoodsSuite
@@ -65,6 +66,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "ensembles": EnsemblesSuite,
     "uq": UQSuite,
     "uq_layer": UQLayerSuite,
+    "fm_uq_scenarios": FMUQScenariosSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
     "ordinal": OrdinalSuite,
     "ppi": PPISuite,

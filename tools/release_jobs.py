@@ -26,7 +26,7 @@ from tools._suite_registry import ALL_SUITES  # noqa: E402
 
 GROUPS: dict[str, tuple[str, ...]] = {
     "sbi": ("sbi_parity",),
-    "fm": ("foundation_model",),
+    "fm": ("foundation_model", "fm_uq_scenarios"),
     "image": (
         "age_regression",
         "cell_counting",
