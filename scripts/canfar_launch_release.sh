@@ -34,7 +34,23 @@ SEEDS="${SEEDS:-0,1,2}"  # comma-separated: env values must not contain spaces
 EPOCHS="${EPOCHS:-60}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
-command -v canfar >/dev/null || die "canfar CLI not found (pip install canfar; canfar auth login)"
+
+# Credentials, discovered the same way on the Mac and in an agent sandbox:
+# - CANFAR: ~/.canfar/cadcproxy.pem (make ~/.ssl/cadcproxy.pem a symlink to it so
+#   every `canfar login` refreshes this file), or a sandbox mount of ~/.canfar.
+# - GitHub: GH_TOKEN, else ~/.ghtok, else a logged-in gh CLI (see gh_token).
+export PATH="$HOME/.local/bin:$PATH"
+if [ -z "${CANFAR_CERTIFICATE:-}" ]; then
+  for c in "$HOME/.canfar/cadcproxy.pem" "$HOME/mnt/.canfar/cadcproxy.pem"; do
+    if [ -s "$c" ]; then
+      export CANFAR_CERTIFICATE="$c"
+      export CANFAR_URL="${CANFAR_URL:-https://ws-uv.canfar.net/skaha/v1}"
+      break
+    fi
+  done
+fi
+[ -z "${GH_TOKEN:-}" ] && [ -s "$HOME/.ghtok" ] && GH_TOKEN="$(cat "$HOME/.ghtok")" && export GH_TOKEN
+command -v canfar >/dev/null || die "canfar CLI not found (pip install canfar; canfar login)"
 gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
   if [ -n "${GH_TOKEN:-}" ]; then echo "$GH_TOKEN"; return; fi
   command -v gh >/dev/null || die "set GH_TOKEN (read access to sfabbro/torchregress-harness) or log in with gh"
@@ -44,7 +60,14 @@ gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
 pushed_sha() { # <repo dir> -> HEAD sha, after checking it is on origin/main
   local dir="$1" head remote
   head=$(git -C "$dir" rev-parse HEAD)
-  remote=$(git -C "$dir" ls-remote origin refs/heads/main | cut -f1)
+  remote=$(git -C "$dir" ls-remote origin refs/heads/main 2>/dev/null | cut -f1)
+  if [ -z "$remote" ] && [ -n "${GH_TOKEN:-}" ]; then
+    # No ssh key (agent sandbox): ask GitHub over HTTPS with the token instead.
+    local url
+    url=$(git -C "$dir" remote get-url origin | sed -E 's#^(git@|ssh://git@)github.com[:/]#https://github.com/#')
+    remote=$(git -C "$dir" -c http.extraHeader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" \
+      ls-remote "$url" refs/heads/main | cut -f1)
+  fi
   [ "$head" = "$remote" ] || die "$dir: HEAD $head is not origin/main ($remote); push first"
   echo "$head"
 }
