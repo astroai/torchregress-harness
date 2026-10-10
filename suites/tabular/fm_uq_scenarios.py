@@ -1,6 +1,6 @@
 """Tabular foundation models + the torchregress UQ layer under stress scenarios.
 
-Question: given a strong pretrained tabular model (TabICL, TabICLv2, KumoTabular,
+Question: given a strong pretrained tabular model (TabICL v2, KumoTabular,
 TabFM, optionally TabPFN), does the torchregress uncertainty layer improve its
 own predictive intervals on real data, also when the data are contaminated,
 shifted or long-tailed?  ``uq_layer`` answers this on clean splits against
@@ -75,7 +75,6 @@ N_MONDRIAN_BINS = 5
 MIN_PER_BIN = 40
 SCENARIOS = ("clean", "outliers", "shift")
 _SDM_MODELS = {
-    "TabICLv2": ("TabICLv2", {}),
     "KumoTabular": ("KumoTabular", {}),
     "TabFM": ("TabFM", {}),
 }
@@ -148,7 +147,7 @@ def _density_ratio(
 
 
 # ---------------------------------------------------------------------------
-# Foundation-model bases (sdm: TabICLv2 / KumoTabular / TabFM; TabPFN)
+# Foundation-model bases (sdm: KumoTabular / TabFM; TabPFN)
 # ---------------------------------------------------------------------------
 
 
@@ -286,7 +285,7 @@ class FMUQScenariosSuite(HarnessRunner):
     @property
     def description(self) -> str:
         return (
-            "Tabular foundation models (TabICL/TabICLv2/KumoTabular/TabFM/TabPFN) with and "
+            "Tabular foundation models (TabICL v2/KumoTabular/TabFM/TabPFN) with and "
             "without the torchregress UQ layer, under clean / outlier / covariate-shift "
             "scenarios with rare-target coverage"
         )

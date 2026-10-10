@@ -6,7 +6,7 @@ foundation models used zero-shot (in-context learning, no training):
 * TabPFN (Prior Labs, ``tabpfn``) and TabICL (``tabicl``) via their own
   scikit-learn wrappers;
 * NVIDIA's Structured Data Models (``sdm``, Apache-2.0 code), which ships
-  KumoTabular (NVIDIA, 2026-09), TabICLv2 (ICML 2026) and Google's TabFM
+  KumoTabular (NVIDIA, 2026-09) and Google's TabFM
   (2026-06) behind one interface.  TabFM's default weights are under the
   non-commercial ``tabfm-non-commercial-v1.0`` licence, so the row passes
   ``accept_license=True``: fine for benchmarking, not for production use.
@@ -73,10 +73,10 @@ except ImportError:
 # Quantile grid for TabPFN/TabICL: midpoints of 99 equal-mass bins, so the
 # quantiles act as an equally weighted sample of the predictive distribution.
 _QUANTILE_LEVELS = [(k + 0.5) / 99 for k in range(99)]
-# sdm models (KumoTabular, TabICLv2, TabFM) and their constructor options.
+# sdm models (KumoTabular, TabFM) and their constructor options.  sdm's TabICLv2
+# is not listed: ``tabicl>=2.2`` already loads the same v2 checkpoint (row TabICL).
 _SDM_MODELS: dict[str, tuple[str, dict[str, Any]]] = {
     "KumoTabular": ("KumoTabular", {"size": "large"}),
-    "TabICLv2": ("TabICLv2", {}),
     "TabFM": ("TabFM", {"accept_license": True}),
 }
 
@@ -175,9 +175,8 @@ class FoundationModelSuite(HarnessRunner):
                 "TabPFNRegressor, 99 predictive quantiles.  "
                 "TabPFN 9 weights are gated: needs HF_TOKEN with the licence accepted"
             ),
-            "TabICL": "TabICLRegressor, 99 predictive quantiles",
+            "TabICL": "TabICLRegressor (v2 checkpoint, tabicl>=2.2), 99 predictive quantiles",
             "KumoTabular": "sdm KumoTabular (large, NVIDIA 2026), 999 predictive quantiles",
-            "TabICLv2": "sdm TabICLv2 (ICML 2026), 999 predictive quantiles",
             "TabFM": (
                 "sdm TabFM (Google 2026), 999 predictive quantiles; "
                 "weights are non-commercial (accept_license=True)"
@@ -255,7 +254,7 @@ class FoundationModelSuite(HarnessRunner):
             est.fit(X_train_np, y_train_np)
             return {"type": "tabicl", "model": est}
 
-        # --- sdm: KumoTabular / TabICLv2 / TabFM (in-context, no training) ---
+        # --- sdm: KumoTabular / TabFM (in-context, no training) ---
         elif method in _SDM_MODELS:
             import sdm.models
             from sdm import TableTensor

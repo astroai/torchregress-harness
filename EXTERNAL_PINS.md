@@ -27,7 +27,7 @@ how to install / re-pin them.
 | **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.4.0`) | `2032b2e87a` | 2026-09-28 | Stress-matrix + image comparator (`luqbox_*` rows). v0.4.0 verified with the existing adapters on 2026-10-05 (MLP signature unchanged). Previous pin v0.3.0 `df6366e` |
 | **TabPFN** | PyPI `tabpfn` | `9.1.0` | 2026-10-02 | Foundation-model rows. **9.x downloads gated weights (`Prior-Labs/tabpfn_3_5`) and needs a Hugging Face token (`HF_TOKEN`) that has accepted the model terms.** Previous: 8.4.0 |
 | **TabICL** | PyPI `tabicl` | `2.2.0` | 2026-09-02 | `Split+TabICL` rows; checkpoint `tabicl-regressor-v2-20260212.ckpt` comes from the Hugging Face Hub (`jingang/TabICL`), so stage it for offline nodes. Previous: 2.1.1 |
-| **structured-data-models (sdm)** | `https://github.com/NVIDIA/structured-data-models` (branch `main`, Apache-2.0) | `98f61289c7` | 2026-10-06 | One interface to the 2026 tabular foundation models: NVIDIA **KumoTabular** (large; weights OpenMDW-1.1), **TabICLv2** (ICML 2026) and Google **TabFM** v1.0.0 (weights `tabfm-non-commercial-v1.0`: benchmarking only, the suite passes `accept_license=True`). All return 999 regression quantiles (`foundation_model` suite). TabFM does not fit in 7 GB RAM: GPU sessions only |
+| **structured-data-models (sdm)** | `https://github.com/NVIDIA/structured-data-models` (branch `main`, Apache-2.0) | `98f61289c7` | 2026-10-06 | One interface to the 2026 tabular foundation models: NVIDIA **KumoTabular** (large; weights OpenMDW-1.1) and Google **TabFM** v1.0.0 (weights `tabfm-non-commercial-v1.0`: benchmarking only, the suite passes `accept_license=True`). All return 999 regression quantiles (`foundation_model` suite). sdm's TabICLv2 is not benchmarked: `tabicl>=2.2` loads the same v2 checkpoint (row `TabICL`). TabFM does not fit in 7 GB RAM: GPU sessions only |
 | **scikit-learn** | PyPI | `1.9.1` | 2026-09-10 | Baselines and MAPIE/crepes backends. Previous: 1.9.0 |
 | **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 | **lifelines** | PyPI `lifelines` | PyPI latest | — | `lifelines_LogNormalAFT` comparator (tabular censored suite) |
@@ -66,7 +66,7 @@ pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@v0.4.0
 # sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
 pip install "git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881" pyro-ppl future
 
-# NVIDIA structured-data-models: KumoTabular, TabICLv2, TabFM
+# NVIDIA structured-data-models: KumoTabular, TabFM
 pip install "git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19"
 pip install --no-deps "sbibm==1.1.0"
 ```
