@@ -148,6 +148,7 @@ fill_group() { # <group> <replica ids...>: one single-replica session per missin
   local group="$1" reps cpu mem gpu id out still=""
   shift
   read -r reps cpu mem gpu <<< "$(group_spec "$group")"
+  mem="${MEM_GB:-$mem}"  # MEM_GB=128 for the 1.5M-row folktables shards
   for id in "$@"; do
     echo ">> $group: shard $id of $reps (single session)"
     out=$(create "trr-$group-$(name_tag)-s$id" "$cpu" "$mem" "$gpu" 1 \
@@ -170,6 +171,7 @@ fill_group() { # <group> <replica ids...>: one single-replica session per missin
 launch_group() { # <group>
   local group="$1" reps cpu mem gpu out failed
   read -r reps cpu mem gpu <<< "$(group_spec "$group")"
+  mem="${MEM_GB:-$mem}"  # MEM_GB=128 for the 1.5M-row folktables shards
   echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
   out=$(create "trr-$group-$(name_tag)" "$cpu" "$mem" "$gpu" "$reps" -e "GROUP=$group") \
     || { echo "$out" | redact; die "$group: canfar create failed"; }
