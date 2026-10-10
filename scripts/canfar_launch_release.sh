@@ -3,6 +3,7 @@
 #
 #   scripts/canfar_launch_release.sh launch   # submit all job groups
 #   scripts/canfar_launch_release.sh status   # canfar ps for this run
+#   scripts/canfar_launch_release.sh stage    # one-off: stage slow datasets (Folktables ACS) on /arc
 #   scripts/canfar_launch_release.sh report   # gates + summaries once groups finish
 #   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
 #   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
@@ -265,6 +266,19 @@ case "${1:-}" in
     echo "$out" | redact
     record_sessions report "$out"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
+    ;;
+  stage)
+    # One-off: stage slow real datasets on /arc (scripts/skaha_stage_data.sh).
+    HARNESS_REF=$(pushed_sha "$HERE")
+    LIB_REF=$(pushed_sha "$LIB_DIR")
+    RUN_TAG="stage_$(date +%Y%m%d_%H%M)"
+    GH_TOKEN=$(gh_token)
+    set_env_args
+    out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-stage-$(name_tag)" \
+      --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_stage_data.sh)" 2>&1) \
+      || { echo "$out" | redact; die "stage: canfar create failed"; }
+    echo "$out" | redact
+    echo "stage -> /arc/projects/ots/torchregress-harness/datasets/staged/folktables/stage.log"
     ;;
   *)
     sed -n '2,23p' "$0"; exit 1 ;;

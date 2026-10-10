@@ -1549,6 +1549,24 @@ _US_STATES = [
 ]
 
 
+def _folktables_root(states: list[str] | tuple[str, ...]) -> str:
+    """ACS root holding every requested state's 2018 person file, else the cache.
+
+    The 50-state pull (``folktables_eiv`` and friends) is several GB from
+    census.gov and took hours per CANFAR session, so it is staged once under
+    ``staged/folktables`` (``scripts/skaha_stage_data.sh``); folktables skips
+    the download when ``<root>/2018/1-Year/psam_p<fips>.csv`` already exists.
+    """
+    from folktables.load_acs import _STATE_CODES  # ty: ignore[unresolved-import]
+
+    roots, _ = _staged_roots(os.environ.get("FOLKTABLES_ROOT", ""), "folktables")
+    for cand in roots:
+        base = cand / "2018" / "1-Year"
+        if all((base / f"psam_p{_STATE_CODES[st]}.csv").is_file() for st in states):
+            return str(cand)
+    return str(_image_cache_dir() / "folktables")
+
+
 def _fetch_folktables_xy(
     seed: int = 42,
     *,
@@ -1565,7 +1583,7 @@ def _fetch_folktables_xy(
     import pandas as pd
     from sklearn.preprocessing import OneHotEncoder
 
-    root = str(_image_cache_dir() / "folktables")
+    root = _folktables_root(states)
     ds = folktables.ACSDataSource(
         survey_year="2018", horizon="1-Year", survey="person", root_dir=root
     )
