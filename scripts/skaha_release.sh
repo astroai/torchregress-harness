@@ -14,7 +14,9 @@
 #   HARNESS_REF    torchregress-harness commit to run (required)
 #   LIB_REF        torchregress commit to run (required)
 #   GH_TOKEN       read token for the private sfabbro/torchregress-harness fork
-#   HF_TOKEN       optional Hugging Face token (needed only with TORCHREGRESS_HARNESS_WITH_TABPFN=1)
+#   HF_TOKEN       optional Hugging Face token (not needed for TabICL / sdm / TabPFN weights)
+#   TABPFN_TOKEN   optional Prior Labs API key (account that accepted the TabPFN licence);
+#                  when set, TabPFN is installed and benchmarked
 #   SEEDS          comma-separated, default "0,1,2"
 #   EPOCHS         default 60
 #   REPLICA_ID / REPLICA_COUNT   set by Skaha for --replicas sessions
@@ -36,7 +38,12 @@ MAPIE_PIN="${MAPIE_PIN:-3b84b8212d}"
 TU_PIN="${TU_PIN:-3f82fe5d15}"
 LUQBOX_REF="${LUQBOX_REF:-v0.4.0}"
 SBI_PIN="${SBI_PIN:-29af13750100b61ad528c3f8a49daa0ef8c96881}"
-SDM_PIN="${SDM_PIN:-98f61289c7a4e1bce3b33771223ac2e123b63f19}"
+# Tabular foundation models track their latest code: git default branch
+# (override with a tag / SHA), falling back to the newest PyPI release when the
+# branch does not build.  The installed commit lands in versions_replica_*.txt.
+SDM_REF="${SDM_REF:-main}"
+TABICL_REF="${TABICL_REF:-main}"
+TABPFN_REF="${TABPFN_REF:-main}"
 
 # SHARD_ID/SHARD_COUNT (set by `canfar_launch_release.sh fill`) override Skaha's
 # REPLICA_ID/REPLICA_COUNT so a single session can redo one shard of a group.
@@ -152,9 +159,22 @@ case "$GROUP" in
     pip_install "jax[cpu]" pzflow
     ;;
   fm)
-    pip_install "tabicl==2.2.0"
-    [ "${TORCHREGRESS_HARNESS_WITH_TABPFN:-0}" = 1 ] && pip_install "tabpfn==9.1.0"
-    pip_install "git+https://github.com/NVIDIA/structured-data-models.git@$SDM_PIN"
+    latest_install() { # <pypi name> <git url> <ref>
+      prun python -m pip install -q --upgrade "git+$2@$3" \
+        || { log "WARN: $1 @ $3 failed to build; using the newest PyPI release"; pip_install --upgrade "$1"; }
+    }
+    latest_install tabicl https://github.com/soda-inria/tabicl.git "$TABICL_REF"
+    latest_install structured-data-models https://github.com/NVIDIA/structured-data-models.git "$SDM_REF"
+    if [ -n "${TABPFN_TOKEN:-}" ]; then
+      export TORCHREGRESS_HARNESS_WITH_TABPFN=1
+    fi
+    if [ "${TORCHREGRESS_HARNESS_WITH_TABPFN:-0}" = 1 ]; then
+      # Licence check runs against the Prior Labs API with TABPFN_TOKEN; never a
+      # browser in a headless session.  Weights are cached on /arc once.
+      export TABPFN_NO_BROWSER=1 TABPFN_MODEL_CACHE_DIR="$ARC_PROJ/models/tabpfn"
+      mkdir -p "$TABPFN_MODEL_CACHE_DIR"
+      latest_install tabpfn https://github.com/PriorLabs/TabPFN.git "$TABPFN_REF"
+    fi
     ;;
   image)
     pip_install timm torchvision Pillow requests nibabel

@@ -1,52 +1,65 @@
 """Tabular foundation models + the torchregress UQ layer under stress scenarios.
 
 Question: given a strong pretrained tabular model (TabICL v2, KumoTabular,
-TabFM, optionally TabPFN), does the torchregress uncertainty layer improve its
-own predictive intervals on real data, also when the data are contaminated,
-shifted or long-tailed?  ``uq_layer`` answers this on clean splits against
-MAPIE / crepes; this suite fixes the UQ methods to torchregress and varies the
-*scenario*.
+TabFM, TabPFN when a Prior Labs key is present), how good is its *own*
+predictive distribution on real data -- clean, contaminated, shifted,
+extrapolated, with noisy features, imbalanced or heavy-tailed -- and does the
+torchregress post-hoc layer repair it?  LightGBM quantile regression and a
+TabularMLP Gaussian ensemble are the reference bases.
 
-Every base model is fitted once per (dataset, scenario, seed) on the same
-train split; every UQ method then uses the same calibration and test rows.
+Every base is fitted once per (dataset, scenario, seed) and reduced to a
+predictive quantile grid (``_fm_grid.LEVELS``, 103 levels); every method then
+uses the same calibration and test rows.
 
-Scenarios (built from each real dataset; row ``Dataset`` = ``<name>@<scenario>``)
-------------------------------------------------------------------------------
-* ``clean`` -- random train / calibration / test split.
-* ``outliers`` -- 5% of training *and* calibration targets replaced by gross
-  errors (shifted by 5-10 target standard deviations, random sign); the test
-  targets stay clean.  Robustness of both the base fit and the calibration.
+Scenarios (row ``Dataset`` = ``<name>@<scenario>``), all built from the
+pooled real data (at most 6000 rows), 60 / 20 / 20 train / calibration / test
+-------------------------------------------------------------------------------
+* ``clean`` -- random split.
+* ``outliers`` -- 5% of train *and* calibration targets shifted by 5-10 target
+  standard deviations (random sign); test targets clean.
 * ``shift`` -- covariate shift: test rows drawn with probability proportional to
-  ``exp(beta * z)``, ``z`` the standardised first principal component of X
-  (beta = 1), train / calibration rows uniformly from the rest.  The weighted
-  methods estimate ``w(x) = p(test | x) / p(cal | x)`` with a logistic
-  regression on X (no oracle weights).
+  ``exp(z)``, ``z`` the standardised first principal component of X.  The
+  weighted methods estimate ``w(x) = p(test | x) / p(cal | x)`` with a logistic
+  regression (no oracle weights).
+* ``extrapolate`` -- test = the 20% of rows with the largest first principal
+  component; no train / calibration row lies there (out of support).
+* ``noise_test`` -- Gaussian noise (0.5 x feature sd) added to the test
+  features only: a deployment-time sensor degradation.
+* ``noise_all`` -- the same noise on train, calibration and test features
+  (errors-in-variables everywhere: attenuation of the fitted signal).
+* ``imbalance`` -- rows with target above the pooled 80th percentile are kept
+  with probability 0.1 in train and calibration; the test split is not thinned
+  (rare-target regime, scored by ``TailCoverage``).
+* ``heavy_tail`` -- targets mapped by ``sinh(1.5 y) / 1.5`` then standardised:
+  very long tails on both sides.
 
-Imbalance is scored in every scenario: ``TailCoverage`` is the coverage on test
-rows whose target is above the training 90th percentile, ``WorstDecileCoverage``
-the lowest coverage over the ten target deciles (training cut points).  The
-heavy-tailed real targets (``insurance_claims``, ``house_sales``) make these the
-rare-target view.
+Methods (row ``<method>+<base>``)
+---------------------------------
+Distribution methods (full predictive distribution -> every score):
+* ``Raw`` -- the base model's own quantile grid.
+* ``tr_PITRecal`` -- quantile recalibration of the whole grid with torchregress
+  ``PITCalibrator`` (Kuleshov et al. 2018).
 
-UQ methods (row ``<method>+<base>``)
-------------------------------------
-* ``Raw`` -- the base model's own 90% interval (its alpha/2, 1-alpha/2 quantiles).
-* ``tr_Split`` -- absolute-residual split conformal (``SplitConformal``).
-* ``tr_Normalized`` -- residual / spread scores, spread = base quantile width.
-* ``tr_CQR`` -- conformalized quantile regression on the base quantiles.
-* ``tr_Mondrian`` -- split conformal with Mondrian groups = up to 5 bins (>= 40
-  calibration rows each) of the predicted value (calibration quantile cut points): class-conditional
-  coverage for low / high predicted targets.
-* ``tr_WeightedSplit`` / ``tr_WeightedCQR`` -- ``shift`` only: weighted
-  conformal (Tibshirani et al., 2019) with the estimated density ratio.
+Interval methods (calibrated at each of the 50 / 80 / 90 / 95% levels):
+* ``tr_Split`` -- ``SplitConformal`` on the base median.
+* ``tr_Normalized`` -- residual / spread scores (spread = base 90% width).
+* ``tr_CQR`` -- ``CQR`` on the base's own quantiles at that level.
+* ``tr_Mondrian`` -- ``SplitConformal`` per bin of the predicted median (up to 5
+  bins of >= 40 calibration rows).
+* ``tr_DCP`` -- ``DistributionalConformal`` (PIT-band scores, CDF inversion).
+* ``tr_WeightedSplit`` / ``tr_WeightedCQR`` -- ``shift`` only, weighted
+  conformal (Tibshirani et al. 2019) with the estimated density ratio.
 
-Targets are standardised by ``load_dataset``; interval metrics are reported in
-those units (comparable across bases).
+Scores (standardised target units)
+----------------------------------
+``Coverage50/80/90/95``; ``Width`` / ``IntervalScore`` / ``TailCoverage`` (test
+rows above the clean training 90th percentile) / ``WorstDecileCoverage`` (over
+the ten clean-training target deciles), all at 90%; ``RMSE`` and ``MAE`` of the
+median; and, for distribution methods, ``CRPS`` and ``PIT_KS``.
 """
 
 from __future__ import annotations
 
-import os
 from time import perf_counter
 from typing import Any
 
@@ -56,30 +69,33 @@ import torch
 from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
-from suites.tabular.uq_layer import (
-    _GBM_BASE,
-    _BasePreds,
-    _fit_gbm,
-    _fit_tabicl,
-    _fit_tabular_mlp,
-    _from_quantiles,
-    _np,
-    _t,
-)
+from suites.tabular import _fm_grid as G
 
-ALPHA = 0.1
-N_MAX = 6000  # rows pooled per dataset (in-context models scale with the context)
+LEVELS_SCORED = (0.5, 0.2, 0.1, 0.05)  # miscoverage alphas -> Coverage50/80/90/95
+ALPHA = 0.1  # headline interval level for width / interval score / tail metrics
+N_MAX = 6000
 OUTLIER_FRAC = 0.05
 SHIFT_BETA = 1.0
+EXTRAPOLATE_FRAC = 0.2
+NOISE_SD = 0.5
+IMBALANCE_QUANTILE = 0.8
+IMBALANCE_KEEP = 0.1
+HEAVY_DELTA = 1.5
 N_MONDRIAN_BINS = 5
 MIN_PER_BIN = 40
-SCENARIOS = ("clean", "outliers", "shift")
-_SDM_MODELS = {
-    "KumoTabular": ("KumoTabular", {}),
-    "TabFM": ("TabFM", {}),
-}
-_BASE_METHODS = ("Raw", "tr_Split", "tr_Normalized", "tr_CQR", "tr_Mondrian")
-_SHIFT_METHODS = ("tr_WeightedSplit", "tr_WeightedCQR")
+SCENARIOS = (
+    "clean",
+    "outliers",
+    "shift",
+    "extrapolate",
+    "noise_test",
+    "noise_all",
+    "imbalance",
+    "heavy_tail",
+)
+DIST_METHODS = ("Raw", "tr_PITRecal")
+INTERVAL_METHODS = ("tr_Split", "tr_Normalized", "tr_CQR", "tr_Mondrian", "tr_DCP")
+SHIFT_METHODS = ("tr_WeightedSplit", "tr_WeightedCQR")
 
 
 # ---------------------------------------------------------------------------
@@ -87,46 +103,61 @@ _SHIFT_METHODS = ("tr_WeightedSplit", "tr_WeightedCQR")
 # ---------------------------------------------------------------------------
 
 
-def _scenario_splits(
-    X: np.ndarray, y: np.ndarray, scenario: str, seed: int
-) -> dict[str, np.ndarray]:
-    """Train / calibration / test rows (60 / 20 / 20) for one scenario."""
+def _pc1(X: np.ndarray) -> np.ndarray:
+    Xc = X - X.mean(0)
+    _, _, vt = np.linalg.svd(Xc[: min(len(X), 5000)], full_matrices=False)
+    z = Xc @ vt[0]
+    return (z - z.mean()) / (z.std() + 1e-12)
+
+
+def scenario_splits(X: np.ndarray, y: np.ndarray, scenario: str, seed: int) -> dict[str, Any]:
+    """Train / calibration / test rows for one scenario (targets standardised)."""
     rng = np.random.default_rng(seed)
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    if scenario == "heavy_tail":
+        y = np.sinh(HEAVY_DELTA * y) / HEAVY_DELTA
+        y = (y - y.mean()) / (y.std() + 1e-12)
     n = len(X)
     n_test = n // 5
     if scenario == "shift":
-        Xc = X - X.mean(0)
-        _, _, vt = np.linalg.svd(Xc[: min(n, 5000)], full_matrices=False)
-        z = Xc @ vt[0]
-        z = (z - z.mean()) / (z.std() + 1e-12)
-        p = np.exp(SHIFT_BETA * z)
+        p = np.exp(SHIFT_BETA * _pc1(X))
         test = rng.choice(n, n_test, replace=False, p=p / p.sum())
-        rest = np.setdiff1d(np.arange(n), test)
-        rest = rng.permutation(rest)
+    elif scenario == "extrapolate":
+        test = np.argsort(_pc1(X))[-int(EXTRAPOLATE_FRAC * n) :]
     else:
-        perm = rng.permutation(n)
-        test, rest = perm[:n_test], perm[n_test:]
+        test = rng.permutation(n)[:n_test]
+    rest = rng.permutation(np.setdiff1d(np.arange(n), test))
+    if scenario == "imbalance":
+        hi = y[rest] > np.quantile(y, IMBALANCE_QUANTILE)
+        keep = ~hi | (rng.random(len(rest)) < IMBALANCE_KEEP)
+        rest = rest[keep]
     n_cal = len(rest) // 4
     cal, train = rest[:n_cal], rest[n_cal:]
+    Xs = {k: X[idx].copy() for k, idx in (("train", train), ("cal", cal), ("test", test))}
+    if scenario in ("noise_test", "noise_all"):
+        sd = X[train].std(0, keepdims=True) + 1e-12
+        for k in ("test",) if scenario == "noise_test" else ("train", "cal", "test"):
+            Xs[k] = (Xs[k] + NOISE_SD * sd * rng.standard_normal(Xs[k].shape)).astype(np.float32)
     y_train, y_cal = y[train].copy(), y[cal].copy()
     if scenario == "outliers":
-        sd = float(np.std(y[train]))
+        sd_y = float(np.std(y[train]))
         for arr in (y_train, y_cal):
             k = max(1, int(OUTLIER_FRAC * len(arr)))
             idx = rng.choice(len(arr), k, replace=False)
-            arr[idx] += rng.choice([-1.0, 1.0], k) * rng.uniform(5.0, 10.0, k) * sd
+            arr[idx] += rng.choice([-1.0, 1.0], k) * rng.uniform(5.0, 10.0, k) * sd_y
     return {
-        "X_train": X[train],
+        "X_train": Xs["train"],
         "y_train": y_train,
-        "X_cal": X[cal],
+        "X_cal": Xs["cal"],
         "y_cal": y_cal,
-        "X_test": X[test],
+        "X_test": Xs["test"],
         "y_test": y[test],
         "y_train_clean": y[train],
     }
 
 
-def _density_ratio(
+def density_ratio(
     X_cal: np.ndarray, X_test: np.ndarray, seed: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Estimated w(x) = p(test | x) / p(cal | x) on calibration and test rows."""
@@ -147,108 +178,90 @@ def _density_ratio(
 
 
 # ---------------------------------------------------------------------------
-# Foundation-model bases (sdm: KumoTabular / TabFM; TabPFN)
+# torchregress interval methods on a quantile grid
 # ---------------------------------------------------------------------------
 
 
-def _fit_sdm(name: str, s: dict[str, Any], *, alpha: float, seed: int) -> _BasePreds:
-    import sdm.models
-    from sdm import TableTensor
-
-    cls_name, kwargs = _SDM_MODELS[name]
-    device = current_device()
-    model = getattr(sdm.models, cls_name)(task="regression", device=device, **kwargs)
-    model.eval()
-    x = TableTensor.from_tensor(torch.as_tensor(s["X_train"], dtype=torch.float32))
-    y = TableTensor.from_tensor(torch.as_tensor(s["y_train"], dtype=torch.float32).reshape(-1, 1))
-    model.fit(
-        x.to(device), y.to(device), generator=torch.Generator(device=device).manual_seed(seed)
-    )
-
-    def _quant(Xe: np.ndarray) -> np.ndarray:
-        with torch.no_grad():
-            out = model.predict(
-                TableTensor.from_tensor(torch.as_tensor(Xe, dtype=torch.float32)).to(device)
-            )
-        q = out.numerical.detach().float().cpu().numpy().reshape(len(Xe), -1)
-        q = np.sort(q, axis=1)
-        lv = (np.arange(q.shape[1]) + 1) / (q.shape[1] + 1)
-        want = [alpha / 2, 0.5, 1 - alpha / 2]
-        return np.stack([np.array([np.interp(t, lv, row) for row in q]) for t in want], axis=1)
-
-    qc, qt = _quant(s["X_cal"]), _quant(s["X_test"])
-    return _BasePreds(**_from_quantiles(qc[:, 1], qt[:, 1], qc, qt, alpha=alpha), library="sdm")
+def _t(a: np.ndarray) -> torch.Tensor:
+    return torch.as_tensor(np.asarray(a, dtype=np.float64))
 
 
-def _fit_tabpfn(s: dict[str, Any], *, alpha: float) -> _BasePreds:
-    from tabpfn import TabPFNRegressor
-
-    est = TabPFNRegressor(device=str(current_device()))
-    est.fit(s["X_train"], s["y_train"].reshape(-1))
-    levels = [alpha / 2, 0.5, 1 - alpha / 2]
-
-    def _q(Xe: np.ndarray) -> np.ndarray:
-        q = est.predict(Xe, output_type="quantiles", quantiles=levels)
-        return np.stack([np.asarray(c) for c in q], axis=1)
-
-    qc, qt = _q(s["X_cal"]), _q(s["X_test"])
-    return _BasePreds(
-        **_from_quantiles(est.predict(s["X_cal"]), est.predict(s["X_test"]), qc, qt, alpha=alpha),
-        library="tabpfn",
-    )
+def _np(a: torch.Tensor) -> np.ndarray:
+    return a.detach().cpu().numpy().astype(np.float64).reshape(-1)
 
 
-# ---------------------------------------------------------------------------
-# UQ methods and scores
-# ---------------------------------------------------------------------------
-
-
-def _uq(
-    method: str, b: _BasePreds, s: dict[str, Any], w: tuple[np.ndarray, np.ndarray] | None
+def interval_method(
+    method: str,
+    q_cal: np.ndarray,
+    q_test: np.ndarray,
+    y_cal: np.ndarray,
+    alpha: float,
+    weights: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    from torchregress.losses.conformal import CQR, SplitConformal
+    """(lower, upper) on the test rows for one torchregress conformal method."""
+    from torchregress.losses.conformal import CQR, DistributionalConformal, SplitConformal
 
-    y_cal = np.asarray(s["y_cal"], dtype=np.float64)
-    if method == "Raw":
-        return b.q_test[:, 0], b.q_test[:, 2]
-    if method == "tr_Split":
-        cp = SplitConformal(alpha=ALPHA)
-        cp.calibrate(_t(b.point_cal), _t(y_cal))
-        lo, hi = cp.predict_interval(_t(b.point_test))
-    elif method == "tr_Normalized":
-        cp = SplitConformal(alpha=ALPHA, normalize_fn=lambda _p, spread: spread)
-        cp.calibrate(_t(b.point_cal), _t(y_cal), x=_t(b.spread_cal))
-        lo, hi = cp.predict_interval(_t(b.point_test), x=_t(b.spread_test))
-    elif method == "tr_CQR":
-        cq = CQR(alpha=ALPHA)
-        cq.calibrate(_t(b.q_cal[:, [0, 2]]), _t(y_cal))
-        lo, hi = cq.predict_interval(_t(b.q_test[:, [0, 2]]))
-    elif method == "tr_Mondrian":
-        # >= MIN_PER_BIN rows per bin: below ceil((n+1)(1-alpha)) > n the bin's interval is infinite.
-        n_bins = max(1, min(N_MONDRIAN_BINS, len(y_cal) // MIN_PER_BIN))
-        cuts = np.quantile(b.point_cal, np.linspace(0, 1, n_bins + 1)[1:-1])
-        g_cal = torch.as_tensor(np.searchsorted(cuts, b.point_cal))
-        g_test = torch.as_tensor(np.searchsorted(cuts, b.point_test))
-        cp = SplitConformal(alpha=ALPHA)
-        cp.calibrate(_t(b.point_cal), _t(y_cal), groups=g_cal)
-        lo, hi = cp.predict_interval(_t(b.point_test), groups=g_test)
-    elif method in _SHIFT_METHODS:
-        assert w is not None
-        w_cal, w_test = _t(w[0]), _t(w[1])
+    med_c, med_t = G.quantile_at(q_cal, 0.5), G.quantile_at(q_test, 0.5)
+    yc = _t(y_cal)
+    if method in ("tr_Split", "tr_WeightedSplit"):
+        cp = SplitConformal(alpha=alpha)
         if method == "tr_WeightedSplit":
-            cp = SplitConformal(alpha=ALPHA)
-            cp.calibrate(_t(b.point_cal), _t(y_cal), weights=w_cal)
-            lo, hi = cp.predict_interval(_t(b.point_test), test_weights=w_test)
+            assert weights is not None
+            cp.calibrate(_t(med_c), yc, weights=_t(weights[0]))
+            lo, hi = cp.predict_interval(_t(med_t), test_weights=_t(weights[1]))
         else:
-            cq = CQR(alpha=ALPHA)
-            cq.calibrate(_t(b.q_cal[:, [0, 2]]), _t(y_cal), weights=w_cal)
-            lo, hi = cq.predict_interval(_t(b.q_test[:, [0, 2]]), test_weights=w_test)
+            cp.calibrate(_t(med_c), yc)
+            lo, hi = cp.predict_interval(_t(med_t))
+    elif method == "tr_Normalized":
+        lo_c, hi_c = G.interval(q_cal, ALPHA)
+        lo_t, hi_t = G.interval(q_test, ALPHA)
+        floor = max(0.05 * float(np.median(hi_c - lo_c)), 1e-6)
+        s_c, s_t = np.maximum(hi_c - lo_c, floor), np.maximum(hi_t - lo_t, floor)
+        cp = SplitConformal(alpha=alpha, normalize_fn=lambda _p, spread: spread)
+        cp.calibrate(_t(med_c), yc, x=_t(s_c))
+        lo, hi = cp.predict_interval(_t(med_t), x=_t(s_t))
+    elif method in ("tr_CQR", "tr_WeightedCQR"):
+        qc = np.stack(G.interval(q_cal, alpha), axis=1)
+        qt = np.stack(G.interval(q_test, alpha), axis=1)
+        cq = CQR(alpha=alpha)
+        if method == "tr_WeightedCQR":
+            assert weights is not None
+            cq.calibrate(_t(qc), yc, weights=_t(weights[0]))
+            lo, hi = cq.predict_interval(_t(qt), test_weights=_t(weights[1]))
+        else:
+            cq.calibrate(_t(qc), yc)
+            lo, hi = cq.predict_interval(_t(qt))
+    elif method == "tr_Mondrian":
+        n_bins = max(1, min(N_MONDRIAN_BINS, len(y_cal) // MIN_PER_BIN))
+        cuts = np.quantile(med_c, np.linspace(0, 1, n_bins + 1)[1:-1])
+        cp = SplitConformal(alpha=alpha)
+        cp.calibrate(_t(med_c), yc, groups=torch.as_tensor(np.searchsorted(cuts, med_c)))
+        lo, hi = cp.predict_interval(
+            _t(med_t), groups=torch.as_tensor(np.searchsorted(cuts, med_t))
+        )
+    elif method == "tr_DCP":
+        dcp = DistributionalConformal(alpha=alpha)
+        dcp.calibrate(_t(G.cdf_at(q_cal, y_cal)), yc)
+
+        def icdf(levels: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
+            rows = q_test[idx.long().cpu().numpy().reshape(-1)]
+            lv = levels.detach().cpu().numpy()
+            return torch.as_tensor(np.stack([G.quantile_at(rows, float(t)) for t in lv], axis=1))
+
+        lo, hi = dcp.predict_intervals_from_cdf(
+            icdf, torch.arange(len(q_test), dtype=torch.float64).reshape(-1, 1)
+        )
     else:
         raise ValueError(method)
-    return _np(lo).reshape(-1), _np(hi).reshape(-1)
+    return _np(lo), _np(hi)
 
 
-def _scores(lo: np.ndarray, hi: np.ndarray, point: np.ndarray, s: dict[str, Any]) -> dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Scores
+# ---------------------------------------------------------------------------
+
+
+def _interval_scores(lo: np.ndarray, hi: np.ndarray, s: dict[str, Any]) -> dict[str, Any]:
     y = np.asarray(s["y_test"], dtype=np.float64)
     inside = (y >= lo) & (y <= hi)
     finite = np.isfinite(lo) & np.isfinite(hi)
@@ -256,23 +269,72 @@ def _scores(lo: np.ndarray, hi: np.ndarray, point: np.ndarray, s: dict[str, Any]
     isc = width + (2 / ALPHA) * (np.clip(lo - y, 0, None) + np.clip(y - hi, 0, None))
     y_tr = np.asarray(s["y_train_clean"], dtype=np.float64)
     tail = y >= np.quantile(y_tr, 0.9)
-    cuts = np.quantile(y_tr, np.linspace(0, 1, 11)[1:-1])
-    dec = np.searchsorted(cuts, y)
+    dec = np.searchsorted(np.quantile(y_tr, np.linspace(0, 1, 11)[1:-1]), y)
     dec_cov = [inside[dec == k].mean() for k in range(10) if (dec == k).sum() >= 5]
     return {
-        "Coverage": float(inside.mean()),
         "Width": float(np.nanmean(width)) if finite.any() else float("inf"),
         "IntervalScore": float(np.nanmean(isc)) if finite.any() else float("inf"),
         "InfiniteIntervalFrac": float(1 - finite.mean()),
         "TailCoverage": float(inside[tail].mean()) if tail.any() else None,
         "WorstDecileCoverage": float(min(dec_cov)) if dec_cov else None,
-        "RMSE": float(np.sqrt(np.mean((point - y) ** 2))),
     }
+
+
+def _point_scores(q_test: np.ndarray, y: np.ndarray) -> dict[str, float]:
+    med = G.quantile_at(q_test, 0.5)
+    return {
+        "RMSE": float(np.sqrt(np.mean((med - y) ** 2))),
+        "MAE": float(np.mean(np.abs(med - y))),
+    }
+
+
+def score_distribution(q_test: np.ndarray, s: dict[str, Any]) -> dict[str, Any]:
+    y = np.asarray(s["y_test"], dtype=np.float64)
+    out: dict[str, Any] = {}
+    for a in LEVELS_SCORED:
+        lo, hi = G.interval(q_test, a)
+        out[f"Coverage{round(100 * (1 - a))}"] = float(np.mean((y >= lo) & (y <= hi)))
+    out.update(_interval_scores(*G.interval(q_test, ALPHA), s))
+    out.update(_point_scores(q_test, y))
+    out["CRPS"] = float(np.mean(G.crps(q_test, y)))
+    out["PIT_KS"] = G.pit_ks(G.cdf_at(q_test, y))
+    return out
+
+
+def score_interval_method(
+    method: str,
+    q_cal: np.ndarray,
+    q_test: np.ndarray,
+    s: dict[str, Any],
+    weights: tuple[np.ndarray, np.ndarray] | None,
+) -> dict[str, Any]:
+    y = np.asarray(s["y_test"], dtype=np.float64)
+    out: dict[str, Any] = {}
+    for a in LEVELS_SCORED:
+        lo, hi = interval_method(method, q_cal, q_test, s["y_cal"], a, weights)
+        out[f"Coverage{round(100 * (1 - a))}"] = float(np.mean((y >= lo) & (y <= hi)))
+        if a == ALPHA:
+            out.update(_interval_scores(lo, hi, s))
+    out.update(_point_scores(q_test, y))
+    out["CRPS"] = None
+    out["PIT_KS"] = None
+    return out
 
 
 # ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------
+
+
+def pooled(splits: dict[str, Any], n_max: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    X = np.vstack([np.asarray(splits["X_train"]), np.asarray(splits["X_test"])]).astype(np.float32)
+    y = np.concatenate(
+        [np.asarray(splits["y_train"]).reshape(-1), np.asarray(splits["y_test"]).reshape(-1)]
+    ).astype(np.float64)
+    if len(X) > n_max:
+        idx = np.random.default_rng(seed).choice(len(X), n_max, replace=False)
+        X, y = X[idx], y[idx]
+    return X, (y - y.mean()) / (y.std() + 1e-12)
 
 
 class FMUQScenariosSuite(HarnessRunner):
@@ -285,9 +347,9 @@ class FMUQScenariosSuite(HarnessRunner):
     @property
     def description(self) -> str:
         return (
-            "Tabular foundation models (TabICL v2/KumoTabular/TabFM/TabPFN) with and "
-            "without the torchregress UQ layer, under clean / outlier / covariate-shift "
-            "scenarios with rare-target coverage"
+            "Tabular foundation models (TabICL v2 / KumoTabular / TabFM / TabPFN) with and "
+            "without the torchregress UQ layer: distribution quality, OOD shift and "
+            "extrapolation, feature noise, outliers, imbalance and heavy tails"
         )
 
     @property
@@ -295,35 +357,18 @@ class FMUQScenariosSuite(HarnessRunner):
         return ["california_housing", "house_sales", "insurance_claims", "diabetes", "openml_year"]
 
     def bases(self) -> list[str]:
-        out = [_GBM_BASE, "TabularMLP", "TabICL", *_SDM_MODELS]
-        if os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1":
-            out.append("TabPFN")
-        return out
+        return G.available_bases()
 
     def methods(self) -> list[str]:
-        return [f"{m}+{b}" for b in self.bases() for m in (*_BASE_METHODS, *_SHIFT_METHODS)]
+        ms = (*DIST_METHODS, *INTERVAL_METHODS, *SHIFT_METHODS)
+        return [f"{m}+{b}" for b in self.bases() for m in ms]
 
     def library_name(self, method: str) -> str:
         uq, _, base = method.rpartition("+")
-        if uq.startswith("tr_"):
-            return "torchregress"
-        return {"TabICL": "tabicl", "TabPFN": "tabpfn", "TabularMLP": "torchregress"}.get(
-            base, "sdm" if base in _SDM_MODELS else "lightgbm"
-        )
+        return "torchregress" if uq.startswith("tr_") else G.library_of(base)
 
     def library_version(self, method: str) -> str:
         return ""
-
-    def _fit_base(self, base: str, s: dict[str, Any], cfg: HarnessConfig) -> _BasePreds:
-        if base == _GBM_BASE:
-            return _fit_gbm(s, alpha=ALPHA, seed=cfg.seed, smoke=cfg.smoke)
-        if base == "TabularMLP":
-            return _fit_tabular_mlp(s, alpha=ALPHA, config=cfg)
-        if base == "TabICL":
-            return _fit_tabicl(s, alpha=ALPHA, seed=cfg.seed, smoke=cfg.smoke)
-        if base == "TabPFN":
-            return _fit_tabpfn(s, alpha=ALPHA)
-        return _fit_sdm(base, s, alpha=ALPHA, seed=cfg.seed)
 
     def run(
         self,
@@ -338,21 +383,13 @@ class FMUQScenariosSuite(HarnessRunner):
             from harness.datasets import load_dataset
 
             splits = load_dataset(dataset_name)
-        X = np.vstack([np.asarray(splits["X_train"]), np.asarray(splits["X_test"])]).astype(
-            np.float32
-        )
-        y = np.concatenate(
-            [np.asarray(splits["y_train"]).reshape(-1), np.asarray(splits["y_test"]).reshape(-1)]
-        ).astype(np.float64)
-        n_max = 600 if cfg.smoke else N_MAX
-        if len(X) > n_max:
-            idx = np.random.default_rng(cfg.seed).choice(len(X), n_max, replace=False)
-            X, y = X[idx], y[idx]
+        X, y = pooled(splits, 600 if cfg.smoke else N_MAX, cfg.seed)
+        scenarios = (scenario_name,) if scenario_name else SCENARIOS
         rows: list[dict[str, Any]] = []
-        for scenario in SCENARIOS:
-            s = _scenario_splits(X, y, scenario, cfg.seed)
-            w = _density_ratio(s["X_cal"], s["X_test"], cfg.seed) if scenario == "shift" else None
-            uq_methods = (*_BASE_METHODS, *_SHIFT_METHODS) if scenario == "shift" else _BASE_METHODS
+        for scenario in scenarios:
+            s = scenario_splits(X, y, scenario, cfg.seed)
+            w = density_ratio(s["X_cal"], s["X_test"], cfg.seed) if scenario == "shift" else None
+            methods = (*DIST_METHODS, *INTERVAL_METHODS, *(SHIFT_METHODS if w is not None else ()))
             for base in self.bases():
                 set_harness_seed(cfg.seed)
                 common = {
@@ -360,37 +397,46 @@ class FMUQScenariosSuite(HarnessRunner):
                     "Dataset": f"{dataset_name}@{scenario}",
                     "Scenario": scenario,
                     "Base": base,
+                    "NTrain": len(s["y_train"]),
+                    "NCal": len(s["y_cal"]),
+                    "NTest": len(s["y_test"]),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Device": str(current_device()),
                 }
                 try:
-                    t0 = perf_counter()
-                    b = self._fit_base(base, s, cfg)
-                    fit_s = perf_counter() - t0
-                except Exception as exc:  # noqa: BLE001 — every row of this base fails with the reason
-                    for m in uq_methods:
+                    (q_cal, q_test), fit_s = G.fit_grids(
+                        base, s["X_train"], s["y_train"], [s["X_cal"], s["X_test"]], cfg
+                    )
+                except Exception as exc:  # noqa: BLE001 — every row of this base fails
+                    note = f"failed: base {base}: {type(exc).__name__}: {exc}"[:300]
+                    for m in methods:
                         rows.append(
                             {
                                 **common,
                                 "Method": f"{self.name}/{m}+{base}",
                                 "Library": self.library_name(f"{m}+{base}"),
                                 "LibraryVersion": "",
-                                "Notes": f"failed: base {base}: {type(exc).__name__}: {exc}"[:300],
+                                "Notes": note,
                             }
                         )
                     continue
-                for m in uq_methods:
-                    method = f"{m}+{base}"
+                for m in methods:
                     row = {
                         **common,
-                        "Method": f"{self.name}/{method}",
-                        "Library": self.library_name(method),
+                        "Method": f"{self.name}/{m}+{base}",
+                        "Library": self.library_name(f"{m}+{base}"),
                         "LibraryVersion": "",
                     }
                     try:
                         t1 = perf_counter()
-                        lo, hi = _uq(m, b, s, w)
-                        row.update(_scores(lo, hi, b.point_test, s))
+                        if m == "Raw":
+                            row.update(score_distribution(q_test, s))
+                        elif m == "tr_PITRecal":
+                            row.update(
+                                score_distribution(G.pit_recalibrate(q_cal, s["y_cal"], q_test), s)
+                            )
+                        else:
+                            row.update(score_interval_method(m, q_cal, q_test, s, w))
                         row.update(
                             {
                                 "train_s": fit_s,

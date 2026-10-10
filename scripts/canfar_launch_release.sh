@@ -13,9 +13,10 @@
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
 # `gh` logged in (the token lets the sessions fetch the private harness fork), both forks
-# pushed (the script checks).  HF_TOKEN is optional (public TabICL/sdm checkpoints
-# download without it; TabPFN is paused for this run, set WITH_TABPFN=1 and a token
-# that accepted the TabPFN 3.5 terms to bring it back).
+# pushed (the script checks).  HF_TOKEN is optional (TabICL / sdm / TabPFN weights
+# are public on the Hub).  TabPFN runs when a Prior Labs API key is found: env
+# TABPFN_TOKEN, else the file ~/.canfar/tabpfn_token (the account must have
+# accepted the TabPFN licence at https://ux.priorlabs.ai).
 #
 # Sizing (override with env): replicas x cores/RAM/GPU per group.
 #   tabular  TAB_REPLICAS=12  8 cores 32 GB          (116 suite x dataset jobs x seeds)
@@ -51,6 +52,13 @@ if [ -z "${CANFAR_CERTIFICATE:-}" ]; then
   done
 fi
 [ -z "${GH_TOKEN:-}" ] && [ -s "$HOME/.ghtok" ] && GH_TOKEN="$(cat "$HOME/.ghtok")" && export GH_TOKEN
+# Prior Labs key for TabPFN: kept next to the CANFAR cert (same folder the agent
+# sandbox mounts), never in the repo.
+if [ -z "${TABPFN_TOKEN:-}" ]; then
+  for f in "$HOME/.canfar/tabpfn_token" "$HOME/mnt/.canfar/tabpfn_token"; do
+    if [ -s "$f" ]; then TABPFN_TOKEN="$(tr -d ' \n\r' < "$f")"; export TABPFN_TOKEN; break; fi
+  done
+fi
 command -v canfar >/dev/null || die "canfar CLI not found (pip install canfar; canfar login)"
 gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
   if [ -n "${GH_TOKEN:-}" ]; then echo "$GH_TOKEN"; return; fi
@@ -100,6 +108,7 @@ set_env_args() {
     -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS")
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
   [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
+  [ -n "${TABPFN_TOKEN:-}" ] && ENV_ARGS+=(-e "TABPFN_TOKEN=$TABPFN_TOKEN")
   [ "${ALL_GPU:-0}" = 1 ] && ENV_ARGS+=(-e "USE_GPU=1")
   # RERUN_SUITES=image_conformal,image_robust: overwrite those suites' existing
   # artifacts (comma-separated: canfar word-splits env values).
@@ -194,7 +203,10 @@ load_state() {
 }
 
 # canfar prints full request URLs (with the GH_TOKEN env) on errors: never echo the token.
-redact() { sed -E 's/(gh[opsu]_)[A-Za-z0-9]{20,}/\1REDACTED/g; s/(hf_)[A-Za-z0-9]{20,}/\1REDACTED/g'; }
+redact() {
+  sed -E 's/(gh[opsu]_)[A-Za-z0-9]{20,}/\1REDACTED/g; s/(hf_)[A-Za-z0-9]{20,}/\1REDACTED/g' |
+    TOK="${TABPFN_TOKEN:-}" perl -pe 'BEGIN { $t = $ENV{TOK} } s/\Q$t\E/REDACTED/g if length $t'
+}
 
 case "${1:-}" in
   launch)

@@ -7024,7 +7024,7 @@ packages:
   - scikit-lego ; extra == 'tweedie'
   - tabpfn>=9.1 ; extra == 'foundation'
   - tabicl>=2.2 ; extra == 'foundation'
-  - structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19 ; extra == 'foundation'
+  - structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@main ; extra == 'foundation'
   - lightgbm ; extra == 'boosting'
   - xgboost ; extra == 'boosting'
   - torchvision ; extra == 'image'

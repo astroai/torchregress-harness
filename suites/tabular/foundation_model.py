@@ -130,9 +130,12 @@ class FoundationModelSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         methods = ["GaussianNLL", "MDN"]
-        # TabPFN is paused for the 0.3.0 release run (gated weights); opt back in with
-        # TORCHREGRESS_HARNESS_WITH_TABPFN=1.
-        if _TABPFN_AVAILABLE and os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1":
+        # TabPFN needs a Prior Labs API key (licence acceptance): runs when TABPFN_TOKEN
+        # is set or with TORCHREGRESS_HARNESS_WITH_TABPFN=1.
+        if _TABPFN_AVAILABLE and (
+            os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1"
+            or bool(os.environ.get("TABPFN_TOKEN"))
+        ):
             methods.append("TabPFN")
         if _TABICL_AVAILABLE:
             methods.append("TabICL")

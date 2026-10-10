@@ -60,8 +60,8 @@ tweedie = [
 foundation = [
     "tabpfn>=9.1",
     "tabicl>=2.2",
-    # KumoTabular, TabICLv2, TabFM (git only; pin in EXTERNAL_PINS.md)
-    "structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19",
+    # KumoTabular, TabFM (git only; release runs install the latest main, see EXTERNAL_PINS.md)
+    "structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@main",
 ]
 boosting = [
     "lightgbm",
