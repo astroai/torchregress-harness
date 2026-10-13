@@ -236,6 +236,82 @@ def _load_openml_year(
     }
 
 
+def _load_zurich_delays(
+    n_samples: int = 100000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Zurich public-transport delays, raw (OpenML 40753, CC0; Open Data Day 2017).
+
+    5.47M stop events (2016-10-30 to 2016-11-27): vehicle type, line, direction,
+    stop, weekday, hour, minute of day and weather -> delay in seconds.  Not a
+    forecasting task (no lagged delays).  The raw target is extremely
+    heavy-tailed with gross recording errors (delays from -121830 s to +7190 s,
+    median 29 s, kurtosis ~6e4) and is kept as is: a public stress test for the
+    robust / tail / conformal methods.  Replaces TabReD Sberbank (a Kaggle
+    competition that needs rule acceptance).  The benchmark copy (OpenML 45045)
+    log-transforms the target and is not used.
+
+    Encoding (no target information): vehicle type, line and weekday one-hot;
+    stop id as its training-free frequency; the redundant ``time`` string is
+    dropped.  A random ``n_samples`` subsample is split ``test_size``.
+    """
+    import pandas as pd
+
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.datasets import fetch_openml
+
+        df = fetch_openml(
+            data_id=40753,
+            parser="pandas",
+            as_frame=True,
+            data_home=str(_image_cache_dir() / "sklearn"),
+        ).frame
+        # Stop frequency over all 5.5M events, then subsample *before* encoding
+        # (one-hot of the full table needs > 8 GB).  Categories are fixed from
+        # the full table so every subsample has the same columns.
+        stop_freq = df["stop_id"].map(df["stop_id"].value_counts(normalize=True))
+        lines = sorted(df["line_number"].dropna().unique().tolist())
+        vehicles = sorted(df["vehicle_type"].dropna().unique().tolist())
+        rng = np.random.default_rng(seed)
+        idx = (
+            rng.choice(len(df), n_samples, replace=False)
+            if n_samples < len(df)
+            else np.arange(len(df))
+        )
+        sub = df.iloc[idx]
+        y = sub["delay"].to_numpy(dtype=np.float64)
+        Xdf = sub.drop(columns=["delay", "time", "stop_id"]).assign(
+            stop_freq=stop_freq.iloc[idx].to_numpy()
+        )
+        Xdf["line_number"] = pd.Categorical(Xdf["line_number"], categories=lines)
+        Xdf["vehicle_type"] = pd.Categorical(Xdf["vehicle_type"], categories=vehicles)
+        Xdf = pd.get_dummies(
+            Xdf, columns=["vehicle_type", "line_number", "weekday"], dtype=np.float64
+        )
+        X = Xdf.to_numpy(dtype=np.float64)
+        del df
+    except Exception:
+        rng = np.random.default_rng(seed)
+        X = rng.standard_normal((n_samples, 20))
+        y = X[:, 0] + rng.standard_t(2, n_samples)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "OpenML 40753 (delays_zurich_transport) fetch failed"
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    keep = X_train.std(0) > 0
+    scaler = StandardScaler().fit(X_train[:, keep])
+    return {
+        **splits,
+        "X_train": scaler.transform(X_train[:, keep]).astype(np.float32),
+        "X_test": scaler.transform(X_test[:, keep]).astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Synthetic tabular datasets
 # ---------------------------------------------------------------------------
@@ -6145,6 +6221,18 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Canonical sklearn TweedieRegressor example."
         ),
         loader=_registry_loader(_load_insurance_claims, n_samples=20000),
+    ),
+    "zurich_delays": DatasetInfo(
+        name="zurich_delays",
+        category="tabular",
+        n_features=84,
+        n_samples=5465575,
+        description=(
+            "Zurich public-transport delays, raw (OpenML 40753, CC0): extremely "
+            "heavy-tailed delay with gross errors, from vehicle, line, stop, time and "
+            "weather; 100k-row random subsample."
+        ),
+        loader=_registry_loader(_load_zurich_delays, n_samples=100000),
     ),
     "house_sales": DatasetInfo(
         name="house_sales",

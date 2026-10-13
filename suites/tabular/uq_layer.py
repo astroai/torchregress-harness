@@ -659,6 +659,7 @@ class UQLayerSuite(HarnessRunner):
             "tabred_delivery",
             "tabred_cooking",
             "tabred_weather",
+            "zurich_delays",
         ]
 
     def bases(self) -> list[str]:

@@ -365,7 +365,14 @@ class FMUQScenariosSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["california_housing", "house_sales", "insurance_claims", "diabetes", "openml_year"]
+        return [
+            "california_housing",
+            "house_sales",
+            "insurance_claims",
+            "diabetes",
+            "openml_year",
+            "zurich_delays",
+        ]
 
     def bases(self) -> list[str]:
         return G.available_bases()

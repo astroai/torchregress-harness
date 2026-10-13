@@ -111,7 +111,7 @@ def test_lightgbm_fit_uses_valid_set_and_early_stopping(
     assert kwargs["num_boost_round"] == 100
 
 
-def test_xgboost_fit_uses_eval_set_and_early_stopping(
+def test_xgboost_fit_uses_evals_and_early_stopping(
     monkeypatch: pytest.MonkeyPatch, small_splits: dict[str, np.ndarray]
 ) -> None:
     _FakeXgb.train_kwargs = {}
@@ -121,9 +121,21 @@ def test_xgboost_fit_uses_eval_set_and_early_stopping(
     assert isinstance(state["model"], _FakeBooster)
 
     kwargs = _FakeXgb.train_kwargs
-    eval_set = kwargs["eval_set"]
-    assert len(eval_set) == 1
-    assert eval_set[0][1] == "valid"
-    assert isinstance(eval_set[0][0], _FakeDMatrix)
+    # xgb.train's keyword is `evals` (eval_set belongs to the sklearn wrapper and
+    # raised TypeError with the real library; the fake accepted anything).
+    assert "eval_set" not in kwargs
+    evals = kwargs["evals"]
+    assert len(evals) == 1
+    assert evals[0][1] == "valid"
+    assert isinstance(evals[0][0], _FakeDMatrix)
     assert kwargs["early_stopping_rounds"] == 20
     assert kwargs["num_boost_round"] == 100
+
+
+def test_xgboost_real_library_signature() -> None:
+    """Guard against the eval_set/evals mix-up with the installed XGBoost."""
+    xgb = pytest.importorskip("xgboost")
+    import inspect
+
+    params = inspect.signature(xgb.train).parameters
+    assert "evals" in params and "eval_set" not in params

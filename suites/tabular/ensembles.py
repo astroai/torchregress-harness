@@ -96,7 +96,7 @@ class EnsemblesSuite(HarnessRunner):
             "make_regression_synthetic",
             "synthetic_hetero",
             "synthetic_outliers",
-            "tabred_sberbank",
+            "zurich_delays",
             "tabred_cooking",
             "tabred_delivery",
             "tabred_maps",

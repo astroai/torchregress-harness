@@ -191,7 +191,7 @@ class SklearnBaselinesSuite(HarnessRunner):
             "synthetic_censored",
             "synthetic_eiv",
             "synthetic_sinusoidal",
-            "tabred_sberbank",
+            "zurich_delays",
             "tabred_cooking",
             "tabred_delivery",
             "tabred_maps",

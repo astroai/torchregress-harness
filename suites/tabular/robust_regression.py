@@ -159,6 +159,7 @@ class RobustRegressionSuite(HarnessRunner):
         return [
             "california_housing",
             "synthetic_outliers",
+            "zurich_delays",
         ]
 
     @property
@@ -379,7 +380,7 @@ class RobustRegressionSuite(HarnessRunner):
         # --- statsmodels RLM (ground truth) ---
         elif method == "statsmodels_RLM":
             # Add intercept column (statsmodels convention)
-            X_const = sm.add_constant(X_train_np, prepend=True)
+            X_const = sm.add_constant(X_train_np, prepend=True, has_constant="add")
             rlm = sm.RLM(
                 y_train_np,
                 X_const,
@@ -433,8 +434,11 @@ class RobustRegressionSuite(HarnessRunner):
                 params,
                 xgb.DMatrix(X_tr, y_tr),
                 num_boost_round=100,
-                eval_set=[(xgb.DMatrix(X_val, y_val), "valid")],
+                # xgb.train takes `evals` (eval_set is the sklearn wrapper's name):
+                # this row failed with a TypeError in every run before run #6.
+                evals=[(xgb.DMatrix(X_val, y_val), "valid")],
                 early_stopping_rounds=20,
+                verbose_eval=False,
             )
             return {"type": "xgb", "model": booster}
 
@@ -485,12 +489,17 @@ class RobustRegressionSuite(HarnessRunner):
 
         elif model_type == "xgb":
             booster = model_state["model"]
-            y_pred = booster.predict(xgb.DMatrix(X_test))
+            # Score with the early-stopped model, not the last boosting round.
+            best = getattr(booster, "best_iteration", None)
+            y_pred = booster.predict(
+                xgb.DMatrix(X_test),
+                iteration_range=(0, best + 1) if best is not None else (0, 0),
+            )
             return {"y_pred": np.asarray(y_pred).reshape(-1)}
 
         elif model_type == "statsmodels_rlm":
             result = model_state["model"]
-            X_const = sm.add_constant(X_test, prepend=True)
+            X_const = sm.add_constant(X_test, prepend=True, has_constant="add")
             y_pred = result.predict(X_const)
             return {"y_pred": np.asarray(y_pred).reshape(-1)}
 

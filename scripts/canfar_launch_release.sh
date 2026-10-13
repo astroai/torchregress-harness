@@ -117,6 +117,8 @@ set_env_args() {
   # RERUN_SUITES=image_conformal,image_robust: overwrite those suites' existing
   # artifacts (comma-separated: canfar word-splits env values).
   [ -n "${RERUN_SUITES:-}" ] && ENV_ARGS+=(-e "RERUN_SUITES=$RERUN_SUITES")
+  # JOB_FILTER (regex on "suite dataset", no spaces: canfar word-splits env values)
+  [ -n "${JOB_FILTER:-}" ] && ENV_ARGS+=(-e "JOB_FILTER=$JOB_FILTER")
   return 0
 }
 DRY=()
