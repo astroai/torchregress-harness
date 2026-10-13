@@ -61,7 +61,10 @@ if [[ "$WHAT" == *",tabred,"* ]]; then
     for ds in sberbank-housing cooking-time delivery-eta maps-routing weather; do
       if [ -d "$STAGED/tabred/$ds" ]; then log "tabred $ds present"; continue; fi
       log "tabred download $ds"
-      UV_CACHE_DIR=/scratch/uv-cache "$VENV/bin/uv" tool run --python 3.13 tabred download "$ds" \
+      # astroai/base presets uv dirs to read-only /usr/local/share/uv: override all.
+      UV_CACHE_DIR=/scratch/uv/cache UV_TOOL_DIR=/scratch/uv/tools UV_TOOL_BIN_DIR=/scratch/uv/bin \
+        UV_PYTHON_INSTALL_DIR=/scratch/uv/python \
+        "$VENV/bin/uv" tool run --python 3.13 tabred download "$ds" \
         --output-path "$STAGED/tabred" || { log "tabred $ds FAILED (competition rules not accepted?)"; rc=1; }
     done
     ls -la "$STAGED/tabred"
