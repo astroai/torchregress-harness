@@ -11,7 +11,7 @@ foundation models used zero-shot (in-context learning, no training):
   non-commercial ``tabfm-non-commercial-v1.0`` licence, so the row passes
   ``accept_license=True``: fine for benchmarking, not for production use.
 
-Every foundation model returns a grid of predictive quantiles, scored as an
+Every foundation model except TabFM (point output in sdm) returns a grid of predictive quantiles, scored as an
 empirical predictive distribution (point metrics from its mean, CRPS/PIT from
 the grid, 90% interval from the 5% and 95% quantiles).
 
@@ -181,7 +181,7 @@ class FoundationModelSuite(HarnessRunner):
             "TabICL": "TabICLRegressor (v2 checkpoint, tabicl>=2.2), 99 predictive quantiles",
             "KumoTabular": "sdm KumoTabular (large, NVIDIA 2026), 999 predictive quantiles",
             "TabFM": (
-                "sdm TabFM (Google 2026), 999 predictive quantiles; "
+                "sdm TabFM (Google 2026), point prediction only (single regression output); "
                 "weights are non-commercial (accept_license=True)"
             ),
         }
@@ -334,6 +334,10 @@ class FoundationModelSuite(HarnessRunner):
             with torch.no_grad():
                 out = model.predict(x.to(current_device()))
             q = out.numerical.detach().float().cpu().numpy().reshape(len(X_test), -1)
+            if q.shape[1] == 1:
+                # TabFM's sdm regression head is a single point output: score it as a
+                # point prediction (no CRPS / coverage), not as a zero-width distribution.
+                return {"y_pred": q[:, 0]}
             levels = [(k + 1) / (q.shape[1] + 1) for k in range(q.shape[1])]
             return _quantile_predictions(q, levels)
 

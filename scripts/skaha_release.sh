@@ -22,6 +22,7 @@
 #   REPLICA_ID / REPLICA_COUNT   set by Skaha for --replicas sessions
 #   SHARD_ID / SHARD_COUNT       override them (one session redoing one shard)
 #   RERUN_SUITES   comma-separated suites whose existing artifacts are overwritten
+#   JOB_TIMEOUT    wall-clock limit per (suite, dataset, seed) job, default 6h
 #   OUT_ROOT       default /arc/projects/ots/torchregress-harness/runs
 set -uo pipefail
 
@@ -248,7 +249,9 @@ for seed in ${SEEDS//,/ }; do
       esac
     fi
     log "=== $suite / $dataset / seed $seed ==="
-    if prun python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+    # JOB_TIMEOUT bounds one (suite, dataset, seed) job: run #5's eiv/folktables_eiv
+    # (1.5M rows) hung for 2.5 days without output and blocked its whole shard.
+    if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
         --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
       n_ok=$((n_ok + 1))
     else

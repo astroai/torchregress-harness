@@ -101,7 +101,7 @@ def test_scenarios_smoke(monkeypatch: pytest.MonkeyPatch, scenario: str) -> None
     rows = M.FMUQScenariosSuite().run(
         "toy", HarnessConfig(smoke=True, seed=0), splits=splits, scenario_name=scenario
     )
-    n_expected = 2 + 5 + (2 if scenario == "shift" else 0)
+    n_expected = len(M.DIST_METHODS) + len(M.INTERVAL_METHODS) + (2 if scenario == "shift" else 0)
     assert len(rows) == n_expected
     for r in rows:
         assert not str(r.get("Notes", "")).startswith("failed"), r["Notes"]
@@ -134,3 +134,49 @@ def test_copula_sampler_matches_correlation() -> None:
     S = MT.sample_joint(q, 400, np.random.default_rng(0), R)
     r = np.mean([np.corrcoef(S[i].T)[0, 1] for i in range(50)])
     assert r == pytest.approx(0.7, abs=0.05)
+
+
+def _point_only_fit(base, X_train, y_train, X_eval, cfg):  # noqa: ANN001, ARG001
+    """A point-only model (like sdm TabFM): least squares, grid = point mass."""
+    A = np.c_[X_train, np.ones(len(X_train))]
+    coef = np.linalg.lstsq(A, y_train, rcond=None)[0]
+    pts = [np.c_[Xe, np.ones(len(Xe))] @ coef for Xe in X_eval]
+    return [np.repeat(p[:, None], len(G.LEVELS), axis=1) for p in pts], 0.0
+
+
+def test_point_only_base_gets_residual_distribution(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(M.FMUQScenariosSuite, "bases", lambda self: ["PointBase"])
+    monkeypatch.setattr(G, "fit_grids", _point_only_fit)
+    X, y = _data(800)
+    splits = {"X_train": X[:600], "y_train": y[:600], "X_test": X[600:], "y_test": y[600:]}
+    rows = M.FMUQScenariosSuite().run(
+        "toy", HarnessConfig(smoke=True, seed=0), splits=splits, scenario_name="clean"
+    )
+    assert {r["Method"].split("/")[1].split("+")[0] for r in rows} == set(M.POINT_METHODS)
+    rd = next(r for r in rows if "tr_ResidualDist" in r["Method"])
+    assert rd["PointOnly"] and np.isfinite(rd["CRPS"]) and 0.8 <= rd["Coverage90"] <= 1.0
+
+
+def test_mondrian_survives_tied_medians() -> None:
+    rng = np.random.default_rng(0)
+    med = np.repeat([0.0, 1.0], 200)  # heavy ties, as from a shallow tree
+    q_cal = np.repeat(med[:, None], len(G.LEVELS), axis=1)
+    y_cal = med + rng.normal(size=400)
+    lo, hi = M.interval_method("tr_Mondrian", q_cal, q_cal[:50], y_cal, 0.1)
+    assert np.all(np.isfinite(lo)) and np.all(hi > lo)
+
+
+def test_multitarget_point_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(MT.FMMultiTargetSuite, "bases", lambda self: ["PointBase"])
+    monkeypatch.setattr(MT, "DENSITY_REFS", ())
+    monkeypatch.setattr(G, "fit_grids", _point_only_fit)
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(500, 3)).astype(np.float32)
+    e = rng.multivariate_normal([0, 0], [[1, 0.8], [0.8, 1]], size=500)
+    Y = np.c_[X[:, 0] + 0.5 * e[:, 0], X[:, 1] + 0.5 * e[:, 1]]
+    splits = {"X_train": X[:400], "y_train": Y[:400], "X_test": X[400:], "y_test": Y[400:]}
+    rows = MT.FMMultiTargetSuite().run("toy", HarnessConfig(smoke=True, seed=0), splits=splits)
+    assert len(rows) == 2 and all(r["PointOnly"] for r in rows)
+    by = {r["Method"].split("/")[1].split("+")[0]: r for r in rows}
+    assert by["GaussCopula"]["CorrErr"] < by["Indep"]["CorrErr"]
+    assert 0.8 <= by["GaussCopula"]["Cov90_marg"] <= 1.0

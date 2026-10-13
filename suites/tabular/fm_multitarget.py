@@ -16,6 +16,9 @@ Joint methods per base (row ``<method>+<base>``):
 * ``tr_PITRecal+GaussCopula`` -- marginals first recalibrated with torchregress
   ``PITCalibrator``, then the copula.
 
+Point-only bases (TabFM in sdm) get split-conformal residual marginals per
+target (``PointOnly`` column) and run ``Indep`` / ``GaussCopula`` only.
+
 Reference rows: ``torchregress_NSF`` / ``torchregress_MDN`` (one joint model,
 trained on train + calibration rows).
 
@@ -231,8 +234,16 @@ class FMMultiTargetSuite(HarnessRunner):
                         {"Notes": f"failed: base {base}: {type(exc).__name__}: {exc}"[:300]},
                     )
                 continue
+            point_only = G.is_point(q_cal[0])
+            if point_only:
+                # No predictive distribution (TabFM in sdm): split conformal predictive
+                # distribution per target; its calibration PITs are the residual ranks.
+                for d in range(D):
+                    pc, pt = q_cal[d][:, 0], q_test[d][:, 0]
+                    q_cal[d] = G.residual_grid(pc, Y[cal, d], pc)
+                    q_test[d] = G.residual_grid(pc, Y[cal, d], pt)
             pit_cal = np.stack([G.cdf_at(q_cal[d], Y[cal, d]) for d in range(D)], axis=1)
-            for m in JOINT_METHODS:
+            for m in JOINT_METHODS[:2] if point_only else JOINT_METHODS:
                 try:
                     t1 = perf_counter()
                     srng = np.random.default_rng(cfg.seed + 7)
@@ -255,7 +266,9 @@ class FMMultiTargetSuite(HarnessRunner):
                             "Base": base,
                             "train_s": fit_s,
                             "eval_s": perf_counter() - t1,
-                            "Notes": f"{m}: {D} per-target {base} fits",
+                            "PointOnly": point_only,
+                            "Notes": f"{m}: {D} per-target {base} fits"
+                            + (" (point-only: conformal residual marginals)" if point_only else ""),
                         },
                     )
                 except Exception as exc:  # noqa: BLE001 — row-level resilience

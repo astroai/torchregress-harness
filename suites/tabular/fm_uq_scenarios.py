@@ -39,6 +39,13 @@ Distribution methods (full predictive distribution -> every score):
 * ``Raw`` -- the base model's own quantile grid.
 * ``tr_PITRecal`` -- quantile recalibration of the whole grid with torchregress
   ``PITCalibrator`` (Kuleshov et al. 2018).
+* ``tr_ResidualDist`` -- split conformal predictive distribution: base median
+  plus calibration-residual quantiles (homoscedastic baseline; the only
+  distribution available for point-only models).
+
+Point-only bases (``PointOnly`` column; TabFM in sdm has a single regression
+output) run ``tr_ResidualDist``, ``tr_Split``, ``tr_Mondrian`` (and
+``tr_WeightedSplit`` under shift) only.
 
 Interval methods (calibrated at each of the 50 / 80 / 90 / 95% levels):
 * ``tr_Split`` -- ``SplitConformal`` on the base median.
@@ -93,7 +100,10 @@ SCENARIOS = (
     "imbalance",
     "heavy_tail",
 )
-DIST_METHODS = ("Raw", "tr_PITRecal")
+DIST_METHODS = ("Raw", "tr_PITRecal", "tr_ResidualDist")
+# Point-only bases (TabFM in sdm: one regression output) have no own distribution.
+POINT_METHODS = ("tr_ResidualDist", "tr_Split", "tr_Mondrian")
+POINT_SHIFT_METHODS = ("tr_WeightedSplit",)
 INTERVAL_METHODS = ("tr_Split", "tr_Normalized", "tr_CQR", "tr_Mondrian", "tr_DCP")
 SHIFT_METHODS = ("tr_WeightedSplit", "tr_WeightedCQR")
 
@@ -233,7 +243,8 @@ def interval_method(
             lo, hi = cq.predict_interval(_t(qt))
     elif method == "tr_Mondrian":
         n_bins = max(1, min(N_MONDRIAN_BINS, len(y_cal) // MIN_PER_BIN))
-        cuts = np.quantile(med_c, np.linspace(0, 1, n_bins + 1)[1:-1])
+        # unique: tied medians (tree models) would otherwise leave a bin empty
+        cuts = np.unique(np.quantile(med_c, np.linspace(0, 1, n_bins + 1)[1:-1]))
         cp = SplitConformal(alpha=alpha)
         cp.calibrate(_t(med_c), yc, groups=torch.as_tensor(np.searchsorted(cuts, med_c)))
         lo, hi = cp.predict_interval(
@@ -407,6 +418,15 @@ class FMUQScenariosSuite(HarnessRunner):
                     (q_cal, q_test), fit_s = G.fit_grids(
                         base, s["X_train"], s["y_train"], [s["X_cal"], s["X_test"]], cfg
                     )
+                    point_only = G.is_point(q_cal)
+                    common["PointOnly"] = point_only
+                    if point_only:
+                        base_methods = (
+                            *POINT_METHODS,
+                            *(POINT_SHIFT_METHODS if w is not None else ()),
+                        )
+                    else:
+                        base_methods = methods
                 except Exception as exc:  # noqa: BLE001 — every row of this base fails
                     note = f"failed: base {base}: {type(exc).__name__}: {exc}"[:300]
                     for m in methods:
@@ -420,7 +440,7 @@ class FMUQScenariosSuite(HarnessRunner):
                             }
                         )
                     continue
-                for m in methods:
+                for m in base_methods:
                     row = {
                         **common,
                         "Method": f"{self.name}/{m}+{base}",
@@ -431,6 +451,9 @@ class FMUQScenariosSuite(HarnessRunner):
                         t1 = perf_counter()
                         if m == "Raw":
                             row.update(score_distribution(q_test, s))
+                        elif m == "tr_ResidualDist":
+                            pc, pt = G.quantile_at(q_cal, 0.5), G.quantile_at(q_test, 0.5)
+                            row.update(score_distribution(G.residual_grid(pc, s["y_cal"], pt), s))
                         elif m == "tr_PITRecal":
                             row.update(
                                 score_distribution(G.pit_recalibrate(q_cal, s["y_cal"], q_test), s)

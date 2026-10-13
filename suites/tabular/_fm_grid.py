@@ -162,6 +162,9 @@ def fit_grids(
                     out = model.predict(TableTensor.from_tensor(xb).to(dev))
                 parts.append(out.numerical.detach().float().cpu().numpy().reshape(len(xb), -1))
             q = np.concatenate(parts)
+            if q.shape[1] == 1:  # point head only (TabFM): a point mass, see is_point()
+                grids.append(np.repeat(q, len(LEVELS), axis=1))
+                continue
             lv = (np.arange(q.shape[1]) + 1) / (q.shape[1] + 1)
             grids.append(_interp_levels(q, lv))
     else:
@@ -244,6 +247,25 @@ def pit_ks(pit: np.ndarray) -> float:
     ecdf_hi = np.arange(1, n + 1) / n
     ecdf_lo = np.arange(n) / n
     return float(max(np.max(np.abs(ecdf_hi - p)), np.max(np.abs(p - ecdf_lo))))
+
+
+def is_point(q: np.ndarray) -> bool:
+    """True when a grid is a point mass (the model has no predictive distribution)."""
+    return bool(np.allclose(q[:, 0], q[:, -1]))
+
+
+def residual_grid(point_cal: np.ndarray, y_cal: np.ndarray, point_eval: np.ndarray) -> np.ndarray:
+    """Split conformal predictive distribution: point + calibration-residual quantiles.
+
+    ``F(y | x) = #{i : point(x) + r_i <= y} / (n + 1)`` (Vovk et al. 2017),
+    represented on LEVELS; gives a distribution to point-only models and a
+    homoscedastic baseline for every model.
+    """
+    r = np.sort(np.asarray(y_cal, dtype=np.float64) - np.asarray(point_cal, dtype=np.float64))
+    n = len(r)
+    lv = (np.arange(1, n + 1)) / (n + 1)
+    qr = np.interp(LEVELS, lv, r)
+    return np.asarray(point_eval, dtype=np.float64).reshape(-1, 1) + qr[None, :]
 
 
 def pit_recalibrate(q_cal: np.ndarray, y_cal: np.ndarray, q_test: np.ndarray) -> np.ndarray:
