@@ -235,6 +235,52 @@ def _eiv_sigma(value: Any) -> Any:
     return torch.as_tensor(arr)
 
 
+def equation_error_sd(X: np.ndarray, y: np.ndarray, sigma_x: Any, sigma_rows: Any = None) -> float:
+    """Equation-error sd of y given the *true* inputs, from noisy data only.
+
+    EIV methods (ODR / TLS / Deming / FunctionalEIV / LatentNN) weight the
+    y-residual by ``sigma_y``, the noise of y about f(x_true): measurement
+    error *plus* equation error.  A dataset that only declares y's
+    measurement error (``sigma_y = 0`` for exact targets, e.g.
+    ``folktables_eiv``) breaks them (TLS refuses, ODRPACK gets infinite weights
+    and crashes, LatentNN scales its data term by 1e12).  The moment-corrected
+    linear fit (Fuller 1987, sec. 2.2) estimates it with the known input-noise
+    covariance ``Sigma_u`` and no oracle inputs:
+
+        beta = (S_xx - Sigma_u)^{-1} S_xy,   s2 = Var(y) - beta' (S_xx - Sigma_u) beta
+
+    floored at 1% of Var(y).  ``S_xx - Sigma_u`` is projected to positive
+    definite (eigenvalues >= 1% of the largest) before solving.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    d = X.shape[1]
+    if sigma_rows is not None:
+        su = np.asarray(
+            sigma_rows.numpy() if isinstance(sigma_rows, torch.Tensor) else sigma_rows,
+            dtype=np.float64,
+        )
+        var_u = np.mean(su.reshape(len(su), -1) ** 2, axis=0)
+    else:
+        s = sigma_x.detach().cpu().numpy() if isinstance(sigma_x, torch.Tensor) else sigma_x
+        s = np.asarray(s, dtype=np.float64)
+        var_u = (
+            np.mean(s.reshape(-1, d) ** 2, axis=0) if s.ndim > 1 else np.broadcast_to(s**2, (d,))
+        )
+    Xc = X - X.mean(0)
+    yc = y - y.mean()
+    Sxx = Xc.T @ Xc / len(X)
+    Sxy = Xc.T @ yc / len(X)
+    M = Sxx - np.diag(var_u)
+    w, V = np.linalg.eigh(M)
+    w = np.maximum(w, 0.01 * max(float(w.max()), 1e-12))
+    M = (V * w) @ V.T
+    beta = np.linalg.solve(M, Sxy)
+    var_y = float(yc @ yc / len(y))
+    s2 = var_y - float(beta @ M @ beta)
+    return float(np.sqrt(max(s2, 0.01 * var_y)))
+
+
 # Methods whose losses accept per-call sigma_x (per-obs threading).
 _PER_OBS_METHODS = frozenset(
     {
@@ -530,6 +576,10 @@ class EIVSuite(HarnessRunner):
             _arr = np.asarray(_raw_rows, dtype=np.float32)
             if _arr.ndim == 2 and _arr.shape[0] == np.asarray(X_train_np).shape[0]:
                 sigma_rows = torch.from_numpy(_arr)
+        # sigma_y <= 0 declares exact targets (measurement error only); EIV
+        # weighting needs the equation error: estimate it (see equation_error_sd).
+        if sigma_y <= 0:
+            sigma_y = equation_error_sd(X_train_np, y_train_np, sigma_x, sigma_rows)
         # Per-obs test sigma for predict-time marginalization (truncated
         # to the presented rows in predict()).
         _raw_te = splits.get("sigma_x_test")
@@ -755,7 +805,7 @@ class EIVSuite(HarnessRunner):
                 loss_fn=torch.nn.MSELoss(),  # nn.MSELoss activates sigma_y scaling
                 sigma_x=sigma_x,
                 sigma_y=sigma_y,
-                epochs=200,
+                epochs=config.epochs,  # same budget as every other method (was 200)
                 lr=config.lr,
                 batch_size=config.batch_size,
             )
@@ -858,7 +908,17 @@ class EIVSuite(HarnessRunner):
             def _linear_fcn(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
                 return beta[0] + np.dot(beta[1:], x)
 
-            model = _ODRModel(_linear_fcn)
+            # Analytic Jacobians: without them ODRPACK differences the model
+            # numerically every iteration (super-linear in rows: 52 s at 8k rows
+            # x 70 features vs 9 s analytic; intractable at folktables_eiv's 1.2M).
+            # set_job(deriv=2) below is what makes ODRPACK use them.
+            def _jac_beta(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
+                return np.vstack([np.ones((1, x.shape[1])), x])  # (p, n)
+
+            def _jac_x(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
+                return np.repeat(beta[1:, None], x.shape[1], axis=1)  # (m, n)
+
+            model = _ODRModel(_linear_fcn, fjacb=_jac_beta, fjacd=_jac_x)
             data = RealData(x=X_np.T, y=y_np, sx=sigma_x, sy=sigma_y)
 
             # Initial guess from OLS
@@ -866,6 +926,7 @@ class EIVSuite(HarnessRunner):
             beta0, _, _, _ = np.linalg.lstsq(X_with_bias, y_np, rcond=None)
 
             odr = _ODR(data, model, beta0=beta0)
+            odr.set_job(deriv=2)  # use the analytic Jacobians (default: finite differences)
             output = odr.run()
             return {"type": "scipy_odr", "coef": output.beta}
 

@@ -245,11 +245,18 @@ case "${1:-}" in
   fill)
     # fill                 every group's FAILED_<group> shards from the state file
     # fill tabular 3,6     those replica numbers (1-based, as in the session names)
+    # FILL_LIB_LATEST=1    use the current pushed torchregress, not the run's LIB_REF
     load_state
     # Fill sessions run the harness HEAD (it must know SHARD_ID); the benchmark
     # code itself is unchanged when only scripts/ moved since the launch.
     HARNESS_REF=$(pushed_sha "$HERE")
     echo "FILL_HARNESS_REF=$HARNESS_REF" >> "$STATE"
+    # FILL_LIB_LATEST=1: run the fill against the current pushed torchregress
+    # (a library fix needed by the refilled jobs) instead of the run's pin.
+    if [ "${FILL_LIB_LATEST:-0}" = 1 ]; then
+      LIB_REF=$(pushed_sha "$LIB_DIR")
+      echo "FILL_LIB_REF=$LIB_REF" >> "$STATE"
+    fi
     GH_TOKEN=$(gh_token)
     set_env_args
     echo "run $RUN_TAG  fill harness $HARNESS_REF  torchregress $LIB_REF"
