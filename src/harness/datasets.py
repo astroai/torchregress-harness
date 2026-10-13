@@ -2505,20 +2505,20 @@ def _load_tabred_native(dataset_id: str, *, n_samples: int, seed: int) -> Splits
         return None
     blocks = [a for s in ("x_num", "x_bin", "x_cat") if (a := _tabred_array(base, s)) is not None]
     y = _tabred_array(base, "y")
-    parts = {k: _tabred_split(base, k) for k in ("train", "val", "test")}
-    if not blocks or y is None or any(v is None for v in parts.values()):
+    tr_idx, va_idx, te_idx = (_tabred_split(base, k) for k in ("train", "val", "test"))
+    if not blocks or y is None or tr_idx is None or va_idx is None or te_idx is None:
         return None
     X = np.concatenate(
         [np.asarray(b, dtype=np.float64).reshape(len(y), -1) for b in blocks], axis=1
     )
     y = np.asarray(y, dtype=np.float64).reshape(-1)
-    tr = np.concatenate([parts["train"], parts["val"]])  # type: ignore[list-item]
-    te = parts["test"]
+    tr = np.concatenate([tr_idx, va_idx])
+    te = te_idx
     rng = np.random.default_rng(seed)
     if n_samples < len(tr):
         tr = rng.choice(tr, n_samples, replace=False)
     n_test = max(int(0.3 * len(tr)), 1)
-    if n_test < len(te):  # type: ignore[arg-type]
+    if n_test < len(te):
         te = rng.choice(te, n_test, replace=False)
     X_train, X_test = X[tr], X[te]
     med = np.nanmedian(X_train, axis=0)
@@ -2533,7 +2533,6 @@ def _load_tabred_native(dataset_id: str, *, n_samples: int, seed: int) -> Splits
         "X_test": scaler.transform(X_test).astype(np.float32),
         "y_train": y[tr].astype(np.float32),
         "y_test": y[te].astype(np.float32),
-        "_tabred_split": "default (time-based)",
     }
 
 
