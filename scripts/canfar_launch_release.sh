@@ -145,7 +145,7 @@ record_sessions() { # <group> <canfar output>: remember session ids for `logs`
 }
 
 failed_replicas() { # <group> <canfar output> -> replica numbers Skaha refused to create
-  echo "$2" | sed -n "s/.*Failed to create session.*'trr-$1-[0-9]*-\([0-9][0-9]*\)'.*/\1/p" | sort -n | uniq
+  echo "$2" | sed -n "s/.*Failed to create session.*'trr-${1//_/-}-[0-9]*-\([0-9][0-9]*\)'.*/\1/p" | sort -n | uniq
 }
 
 create() { # <name> <cpu> <mem> <gpu> <replicas> [-e K=V ...]: one canfar create, output on stdout
@@ -165,7 +165,7 @@ fill_group() { # <group> <replica ids...>: one single-replica session per missin
   mem="${MEM_GB:-$mem}"  # MEM_GB=128 for the 1.5M-row folktables shards
   for id in "$@"; do
     echo ">> $group: shard $id of $reps (single session)"
-    out=$(create "trr-$group-$(name_tag)-s$id" "$cpu" "$mem" "$gpu" 1 \
+    out=$(create "trr-${group//_/-}-$(name_tag)-s$id" "$cpu" "$mem" "$gpu" 1 \
       -e "GROUP=$group" -e "SHARD_ID=$id" -e "SHARD_COUNT=$reps") || true
     echo "$out" | redact
     if echo "$out" | grep -q "Successfully created"; then
@@ -187,15 +187,25 @@ launch_group() { # <group>
   read -r reps cpu mem gpu <<< "$(group_spec "$group")"
   mem="${MEM_GB:-$mem}"  # MEM_GB=128 for the 1.5M-row folktables shards
   echo ">> $group: $reps replicas, ${cpu}c/${mem}G, gpu=$gpu"
-  out=$(create "trr-$group-$(name_tag)" "$cpu" "$mem" "$gpu" "$reps" -e "GROUP=$group") \
+  out=$(create "trr-${group//_/-}-$(name_tag)" "$cpu" "$mem" "$gpu" "$reps" -e "GROUP=$group") \
     || { echo "$out" | redact; die "$group: canfar create failed"; }
   echo "$out" | redact
   record_sessions "$group" "$out"
   # Skaha sometimes refuses a few replicas of a batch: resubmit those shards once.
   failed=$(failed_replicas "$group" "$out")
   if [ -n "$failed" ]; then
-    echo "!! $group: replicas not created: $(echo $failed); resubmitting them in 30 s"
+    echo "!! $group: replicas reported as not created: $(echo $failed); re-checking in 30 s"
     sleep "${FILL_DELAY:-30}"
+    # Skaha's "failed" report is not reliable (2026-10-13: 9 of 24 reported
+    # replicas were running): resubmit only those absent from `canfar ps`.
+    local running id still=""
+    running=$(canfar ps --all 2>/dev/null | awk '{print $2}')
+    for id in $failed; do
+      echo "$running" | grep -qx "trr-${group//_/-}-$(name_tag)-$id" || still="$still $id"
+    done
+    failed="${still# }"
+    [ -n "$failed" ] || { echo "   all reported replicas exist; nothing to resubmit"; return 0; }
+    echo "!! $group: resubmitting missing replicas: $failed"
     # shellcheck disable=SC2086
     fill_group "$group" $failed
   fi
