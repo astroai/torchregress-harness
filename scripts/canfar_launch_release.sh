@@ -54,7 +54,10 @@ fi
 [ -z "${GH_TOKEN:-}" ] && [ -s "$HOME/.ghtok" ] && GH_TOKEN="$(cat "$HOME/.ghtok")" && export GH_TOKEN
 # Prior Labs key for TabPFN: kept next to the CANFAR cert (same folder the agent
 # sandbox mounts), never in the repo.
-if [ -z "${TABPFN_TOKEN:-}" ]; then
+# NO_TABPFN=1: launch without the TabPFN key (and without TabPFN rows).
+if [ "${NO_TABPFN:-0}" = 1 ]; then
+  unset TABPFN_TOKEN
+elif [ -z "${TABPFN_TOKEN:-}" ]; then
   for f in "$HOME/.canfar/tabpfn_token" "$HOME/mnt/.canfar/tabpfn_token"; do
     if [ -s "$f" ]; then TABPFN_TOKEN="$(tr -d ' \n\r' < "$f")"; export TABPFN_TOKEN; break; fi
   done
@@ -204,9 +207,17 @@ load_state() {
 
 # canfar prints full request URLs (with the GH_TOKEN env) on errors: never echo the token.
 redact() {
-  sed -E 's/(gh[opsu]_)[A-Za-z0-9]{20,}/\1REDACTED/g; s/(hf_)[A-Za-z0-9]{20,}/\1REDACTED/g' |
-    TOK="${TABPFN_TOKEN:-}" perl -pe 'BEGIN { $t = $ENV{TOK} } s/\Q$t\E/REDACTED/g if length $t'
+  # Exact-value redaction of every secret we pass, then pattern fallbacks.  The
+  # canfar CLI must not wrap lines (COLUMNS below): a token split across two
+  # lines escapes both kinds of redaction (seen 2026-10-13).
+  GHT="${GH_TOKEN:-}" PFT="${TABPFN_TOKEN:-}" HFT="${HF_TOKEN:-}" perl -pe '
+    BEGIN { @t = grep { length } @ENV{qw(GHT PFT HFT)} }
+    for my $t (@t) { s/\Q$t\E/REDACTED/g }
+    s/(gh[opsu]_)[A-Za-z0-9]{8,}/$1REDACTED/g; s/(hf_)[A-Za-z0-9]{8,}/$1REDACTED/g;
+    s/(TABPFN_TOKEN(%3D|=))[^&\s]+/$1REDACTED/g; s/(GH_TOKEN(%3D|=))[^&\s]+/$1REDACTED/g'
 }
+# Never let rich wrap canfar's error output (see redact).
+export COLUMNS=100000
 
 case "${1:-}" in
   launch)
