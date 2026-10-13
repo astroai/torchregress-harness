@@ -2469,6 +2469,74 @@ CANONICAL_SCENARIOS: dict[str, CanonicalScenario] = {
 # ---------------------------------------------------------------------------
 
 
+_TABRED_NAMES = {
+    "sberbank": "sberbank-housing",
+    "cooking": "cooking-time",
+    "delivery": "delivery-eta",
+    "maps": "maps-routing",
+    "weather": "weather",
+}
+
+
+def _tabred_array(base: Path, stem: str) -> np.ndarray | None:
+    for name in (f"{stem.lower()}.npy", f"{stem.upper()[0]}{stem[1:]}.npy", f"{stem.upper()}.npy"):
+        f = base / name
+        if f.exists():
+            return np.load(f, allow_pickle=False)
+    return None
+
+
+def _tabred_split(base: Path, part: str) -> np.ndarray | None:
+    for f in (
+        base / "splits" / "default" / f"{part}.npy",
+        base / "split-default" / f"{part}_idx.npy",
+    ):
+        if f.exists():
+            return np.load(f, allow_pickle=False).astype(np.int64).reshape(-1)
+    return None
+
+
+def _load_tabred_native(dataset_id: str, *, n_samples: int, seed: int) -> SplitsDict | None:
+    """Official TabReD layout under a staged root, or None when not staged."""
+    name = _TABRED_NAMES.get(dataset_id, dataset_id)
+    roots, _ = _staged_roots(os.environ.get("TORCHREGRESS_HARNESS_TABRED_ROOT", ""), "tabred")
+    base = next((r / name for r in roots if (r / name).is_dir()), None)
+    if base is None:
+        return None
+    blocks = [a for s in ("x_num", "x_bin", "x_cat") if (a := _tabred_array(base, s)) is not None]
+    y = _tabred_array(base, "y")
+    parts = {k: _tabred_split(base, k) for k in ("train", "val", "test")}
+    if not blocks or y is None or any(v is None for v in parts.values()):
+        return None
+    X = np.concatenate(
+        [np.asarray(b, dtype=np.float64).reshape(len(y), -1) for b in blocks], axis=1
+    )
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    tr = np.concatenate([parts["train"], parts["val"]])  # type: ignore[list-item]
+    te = parts["test"]
+    rng = np.random.default_rng(seed)
+    if n_samples < len(tr):
+        tr = rng.choice(tr, n_samples, replace=False)
+    n_test = max(int(0.3 * len(tr)), 1)
+    if n_test < len(te):  # type: ignore[arg-type]
+        te = rng.choice(te, n_test, replace=False)
+    X_train, X_test = X[tr], X[te]
+    med = np.nanmedian(X_train, axis=0)
+    med = np.where(np.isfinite(med), med, 0.0)
+    X_train = np.where(np.isfinite(X_train), X_train, med)
+    X_test = np.where(np.isfinite(X_test), X_test, med)
+    keep = X_train.std(0) > 0
+    X_train, X_test = X_train[:, keep], X_test[:, keep]
+    scaler = StandardScaler().fit(X_train)
+    return {
+        "X_train": scaler.transform(X_train).astype(np.float32),
+        "X_test": scaler.transform(X_test).astype(np.float32),
+        "y_train": y[tr].astype(np.float32),
+        "y_test": y[te].astype(np.float32),
+        "_tabred_split": "default (time-based)",
+    }
+
+
 def _load_tabred(
     dataset_id: str,
     n_rows: int,
@@ -2479,11 +2547,23 @@ def _load_tabred(
     test_size: float = 0.3,
     seed: int = 42,
 ) -> SplitsDict:
-    """Generic TabReD loader: try local data, fall back to synthetic."""
+    """Generic TabReD loader: staged native data, local CSV, else synthetic.
+
+    Staged native data (``scripts/skaha_stage_data.sh`` runs the official
+    ``tabred download``) lives in ``staged/tabred/<name>/`` and is used with
+    TabReD's canonical *time-based* split (train + val -> train, test -> test),
+    as in the TabReD paper; the training part is then subsampled to
+    ``n_samples`` rows.  Numeric and binary features are used as is (NaN ->
+    training median); categorical codes enter as ordinal numbers.
+    """
     import pandas as pd
 
-    csv_path = Path(data_dir) / f"{dataset_id}.csv"
     splits: SplitMetadata = {}
+    native = _load_tabred_native(dataset_id, n_samples=n_samples, seed=seed)
+    if native is not None:
+        return native
+
+    csv_path = Path(data_dir) / f"{dataset_id}.csv"
 
     # Existence check stays OUTSIDE the parse handler: a missing CSV is an
     # expected fallback trigger, not a parsing failure to swallow (DATA-02).

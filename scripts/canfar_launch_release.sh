@@ -318,11 +318,13 @@ case "${1:-}" in
     RUN_TAG="stage_$(date +%Y%m%d_%H%M)"
     GH_TOKEN=$(gh_token)
     set_env_args
+    # STAGE_WHAT=tabred (or folktables): stage only those (default: both).
+    [ -n "${STAGE_WHAT:-}" ] && ENV_ARGS+=(-e "STAGE_WHAT=$STAGE_WHAT")
     out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-stage-$(name_tag)" \
       --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_stage_data.sh)" 2>&1) \
       || { echo "$out" | redact; die "stage: canfar create failed"; }
     echo "$out" | redact
-    echo "stage -> /arc/projects/ots/torchregress-harness/datasets/staged/folktables/stage.log"
+    echo "stage -> /arc/projects/ots/torchregress-harness/datasets/staged/stage.log"
     ;;
   *)
     sed -n '2,23p' "$0"; exit 1 ;;
