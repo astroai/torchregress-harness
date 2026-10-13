@@ -21,8 +21,19 @@ from .metrics import compute_all_metrics, infinite_interval_note
 
 
 def _inverse_transform_y(y: np.ndarray, y_scaler: Any) -> np.ndarray:
-    """Inverse-transform standardised targets back to original scale."""
-    return y_scaler.inverse_transform(y.reshape(-1, 1)).ravel().astype(np.float64)
+    """Inverse-transform standardised targets back to original scale.
+
+    Applied as the scaler's affine map (``y * scale_ + mean_``) rather than
+    ``inverse_transform``: sklearn rejects non-finite input, but conformal
+    bounds are legitimately ``+-inf`` when a (Mondrian / prevalence) group has
+    too few calibration points -- which failed every ``Zoo_Prevalence`` row.
+    """
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    mean = getattr(y_scaler, "mean_", None)
+    scale = getattr(y_scaler, "scale_", None)
+    if mean is None or scale is None or np.size(mean) != 1:
+        return y_scaler.inverse_transform(y.reshape(-1, 1)).ravel().astype(np.float64)
+    return y * float(np.ravel(scale)[0]) + float(np.ravel(mean)[0])
 
 
 def _inverse_transform_predictions(

@@ -57,6 +57,9 @@ _NOT_STAGED = (
     "appa_age_tiny",
     "galaxiesml_cutouts",
 )
+# Datasets of >= 1M rows: their tabular-suite jobs form the ``tabular_big``
+# group (GPU, 128 GB) instead of sharing 32 GB CPU sessions with small jobs.
+BIG_DATASETS = frozenset({"tlc_fare", "folktables_eiv", "folktables_all"})
 EXCLUDED_DATASETS = frozenset(
     {"imdb_wiki", "imdb_wiki_fullres", "nyu_depth_v2_fullres", *_NOT_STAGED}
 )
@@ -64,24 +67,31 @@ EXCLUDED_DATASETS = frozenset(
 
 def jobs(group: str) -> list[tuple[str, str]]:
     """``(suite, dataset)`` pairs for a group, in a stable order."""
-    if group == "tabular":
+    if group in ("tabular", "tabular_big"):
         taken = {s for g in GROUPS.values() for s in g}
         suites = tuple(s for s in ALL_SUITES if s not in taken)
     elif group in GROUPS:
         suites = GROUPS[group]
     else:
-        raise ValueError(f"unknown group {group!r}; expected tabular, {', '.join(GROUPS)}")
+        raise ValueError(
+            f"unknown group {group!r}; expected tabular, tabular_big, {', '.join(GROUPS)}"
+        )
     out: list[tuple[str, str]] = []
     for suite in suites:
         for dataset in ALL_SUITES[suite]().supported_datasets:
-            if dataset not in EXCLUDED_DATASETS:
-                out.append((suite, dataset))
+            if dataset in EXCLUDED_DATASETS:
+                continue
+            if group in ("tabular", "tabular_big") and (
+                (dataset in BIG_DATASETS) != (group == "tabular_big")
+            ):
+                continue
+            out.append((suite, dataset))
     return out
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("group", choices=["tabular", *GROUPS])
+    parser.add_argument("group", choices=["tabular", "tabular_big", *GROUPS])
     args = parser.parse_args(argv)
     for suite, dataset in jobs(args.group):
         print(suite, dataset)

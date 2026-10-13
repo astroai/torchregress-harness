@@ -35,13 +35,14 @@ OUT_ROOT="${OUT_ROOT:-$ARC_PROJ/runs}"
 OUT_DIR="$OUT_ROOT/$RUN_TAG/$GROUP"
 
 # Pins (keep in sync with EXTERNAL_PINS.md).
-MAPIE_PIN="${MAPIE_PIN:-3b84b8212d}"
-TU_PIN="${TU_PIN:-3f82fe5d15}"
-LUQBOX_REF="${LUQBOX_REF:-v0.4.0}"
+MAPIE_PIN="${MAPIE_PIN:-929740af07f53a9b1856c8d5b37356f75b5096db}"
+TU_PIN="${TU_PIN:-3f82fe5d15a7bf877a821731baadef1e4731c31d}"
+LUQBOX_REF="${LUQBOX_REF:-d1b7f6a49995c70eeef9fc878f2967f83273c49d}"  # main (was v0.4.0)
 SBI_PIN="${SBI_PIN:-29af13750100b61ad528c3f8a49daa0ef8c96881}"
 # Tabular foundation models track their latest code: git default branch
 # (override with a tag / SHA), falling back to the newest PyPI release when the
 # branch does not build.  The installed commit lands in versions_replica_*.txt.
+PZFLOW_PIN="${PZFLOW_PIN:-bf9c70d6d1c2ea5d9678868d3d77f1bd203d33df}"  # git main
 SDM_REF="${SDM_REF:-main}"
 TABICL_REF="${TABICL_REF:-main}"
 TABPFN_REF="${TABPFN_REF:-main}"
@@ -107,7 +108,7 @@ cd "$WORK/torchregress-harness" || exit 2
 
 # --- 2. environment -------------------------------------------------------------
 # GPU groups use the pixi `gpu` env (CUDA pytorch); the default env is CPU-only.
-case "$GROUP" in fm|image) PENV=gpu ;; *) PENV=default ;; esac
+case "$GROUP" in fm|image|tabular_big) PENV=gpu ;; *) PENV=default ;; esac
 [ "${USE_GPU:-0}" = 1 ] && PENV=gpu  # ALL_GPU=1 launches: CUDA env for every group
 if ! command -v pixi >/dev/null 2>&1; then
   curl -fsSL https://pixi.sh/install.sh | bash
@@ -157,7 +158,7 @@ case "$GROUP" in
   sbi)
     pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN" pyro-ppl future
     pip_install --no-deps "sbibm==1.1.0"
-    pip_install "jax[cpu]" pzflow
+    pip_install "jax[cpu]" "git+https://github.com/jfcrenshaw/pzflow.git@$PZFLOW_PIN"
     ;;
   fm)
     latest_install() { # <pypi name> <git url> <ref>
@@ -181,8 +182,8 @@ case "$GROUP" in
     pip_install timm torchvision Pillow requests nibabel
     pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # image_density_parity
     ;;
-  tabular)
-    pip_install "jax[cpu]" pzflow
+  tabular|tabular_big)
+    pip_install "jax[cpu]" "git+https://github.com/jfcrenshaw/pzflow.git@$PZFLOW_PIN"
     pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # density_parity
     ;;
 esac

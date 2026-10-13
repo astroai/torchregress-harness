@@ -22,9 +22,9 @@ how to install / re-pin them.
 
 | Library | Source | Commit | Date | Reason for the pin |
 |---------|--------|--------|------|--------------------|
-| **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `3b84b8212d` | 2026-09-30 | Newest `master` (`1.5.1.dev6`), ahead of PyPI 1.5.0 (2026-08-05); includes Cross-CQR + Adaptive Conformal Risk Control. Previous pin `6478f16c9a` (2026-08-04) |
-| **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (branch `main`) | `3f82fe5d15` | 2026-08-07 | `main` HEAD after tag v0.13.0 (`94e511a737`, the previous pin); same v0.13 regression-routine API |
-| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (tag `v0.4.0`) | `2032b2e87a` | 2026-09-28 | Stress-matrix + image comparator (`luqbox_*` rows). v0.4.0 verified with the existing adapters on 2026-10-05 (MLP signature unchanged). Previous pin v0.3.0 `df6366e` |
+| **MAPIE** | `https://github.com/scikit-learn-contrib/MAPIE` (branch `master`) | `929740af07` | 2026-10-13 | Newest `master` (`1.5.1.dev13`), ahead of PyPI 1.5.0 and tag v1.5.0rc1; smoke-tested with `conformal` and `uq_layer`. Previous: `3b84b8212d` |
+| **torch-uncertainty** | `https://github.com/torch-uncertainty/torch-uncertainty` (branch `main`) | `3f82fe5d15` | 2026-08-07 (still `main` HEAD on 2026-10-13) | `main` HEAD after tag v0.13.0 (`94e511a737`, the previous pin); same v0.13 regression-routine API |
+| **Lightning-UQ-Box** | `https://github.com/lightning-uq-box/lightning-uq-box` (branch `main`) | `d1b7f6a499` | 2026-10-13 | `main` (`0.5.0.dev0`), ahead of tag v0.4.0 (previous pin); `stress_matrix` smoke-tested |
 | **TabPFN** | git `PriorLabs/TabPFN` `main` (fallback: newest PyPI) | latest at launch | 2026-10-10 | Foundation-model rows when a Prior Labs API key is present (`TABPFN_TOKEN`; the launcher reads `~/.canfar/tabpfn_token`). The account must have accepted the TabPFN-3.5 licence (non-commercial, non-production) at https://ux.priorlabs.ai; the Hub repo `Prior-Labs/tabpfn_3_5` is not gated, so no `HF_TOKEN`. Sessions set `TABPFN_NO_BROWSER=1` and cache weights on /arc (`TABPFN_MODEL_CACHE_DIR`). Last PyPI checked: 9.1.0 |
 | **TabICL** | git `soda-inria/tabicl` `main` (fallback: newest PyPI) | latest at launch | 2026-10-10 | `TabICL` rows (v2 regressor checkpoint `tabicl-regressor-v2-*`, from the Hub `jingang/TabICL`). Last PyPI checked: 2.2.0 |
 | **structured-data-models (sdm)** | `https://github.com/NVIDIA/structured-data-models` (branch `main`, Apache-2.0) | latest `main` at launch (was `98f61289c7`) | 2026-10-10 | One interface to the 2026 tabular foundation models: NVIDIA **KumoTabular** (large; weights OpenMDW-1.1) and Google **TabFM** v1.0.0 (weights `tabfm-non-commercial-v1.0`: benchmarking only, the suite passes `accept_license=True`). KumoTabular returns 999 regression quantiles; **TabFM's regression head is a single point output** (`out_channels=1`), so it is scored as a point model and the FM UQ suites give it split-conformal residual distributions. sdm's TabICLv2 is not benchmarked: `tabicl>=2.2` loads the same v2 checkpoint (row `TabICL`). TabFM does not fit in 7 GB RAM: GPU sessions only |
@@ -37,9 +37,9 @@ how to install / re-pin them.
 | **folktables** | PyPI `folktables` (Ding et al., NeurIPS 2021) | `0.0.12` | — | ACS PUMS loader (`folktables_income`, `folktables_decile` modern benchmarks) |
 | **openpyxl** | PyPI `openpyxl` | PyPI latest | — | xlsx reader for UCI Energy Efficiency (`energy_efficiency`) |
 | **h5py** | PyPI `h5py` | PyPI latest | — | HDF5 reader for GalaxiesML photometry (`galaxiesml_eiv`) |
-| **pzflow** | PyPI `pzflow` (Crenshaw et al., LSST-DESC) | PyPI latest | — | JAX conditional flows + bundled photo-z galaxies (`pzflow_NSF`, `pzflow_galaxies`) |
+| **pzflow** | `https://github.com/jfcrenshaw/pzflow` (branch `main`) | `bf9c70d6d1` | 2026-10-13 | JAX conditional flows + bundled photo-z galaxies (`pzflow_NSF`, `pzflow_galaxies`, `density_parity`); 4.0.0, smoke-tested |
 | **sbibm** | PyPI `sbibm` (Lueckmann et al., NeurIPS 2021, `--no-deps` + pyro-ppl/future) | `1.1.0` | — | SBI tasks, reference posteriors/C2ST, and held-out simulator draws for SBC (`two_moons`, `slcp`, Gaussian Linear/Mixture, Bernoulli GLM). Draws are frozen to `$TORCHREGRESS_HARNESS_CACHE/sbibm/` on first use (`tools/freeze_sbibm.py`); later runs never import sbibm |
-| **sbi** | `https://github.com/sbi-dev/sbi` (branch `main`) | `29af137501` | 2026-10-06 | Latest git, ahead of PyPI 0.27.0: amortized NPE (NSF/MAF/MDN), FMPE, NPSE comparators and SBC/TARP diagnostics (`sbi_parity`). `main` rejects estimator options a model does not use, so the suite passes per-model options |
+| **sbi** | `https://github.com/sbi-dev/sbi` (branch `main`) | `29af137501` | 2026-10-06 (still `main` HEAD on 2026-10-13) | Latest git, ahead of PyPI 0.27.0: amortized NPE (NSF/MAF/MDN), FMPE, NPSE comparators and SBC/TARP diagnostics (`sbi_parity`). `main` rejects estimator options a model does not use, so the suite passes per-model options |
 | **econml** | PyPI `econml` (Microsoft) | PyPI latest | — | DRLearner causal comparator (`EconML_DRLearner`) |
 | **Kaggle datasets** | Kaggle API (user token, `~/.kaggle/kaggle.json`) | — | — | IHDP (`konradb/ihdp-data`), UCF-QNRF mirrors; cached under the harness cache, never home |
 | **CSRNet** | native reimplementation from Li, Zhang, Chen (CVPR 2016), no external package | paper | — | VGG-16 frontend (conv1–conv3) + 6 dilated backend convs, 1/8-resolution density maps, MSE; unpretrained; `crowd_counting/CSRNet` with `LibraryVersion: Li-Zhang-Chen-2016-native-unpretrained` |
@@ -54,14 +54,14 @@ how to install / re-pin them.
 
 ```bash
 # MAPIE from git (records the commit for provenance via direct_url.json)
-pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d"
+pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@929740af07f53a9b1856c8d5b37356f75b5096db"
 
 # torch-uncertainty from git (main HEAD after v0.13.0)
 pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15"
 pip install lightning   # required by torch-uncertainty routines
 
 # Lightning-UQ-Box (stress-matrix comparator)
-pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@v0.4.0"
+pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@d1b7f6a49995c70eeef9fc878f2967f83273c49d"
 
 # sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
 pip install "git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881" pyro-ppl future
@@ -74,7 +74,7 @@ pip install --no-deps "sbibm==1.1.0"
 In the pixi env (linux CI box):
 
 ```bash
-pixi run pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d"
+pixi run pip install "git+https://github.com/scikit-learn-contrib/MAPIE.git@929740af07f53a9b1856c8d5b37356f75b5096db"
 pixi run pip install "git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15" lightning
 ```
 

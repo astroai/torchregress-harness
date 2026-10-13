@@ -21,6 +21,7 @@
 # Sizing (override with env): replicas x cores/RAM/GPU per group.
 #   tabular  TAB_REPLICAS=12  8 cores 32 GB          (116 suite x dataset jobs x seeds)
 #   sbi      SBI_REPLICAS=5   8 cores 32 GB          (5 sbibm tasks x seeds)
+#   tabular_big BIG_REPLICAS=3 8 cores 128 GB, 1 GPU (tabular-suite jobs on >= 1M-row datasets)
 #   fm       FM_REPLICAS=2    8 cores 64 GB, 1 GPU   (foundation models)
 #   image    IMG_REPLICAS=6   8 cores 64 GB, 1 GPU   (image suites)
 # Results: /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/<group>/
@@ -133,6 +134,7 @@ group_spec() { # <group> -> "replicas cpu memGB gpu"
     tabular) echo "${TAB_REPLICAS:-12} 8 32 0" ;;
     sbi) echo "${SBI_REPLICAS:-5} 8 32 0" ;;
     fm) echo "${FM_REPLICAS:-2} 8 64 1" ;;
+    tabular_big) echo "${BIG_REPLICAS:-3} 8 128 1" ;;  # >= 1M-row datasets (tools/release_jobs.py)
     image) echo "${IMG_REPLICAS:-6} 8 64 1" ;;
     *) die "unknown group: $1" ;;
   esac
@@ -229,7 +231,7 @@ case "${1:-}" in
     set_env_args
     echo "run $RUN_TAG  harness $HARNESS_REF  torchregress $LIB_REF  image $IMAGE"
     # RUN_GROUPS="fm image" launches a subset (default: all four).
-    for group in ${RUN_GROUPS:-tabular sbi fm image}; do launch_group "$group"; done
+    for group in ${RUN_GROUPS:-tabular tabular_big sbi fm image}; do launch_group "$group"; done
     echo "state saved to $STATE; check progress with: $0 status"
     ;;
   status)
@@ -243,7 +245,7 @@ case "${1:-}" in
     # into release_logs.txt, tokens redacted: paste or share that file.
     load_state
     out="$HERE/release_logs.txt"; : > "$out"
-    for group in tabular sbi fm image report; do
+    for group in tabular tabular_big sbi fm image report; do
       ids=$(sed -n "s/^SESSION_$group=//p" "$STATE")
       [ -n "$ids" ] || continue
       [ "${ALL:-0}" = 1 ] || ids=$(echo "$ids" | head -n 1)
@@ -278,7 +280,7 @@ case "${1:-}" in
       fill_group "$2" ${ids//,/ }
     else
       found=0
-      for group in tabular sbi fm image; do
+      for group in tabular tabular_big sbi fm image; do
         ids=$(sed -n "s/^FAILED_$group=//p" "$STATE")
         [ -n "$ids" ] || continue
         found=1
