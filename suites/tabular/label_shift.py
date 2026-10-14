@@ -16,7 +16,12 @@ distance to the empirical target bin prior (the oracle). The
 ``ShiftFactoredTransport`` rows transport the Gaussian predictive to the
 unlabeled shifted target (``ShiftFactoredPredictiveTransport``; the
 ``+Conformal`` variant calibrates on the last 20% of the training rows) and
-are scored on the shifted target rows (TargetMAE, NLL, 90% coverage/width).
+are scored on the shifted target rows (TargetMAE, NLL, 90% coverage/width;
+``Base*`` columns score the untransported Gaussian predictive on the same rows).
+Their ``PriorTV`` is TV(source prior, estimated target prior), the size of the
+estimated shift; ``SourcePriorTVOracle`` / ``RawPriorTVOracle`` /
+``AdaptedPriorTVOracle`` are the uncorrected, EM and applied priors vs the oracle
+on the TT rows' bins (comparable with their ``PriorTV``).
 
 COVARIATE-shift protocol (WeightedCP rows): the target is resampled by
 P(select) logistic in X (known shift on features). A split-CP baseline vs
@@ -117,6 +122,46 @@ def prior_ratio_weights(
     extra["PriorTV"] = float(0.5 * np.abs(q - true_prior).sum())
     w = q[_bin_index(y_tgt, edges)] / source_prior[_bin_index(y_tgt, edges)]
     return w / max(float(w.mean()), 1e-12), extra
+
+
+def _transport_prior_oracle_tv(
+    transport: Any,
+    meta: dict[str, Any],
+    y_train: np.ndarray,
+    y_tgt: np.ndarray,
+    n_bins: int = _N_SHIFT_BINS,
+) -> dict[str, float]:
+    """Transport priors vs the oracle target prior, on the TT_BBSE / TT_EM bins.
+
+    The support-grid priors are summed into the ``n_bins`` source-quantile bins
+    of ``prior_ratio_weights`` (each grid point goes to the bin holding it), so
+    the ``*PriorTVOracle`` columns are comparable with the TT rows' ``PriorTV``:
+    ``SourcePriorTVOracle`` is the uncorrected error (no shift assumed),
+    ``RawPriorTVOracle`` the EM estimate, ``AdaptedPriorTVOracle`` the stabilised
+    (shrunk, ratio-clipped) prior the transport applies.
+    """
+    from torchregress.test_time import gaussian_bin_edges_from_targets
+
+    state = getattr(transport, "state_", None)
+    keys = ("source_prior", "target_prior_raw", "target_prior")
+    if state is None or not all(k in meta for k in keys):
+        return {}
+    edges = gaussian_bin_edges_from_targets(y_train, n_bins)
+    support = np.asarray(state.source_support, dtype=np.float64).reshape(-1)
+    grid_bin = _bin_index(support, edges)
+    true_prior = _bin_prior(y_tgt, edges)
+
+    def tv(grid_prior: Any) -> float:
+        q = np.bincount(
+            grid_bin, weights=np.asarray(grid_prior, dtype=np.float64), minlength=len(edges) - 1
+        )
+        return float(0.5 * np.abs(q / max(q.sum(), 1e-12) - true_prior).sum())
+
+    return {
+        "SourcePriorTVOracle": tv(meta["source_prior"]),
+        "RawPriorTVOracle": tv(meta["target_prior_raw"]),
+        "AdaptedPriorTVOracle": tv(meta["target_prior"]),
+    }
 
 
 def _shift_target(
@@ -584,13 +629,30 @@ class LabelShiftSuite(HarnessRunner):
             lo, hi = mean - _Z90 * std, mean + _Z90 * std
         y_shift = y_true[tgt_idx]
         dist = compute_distribution_metrics(mean, std, y_shift)
+        # Untransported Gaussian predictive on the same shifted rows (the baseline
+        # the transport has to beat).
+        base_mean = y_pred[tgt_idx]
+        base_std = np.full_like(base_mean, sigma)
+        base_dist = compute_distribution_metrics(base_mean, base_std, y_shift)
+        base_cov = _finite_interval_stats(
+            base_mean - _Z90 * base_std, base_mean + _Z90 * base_std, y_shift
+        )["ShiftCoverage"]
         return {
             "TargetMAE": float(np.mean(np.abs(mean - y_shift))),
             "RMSE": float(np.sqrt(np.mean((y_pred - y_true) ** 2))),
             "NLL": dist["NLL"],
             "CRPS": dist["CRPS"],
             **_finite_interval_stats(lo, hi, y_shift),
+            "BaseNLL": base_dist["NLL"],
+            "BaseShiftCoverage": base_cov,
+            "BaseTargetMAE": float(np.mean(np.abs(base_mean - y_shift))),
+            # TV(source prior, estimated target prior) on the support grid: the size of
+            # the estimated shift, NOT an error (TT_BBSE / TT_EM PriorTV is vs the oracle).
             "PriorTV": float(meta.get("prior_source_target_tv", float("nan"))),
+            **_transport_prior_oracle_tv(transport, meta, y_train, y_shift),
+            "PriorMassOutsideSourceRange": float(
+                meta.get("prior_mass_outside_source_range", float("nan"))
+            ),
             "TransportApplied": float(bool(meta.get("transport_applied", False))),
             "EMConverged": float(bool(meta.get("estimate_converged", False))),
         }
