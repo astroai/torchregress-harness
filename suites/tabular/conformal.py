@@ -297,16 +297,30 @@ def _mapie_predict(pred_obj: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.nd
     zurich_delays, which OOM-killed the 32 GB session.  Intervals are
     per-test-point, so blocking gives the same bounds.
     """
+    n_ref = int(getattr(pred_obj, "_n_conformalize_rows", 0) or _MAPIE_REF_ROWS)
+    _, lo, hi = mapie_predict_blocked(pred_obj, X_test, n_ref=n_ref)
+    return lo, hi
+
+
+def mapie_predict_blocked(
+    pred_obj: Any, X_test: np.ndarray, *, n_ref: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """``predict_interval`` in test-row blocks: (point, lower, upper).
+
+    ``n_ref`` is the number of conformity scores aggregated per test point
+    (the full fit set for cross-conformal); blocks keep each
+    (rows, n_ref) array under ~2**24 entries.
+    """
     X = _as_float64(X_test)
-    n_ref = max(1, int(getattr(pred_obj, "_n_conformalize_rows", 0) or _MAPIE_REF_ROWS))
-    block = max(1, (1 << 24) // n_ref)
-    los, his = [], []
+    block = max(1, (1 << 24) // max(1, int(n_ref)))
+    pts, los, his = [], [], []
     for start in range(0, max(len(X), 1), block):
-        _, intervals = pred_obj.predict_interval(X[start : start + block])
+        pred, intervals = pred_obj.predict_interval(X[start : start + block])
         lo, hi = _mapie_intervals_to_bounds(intervals)
+        pts.append(np.asarray(pred).reshape(-1))
         los.append(lo)
         his.append(hi)
-    return np.concatenate(los), np.concatenate(his)
+    return np.concatenate(pts), np.concatenate(los), np.concatenate(his)
 
 
 def _mapie_split_linear_fit(

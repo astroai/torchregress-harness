@@ -96,6 +96,7 @@ from suites.tabular.conformal import (
     _mapie_coverage_and_width,
     _mapie_intervals_to_bounds,
     _mapie_version,
+    mapie_predict_blocked,
 )
 
 try:
@@ -580,9 +581,9 @@ def _apply(
                 random_state=seed,
             )
             ccr.fit_conformalize(X_pool, y_pool)
-            pred, iv = ccr.predict_interval(X_test)
-            lo, hi = _mapie_intervals_to_bounds(iv)
-            return _interval(lo, hi, np.asarray(pred).reshape(-1))
+            # CV+ aggregates (n_test, n_pool) scores: predict in row blocks.
+            pred, lo, hi = mapie_predict_blocked(ccr, X_test, n_ref=len(y_pool))
+            return _interval(lo, hi, pred)
         from torchregress.losses.conformal import CVPlus, JackknifePlus
 
         n_folds = int(fold.max()) + 1
