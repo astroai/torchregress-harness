@@ -1274,6 +1274,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             with torch.no_grad():
                 params = model(torch.from_numpy(X_test).float().to(current_device()))
                 lw, means, chol = loss_fn._extract_distribution_parameters(params)
+                if getattr(loss_fn, "full_parameterization", "covariance") == "precision":
+                    # The factor is T with precision T T^T (library default
+                    # since 0.3.0); T^{-T} is a square root of the covariance.
+                    chol = torch.linalg.inv(chol).transpose(-1, -2)
             samples = _mdn_full_samples(
                 lw.detach().cpu().numpy().astype(np.float64),
                 means.detach().cpu().numpy().astype(np.float64),
