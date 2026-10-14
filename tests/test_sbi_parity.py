@@ -146,3 +146,46 @@ def test_sbibm_frozen_copy_is_read_without_sbibm(tmp_path, monkeypatch) -> None:
     assert not splits.get("_synthetic_fallback")
     assert splits["y_test"].tolist() == [[0.5, 0.5]]
     assert "prior_dist" not in splits
+
+
+def _wide_prior_splits(n: int = 2000, seed: int = 0) -> dict[str, np.ndarray]:
+    """gaussian_mixture-like task: theta ~ U(-10, 10)^2, x = theta + noise."""
+    rng = np.random.default_rng(seed)
+    theta = rng.uniform(-10.0, 10.0, size=(n, 2)).astype(np.float32)
+    x = (theta + 0.3 * rng.standard_normal((n, 2))).astype(np.float32)
+    return {"X_train": x, "y_train": theta}
+
+
+def test_torchregress_nsf_reaches_wide_prior_beyond_spline_bound() -> None:
+    """Regression: raw theta in U(-10, 10) put |theta| > 5 outside the NSF
+    spline domain and posteriors collapsed onto the bound edge (sbibm
+    gaussian_mixture C2ST 0.997). The suite now derives the tail bound from
+    the training theta range."""
+    import warnings
+
+    suite = SBIParitySuite()
+    splits = _wide_prior_splits()
+    cfg = HarnessConfig(epochs=8, batch_size=128, lr=3e-3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)  # spline-range warning must not fire
+        state = suite.fit("torchregress_NSF", splits, cfg)
+    x_obs = np.array([-9.0, 8.0], dtype=np.float32)
+    draws = suite._posterior_samples(state, x_obs, cfg, n_draws=1000)
+    assert draws.shape == (1000, 2)
+    # Draws centred near the observation, not piled at the +/-5 bound edge.
+    np.testing.assert_allclose(draws.mean(0), x_obs, atol=1.0)
+    assert float((np.abs(draws) > 6.0).mean()) > 0.5
+    assert np.all(draws.std(0) < 2.0)
+
+
+def test_torchregress_nsf_tail_bound_follows_theta_range() -> None:
+    """Wide priors widen the spline domain; narrow ones keep zuko's default 5
+    (so twomoons/slcp/gaussian_linear rows are unchanged)."""
+    suite = SBIParitySuite()
+    cfg = HarnessConfig(epochs=1, batch_size=256)
+    wide = suite.fit("torchregress_NSF", _wide_prior_splits(n=512), cfg)
+    assert wide["flow"].flow.tail_bound >= 12.0
+    rng = np.random.default_rng(0)
+    theta = rng.uniform(-1.0, 1.0, size=(512, 2)).astype(np.float32)
+    narrow = suite.fit("torchregress_NSF", {"X_train": theta, "y_train": theta}, cfg)
+    assert getattr(narrow["flow"].flow, "tail_bound", 5.0) == 5.0
