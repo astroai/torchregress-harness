@@ -24,6 +24,10 @@ Methods
   calibrated by ``SLSConformal`` (box of the calibrated region)
 * ``MultivariateGaussian+Conformal`` — matched baseline: Mahalanobis-score
   ``MultivariateScoreConformal`` ellipsoid (box), same carve
+* ``MultivariateGaussian+LevelSetCP`` — the same Gaussian model and carve, with a
+  ``LevelSetConformalPredictor`` on the negative log-density score: the
+  calibrated region is the highest-density ellipsoid whose radius adapts to the
+  predicted volume (box via the base class's level-set grid search)
 """
 
 from __future__ import annotations
@@ -446,6 +450,69 @@ def _sls_region_box(
         return mu.detach().cpu().numpy(), y_np.min(axis=0), y_np.max(axis=0)
 
 
+def _gaussian_density_level_set_cp(D: int, *, alpha: float = 0.1, grid_size: int = 2048) -> Any:
+    """Density (HPD) level-set conformal predictor for a full-covariance Gaussian head.
+
+    A concrete ``torchregress`` ``LevelSetConformalPredictor``: the
+    nonconformity score is the Gaussian negative log-density
+    ``s(x, y) = 0.5 (y - mu)^T Sigma^-1 (y - mu) + 0.5 log det(2 pi Sigma)``,
+    so the calibrated region ``{y : s(x, y) <= q}`` is the highest-density
+    ellipsoid of Mahalanobis radius ``r(x) = 2 (q - 0.5 log det(2 pi Sigma))``.
+    Unlike ``MultivariateScoreConformal`` (constant Mahalanobis radius), the
+    radius adapts to the predicted volume.  Per output dimension the
+    region's projection is the sublevel set of the profile score
+    ``0.5 (y_d - mu_d)^2 / Sigma_dd + 0.5 log det(2 pi Sigma)``, found with the
+    base class's shared ``_grid_search_level_set`` (exact box up to one grid
+    step; an empty level set, ``r(x) < 0``, collapses to ``mu_d``).
+
+    ``y_pred`` is the raw head output ``[mu (D), Cholesky params]``.
+    """
+    from torchregress.losses.conformal import LevelSetConformalPredictor
+
+    class _GaussianDensityLevelSetCP(LevelSetConformalPredictor):
+        def _moments(self, y_pred: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+            mu = y_pred[:, :D]
+            cov = _covariance_from_cholesky_params(y_pred[:, D:], D)
+            log_norm = 0.5 * (D * float(np.log(2.0 * np.pi)) + torch.logdet(cov))
+            return mu, cov, log_norm
+
+        def _compute_scores(self, y_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            mu, cov, log_norm = self._moments(y_pred)
+            diff = (target.reshape(-1, D) - mu).unsqueeze(-1)
+            maha = (diff.transpose(-1, -2) @ torch.linalg.solve(cov, diff)).reshape(-1)
+            return 0.5 * maha + log_norm
+
+        def _build_intervals(
+            self,
+            y_pred: torch.Tensor,
+            q: torch.Tensor,
+            difficulty: torch.Tensor | None = None,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            del difficulty
+            mu, cov, log_norm = self._moments(y_pred)
+            var = torch.diagonal(cov, dim1=-2, dim2=-1)
+            thr = q.reshape(-1).to(mu).expand(mu.shape[0]) if q.numel() == 1 else q.reshape(-1)
+            radius = (2.0 * (thr - log_norm)).clamp_min(0.0)
+            finite = torch.isfinite(radius)
+            r_max = float(radius[finite].max()) if bool(finite.any()) else 0.0
+            lowers, uppers = [], []
+            for d in range(D):
+                half = torch.sqrt(r_max * var[:, d]) * 1.05 + 1e-6
+                y_lo = float((mu[:, d] - half).min())
+                y_hi = float((mu[:, d] + half).max())
+
+                def profile(y_grid: torch.Tensor, _x: torch.Tensor, d: int = d) -> torch.Tensor:
+                    z2 = (y_grid.unsqueeze(0) - mu[:, d : d + 1]) ** 2 / var[:, d : d + 1]
+                    return 0.5 * z2 + log_norm.unsqueeze(1)
+
+                lo, hi = self._grid_search_level_set(profile, mu, thr, y_lo, y_hi, grid_size)
+                lowers.append(lo)
+                uppers.append(hi)
+            return torch.cat(lowers, dim=1), torch.cat(uppers, dim=1)
+
+    return _GaussianDensityLevelSetCP(alpha=alpha)
+
+
 _ES_VAL_FRAC = 0.15
 _ES_PATIENCE = 10
 
@@ -533,6 +600,7 @@ _CONFORMAL_METHODS = (
     "SLS+SLSConformal",
     "SLS_lowrank+SLSConformal",
     "MultivariateGaussian+Conformal",
+    "MultivariateGaussian+LevelSetCP",
 )
 _CONFORMAL_CAL_FRAC = 0.25  # same as ConformalSuite.CALIBRATION_FRAC
 
@@ -596,6 +664,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "SLS+SLSConformal",
             "SLS_lowrank+SLSConformal",
             "MultivariateGaussian+Conformal",
+            "MultivariateGaussian+LevelSetCP",
             "MDN",
             "MultiQuantile",
             "HeteroEnsembleCov",
@@ -652,6 +721,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             ),
             "MultivariateGaussian+Conformal": _CONF_NOTE.format(
                 "MultivariateScoreConformal (Mahalanobis) ellipsoid box"
+            ),
+            "MultivariateGaussian+LevelSetCP": _CONF_NOTE.format(
+                "LevelSetConformalPredictor on the Gaussian negative log-density "
+                "(HPD ellipsoid, volume-adaptive radius), grid-searched box"
             ),
             "MDN": "multivariate mixture (3 full-cov Gaussians) → sampled intervals + full scoring",
             "MultiQuantile": "marginal 10/50/90% quantiles per dim → own intervals (no joint samples)",
@@ -1098,7 +1171,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
         yc = torch.from_numpy(carved["y_cal"]).float().to(dev)
         in_dim = X.shape[1]
 
-        if method == "MultivariateGaussian+Conformal":
+        if method in ("MultivariateGaussian+Conformal", "MultivariateGaussian+LevelSetCP"):
             from torchregress.losses import MultivariateGaussianLoss
             from torchregress.losses.conformal import MultivariateScoreConformal
 
@@ -1107,6 +1180,19 @@ class MultivariateIntervalsSuite(HarnessRunner):
             loss_fn = _CholeskyGaussianLossWrapper(D, MultivariateGaussianLoss(n_features=D))
             _train_one(model, loss_fn, X, y, config)
             model.eval()
+            if method == "MultivariateGaussian+LevelSetCP":
+                # Same seed, carve and base model as MultivariateGaussian+Conformal:
+                # the two rows differ only in the conformal score.
+                level_set = _gaussian_density_level_set_cp(D, alpha=0.1)
+                with torch.no_grad():
+                    level_set.calibrate(model(Xc).detach(), yc)
+                return {
+                    "type": "mv_gaussian_levelset",
+                    "model": model,
+                    "predictor": level_set,
+                    "n_features": D,
+                    "n_cal": int(Xc.shape[0]),
+                }
             with torch.no_grad():
                 out_c = model(Xc)
                 mu_c = out_c[:, :D]
@@ -1521,6 +1607,23 @@ class MultivariateIntervalsSuite(HarnessRunner):
             return {
                 "lower": (mean_np - half).reshape(-1),
                 "upper": (mean_np + half).reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- MultivariateGaussian+LevelSetCP → box of the HPD level set ---
+        elif model_type == "mv_gaussian_levelset":
+            model = model_state["model"]
+            model.eval()
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                lo, hi = model_state["predictor"].predict_interval(out)
+            mean_np = out[:, :D].detach().cpu().numpy()
+            return {
+                "lower": lo.detach().cpu().numpy().reshape(-1),
+                "upper": hi.detach().cpu().numpy().reshape(-1),
                 "y_pred": mean_np.reshape(-1),
                 "_multi_output": True,
                 "_n_features": D,
