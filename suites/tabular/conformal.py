@@ -284,10 +284,29 @@ def _mapie_fit(
     return scr
 
 
+# Rows of conformity scores a MAPIE predictor aggregates per test point
+# (upper bound for the block size; set per predictor by the fit halves).
+_MAPIE_REF_ROWS = 100_000
+
+
 def _mapie_predict(pred_obj: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Predict-half: interval prediction from a fitted MAPIE v1 predictor."""
-    _, intervals = pred_obj.predict_interval(_as_float64(X_test))
-    return _mapie_intervals_to_bounds(intervals)
+    """Predict-half: interval prediction from a fitted MAPIE v1 predictor.
+
+    Test rows go through MAPIE in blocks.  Cross-conformal (CV+) aggregation
+    materialises (n_test, n_train) float64 score arrays -- 15.6 GiB on
+    zurich_delays, which OOM-killed the 32 GB session.  Intervals are
+    per-test-point, so blocking gives the same bounds.
+    """
+    X = _as_float64(X_test)
+    n_ref = max(1, int(getattr(pred_obj, "_n_conformalize_rows", 0) or _MAPIE_REF_ROWS))
+    block = max(1, (1 << 24) // n_ref)
+    los, his = [], []
+    for start in range(0, max(len(X), 1), block):
+        _, intervals = pred_obj.predict_interval(X[start : start + block])
+        lo, hi = _mapie_intervals_to_bounds(intervals)
+        los.append(lo)
+        his.append(hi)
+    return np.concatenate(los), np.concatenate(his)
 
 
 def _mapie_split_linear_fit(
@@ -366,6 +385,7 @@ def _mapie_cross_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: i
         [_as_float64(splits["y_train"]).reshape(-1), _as_float64(splits["y_cal"]).reshape(-1)]
     )
     ccqr.fit_conformalize(X_all, y_all)
+    ccqr._n_conformalize_rows = len(X_all)  # block size for _mapie_predict
     return ccqr
 
 
