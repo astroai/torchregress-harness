@@ -420,10 +420,13 @@ class SklearnBaselinesSuite(HarnessRunner):
             m = model_state["model"]
             with torch.no_grad():
                 out = m(torch.from_numpy(X_test).float().to(current_device()))
-                # out shape: (N, 3) for quantiles [0.1, 0.5, 0.9]
-                lo = out[:, 0].detach().cpu().numpy().reshape(-1)
-                med = out[:, 1].detach().cpu().numpy().reshape(-1)
-                hi = out[:, 2].detach().cpu().numpy().reshape(-1)
+                # out shape: (N, 3) for quantiles [0.1, 0.5, 0.9].  Independent
+                # quantile heads can cross on heavy-tailed or discrete targets
+                # (zurich_delays, tabred_cooking): monotone rearrangement
+                # (Chernozhukov, Fernandez-Val & Galichon 2010) sorts them,
+                # which never increases the pinball loss.
+                q = torch.sort(out[:, :3], dim=1).values.detach().cpu().numpy()
+                lo, med, hi = q[:, 0], q[:, 1], q[:, 2]
             return {"y_pred": med, "lower": lo, "upper": hi}
 
         # --- torchregress: OLS → y_pred (analytic, matches sklearn LinearRegression) ---
