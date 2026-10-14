@@ -5,6 +5,7 @@
 #   scripts/canfar_launch_release.sh status   # canfar ps for this run
 #   scripts/canfar_launch_release.sh stage    # one-off: stage slow datasets (Folktables ACS) on /arc
 #   scripts/canfar_launch_release.sh report   # gates + summaries once groups finish
+#   scripts/canfar_launch_release.sh pull     # artifacts off /arc -> .sessions/<RUN_TAG>.tgz
 #   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
 #   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
@@ -117,8 +118,11 @@ set_env_args() {
   # RERUN_SUITES=image_conformal,image_robust: overwrite those suites' existing
   # artifacts (comma-separated: canfar word-splits env values).
   [ -n "${RERUN_SUITES:-}" ] && ENV_ARGS+=(-e "RERUN_SUITES=$RERUN_SUITES")
-  # JOB_FILTER (regex on "suite dataset", no spaces: canfar word-splits env values)
-  [ -n "${JOB_FILTER:-}" ] && ENV_ARGS+=(-e "JOB_FILTER=$JOB_FILTER")
+  case "${RERUN_SUITES:-}" in *[!A-Za-z0-9_,]*) die "RERUN_SUITES: letters, digits, _ and , only" ;; esac
+  # JOB_FILTER (regex on "suite dataset") travels hex-encoded: canfar word-splits
+  # env values and Skaha rejects some characters (a filter with spaces, '$' or
+  # nested groups got HTTP 400 on 2026-10-14). skaha_release.sh decodes it.
+  [ -n "${JOB_FILTER:-}" ] && ENV_ARGS+=(-e "JOB_FILTER_HEX=$(printf '%s' "$JOB_FILTER" | od -An -tx1 | tr -d ' \n')")
   return 0
 }
 DRY=()
@@ -313,6 +317,53 @@ case "${1:-}" in
     record_sessions report "$out"
     echo "report -> /arc/projects/ots/torchregress-harness/runs/$RUN_TAG/report/"
     ;;
+  pull)
+    # Copy the run's JSON artifacts (and report/) off /arc into
+    # .sessions/<RUN_TAG>.tgz: one small headless session prints the tarball
+    # base64-encoded, and `canfar logs` reads it back. PULL_GROUPS limits the
+    # groups (default: tabular tabular_big sbi fm image report).
+    load_state
+    groups="${PULL_GROUPS:-tabular tabular_big sbi fm image report}"
+    code='import base64, glob, io, os, tarfile, time
+r = "/arc/projects/ots/torchregress-harness/runs/" + os.environ["RUN_TAG"]
+fs = []
+for g in os.environ["PULL_GROUPS"].split(","):
+    fs += sorted(glob.glob(r + "/" + g + "/*.json") + glob.glob(r + "/" + g + "/*.md") + glob.glob(r + "/" + g + "/*.txt"))
+print("NFILES", len(fs), flush=True)
+buf = io.BytesIO()
+with tarfile.open(fileobj=buf, mode="w:gz") as t:
+    for f in fs:
+        t.add(f, arcname=os.path.relpath(f, r))
+b = base64.b64encode(buf.getvalue()).decode()
+print("@@BEGIN", flush=True)
+for i in range(0, len(b), 4000):
+    print(b[i : i + 4000], flush=True)
+print("@@END", flush=True)
+time.sleep(900)'
+    hex=$(printf '%s' "$code" | od -An -tx1 | tr -d ' \n')
+    out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-pull-$(name_tag)" --cpu 1 --memory 4 \
+      -e "RUN_TAG=$RUN_TAG" -e "PULL_GROUPS=${groups// /,}" -- python3 -c "exec(bytes.fromhex('$hex').decode())" 2>&1) \
+      || { echo "$out" | redact; die "pull: canfar create failed"; }
+    id=$(echo "$out" | sed -n "s/.*(ID: \([a-z0-9]*\)).*/\1/p" | head -1)
+    [ -n "$id" ] || die "pull: no session id in: $out"
+    dest="$HERE/.sessions/$RUN_TAG.tgz"; mkdir -p "$HERE/.sessions"
+    log_file=$(mktemp)
+    for _ in $(seq 1 40); do  # up to ~10 min for the image pull and the tarball
+      sleep 15
+      canfar logs "$id" > "$log_file" 2>&1 || true
+      grep -q '^@@END' "$log_file" && break
+    done
+    canfar delete -f "$id" >/dev/null 2>&1 || true
+    grep -q '^@@END' "$log_file" || die "pull: no complete tarball in the logs of $id"
+    python3 - "$log_file" "$dest" <<'PY'
+import base64, re, sys
+text = open(sys.argv[1]).read()
+body = text.split("@@BEGIN", 1)[1].split("@@END", 1)[0]
+open(sys.argv[2], "wb").write(base64.b64decode("".join(re.findall(r"[A-Za-z0-9+/=]+", body))))
+PY
+    echo "pulled $(tar tzf "$dest" | wc -l | tr -d ' ') files -> $dest"
+    rm -f "$log_file"
+    ;;
   stage)
     # One-off: stage slow real datasets on /arc (scripts/skaha_stage_data.sh).
     HARNESS_REF=$(pushed_sha "$HERE")
@@ -329,5 +380,5 @@ case "${1:-}" in
     echo "stage -> /arc/projects/ots/torchregress-harness/datasets/staged/stage.log"
     ;;
   *)
-    sed -n '2,23p' "$0"; exit 1 ;;
+    sed -n '2,24p' "$0"; exit 1 ;;
 esac
