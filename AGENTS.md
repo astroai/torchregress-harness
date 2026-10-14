@@ -4,16 +4,18 @@ This file provides guidance to coding agents (Claude, Gemini, Codex) when workin
 
 ## Project Overview
 
-**torchregress-harness** is a standalone benchmarking harness for [torchregress](https://github.com/sfabbro/torchregress). It compares torchregress regression methods against external software on known tabular and image datasets, producing structured JSON artifacts and Markdown reports.
+**torchregress-harness** is a standalone benchmarking harness for [torchregress](https://github.com/astroai/torchregress). It compares torchregress regression methods against external software on known tabular and image datasets, producing structured JSON artifacts and Markdown reports.
 
 ## Sibling repositories
 
 | Repo | Scope |
 |------|-------|
-| **torchregress** | Library (losses, conformal, ensembles, metrics) |
-| **torchregress-harness** (this repo) | torchregress vs MAPIE, LightGBM, TabPFN, BoTorch, … |
+| [**torchregress**](https://github.com/astroai/torchregress) | Library (losses, conformal, ensembles, metrics) |
+| [**torchregress-harness**](https://github.com/astroai/torchregress-harness) (this repo) | torchregress vs MAPIE, LightGBM, TabPFN, BoTorch, … |
+| **torchregress-research** | NeurIPS manuscripts, SAGE/SPT benchmarks (do not add them here) |
 
 Local/CI expect `../torchregress` as an editable, unpinned path dependency (via pixi).
+The pixi workspace targets `linux-64` only; environments are `default` (CPU) and `gpu` (CUDA 12).
 
 ## Development Commands
 
@@ -29,7 +31,7 @@ pixi install
 pixi run test
 pixi run lint
 pixi run typecheck
-pixi run ci
+pixi run ci          # lint + typecheck + test + provenance check
 ```
 
 ### Run Harness
@@ -37,10 +39,12 @@ pixi run ci
 pixi run python tools/run_all.py --smoke --output results/latest/harness_smoke.json
 pixi run python tools/run_all.py --suites conformal --datasets diabetes
 pixi run python tools/render_report.py results/latest/harness_smoke.json
+pixi run python tools/run_canonical.py --scenario mapie_reference --smoke
+pixi run experiments-smoke   # config sweeps in experiments/configs/
 ```
 
 ### Optional extras
-Use `pip install -e ".[conformal]"` (etc.) for benchmark libraries not in the default pixi env. See `OPTIONAL_DEPS.md`.
+Use `pip install -e ".[conformal]"` (etc.) for benchmark libraries not in the default pixi env. See `OPTIONAL_DEPS.md`; paper-grade runs need the git pins in `EXTERNAL_PINS.md`.
 
 ## Env hygiene
 

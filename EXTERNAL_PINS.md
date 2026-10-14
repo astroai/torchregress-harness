@@ -65,10 +65,10 @@ pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@d1b7f6
 
 # sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
 pip install "git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881" pyro-ppl future
+pip install --no-deps "sbibm==1.1.0"
 
 # NVIDIA structured-data-models: KumoTabular, TabFM (latest main)
 pip install "git+https://github.com/NVIDIA/structured-data-models.git@main"
-pip install --no-deps "sbibm==1.1.0"
 ```
 
 In the pixi env (linux CI box):
@@ -80,8 +80,8 @@ pixi run pip install "git+https://github.com/torch-uncertainty/torch-uncertainty
 
 > **⚠️ Git pins are enforced by these install commands, not by the lockfile.**
 > A plain `pip install -e ".[conformal]"` / `.[image]` resolves the PyPI floors
-> (`mapie 1.4.1`, `torch-uncertainty 0.13.0`) which **work** with the harness but
-> are NOT the latest-git builds the manifest pins.  Only the git installs below
+> (`mapie 1.5.0`, `torch-uncertainty 0.13.0`, `lightning-uq-box 0.4.0`) which **work** with the harness but
+> are NOT the latest-git builds the manifest pins.  Only the git installs above
 > produce commit-annotated `LibraryVersion` rows; run paper benchmarks with the
 > git pins installed.
 

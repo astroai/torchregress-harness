@@ -36,8 +36,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/sfabbro/torchregress-harness"
-"Bug Tracker" = "https://github.com/sfabbro/torchregress-harness/issues"
+"Homepage" = "https://github.com/astroai/torchregress-harness"
+"Bug Tracker" = "https://github.com/astroai/torchregress-harness/issues"
 
 [project.optional-dependencies]
 # External-library comparison pins: the harness must be benchmarked against
