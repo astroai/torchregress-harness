@@ -207,8 +207,13 @@ def interval_method(
     y_cal: np.ndarray,
     alpha: float,
     weights: tuple[np.ndarray, np.ndarray] | None = None,
+    info: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """(lower, upper) on the test rows for one torchregress conformal method."""
+    """(lower, upper) on the test rows for one torchregress conformal method.
+
+    ``info``, when given, receives diagnostics (``unseen_test_rows`` for
+    ``tr_Mondrian``: test rows whose bin has no calibration row).
+    """
     from torchregress.losses.conformal import CQR, DistributionalConformal, SplitConformal
 
     med_c, med_t = G.quantile_at(q_cal, 0.5), G.quantile_at(q_test, 0.5)
@@ -245,11 +250,26 @@ def interval_method(
         n_bins = max(1, min(N_MONDRIAN_BINS, len(y_cal) // MIN_PER_BIN))
         # unique: tied medians (tree models) would otherwise leave a bin empty
         cuts = np.unique(np.quantile(med_c, np.linspace(0, 1, n_bins + 1)[1:-1]))
-        cp = SplitConformal(alpha=alpha)
-        cp.calibrate(_t(med_c), yc, groups=torch.as_tensor(np.searchsorted(cuts, med_c)))
-        lo, hi = cp.predict_interval(
-            _t(med_t), groups=torch.as_tensor(np.searchsorted(cuts, med_t))
-        )
+        g_c, g_t = np.searchsorted(cuts, med_c), np.searchsorted(cuts, med_t)
+        # The library rejects test groups absent from calibration (a gap in the
+        # calibration medians, e.g. under imbalance thinning). Those rows take
+        # the pooled split-conformal threshold: marginal coverage is kept, group
+        # conditionality is not claimed for them.
+        seen = np.isin(g_t, np.unique(g_c))
+        lo, hi = np.empty(len(med_t)), np.empty(len(med_t))
+        if seen.any():
+            cp = SplitConformal(alpha=alpha)
+            cp.calibrate(_t(med_c), yc, groups=torch.as_tensor(g_c))
+            lo_s, hi_s = cp.predict_interval(_t(med_t[seen]), groups=torch.as_tensor(g_t[seen]))
+            lo[seen], hi[seen] = _np(lo_s), _np(hi_s)
+        if info is not None:
+            info["unseen_test_rows"] = int((~seen).sum())
+        if (~seen).any():
+            pooled_cp = SplitConformal(alpha=alpha)
+            pooled_cp.calibrate(_t(med_c), yc)
+            lo_p, hi_p = pooled_cp.predict_interval(_t(med_t[~seen]))
+            lo[~seen], hi[~seen] = _np(lo_p), _np(hi_p)
+        return lo, hi
     elif method == "tr_DCP":
         dcp = DistributionalConformal(alpha=alpha)
         dcp.calibrate(_t(G.cdf_at(q_cal, y_cal)), yc)
@@ -318,11 +338,12 @@ def score_interval_method(
     q_test: np.ndarray,
     s: dict[str, Any],
     weights: tuple[np.ndarray, np.ndarray] | None,
+    info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     y = np.asarray(s["y_test"], dtype=np.float64)
     out: dict[str, Any] = {}
     for a in LEVELS_SCORED:
-        lo, hi = interval_method(method, q_cal, q_test, s["y_cal"], a, weights)
+        lo, hi = interval_method(method, q_cal, q_test, s["y_cal"], a, weights, info)
         out[f"Coverage{round(100 * (1 - a))}"] = float(np.mean((y >= lo) & (y <= hi)))
         if a == ALPHA:
             out.update(_interval_scores(lo, hi, s))
@@ -466,12 +487,20 @@ class FMUQScenariosSuite(HarnessRunner):
                                 score_distribution(G.pit_recalibrate(q_cal, s["y_cal"], q_test), s)
                             )
                         else:
-                            row.update(score_interval_method(m, q_cal, q_test, s, w))
+                            info: dict[str, Any] = {}
+                            row.update(score_interval_method(m, q_cal, q_test, s, w, info))
+                        note = f"{m} on {base} ({scenario})"
+                        n_unseen = info.get("unseen_test_rows", 0) if m == "tr_Mondrian" else 0
+                        if n_unseen:
+                            note += (
+                                f"; {n_unseen} test rows in bins empty in calibration "
+                                "use the pooled split-conformal threshold"
+                            )
                         row.update(
                             {
                                 "train_s": fit_s,
                                 "eval_s": perf_counter() - t1,
-                                "Notes": f"{m} on {base} ({scenario})",
+                                "Notes": note,
                             }
                         )
                     except Exception as exc:  # noqa: BLE001 — row-level resilience

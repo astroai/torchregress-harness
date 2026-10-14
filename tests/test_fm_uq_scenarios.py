@@ -180,3 +180,22 @@ def test_multitarget_point_only(monkeypatch: pytest.MonkeyPatch) -> None:
     by = {r["Method"].split("/")[1].split("+")[0]: r for r in rows}
     assert by["GaussCopula"]["CorrErr"] < by["Indep"]["CorrErr"]
     assert 0.8 <= by["GaussCopula"]["Cov90_marg"] <= 1.0
+
+
+def test_mondrian_test_only_group_uses_pooled_threshold() -> None:
+    # calibration medians have a gap: no calibration row in the bin above 10,
+    # so test rows at 20 and 25 fall in a group unseen in calibration
+    rng = np.random.default_rng(0)
+    med_c = np.repeat([0.0, 10.0], 100)
+    q_cal = np.repeat(med_c[:, None], len(G.LEVELS), axis=1)
+    y_cal = med_c + rng.normal(size=200)
+    med_t = np.array([0.0, 10.0, 20.0, 25.0])
+    q_test = np.repeat(med_t[:, None], len(G.LEVELS), axis=1)
+    info: dict = {}
+    lo, hi = M.interval_method("tr_Mondrian", q_cal, q_test, y_cal, 0.1, info=info)
+    assert np.all(np.isfinite(lo)) and np.all(np.isfinite(hi)) and np.all(hi > lo)
+    assert info["unseen_test_rows"] == 2
+    # unseen rows get the pooled threshold, identical to a marginal split conformal
+    lo_p, hi_p = M.interval_method("tr_Split", q_cal, q_test[2:], y_cal, 0.1)
+    np.testing.assert_allclose(lo[2:], lo_p)
+    np.testing.assert_allclose(hi[2:], hi_p)
