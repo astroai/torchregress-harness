@@ -578,7 +578,8 @@ def compute_all_metrics(
                 dens = dens[None, :]
             if dens.shape[0] == len(y_true_np) and support.ndim == 1:
                 metrics["CDELoss"] = float(_cde(support, dens, y_true_np))
-                metrics["HPDCoverage"] = float(_hpd(support, dens, y_true_np))
+                # alpha is the nominal HPD mass: 0.9 gives the 90% HPD region (default 0.1 is a 10% region).
+                metrics["HPDCoverage"] = float(_hpd(support, dens, y_true_np, alpha=0.9))
         except Exception:
             pass
 

@@ -174,9 +174,9 @@ The following proposals are partially or fully satisfied by *harness-side surfac
 
 | # | Status | Implementation site | Validation reference |
 |---:|---|---|---|
-| 1 | Not implemented at harness level | (library-internal torchregress change) | n/a |
-| 2 | ✅ Working draft scaffolded (port into `torchregress` upstream pending) | `proposals/conditional_flow/conditional_flow.py` (in this repo, harness-side) | Self-contained `_demo()` smoke + bit-identical MC draws (`proposals/conditional_flow/conditional_flow.py::_demo`); ruff 0 errors; pytest 149/149 unchanged |
-| 3 | ✅ Implemented + validated | `src/harness/wrappers.py` — `GaussianNLLRegressor`, `MDNRegressor`, `EvidentialRegressor`, `NormalizingFlowRegressor` | PARITY_REPORT.md §16 |
+| 1 | Fixed in library (torchregress commit `6f2813a`) | (library-internal torchregress change) | n/a |
+| 2 | Harness draft works; library port deferred to 0.5 | `proposals/conditional_flow/conditional_flow.py` (in this repo, harness-side) | Self-contained `_demo()` smoke + bit-identical MC draws (`proposals/conditional_flow/conditional_flow.py::_demo`); ruff 0 errors; pytest 149/149 unchanged |
+| 3 | Implemented + validated in the harness; library port deferred to 0.5 | `src/harness/wrappers.py` — `GaussianNLLRegressor`, `MDNRegressor`, `EvidentialRegressor`, `NormalizingFlowRegressor` | PARITY_REPORT.md §16 |
 | 4 | Not implemented at harness level | (library-internal torchregress change) | n/a |
 | 5 | Not implemented at harness level | (library-internal torchregress change) | n/a |
 | 6 | Accumulated evidence (evidential 512-sample pool baseline) | `wrappers.EvidentialRegressor.EVIDENTIAL_N_SAMPLES = 512` | PARITY_REPORT.md §9 (PIT table) |
