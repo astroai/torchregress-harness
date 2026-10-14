@@ -31,7 +31,6 @@ from typing import Any
 import numpy as np
 import torch
 from torch.optim import Adam
-from torch.utils.data import DataLoader, TensorDataset
 from torchregress.algorithms import (
     SIMEX,
     LatentNN,
@@ -87,6 +86,34 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 
+# Throughput-motivated uplift at scale (documented): mini-batch 64 on >100k
+# rows is infeasible for the slow EIV methods (ODR latent-opt, SIMEX refits,
+# input-noise MC).  Applied to EVERY trained method in this suite so the
+# big-data protocol is the same for all of them; small-data runs untouched.
+BIG_N, BIG_BATCH = 100_000, 1024
+
+
+def _eiv_batch_size(config: HarnessConfig, n_rows: int) -> int:
+    bs = int(config.batch_size)
+    return max(bs, BIG_BATCH) if n_rows > BIG_N else bs
+
+
+def _device_batches(*tensors: torch.Tensor, batch_size: int):
+    """Shuffled mini-batches by device-side indexing.
+
+    A ``DataLoader`` over a ``TensorDataset`` calls ``__getitem__`` once per
+    row and collates in Python: ~10^8 calls per method at 1.2M rows x 60
+    epochs, which is what pushed ``eiv/folktables_eiv`` past its 6 h budget.
+    Same sampling semantics (one random permutation per epoch, last batch
+    kept).
+    """
+    n = tensors[0].shape[0]
+    order = torch.randperm(n, device=tensors[0].device)
+    for start in range(0, n, batch_size):
+        idx = order[start : start + batch_size]
+        yield tuple(t[idx] for t in tensors)
+
+
 def _train_eiv(
     model: torch.nn.Module,
     loss_fn: torch.nn.Module,
@@ -110,37 +137,28 @@ def _train_eiv(
     """
     if config is not None:
         n_epochs = epochs if epochs is not None else config.epochs
-        bs = batch_size if batch_size is not None else config.batch_size
+        bs = batch_size if batch_size is not None else _eiv_batch_size(config, X.shape[0])
         learning_rate = lr if lr is not None else config.lr
-        # Throughput-motivated uplift at scale (documented): mini-batch 64
-        # on >100k rows is infeasible for slow EIV methods (ODR latent-opt,
-        # SIMEX ensembles, input-noise MC). Dynamics change is confined to
-        # big-data runs; small-data protocol is untouched.
-        if batch_size is None and X.shape[0] > 100_000:
-            bs = max(bs, 1024)
     else:
         n_epochs = epochs or 50
         bs = batch_size or 64
         learning_rate = lr or 1e-3
 
-    dataset = TensorDataset(X, y)
     use_rows = forward_sigma and sigma_rows is not None and sigma_rows.shape[0] == X.shape[0]
-    if use_rows:
-        dataset = TensorDataset(X, y, torch.arange(X.shape[0]), sigma_rows.detach().cpu())
-    loader = DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=False)
+    sig_dev = sigma_rows.detach().to(X.device) if use_rows else None
     optimizer = Adam(model.parameters(), lr=learning_rate)
 
     model.train()
     for _epoch in range(n_epochs):
-        if use_rows:
-            for X_batch, y_batch, _idx, sig_batch in loader:
+        if sig_dev is not None:
+            for X_batch, y_batch, sig_batch in _device_batches(X, y, sig_dev, batch_size=bs):
                 optimizer.zero_grad()
                 # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
-                loss = loss_fn(X_batch, y_batch, sigma_x=sig_batch.to(X_batch.device))
+                loss = loss_fn(X_batch, y_batch, sigma_x=sig_batch)
                 loss.backward()
                 optimizer.step()
             continue
-        for X_batch, y_batch in loader:
+        for X_batch, y_batch in _device_batches(X, y, batch_size=bs):
             optimizer.zero_grad()
             # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
             loss = loss_fn(X_batch, y_batch)
@@ -599,7 +617,7 @@ class EIVSuite(HarnessRunner):
         if method == "MSE":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = WeightedMSELoss()
-            _train_one(model, loss_fn, X, y, config)
+            _train_one(model, loss_fn, X, y, config, batch_size=_eiv_batch_size(config, len(X)))
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -719,38 +737,24 @@ class EIVSuite(HarnessRunner):
             loss_fn = InputNoiseBinnedPDFLoss(model=model, sigma_x=sigma_x)
             dev = current_device()
             y_idx = torch.from_numpy(np.clip(np.digitize(y_np, edges) - 1, 0, n_bins - 1)).long()
-            X_all = torch.from_numpy(np.asarray(splits["X_train"])).float()
+            X_all = torch.from_numpy(np.asarray(splits["X_train"])).float().to(dev)
+            y_idx = y_idx.to(dev)
             use_rows = sigma_rows is not None and sigma_rows.shape[0] == X_all.shape[0]
-            if use_rows:
-                loader = DataLoader(
-                    TensorDataset(
-                        X_all,
-                        y_idx,
-                        torch.arange(X_all.shape[0]),
-                        sigma_rows.detach().cpu(),
-                    ),
-                    batch_size=config.batch_size,
-                    shuffle=True,
-                )
-            else:
-                loader = DataLoader(
-                    TensorDataset(X_all, y_idx),
-                    batch_size=config.batch_size,
-                    shuffle=True,
-                )
+            sig_dev = sigma_rows.detach().to(dev) if use_rows else None
+            bs = _eiv_batch_size(config, X_all.shape[0])
             opt = torch.optim.Adam(model.parameters(), lr=config.lr)
             model.train()
             for _ in range(config.epochs):
-                if use_rows:
-                    for Xb, yb, _idx, sb in loader:
+                if sig_dev is not None:
+                    for Xb, yb, sb in _device_batches(X_all, y_idx, sig_dev, batch_size=bs):
                         opt.zero_grad(set_to_none=True)
-                        loss = loss_fn(Xb.to(dev), yb.to(dev), sigma_x=sb.to(dev))
+                        loss = loss_fn(Xb, yb, sigma_x=sb)
                         loss.backward()
                         opt.step()
                     continue
-                for Xb, yb in loader:
+                for Xb, yb in _device_batches(X_all, y_idx, batch_size=bs):
                     opt.zero_grad(set_to_none=True)
-                    loss = loss_fn(Xb.to(dev), yb.to(dev))
+                    loss = loss_fn(Xb, yb)
                     loss.backward()
                     opt.step()
             model.eval()
@@ -787,7 +791,9 @@ class EIVSuite(HarnessRunner):
             # for MC input-noise averaging.  Tests whether EIV correction at
             # inference time alone is sufficient.
             model = _MLP(in_dim, hidden, out_dim)
-            _train_one(model, WeightedMSELoss(), X, y, config)
+            _train_one(
+                model, WeightedMSELoss(), X, y, config, batch_size=_eiv_batch_size(config, len(X))
+            )
             result = {"type": "torch", "model": model, "sigma_x": sigma_x}
             if sigma_test is not None:
                 result["sigma_x_test"] = sigma_test
@@ -807,7 +813,7 @@ class EIVSuite(HarnessRunner):
                 sigma_y=sigma_y,
                 epochs=config.epochs,  # same budget as every other method (was 200)
                 lr=config.lr,
-                batch_size=config.batch_size,
+                batch_size=_eiv_batch_size(config, len(X)),
             )
             latent.fit(X, y)
             result = {"type": "latentnn", "model": latent, "sigma_x": sigma_x}
@@ -841,7 +847,9 @@ class EIVSuite(HarnessRunner):
                     return self.nar(x, sigma_x)
 
             wrapped = _NARWrapper(nar)
-            _train_one(wrapped, WeightedMSELoss(), X, y, config)
+            _train_one(
+                wrapped, WeightedMSELoss(), X, y, config, batch_size=_eiv_batch_size(config, len(X))
+            )
             result = {"type": "torch", "model": nar, "sigma_x": sigma_x}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -855,10 +863,9 @@ class EIVSuite(HarnessRunner):
             def _simex_train(m, X_data, y_data):
                 m.train()
                 opt = Adam(m.parameters(), lr=config.lr)
-                dataset = TensorDataset(X_data, y_data)
-                loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+                bs = _eiv_batch_size(config, X_data.shape[0])
                 for _ in range(config.epochs):
-                    for Xb, yb in loader:
+                    for Xb, yb in _device_batches(X_data, y_data, batch_size=bs):
                         opt.zero_grad()
                         loss = ((m(Xb) - yb) ** 2).mean()
                         loss.backward()
@@ -889,7 +896,14 @@ class EIVSuite(HarnessRunner):
                 torch.from_numpy(splits["X_test"]).float().to(current_device())
             )
             model = _MLP(in_dim, hidden, out_dim)
-            _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
+            _train_one(
+                model,
+                WeightedMSELoss(),
+                X_cal_train,
+                y,
+                config,
+                batch_size=_eiv_batch_size(config, len(X)),
+            )
             result = {"type": "rc", "model": model, "X_cal_test": X_cal_test}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -963,7 +977,14 @@ class EIVSuite(HarnessRunner):
                 torch.from_numpy(splits["X_test"]).float().to(current_device())
             )
             model = _MLP(in_dim, hidden, out_dim=2)
-            _train_one(model, GaussianNLLLoss(), X_cal_train, y, config)
+            _train_one(
+                model,
+                GaussianNLLLoss(),
+                X_cal_train,
+                y,
+                config,
+                batch_size=_eiv_batch_size(config, len(X)),
+            )
             return {"type": "rc_gaussian", "model": model, "X_cal_test": X_cal_test}
 
         elif method == "RC+FunctionalEIV":
@@ -1028,7 +1049,7 @@ class EIVSuite(HarnessRunner):
                 total_epochs=config.epochs,
                 warmup_epochs=config.warmup_epochs,
                 lr=config.lr,
-                batch_size=config.batch_size,
+                batch_size=_eiv_batch_size(config, len(X)),
                 n_mc_samples=20,
             )
             trainer.fit(X, y)

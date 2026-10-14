@@ -46,3 +46,26 @@ def test_exact_target_dataset_runs_tls_and_odr() -> None:
         assert np.isfinite(metrics["RMSE"]), (method, metrics)
         if method != "LatentNN":  # 2 epochs: only finiteness is meaningful for the NN
             assert metrics["RMSE"] < 0.6, (method, metrics)
+
+
+def test_eiv_big_data_batch_rule_and_device_batches() -> None:
+    """One big-data batch rule for every EIV method; batches cover each row once."""
+    import torch
+    from suites.tabular import eiv as E
+
+    from harness.runners import HarnessConfig
+
+    cfg = HarnessConfig()
+    assert E._eiv_batch_size(cfg, 5_000) == cfg.batch_size
+    assert E._eiv_batch_size(cfg, 1_200_000) == max(cfg.batch_size, E.BIG_BATCH)
+
+    X = torch.arange(10.0).reshape(-1, 1)
+    y = 2 * X
+    batches = list(E._device_batches(X, y, batch_size=4))
+    assert [len(b[0]) for b in batches] == [4, 4, 2]
+    xs = torch.cat([b[0] for b in batches]).flatten()
+    assert sorted(xs.tolist()) == list(range(10))
+    for xb, yb in batches:  # rows stay aligned across tensors
+        torch.testing.assert_close(yb, 2 * xb)
+    src = open(E.__file__).read()
+    assert "DataLoader(" not in src, "per-row DataLoader is back in the EIV suite"
