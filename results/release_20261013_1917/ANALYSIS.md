@@ -134,12 +134,20 @@ tlc_fare (GPU assert above).
 
 ## 4. eiv / folktables_eiv does not fit the 6 h job budget
 
-Seed 0 on harness `550acb3` (device-side batches) hit the 6 h per-job timeout
-with no output; seeds 1-2 would have done the same, so the session was stopped
-at 14:00 UTC. It is not one method hanging: a profile of all 25 eiv methods on
-a folktables_eiv-shaped synthetic set (20k training rows, 10 features, 60
-epochs, 2 CPU cores) takes 19 min in total, roughly linear in n; the slowest
-are SIMEX (330 s), ODR (130 s), FunctionalEIV_MC (75 s). Scaled to the 1.2M
-training rows that is ~60x, i.e. many hours per seed even on 8 cores.
-Options: subsample folktables_eiv (e.g. 200k training rows), or split the job
-per method, or a longer per-job budget for this one dataset.
+Seed 0 on harness `550acb3` hit the 6 h per-job timeout with no output; the
+session was stopped at 14:00 UTC. No single method hangs. Profile of all 25
+methods on a folktables_eiv-shaped synthetic set at 240k training rows (above
+the 100k big-data threshold, so batch 1024 as in the real run), 2 CPU cores:
+~30 min with 10 features. The real design has ~71 features (2 numeric, 2
+integer-coded high-cardinality categoricals, ~67 one-hot columns), and the MC
+input-noise methods scale with the feature count (InputNoiseMC 100 s → 350 s
+at 71 features). Scaled to 1.2M rows that is several hours per seed, at or
+over the budget. The like-for-like `likelihoods / folktables_all` job (same
+rows, 10 methods) takes ~2.5 h per seed, so data loading is not the problem.
+
+The design itself is questionable: Gaussian measurement noise is injected
+into every standardised column, including the one-hot indicators and the
+integer category codes for occupation and place of birth, which have no
+meaningful measurement error. Options: inject noise only into the continuous
+columns (AGEP, WKHP), drop or embed the categoricals, and subsample the
+training rows for the EIV suite.
