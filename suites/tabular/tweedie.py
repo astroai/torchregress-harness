@@ -29,7 +29,7 @@ from torchregress.losses import (
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
-from harness.runners import HarnessConfig, HarnessRunner
+from harness.runners import HarnessConfig, HarnessRunner, SkipMethod
 from suites._backbones import _MLP, _hidden_size, _Linear, _train_lbfgs, _train_one
 
 try:
@@ -55,6 +55,10 @@ except ImportError:
 def _tweedie_deviance(y: np.ndarray, mu: np.ndarray, p: float) -> float:
     """Mean Tweedie unit deviance using the sklearn / lightgbm convention."""
     return float(mean_tweedie_deviance(y, mu, sample_weight=None, power=p))
+
+
+# Rows whose loss has support y > 0 (GammaLoss p=2, InverseGaussianLoss p=3).
+_POSITIVE_SUPPORT_METHODS = frozenset({"Gamma", "Gamma_Linear", "InverseGaussian"})
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +141,18 @@ class TweedieSuite(HarnessRunner):
                     f"Use a Tweedie dataset (synthetic_tweedie, insurance_claims) "
                     f"or disable y-standardisation."
                 )
+
+            # Gamma (p=2) and Inverse Gaussian (p=3) have support y > 0 and the
+            # losses reject y <= 0. Dropping or shifting the zero rows would
+            # change the estimand, so the row is reported as skipped instead.
+            if method in _POSITIVE_SUPPORT_METHODS:
+                n_nonpos = int(np.sum(y_train_np <= 0))
+                if n_nonpos:
+                    raise SkipMethod(
+                        f"{method} requires strictly positive targets (support y > 0); "
+                        f"y_train has {n_nonpos}/{y_train_np.size} values <= 0. "
+                        "Not fitted: dropping or shifting zeros would bias the estimand"
+                    )
 
             X = torch.from_numpy(X_train_np).float().to(current_device())
             y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
@@ -275,13 +291,16 @@ class TweedieSuite(HarnessRunner):
         elif method == "CompoundPoisson":
             return "MLP + torchregress.CompoundPoissonLoss on log-mean"
         elif method == "Gamma":
-            return "MLP + GammaLoss factory (Tweedie p=2) on log-mean"
+            return (
+                "MLP + GammaLoss factory (Tweedie p=2) on log-mean; "
+                "support y > 0, skipped on data with zeros"
+            )
         elif method == "Gamma_Linear":
-            return "linear model + GammaLoss via LBFGS"
+            return "linear model + GammaLoss via LBFGS; support y > 0, skipped on data with zeros"
         elif method == "InverseGaussian":
             return (
                 "MLP + InverseGaussianLoss factory (Tweedie p=3) on log-mean; "
-                "IG deviance is undefined at y=0, so misspecified on zero-inflated targets"
+                "support y > 0, skipped on data with zeros"
             )
         elif method == "LogT":
             return "MLP + LogTransformLoss (log warp + MSE, inverted at predict)"
