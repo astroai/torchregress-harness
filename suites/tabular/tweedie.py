@@ -186,7 +186,11 @@ class TweedieSuite(HarnessRunner):
                 "BoxCox": BoxCoxTransformLoss(),
                 "SqrtT": SqrtTransformLoss(),
             }[method]
-            _train_one(model, loss_fn, X, y, config)
+            # The loss warps both arguments, so it needs predictions on the
+            # target scale: the MLP outputs the warped value and its inverse
+            # feeds the loss (transform(inverse(z)) == z); predict() applies
+            # the same inverse.
+            _train_one(model, loss_fn, X, y, config, transform_output=loss_fn.inverse)
             model.eval()
             return {"type": "warped", "model": model, "loss_fn": loss_fn}
 
