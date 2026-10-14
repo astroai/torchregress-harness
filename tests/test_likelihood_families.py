@@ -67,12 +67,22 @@ def test_smoke_rows_linear_fit_matches_scipy(family: str) -> None:
 
 
 def test_skew_t_alpha_gradient_at_zero() -> None:
-    """Regression test for torchregress e02d186: the skewness gradient is
-    non-zero at alpha = 0, so skew-t fits can start from a symmetric model."""
+    """Regression test for torchregress 3330a39: the skewness gradient at
+    alpha = 0 is non-zero and matches finite differences (about -0.29 here),
+    so skew-t fits can start from a symmetric model."""
     from torchregress.losses import skew_t_nll
 
     y = torch.tensor([[0.7], [-1.2], [2.5]], dtype=torch.float64)
     raw = torch.tensor([[0.0, 0.5, 0.0, 2.0]] * 3, dtype=torch.float64, requires_grad=True)
     skew_t_nll(raw, y).backward()
     assert raw.grad is not None
-    assert float(raw.grad[:, 2].abs().sum()) > 0.0
+    h = 1e-6
+    step = torch.zeros_like(raw)
+    step[:, 2] = h
+    with torch.no_grad():
+        fd = (skew_t_nll(raw + step, y) - skew_t_nll(raw - step, y)) / (2 * h)
+    assert float(raw.grad[:, 2].sum()) == pytest.approx(float(fd), rel=1e-6)
+    assert float(fd) == pytest.approx(-0.29, abs=0.01)
+    assert torch.autograd.gradcheck(
+        lambda p: skew_t_nll(p, y, reduction="none"), (raw.detach().requires_grad_(),)
+    )

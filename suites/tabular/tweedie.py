@@ -161,11 +161,16 @@ class TweedieSuite(HarnessRunner):
                 model = _Linear(in_dim, out_dim=1)
                 _train_lbfgs(model, loss_fn, X, y, max_iter=500, tolerance_grad=1e-7)
             else:
-                # MLP + Adam — original torchregress approach
+                # MLP + Adam — original torchregress approach.
+                # The Tweedie-family losses default to link='log': y_pred is
+                # log(mu) and the loss exponentiates internally (as in the
+                # _Linear branch above). Feed the raw MLP output; applying
+                # torch.exp here would fit mu = exp(exp(f)) while predict()
+                # reports exp(f) = log(mu).
                 in_dim = X.shape[1]
                 hidden = _hidden_size(in_dim)
                 model = _MLP(in_dim, hidden, out_dim=1)
-                _train_one(model, loss_fn, X, y, config, transform_output=torch.exp)
+                _train_one(model, loss_fn, X, y, config)
                 model.eval()
 
             return {"type": "torch", "model": model, "p_power": p_power}
@@ -274,7 +279,10 @@ class TweedieSuite(HarnessRunner):
         elif method == "Gamma_Linear":
             return "linear model + GammaLoss via LBFGS"
         elif method == "InverseGaussian":
-            return "MLP + InverseGaussianLoss factory (Tweedie p=3) on log-mean"
+            return (
+                "MLP + InverseGaussianLoss factory (Tweedie p=3) on log-mean; "
+                "IG deviance is undefined at y=0, so misspecified on zero-inflated targets"
+            )
         elif method == "LogT":
             return "MLP + LogTransformLoss (log warp + MSE, inverted at predict)"
         elif method == "BoxCox":
