@@ -24,6 +24,7 @@
 #   RERUN_SUITES   comma-separated suites whose existing artifacts are overwritten
 #   JOB_TIMEOUT    wall-clock limit per (suite, dataset, seed) job, default 6h
 #   JOB_FILTER     extended regex on "suite dataset": run only matching jobs
+#                  (JOB_FILTER_HEX: the same, hex-encoded, as the launcher sends it)
 #   OUT_ROOT       default /arc/projects/ots/torchregress-harness/runs
 set -uo pipefail
 
@@ -235,6 +236,10 @@ fi
 mapfile -t ALL_JOBS < <(prun python tools/release_jobs.py "$GROUP")
 # JOB_FILTER: extended regex on "suite dataset"; only matching jobs are sharded
 # (targeted reruns that must not overlap shards already running).
+# The launcher sends it hex-encoded (JOB_FILTER_HEX) so any regex survives Skaha.
+if [ -n "${JOB_FILTER_HEX:-}" ]; then
+  JOB_FILTER=$(printf '%s' "$JOB_FILTER_HEX" | python3 -c 'import sys; print(bytes.fromhex(sys.stdin.read().strip()).decode(), end="")')
+fi
 if [ -n "${JOB_FILTER:-}" ]; then
   mapfile -t ALL_JOBS < <(printf '%s\n' "${ALL_JOBS[@]}" | grep -E -- "$JOB_FILTER")
   log "JOB_FILTER '$JOB_FILTER': ${#ALL_JOBS[@]} jobs"
@@ -262,6 +267,18 @@ for seed in ${SEEDS//,/ }; do
     if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
         --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
       n_ok=$((n_ok + 1))
+      # GPU slices (~11 GiB, NVML denied) report CUDA OOM as an NVML assert:
+      # rerun the job on cpu and take those rows from the cpu run (tools/cpu_retry.py).
+      if prun python tools/cpu_retry.py needs "$out"; then
+        log "CUDA OOM rows in $out: rerunning on cpu"
+        if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+            --seed "$seed" --epochs "$EPOCHS" --device cpu --output "$out.cpu.json" 2>&1 | tail -n 2; then
+          prun python tools/cpu_retry.py merge "$out" "$out.cpu.json"
+        else
+          log "cpu retry failed: $job seed $seed"
+        fi
+        rm -f "$out.cpu.json"
+      fi
     else
       n_fail=$((n_fail + 1)); log "job failed: $job seed $seed"
     fi

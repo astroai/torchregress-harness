@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "a0291e1e",
+  "torchregress_commit": "051ac391",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -59,6 +59,8 @@
           "calibration",
           "depth_estimation",
           "ensembles",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "foundation_model",
           "photoz_imaging",
           "sklearn_baselines",
@@ -102,6 +104,8 @@
       "CVPlus": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "uq_layer"
         ],
         "status": "covered",
@@ -155,6 +159,8 @@
       "ConformalLoss": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "uq_layer"
         ],
         "status": "covered",
@@ -188,6 +194,8 @@
       "DensityConformal": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -215,6 +223,8 @@
       "DistributionalConformal": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -231,6 +241,8 @@
       "EnsembleBatchCP": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "uq_layer"
         ],
         "status": "covered",
@@ -338,6 +350,8 @@
           "distributional_bins",
           "eiv",
           "ensembles",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_calibration",
           "image_conformal",
           "keypoint_regression",
@@ -392,6 +406,8 @@
       },
       "JackknifePlus": {
         "suites": [
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "uq_layer"
         ],
         "status": "covered",
@@ -428,6 +444,8 @@
       "LocalConformal": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -437,6 +455,8 @@
       "LocalConformalMAD": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "uq_layer"
         ],
         "status": "covered",
@@ -484,7 +504,10 @@
           "distributional_bins",
           "eiv",
           "ensembles",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "foundation_model",
+          "image_density_parity",
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging"
@@ -513,6 +536,8 @@
           "constrained_outputs",
           "depth_estimation",
           "ensembles",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "multivariate_intervals",
           "photoz_imaging",
@@ -567,6 +592,8 @@
         "suites": [
           "age_regression",
           "distributional_bins",
+          "fm_multitarget",
+          "image_density_parity",
           "keypoint_regression",
           "likelihoods",
           "multivariate_intervals",
@@ -624,6 +651,8 @@
       "PrevalenceAdjustedCP": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -755,6 +784,8 @@
       "SplitConformal": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -806,6 +837,8 @@
       "UACQR": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
         ],
@@ -855,6 +888,8 @@
           "conformal",
           "constrained_outputs",
           "eiv",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "label_shift",
           "missing_data",
           "ordinal",
@@ -919,6 +954,8 @@
         "suites": [
           "age_regression",
           "distributional_bins",
+          "fm_multitarget",
+          "image_density_parity",
           "keypoint_regression",
           "likelihoods",
           "multivariate_intervals",
@@ -1098,6 +1135,8 @@
         "suites": [
           "conformal",
           "distributional_bins",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "photoz_imaging",
           "pzflow_parity",
           "r2c_conformal",
@@ -1238,8 +1277,10 @@
           "crowd_counting",
           "depth_estimation",
           "eiv",
+          "fm_multitarget",
           "image_calibration",
           "image_conformal",
+          "image_density_parity",
           "image_ensembles_uq",
           "image_robust",
           "keypoint_regression",
@@ -1373,6 +1414,8 @@
           "crowd_counting",
           "depth_estimation",
           "distributional_bins",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "foundation_model",
           "keypoint_regression",
           "likelihoods",
@@ -1651,6 +1694,8 @@
       "IsotonicMeanCalibrator": {
         "suites": [
           "calibration",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_calibration",
           "uq_layer"
         ],
@@ -1664,7 +1709,9 @@
       },
       "PITCalibrator": {
         "suites": [
-          "calibration"
+          "calibration",
+          "fm_multitarget",
+          "fm_uq_scenarios"
         ],
         "status": "covered",
         "reason": ""
@@ -1685,6 +1732,8 @@
         "suites": [
           "bayesian_linear",
           "calibration",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "image_calibration",
           "uq",
           "uq_layer"
@@ -1700,8 +1749,10 @@
           "crowd_counting",
           "depth_estimation",
           "eiv",
+          "fm_multitarget",
           "image_calibration",
           "image_conformal",
+          "image_density_parity",
           "image_ensembles_uq",
           "image_robust",
           "keypoint_regression",
@@ -2485,6 +2536,8 @@
       "TabularEnsembleFit": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"
@@ -2495,6 +2548,8 @@
       "TabularFit": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"
@@ -2505,6 +2560,8 @@
       "TabularMLP": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"
@@ -2515,6 +2572,8 @@
       "TabularPreprocessor": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"
@@ -2525,6 +2584,8 @@
       "fit_tabular": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"
@@ -2535,6 +2596,8 @@
       "fit_tabular_ensemble": {
         "suites": [
           "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
           "sklearn_baselines",
           "uq",
           "uq_layer"

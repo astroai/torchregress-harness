@@ -97,9 +97,9 @@ runs (MDN in `multivariate_intervals` is the bug fixed above):
 - **MAPIE_CrossCQR+GBR** moved to nominal: coverage 0.97-0.99 → 0.91-0.94 and
   intervals ~30% narrower on california, diabetes, openml_year,
   synthetic_hetero. The harness code for this row is unchanged; the comparator
-  moved: MAPIE git `3b84b82` → `929740a` (the sessions install MAPIE `main`)
-  and scikit-learn 1.9.0 → 1.9.1 (`versions_replica_*.txt`). Pin MAPIE to
-  one commit for the published table.
+  moved: the run #6 prep (`2583e83`) bumped the MAPIE pin `3b84b82` → `929740a`
+  and scikit-learn went 1.9.0 → 1.9.1 (`versions_replica_*.txt`). Both runs
+  are pinned; the change is upstream MAPIE between those commits.
 - **torchregress MDN** (precision parameterisation now default) in
   `density_parity`: NLL improves on `mt_scm20d` (3.11 → 0.33) and `mt_jura`
   (2.53 → 1.95) and gets worse on `energy_efficiency` (-1.32 → -0.76) and

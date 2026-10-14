@@ -584,7 +584,8 @@ class PzflowParitySuite(HarnessRunner):
                 den = np.asarray(predictions["density_values"], dtype=np.float64)
                 y_std = np.asarray(y_test, dtype=np.float64).reshape(-1)
                 metrics["CDELoss"] = float(_cde(sup, den, y_std))
-                metrics["HPDCoverage"] = float(_hpd(sup, den, y_std))
+                # alpha is the nominal HPD mass: 0.9 gives the 90% HPD region (default 0.1 is a 10% region).
+                metrics["HPDCoverage"] = float(_hpd(sup, den, y_std, alpha=0.9))
             except Exception:
                 pass
 

@@ -2005,25 +2005,33 @@ def _synthetic_tlc_proxy(n_samples: int, test_size: float, seed: int) -> SplitsD
 
 
 def _load_folktables_eiv(
-    n_samples: int | None = None,
+    n_samples: int | None = 250_000,
     test_size: float = 0.2,
     seed: int = 42,
     noise_frac: float = 0.15,
     hetero_strength: float = 0.5,
+    clean_floor: float = 0.01,
 ) -> SplitsDict:
-    """Folktables all-states with CALIBRATED heteroscedastic input noise.
+    """Folktables all-states with calibrated heteroscedastic noise on age and hours.
 
-    Real ACS covariates + continuous income truth, but feature measurements
-    are corrupted by seed-fixed Gaussian noise whose per-row scale is a
-    documented fraction of each feature's standardized scale, modulated by
-    ``(1 + hetero_strength * |x|)`` row-wise — i.e. noisier measurements
-    for extreme rows. This is synthetic noise on real data (the standard
-    EIV benchmark construction, same as ``synthetic_eiv``), explicitly
-    labeled as injected: it tests EIV methods at >1M rows where no
-    measured-noise corpus exists. Returns noisy ``X_*``, clean
-    ``X_*_true``, scalar ``sigma_x`` fallback, and per-row
-    ``sigma_x_test`` in standardized units (matching the standardized
-    ``X``), so per-observation EIV paths are exercised at scale.
+    Real ACS covariates + continuous income truth. Measurement noise goes only
+    on the two continuous covariates, age (AGEP) and usual hours worked
+    (WKHP): seed-fixed Gaussian noise whose per-row scale is ``noise_frac`` of
+    the standardized scale, modulated by ``(1 + hetero_strength * |x|)`` over
+    those two columns (noisier measurements for extreme rows). The one-hot
+    indicators and the occupation / place-of-birth codes cannot carry
+    measurement error, so they get only a ``clean_floor`` (1% of a standard
+    deviation) of noise; the declared ``sigma_x`` matches what was injected,
+    including the floor, so every EIV weight stays finite.
+
+    Up to 2026-10 the noise went on every standardized column, one-hot
+    indicators included, and the job used all ~1.5M rows with ~71 columns: the
+    eiv suite then needed more than its 6 h per-seed budget (MC input-noise
+    methods scale with the number of noisy columns). ``n_samples`` (default
+    250k rows, 200k for training) keeps the >1M-row scale test in
+    ``likelihoods / folktables_all``; pass ``None`` for the full set.
+    Returns noisy ``X_*``, clean ``X_*_true``, per-feature ``sigma_x`` (mean
+    row scale) and per-row ``sigma_x_test`` in standardized units.
     """
     from sklearn.preprocessing import StandardScaler
 
@@ -2034,10 +2042,12 @@ def _load_folktables_eiv(
         X, y = X[idx], y[idx]
     scaler = StandardScaler()
     Xs = scaler.fit_transform(X)
+    # _fetch_folktables_xy puts the numeric columns first: AGEP, WKHP.
+    cont = [0, 1]
     rng = np.random.default_rng(seed + 7)
-    row_mod = 1.0 + hetero_strength * np.abs(Xs).mean(axis=1, keepdims=True)
-    sigma = (noise_frac * row_mod).astype(np.float64)
-    sigma_full = np.repeat(sigma, Xs.shape[1], axis=1)
+    row_mod = 1.0 + hetero_strength * np.abs(Xs[:, cont]).mean(axis=1, keepdims=True)
+    sigma_full = np.full(Xs.shape, clean_floor, dtype=np.float64)
+    sigma_full[:, cont] = noise_frac * row_mod
     X_obs = (Xs + sigma_full * rng.standard_normal(Xs.shape)).astype(np.float32)
     X_true = Xs.astype(np.float32)
     # Single joint split: noisy X, clean X, targets, and per-row sigma
@@ -2052,7 +2062,7 @@ def _load_folktables_eiv(
         "y_test": yte.astype(np.float32),
         "X_train_true": Xtr_t,
         "X_test_true": Xte_t,
-        "sigma_x": float(noise_frac),
+        "sigma_x": sig_tr.mean(axis=0).astype(np.float32),
         "sigma_x_test": sig_te.astype(np.float32),
         "sigma_y": 0.0,
     }
@@ -6285,12 +6295,13 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         name="folktables_eiv",
         category="tabular",
         n_features=70,
-        n_samples=1500000,
+        n_samples=250000,
         description=(
-            "Folktables all-states with calibrated heteroscedastic input "
-            "noise (seed-fixed injection on real covariates; noisy X, clean "
-            "X_true, per-row sigma_x_test). EIV at >1M rows; explicitly "
-            "labeled as injected noise (cf. measured GalaxiesML sigmas)."
+            "Folktables all-states (250k-row seeded subsample) with calibrated "
+            "heteroscedastic noise injected on age and hours worked only "
+            "(categoricals clean to 1% of an SD); noisy X, clean X_true, "
+            "per-feature sigma_x, per-row sigma_x_test. Explicitly labeled "
+            "as injected noise (cf. measured GalaxiesML sigmas)."
         ),
         loader=_registry_loader(_load_folktables_eiv),
     ),
