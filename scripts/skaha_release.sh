@@ -267,6 +267,18 @@ for seed in ${SEEDS//,/ }; do
     if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
         --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
       n_ok=$((n_ok + 1))
+      # GPU slices (~11 GiB, NVML denied) report CUDA OOM as an NVML assert:
+      # rerun the job on cpu and take those rows from the cpu run (tools/cpu_retry.py).
+      if prun python tools/cpu_retry.py needs "$out"; then
+        log "CUDA OOM rows in $out: rerunning on cpu"
+        if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+            --seed "$seed" --epochs "$EPOCHS" --device cpu --output "$out.cpu.json" 2>&1 | tail -n 2; then
+          prun python tools/cpu_retry.py merge "$out" "$out.cpu.json"
+        else
+          log "cpu retry failed: $job seed $seed"
+        fi
+        rm -f "$out.cpu.json"
+      fi
     else
       n_fail=$((n_fail + 1)); log "job failed: $job seed $seed"
     fi
