@@ -19,7 +19,7 @@ Methods
 - NoiseAware       : NoiseAwareRegressor — error-aware feature encoder + backbone
 - SIMEX            : SIMEX algorithm — simulation-extrapolation with matched-noise predict fix
 - RC               : RegressionCalibration — pre-processing input calibration via reliability
-- TLS              : Total Least Squares via SVD (numpy-only)
+- TLS              : noise-weighted Total Least Squares via SVD (numpy-only)
 - SciPyODR         : scipy.odr.ODR — classical orthogonal distance regression (external)
 - MSE_WarmupMC     : MSE pre-training (20 epochs) → FunctionalEIV_MC — warmup for linear data
 """
@@ -31,7 +31,6 @@ from typing import Any
 import numpy as np
 import torch
 from torch.optim import Adam
-from torch.utils.data import DataLoader, TensorDataset
 from torchregress.algorithms import (
     SIMEX,
     LatentNN,
@@ -87,6 +86,34 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 
+# Throughput-motivated uplift at scale (documented): mini-batch 64 on >100k
+# rows is infeasible for the slow EIV methods (ODR latent-opt, SIMEX refits,
+# input-noise MC).  Applied to EVERY trained method in this suite so the
+# big-data protocol is the same for all of them; small-data runs untouched.
+BIG_N, BIG_BATCH = 100_000, 1024
+
+
+def _eiv_batch_size(config: HarnessConfig, n_rows: int) -> int:
+    bs = int(config.batch_size)
+    return max(bs, BIG_BATCH) if n_rows > BIG_N else bs
+
+
+def _device_batches(*tensors: torch.Tensor, batch_size: int):
+    """Shuffled mini-batches by device-side indexing.
+
+    A ``DataLoader`` over a ``TensorDataset`` calls ``__getitem__`` once per
+    row and collates in Python: ~10^8 calls per method at 1.2M rows x 60
+    epochs, which is what pushed ``eiv/folktables_eiv`` past its 6 h budget.
+    Same sampling semantics (one random permutation per epoch, last batch
+    kept).
+    """
+    n = tensors[0].shape[0]
+    order = torch.randperm(n, device=tensors[0].device)
+    for start in range(0, n, batch_size):
+        idx = order[start : start + batch_size]
+        yield tuple(t[idx] for t in tensors)
+
+
 def _train_eiv(
     model: torch.nn.Module,
     loss_fn: torch.nn.Module,
@@ -110,37 +137,28 @@ def _train_eiv(
     """
     if config is not None:
         n_epochs = epochs if epochs is not None else config.epochs
-        bs = batch_size if batch_size is not None else config.batch_size
+        bs = batch_size if batch_size is not None else _eiv_batch_size(config, X.shape[0])
         learning_rate = lr if lr is not None else config.lr
-        # Throughput-motivated uplift at scale (documented): mini-batch 64
-        # on >100k rows is infeasible for slow EIV methods (ODR latent-opt,
-        # SIMEX ensembles, input-noise MC). Dynamics change is confined to
-        # big-data runs; small-data protocol is untouched.
-        if batch_size is None and X.shape[0] > 100_000:
-            bs = max(bs, 1024)
     else:
         n_epochs = epochs or 50
         bs = batch_size or 64
         learning_rate = lr or 1e-3
 
-    dataset = TensorDataset(X, y)
     use_rows = forward_sigma and sigma_rows is not None and sigma_rows.shape[0] == X.shape[0]
-    if use_rows:
-        dataset = TensorDataset(X, y, torch.arange(X.shape[0]), sigma_rows.detach().cpu())
-    loader = DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=False)
+    sig_dev = sigma_rows.detach().to(X.device) if use_rows else None
     optimizer = Adam(model.parameters(), lr=learning_rate)
 
     model.train()
     for _epoch in range(n_epochs):
-        if use_rows:
-            for X_batch, y_batch, _idx, sig_batch in loader:
+        if sig_dev is not None:
+            for X_batch, y_batch, sig_batch in _device_batches(X, y, sig_dev, batch_size=bs):
                 optimizer.zero_grad()
                 # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
-                loss = loss_fn(X_batch, y_batch, sigma_x=sig_batch.to(X_batch.device))
+                loss = loss_fn(X_batch, y_batch, sigma_x=sig_batch)
                 loss.backward()
                 optimizer.step()
             continue
-        for X_batch, y_batch in loader:
+        for X_batch, y_batch in _device_batches(X, y, batch_size=bs):
             optimizer.zero_grad()
             # EIV losses: forward(x_obs, target) — the loss internally calls model(x_obs)
             loss = loss_fn(X_batch, y_batch)
@@ -150,6 +168,68 @@ def _train_eiv(
 
 
 # --- Shared prediction helper (noisy and clean X paths) ---
+
+
+class TLSIllConditionedError(RuntimeError):
+    """Total least squares has no stable finite solution for this design."""
+
+
+def tls_solve(
+    X: np.ndarray,
+    y: np.ndarray,
+    sigma_x: Any = 1.0,
+    sigma_y: float = 1.0,
+    *,
+    min_v_last: float = 0.05,
+    max_sv_ratio: float = 0.98,
+) -> tuple[np.ndarray, float]:
+    """Noise-weighted total least squares via SVD (Deming for one feature).
+
+    Columns of X are divided by ``sigma_x`` and y by ``sigma_y`` before the
+    SVD of ``[X | y]`` so that errors are unit-variance in every coordinate
+    (the TLS assumption).  Without this, unequal feature/target scales make
+    the orthogonal fit meaningless (the "smallest singular vector" simply
+    tracks the lowest-variance direction).  For one feature this is exactly
+    Deming regression with ``delta = sigma_y**2 / sigma_x**2``.
+
+    Raises :class:`TLSIllConditionedError` when the solution is not stable:
+    the smallest right singular vector has (almost) no y-component
+    (``|V[-1]| < min_v_last``) so the coefficients blow up like
+    ``1 / V[-1]``, or ``sigma_min([X|y])`` is within ``max_sv_ratio`` of
+    ``sigma_min(X)`` (the classical TLS existence condition is barely met,
+    typical for collinear features).
+
+    Returns ``(coef, intercept)`` in the units of the inputs.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    sx = np.broadcast_to(
+        np.asarray(
+            sigma_x.detach().cpu().numpy() if isinstance(sigma_x, torch.Tensor) else sigma_x,
+            dtype=np.float64,
+        ).reshape(-1),
+        (X.shape[1],),
+    )
+    sy = float(sigma_y)
+    if not (np.all(sx > 0) and sy > 0):
+        raise ValueError("TLS noise scales must be positive")
+    x_mean = X.mean(axis=0)
+    y_mean = float(y.mean())
+    Zx = (X - x_mean) / sx
+    Z = np.column_stack([Zx, (y - y_mean) / sy])
+    _, sv, Vt = np.linalg.svd(Z, full_matrices=False)
+    v = Vt[-1]
+    sv_x_min = np.linalg.svd(Zx, compute_uv=False)[-1]
+    if abs(v[-1]) < min_v_last or sv[-1] > max_sv_ratio * sv_x_min:
+        raise TLSIllConditionedError(
+            f"TLS ill-conditioned: |V[-1]|={abs(v[-1]):.3g}, "
+            f"sigma_min([X|y])/sigma_min(X)={sv[-1] / max(sv_x_min, 1e-300):.4f} "
+            "(collinear features / noise-dominated target; no stable finite solution)"
+        )
+    beta_scaled = -v[:-1] / v[-1]
+    coef = beta_scaled * sy / sx
+    intercept = float(y_mean - x_mean @ coef)
+    return coef, intercept
 
 
 def _eiv_sigma(value: Any) -> Any:
@@ -171,6 +251,52 @@ def _eiv_sigma(value: Any) -> Any:
     if arr.ndim == 0:
         return float(arr)
     return torch.as_tensor(arr)
+
+
+def equation_error_sd(X: np.ndarray, y: np.ndarray, sigma_x: Any, sigma_rows: Any = None) -> float:
+    """Equation-error sd of y given the *true* inputs, from noisy data only.
+
+    EIV methods (ODR / TLS / Deming / FunctionalEIV / LatentNN) weight the
+    y-residual by ``sigma_y``, the noise of y about f(x_true): measurement
+    error *plus* equation error.  A dataset that only declares y's
+    measurement error (``sigma_y = 0`` for exact targets, e.g.
+    ``folktables_eiv``) breaks them (TLS refuses, ODRPACK gets infinite weights
+    and crashes, LatentNN scales its data term by 1e12).  The moment-corrected
+    linear fit (Fuller 1987, sec. 2.2) estimates it with the known input-noise
+    covariance ``Sigma_u`` and no oracle inputs:
+
+        beta = (S_xx - Sigma_u)^{-1} S_xy,   s2 = Var(y) - beta' (S_xx - Sigma_u) beta
+
+    floored at 1% of Var(y).  ``S_xx - Sigma_u`` is projected to positive
+    definite (eigenvalues >= 1% of the largest) before solving.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    d = X.shape[1]
+    if sigma_rows is not None:
+        su = np.asarray(
+            sigma_rows.numpy() if isinstance(sigma_rows, torch.Tensor) else sigma_rows,
+            dtype=np.float64,
+        )
+        var_u = np.mean(su.reshape(len(su), -1) ** 2, axis=0)
+    else:
+        s = sigma_x.detach().cpu().numpy() if isinstance(sigma_x, torch.Tensor) else sigma_x
+        s = np.asarray(s, dtype=np.float64)
+        var_u = (
+            np.mean(s.reshape(-1, d) ** 2, axis=0) if s.ndim > 1 else np.broadcast_to(s**2, (d,))
+        )
+    Xc = X - X.mean(0)
+    yc = y - y.mean()
+    Sxx = Xc.T @ Xc / len(X)
+    Sxy = Xc.T @ yc / len(X)
+    M = Sxx - np.diag(var_u)
+    w, V = np.linalg.eigh(M)
+    w = np.maximum(w, 0.01 * max(float(w.max()), 1e-12))
+    M = (V * w) @ V.T
+    beta = np.linalg.solve(M, Sxy)
+    var_y = float(yc @ yc / len(y))
+    s2 = var_y - float(beta @ M @ beta)
+    return float(np.sqrt(max(s2, 0.01 * var_y)))
 
 
 # Methods whose losses accept per-call sigma_x (per-obs threading).
@@ -468,6 +594,10 @@ class EIVSuite(HarnessRunner):
             _arr = np.asarray(_raw_rows, dtype=np.float32)
             if _arr.ndim == 2 and _arr.shape[0] == np.asarray(X_train_np).shape[0]:
                 sigma_rows = torch.from_numpy(_arr)
+        # sigma_y <= 0 declares exact targets (measurement error only); EIV
+        # weighting needs the equation error: estimate it (see equation_error_sd).
+        if sigma_y <= 0:
+            sigma_y = equation_error_sd(X_train_np, y_train_np, sigma_x, sigma_rows)
         # Per-obs test sigma for predict-time marginalization (truncated
         # to the presented rows in predict()).
         _raw_te = splits.get("sigma_x_test")
@@ -487,7 +617,7 @@ class EIVSuite(HarnessRunner):
         if method == "MSE":
             model = _MLP(in_dim, hidden, out_dim)
             loss_fn = WeightedMSELoss()
-            _train_one(model, loss_fn, X, y, config)
+            _train_one(model, loss_fn, X, y, config, batch_size=_eiv_batch_size(config, len(X)))
             result = {"type": "torch", "model": model}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -607,38 +737,24 @@ class EIVSuite(HarnessRunner):
             loss_fn = InputNoiseBinnedPDFLoss(model=model, sigma_x=sigma_x)
             dev = current_device()
             y_idx = torch.from_numpy(np.clip(np.digitize(y_np, edges) - 1, 0, n_bins - 1)).long()
-            X_all = torch.from_numpy(np.asarray(splits["X_train"])).float()
+            X_all = torch.from_numpy(np.asarray(splits["X_train"])).float().to(dev)
+            y_idx = y_idx.to(dev)
             use_rows = sigma_rows is not None and sigma_rows.shape[0] == X_all.shape[0]
-            if use_rows:
-                loader = DataLoader(
-                    TensorDataset(
-                        X_all,
-                        y_idx,
-                        torch.arange(X_all.shape[0]),
-                        sigma_rows.detach().cpu(),
-                    ),
-                    batch_size=config.batch_size,
-                    shuffle=True,
-                )
-            else:
-                loader = DataLoader(
-                    TensorDataset(X_all, y_idx),
-                    batch_size=config.batch_size,
-                    shuffle=True,
-                )
+            sig_dev = sigma_rows.detach().to(dev) if use_rows else None
+            bs = _eiv_batch_size(config, X_all.shape[0])
             opt = torch.optim.Adam(model.parameters(), lr=config.lr)
             model.train()
             for _ in range(config.epochs):
-                if use_rows:
-                    for Xb, yb, _idx, sb in loader:
+                if sig_dev is not None:
+                    for Xb, yb, sb in _device_batches(X_all, y_idx, sig_dev, batch_size=bs):
                         opt.zero_grad(set_to_none=True)
-                        loss = loss_fn(Xb.to(dev), yb.to(dev), sigma_x=sb.to(dev))
+                        loss = loss_fn(Xb, yb, sigma_x=sb)
                         loss.backward()
                         opt.step()
                     continue
-                for Xb, yb in loader:
+                for Xb, yb in _device_batches(X_all, y_idx, batch_size=bs):
                     opt.zero_grad(set_to_none=True)
-                    loss = loss_fn(Xb.to(dev), yb.to(dev))
+                    loss = loss_fn(Xb, yb)
                     loss.backward()
                     opt.step()
             model.eval()
@@ -675,7 +791,9 @@ class EIVSuite(HarnessRunner):
             # for MC input-noise averaging.  Tests whether EIV correction at
             # inference time alone is sufficient.
             model = _MLP(in_dim, hidden, out_dim)
-            _train_one(model, WeightedMSELoss(), X, y, config)
+            _train_one(
+                model, WeightedMSELoss(), X, y, config, batch_size=_eiv_batch_size(config, len(X))
+            )
             result = {"type": "torch", "model": model, "sigma_x": sigma_x}
             if sigma_test is not None:
                 result["sigma_x_test"] = sigma_test
@@ -693,9 +811,9 @@ class EIVSuite(HarnessRunner):
                 loss_fn=torch.nn.MSELoss(),  # nn.MSELoss activates sigma_y scaling
                 sigma_x=sigma_x,
                 sigma_y=sigma_y,
-                epochs=200,
+                epochs=config.epochs,  # same budget as every other method (was 200)
                 lr=config.lr,
-                batch_size=config.batch_size,
+                batch_size=_eiv_batch_size(config, len(X)),
             )
             latent.fit(X, y)
             result = {"type": "latentnn", "model": latent, "sigma_x": sigma_x}
@@ -729,7 +847,9 @@ class EIVSuite(HarnessRunner):
                     return self.nar(x, sigma_x)
 
             wrapped = _NARWrapper(nar)
-            _train_one(wrapped, WeightedMSELoss(), X, y, config)
+            _train_one(
+                wrapped, WeightedMSELoss(), X, y, config, batch_size=_eiv_batch_size(config, len(X))
+            )
             result = {"type": "torch", "model": nar, "sigma_x": sigma_x}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -743,10 +863,9 @@ class EIVSuite(HarnessRunner):
             def _simex_train(m, X_data, y_data):
                 m.train()
                 opt = Adam(m.parameters(), lr=config.lr)
-                dataset = TensorDataset(X_data, y_data)
-                loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+                bs = _eiv_batch_size(config, X_data.shape[0])
                 for _ in range(config.epochs):
-                    for Xb, yb in loader:
+                    for Xb, yb in _device_batches(X_data, y_data, batch_size=bs):
                         opt.zero_grad()
                         loss = ((m(Xb) - yb) ** 2).mean()
                         loss.backward()
@@ -777,7 +896,14 @@ class EIVSuite(HarnessRunner):
                 torch.from_numpy(splits["X_test"]).float().to(current_device())
             )
             model = _MLP(in_dim, hidden, out_dim)
-            _train_one(model, WeightedMSELoss(), X_cal_train, y, config)
+            _train_one(
+                model,
+                WeightedMSELoss(),
+                X_cal_train,
+                y,
+                config,
+                batch_size=_eiv_batch_size(config, len(X)),
+            )
             result = {"type": "rc", "model": model, "X_cal_test": X_cal_test}
             if _X_test_true is not None:
                 result["_X_test_true"] = _X_test_true
@@ -796,7 +922,17 @@ class EIVSuite(HarnessRunner):
             def _linear_fcn(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
                 return beta[0] + np.dot(beta[1:], x)
 
-            model = _ODRModel(_linear_fcn)
+            # Analytic Jacobians: without them ODRPACK differences the model
+            # numerically every iteration (super-linear in rows: 52 s at 8k rows
+            # x 70 features vs 9 s analytic; intractable at folktables_eiv's 1.2M).
+            # set_job(deriv=2) below is what makes ODRPACK use them.
+            def _jac_beta(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
+                return np.vstack([np.ones((1, x.shape[1])), x])  # (p, n)
+
+            def _jac_x(beta: np.ndarray, x: np.ndarray) -> np.ndarray:
+                return np.repeat(beta[1:, None], x.shape[1], axis=1)  # (m, n)
+
+            model = _ODRModel(_linear_fcn, fjacb=_jac_beta, fjacd=_jac_x)
             data = RealData(x=X_np.T, y=y_np, sx=sigma_x, sy=sigma_y)
 
             # Initial guess from OLS
@@ -804,25 +940,14 @@ class EIVSuite(HarnessRunner):
             beta0, _, _, _ = np.linalg.lstsq(X_with_bias, y_np, rcond=None)
 
             odr = _ODR(data, model, beta0=beta0)
+            odr.set_job(deriv=2)  # use the analytic Jacobians (default: finite differences)
             output = odr.run()
             return {"type": "scipy_odr", "coef": output.beta}
 
         elif method == "TLS":
-            # Total Least Squares via SVD — minimises orthogonal distances
-            X_np = X_train_np.astype(np.float64)
-            y_np = y_train_np.ravel().astype(np.float64)
-            # Centre the data
-            X_mean = X_np.mean(axis=0)
-            y_mean = y_np.mean()
-            X_c = X_np - X_mean
-            y_c = y_np - y_mean
-            # SVD of the augmented matrix [X_c | y_c]
-            Z = np.column_stack([X_c, y_c])
-            _, _, Vt = np.linalg.svd(Z, full_matrices=False)
-            # Solution from the right singular vector of the smallest singular value
-            V = Vt[-1]  # last row = smallest singular vector
-            beta = -V[:-1] / V[-1]
-            intercept = y_mean - X_mean @ beta
+            # Noise-weighted TLS (see tls_solve): same sigma_x / sigma_y
+            # assumptions as the other EIV rows; raises if ill-conditioned.
+            beta, intercept = tls_solve(X_train_np, y_train_np, sigma_x, sigma_y)
             return {"type": "tls", "coef": beta, "intercept": intercept}
 
         # --- Composability methods ---
@@ -852,7 +977,14 @@ class EIVSuite(HarnessRunner):
                 torch.from_numpy(splits["X_test"]).float().to(current_device())
             )
             model = _MLP(in_dim, hidden, out_dim=2)
-            _train_one(model, GaussianNLLLoss(), X_cal_train, y, config)
+            _train_one(
+                model,
+                GaussianNLLLoss(),
+                X_cal_train,
+                y,
+                config,
+                batch_size=_eiv_batch_size(config, len(X)),
+            )
             return {"type": "rc_gaussian", "model": model, "X_cal_test": X_cal_test}
 
         elif method == "RC+FunctionalEIV":
@@ -882,15 +1014,7 @@ class EIVSuite(HarnessRunner):
             # Address attenuation bias: initialize with unbiased TLS β,
             # then fine-tune with FunctionalEIV. Tests whether the EIV
             # loss can preserve the TLS solution (vs sliding back to MSE β).
-            X_np = X_train_np.astype(np.float64)
-            y_np = y_train_np.ravel().astype(np.float64)
-            X_mean = X_np.mean(axis=0)
-            y_mean = y_np.mean()
-            Z = np.column_stack([X_np - X_mean, y_np - y_mean])
-            _, _, Vt = np.linalg.svd(Z, full_matrices=False)
-            V = Vt[-1]
-            beta = -V[:-1] / V[-1]
-            intercept = y_mean - X_mean @ beta
+            beta, intercept = tls_solve(X_train_np, y_train_np, sigma_x, sigma_y)
 
             model = _Linear(in_dim, out_dim=1)
             with torch.no_grad():
@@ -925,7 +1049,7 @@ class EIVSuite(HarnessRunner):
                 total_epochs=config.epochs,
                 warmup_epochs=config.warmup_epochs,
                 lr=config.lr,
-                batch_size=config.batch_size,
+                batch_size=_eiv_batch_size(config, len(X)),
                 n_mc_samples=20,
             )
             trainer.fit(X, y)
@@ -1182,7 +1306,9 @@ class EIVSuite(HarnessRunner):
             "ODR": ("MLP + OrthogonalDistanceRegressionLoss — iterative latent-x optimisation"),
             "EnsembleEIV": ("MLP + EnsembleEIVLoss — Monte-Carlo input perturbation averaging"),
             "TLS": (
-                "Total Least Squares via SVD — minimises orthogonal distances (self-contained, numpy-only)"
+                "Noise-weighted Total Least Squares via SVD (columns scaled by sigma_x / sigma_y; "
+                "Deming for one feature) — self-contained, numpy-only; reported as skipped "
+                "when ill-conditioned (collinear features)"
             ),
             "SciPyODR": (
                 "scipy.odr.ODR — classical orthogonal distance regression (external, linear model)"

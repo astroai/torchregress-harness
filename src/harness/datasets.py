@@ -236,6 +236,82 @@ def _load_openml_year(
     }
 
 
+def _load_zurich_delays(
+    n_samples: int = 100000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Zurich public-transport delays, raw (OpenML 40753, CC0; Open Data Day 2017).
+
+    5.47M stop events (2016-10-30 to 2016-11-27): vehicle type, line, direction,
+    stop, weekday, hour, minute of day and weather -> delay in seconds.  Not a
+    forecasting task (no lagged delays).  The raw target is extremely
+    heavy-tailed with gross recording errors (delays from -121830 s to +7190 s,
+    median 29 s, kurtosis ~6e4) and is kept as is: a public stress test for the
+    robust / tail / conformal methods.  Replaces TabReD Sberbank (a Kaggle
+    competition that needs rule acceptance).  The benchmark copy (OpenML 45045)
+    log-transforms the target and is not used.
+
+    Encoding (no target information): vehicle type, line and weekday one-hot;
+    stop id as its training-free frequency; the redundant ``time`` string is
+    dropped.  A random ``n_samples`` subsample is split ``test_size``.
+    """
+    import pandas as pd
+
+    splits: SplitMetadata = {}
+    try:
+        from sklearn.datasets import fetch_openml
+
+        df = fetch_openml(
+            data_id=40753,
+            parser="pandas",
+            as_frame=True,
+            data_home=str(_image_cache_dir() / "sklearn"),
+        ).frame
+        # Stop frequency over all 5.5M events, then subsample *before* encoding
+        # (one-hot of the full table needs > 8 GB).  Categories are fixed from
+        # the full table so every subsample has the same columns.
+        stop_freq = df["stop_id"].map(df["stop_id"].value_counts(normalize=True))
+        lines = sorted(df["line_number"].dropna().unique().tolist())
+        vehicles = sorted(df["vehicle_type"].dropna().unique().tolist())
+        rng = np.random.default_rng(seed)
+        idx = (
+            rng.choice(len(df), n_samples, replace=False)
+            if n_samples < len(df)
+            else np.arange(len(df))
+        )
+        sub = df.iloc[idx]
+        y = sub["delay"].to_numpy(dtype=np.float64)
+        Xdf = sub.drop(columns=["delay", "time", "stop_id"]).assign(
+            stop_freq=stop_freq.iloc[idx].to_numpy()
+        )
+        Xdf["line_number"] = pd.Categorical(Xdf["line_number"], categories=lines)
+        Xdf["vehicle_type"] = pd.Categorical(Xdf["vehicle_type"], categories=vehicles)
+        Xdf = pd.get_dummies(
+            Xdf, columns=["vehicle_type", "line_number", "weekday"], dtype=np.float64
+        )
+        X = Xdf.to_numpy(dtype=np.float64)
+        del df
+    except Exception:
+        rng = np.random.default_rng(seed)
+        X = rng.standard_normal((n_samples, 20))
+        y = X[:, 0] + rng.standard_t(2, n_samples)
+        splits["_synthetic_fallback"] = True
+        splits["_fallback_reason"] = "OpenML 40753 (delays_zurich_transport) fetch failed"
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    keep = X_train.std(0) > 0
+    scaler = StandardScaler().fit(X_train[:, keep])
+    return {
+        **splits,
+        "X_train": scaler.transform(X_train[:, keep]).astype(np.float32),
+        "X_test": scaler.transform(X_test[:, keep]).astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Synthetic tabular datasets
 # ---------------------------------------------------------------------------
@@ -365,11 +441,47 @@ def _load_synthetic_censored(
     }
 
 
+SBIBM_CACHE_VERSION = 1
+
+
+def _sbibm_cache_path(
+    task_name: str, n_samples: int, n_observations: int, n_sbc_simulations: int, seed: int
+) -> Path:
+    """Frozen copy of one sbibm task draw (training sims, observations, references)."""
+    name = (
+        f"{task_name}_n{n_samples}_o{n_observations}_sbc{n_sbc_simulations}_seed{seed}"
+        f"_v{SBIBM_CACHE_VERSION}.pt"
+    )
+    return _image_cache_dir() / "sbibm" / name
+
+
+def _sbibm_splits_from_arrays(arrays: dict[str, Any]) -> SplitsDict:
+    ref = [np.asarray(r, dtype=np.float32) for r in arrays["reference"]]
+    y = np.asarray(arrays["theta"], dtype=np.float32)
+    out: SplitsDict = {
+        "X_train": np.asarray(arrays["x"], dtype=np.float32),
+        "y_train": y,
+        "X_test": np.asarray(arrays["observations"], dtype=np.float32),
+        # Point target = reference posterior mean (diagnostic only).
+        "y_test": np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32),
+        "reference": ref,
+        "sbc_theta": np.asarray(arrays["sbc_theta"], dtype=np.float32),
+        "sbc_x": np.asarray(arrays["sbc_x"], dtype=np.float32),
+        "n_targets": y.shape[1],
+        "prior_low": float(y.min()),
+        "prior_high": float(y.max()),
+        "_skip_y_standardization": True,  # simulator + reference in native units
+    }
+    if arrays.get("prior_dist") is not None:
+        out["prior_dist"] = arrays["prior_dist"]
+    return out
+
+
 def _load_sbibm_task(
     task_name: str,
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """Shared sbibm task loader (Lueckmann et al., NeurIPS 2021 SBI bench).
@@ -379,11 +491,28 @@ def _load_sbibm_task(
     observations. ``sbc_theta``/``sbc_x`` are a separate held-out set of
     prior/simulator draws used only for posterior-calibration diagnostics.
     Seeded via torch (+numpy, unused by most simulators).
+
+    sbibm has had no release since 2023 and pins ``sbi<0.22`` (it is installed
+    ``--no-deps``).  The first successful draw is therefore frozen under
+    ``<cache>/sbibm/`` (see :func:`_sbibm_cache_path`) and later runs read the
+    frozen copy without importing sbibm, so a broken sbibm install cannot
+    change or break the suite.  ``tools/freeze_sbibm.py`` builds the copies
+    ahead of an offline run.
     """
-    splits: SplitMetadata = {}
+    import torch
+
+    cache = _sbibm_cache_path(task_name, n_samples, n_observations, n_sbc_simulations, seed)
+    if cache.exists():
+        try:
+            arrays = torch.load(cache, weights_only=False)
+            splits = _sbibm_splits_from_arrays(arrays)
+            splits["_source_url"] = f"frozen sbibm {task_name} ({cache.name})"
+            return splits
+        except Exception:
+            pass  # unreadable copy: rebuild from sbibm below
+
     try:
         import sbibm  # ty: ignore[unresolved-import]  # optional SBI-benchmark dep
-        import torch
 
         torch.manual_seed(seed)
         task = sbibm.get_task(task_name)
@@ -391,8 +520,6 @@ def _load_sbibm_task(
         simulator = task.get_simulator()
         theta = torch.as_tensor(np.asarray(prior(num_samples=n_samples)), dtype=torch.float32)
         x = torch.as_tensor(np.asarray(simulator(theta)), dtype=torch.float32)
-        X = x.numpy().astype(np.float32)
-        y = theta.numpy().astype(np.float32)
         obs, ref = [], []
         for k in range(1, n_observations + 1):
             o = np.asarray(task.get_observation(num_observation=k), dtype=np.float32)
@@ -402,9 +529,6 @@ def _load_sbibm_task(
             )
             obs.append(o.reshape(-1))
             ref.append(r)
-        X_test = np.stack(obs, axis=0).astype(np.float32)
-        # Point target = reference posterior mean (diagnostic only).
-        y_test = np.stack([r.mean(axis=0) for r in ref], axis=0).astype(np.float32)
         # Diagnostic simulations are independently seeded and never included in
         # the amortized training pairs above.
         torch.manual_seed(seed + 1)
@@ -412,27 +536,32 @@ def _load_sbibm_task(
             np.asarray(prior(num_samples=n_sbc_simulations)), dtype=torch.float32
         )
         sbc_x_t = torch.as_tensor(np.asarray(simulator(sbc_theta_t)), dtype=torch.float32)
+        arrays: dict[str, Any] = {
+            "task": task_name,
+            "theta": theta.numpy().astype(np.float32),
+            "x": x.numpy().astype(np.float32),
+            "observations": np.stack(obs, axis=0).astype(np.float32),
+            "reference": ref,
+            "sbc_theta": sbc_theta_t.numpy().astype(np.float32),
+            "sbc_x": sbc_x_t.numpy().astype(np.float32),
+            "prior_dist": task.get_prior_dist(),
+        }
     except Exception:
         synth = _load_synthetic_cond_nongaussian(n_samples=n_samples, seed=seed)
         synth["_synthetic_fallback"] = True
-        synth["_fallback_reason"] = f"sbibm {task_name} unavailable"
+        synth["_fallback_reason"] = f"sbibm {task_name} unavailable and no frozen copy"
         return synth
 
-    return {
-        **splits,
-        "X_train": X,
-        "y_train": y,
-        "X_test": X_test,
-        "y_test": y_test,
-        "reference": ref,
-        "prior_dist": task.get_prior_dist(),
-        "sbc_theta": sbc_theta_t.numpy().astype(np.float32),
-        "sbc_x": sbc_x_t.numpy().astype(np.float32),
-        "n_targets": y.shape[1],
-        "prior_low": float(y.min()),
-        "prior_high": float(y.max()),
-        "_skip_y_standardization": True,  # simulator + reference in native units
-    }
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache.with_suffix(".tmp")
+        torch.save(arrays, tmp)
+        tmp.replace(cache)
+    except Exception:
+        pass  # read-only cache: still return the fresh draw
+    splits = _sbibm_splits_from_arrays(arrays)
+    splits["_source_url"] = f"sbibm {task_name}"
+    return splits
 
 
 def _load_ihdp(
@@ -574,7 +703,7 @@ def _load_folktables_causal(
 def _load_sbibm_twomoons(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Two Moons (bimodal 2-D posterior + reference samples)."""
@@ -584,7 +713,7 @@ def _load_sbibm_twomoons(
 def _load_sbibm_slcp(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm SLCP (5-D params, 8-D obs, complex posterior + references)."""
@@ -594,7 +723,7 @@ def _load_sbibm_slcp(
 def _load_sbibm_gaussian_linear(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Gaussian Linear (10-D analytic Gaussian posterior)."""
@@ -604,7 +733,7 @@ def _load_sbibm_gaussian_linear(
 def _load_sbibm_gaussian_mixture(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Gaussian Mixture (2-D bimodal posterior)."""
@@ -614,7 +743,7 @@ def _load_sbibm_gaussian_mixture(
 def _load_sbibm_bernoulli_glm(
     n_samples: int = 10000,
     n_observations: int = 3,
-    n_sbc_simulations: int = 16,
+    n_sbc_simulations: int = 100,
     seed: int = 42,
 ) -> SplitsDict:
     """sbibm Bernoulli GLM with sufficient-statistic observations."""
@@ -1496,6 +1625,24 @@ _US_STATES = [
 ]
 
 
+def _folktables_root(states: list[str] | tuple[str, ...]) -> str:
+    """ACS root holding every requested state's 2018 person file, else the cache.
+
+    The 50-state pull (``folktables_eiv`` and friends) is several GB from
+    census.gov and took hours per CANFAR session, so it is staged once under
+    ``staged/folktables`` (``scripts/skaha_stage_data.sh``); folktables skips
+    the download when ``<root>/2018/1-Year/psam_p<fips>.csv`` already exists.
+    """
+    from folktables.load_acs import _STATE_CODES  # ty: ignore[unresolved-import]
+
+    roots, _ = _staged_roots(os.environ.get("FOLKTABLES_ROOT", ""), "folktables")
+    for cand in roots:
+        base = cand / "2018" / "1-Year"
+        if all((base / f"psam_p{_STATE_CODES[st]}.csv").is_file() for st in states):
+            return str(cand)
+    return str(_image_cache_dir() / "folktables")
+
+
 def _fetch_folktables_xy(
     seed: int = 42,
     *,
@@ -1512,7 +1659,7 @@ def _fetch_folktables_xy(
     import pandas as pd
     from sklearn.preprocessing import OneHotEncoder
 
-    root = str(_image_cache_dir() / "folktables")
+    root = _folktables_root(states)
     ds = folktables.ACSDataSource(
         survey_year="2018", horizon="1-Year", survey="person", root_dir=root
     )
@@ -1960,6 +2107,81 @@ def _load_folktables_decile(
     }
 
 
+# OpenML copies of the MULAN multi-target regression collection (Spyromitros-
+# Xioufis et al., 2016). Targets are
+# the dataset's declared target attributes; continuous only (wq/oes dropped:
+# integer abundances / not hosted; OpenML's SARCOS keeps one torque only).
+_OPENML_MULTITARGET: dict[str, tuple[int, tuple[str, ...]]] = {
+    "mt_rf1": (
+        41483,
+        (
+            "CHSI2_48H__0",
+            "NASI2_48H__0",
+            "EADM7_48H__0",
+            "SCLM7_48H__0",
+            "CLKM7_48H__0",
+            "VALI2_48H__0",
+            "NAPM7_48H__0",
+            "DLDI4_48H__0",
+        ),
+    ),
+    "mt_scm20d": (
+        41486,
+        ("LBL",) + tuple(f"MTLp{k}A" for k in range(2, 17)),
+    ),
+    "mt_enb": (41478, ("Y1", "Y2")),
+    "mt_jura": (41479, ("Cd", "Co", "Cu")),
+}
+
+
+def _load_openml_multitarget(
+    name: str,
+    n_samples: int | None = None,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """Real multi-target regression set from OpenML (no synthetic fallback).
+
+    Features are standardised on the training split; targets stay in native
+    units with shape ``(N, D)`` (``_skip_y_standardization``) so density suites
+    can standardise per target themselves. Rows with missing values are
+    dropped; ``n_samples`` subsamples (seeded) before the split.
+    """
+    import pandas as pd
+    from sklearn.datasets import fetch_openml
+    from sklearn.preprocessing import StandardScaler
+
+    data_id, targets = _OPENML_MULTITARGET[name]
+    frame = fetch_openml(
+        data_id=data_id,
+        parser="pandas",
+        as_frame=True,
+        data_home=str(_image_cache_dir() / "sklearn"),
+    ).frame
+    frame = frame.apply(pd.to_numeric, errors="coerce").dropna()
+    y = frame[list(targets)].to_numpy(dtype=np.float64)
+    X = frame.drop(columns=list(targets)).to_numpy(dtype=np.float64)
+    keep = X.std(axis=0) > 0
+    X = X[:, keep]
+    if n_samples is not None and len(X) > n_samples:
+        idx = np.random.default_rng(seed).choice(len(X), n_samples, replace=False)
+        X, y = X[idx], y[idx]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
+    scaler = StandardScaler().fit(X_train)
+    return {
+        "X_train": scaler.transform(X_train).astype(np.float32),
+        "X_test": scaler.transform(X_test).astype(np.float32),
+        "y_train": y_train.astype(np.float32),
+        "y_test": y_test.astype(np.float32),
+        "n_targets": y.shape[1],
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+        "_source_url": f"https://www.openml.org/d/{data_id}",
+    }
+
+
 def _load_energy_efficiency(
     n_samples: int = 768,
     test_size: float = 0.3,
@@ -2323,6 +2545,73 @@ CANONICAL_SCENARIOS: dict[str, CanonicalScenario] = {
 # ---------------------------------------------------------------------------
 
 
+_TABRED_NAMES = {
+    "sberbank": "sberbank-housing",
+    "cooking": "cooking-time",
+    "delivery": "delivery-eta",
+    "maps": "maps-routing",
+    "weather": "weather",
+}
+
+
+def _tabred_array(base: Path, stem: str) -> np.ndarray | None:
+    for name in (f"{stem.lower()}.npy", f"{stem.upper()[0]}{stem[1:]}.npy", f"{stem.upper()}.npy"):
+        f = base / name
+        if f.exists():
+            return np.load(f, allow_pickle=False)
+    return None
+
+
+def _tabred_split(base: Path, part: str) -> np.ndarray | None:
+    for f in (
+        base / "splits" / "default" / f"{part}.npy",
+        base / "split-default" / f"{part}_idx.npy",
+    ):
+        if f.exists():
+            return np.load(f, allow_pickle=False).astype(np.int64).reshape(-1)
+    return None
+
+
+def _load_tabred_native(dataset_id: str, *, n_samples: int, seed: int) -> SplitsDict | None:
+    """Official TabReD layout under a staged root, or None when not staged."""
+    name = _TABRED_NAMES.get(dataset_id, dataset_id)
+    roots, _ = _staged_roots(os.environ.get("TORCHREGRESS_HARNESS_TABRED_ROOT", ""), "tabred")
+    base = next((r / name for r in roots if (r / name).is_dir()), None)
+    if base is None:
+        return None
+    blocks = [a for s in ("x_num", "x_bin", "x_cat") if (a := _tabred_array(base, s)) is not None]
+    y = _tabred_array(base, "y")
+    tr_idx, va_idx, te_idx = (_tabred_split(base, k) for k in ("train", "val", "test"))
+    if not blocks or y is None or tr_idx is None or va_idx is None or te_idx is None:
+        return None
+    X = np.concatenate(
+        [np.asarray(b, dtype=np.float64).reshape(len(y), -1) for b in blocks], axis=1
+    )
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    tr = np.concatenate([tr_idx, va_idx])
+    te = te_idx
+    rng = np.random.default_rng(seed)
+    if n_samples < len(tr):
+        tr = rng.choice(tr, n_samples, replace=False)
+    n_test = max(int(0.3 * len(tr)), 1)
+    if n_test < len(te):
+        te = rng.choice(te, n_test, replace=False)
+    X_train, X_test = X[tr], X[te]
+    med = np.nanmedian(X_train, axis=0)
+    med = np.where(np.isfinite(med), med, 0.0)
+    X_train = np.where(np.isfinite(X_train), X_train, med)
+    X_test = np.where(np.isfinite(X_test), X_test, med)
+    keep = X_train.std(0) > 0
+    X_train, X_test = X_train[:, keep], X_test[:, keep]
+    scaler = StandardScaler().fit(X_train)
+    return {
+        "X_train": scaler.transform(X_train).astype(np.float32),
+        "X_test": scaler.transform(X_test).astype(np.float32),
+        "y_train": y[tr].astype(np.float32),
+        "y_test": y[te].astype(np.float32),
+    }
+
+
 def _load_tabred(
     dataset_id: str,
     n_rows: int,
@@ -2333,11 +2622,23 @@ def _load_tabred(
     test_size: float = 0.3,
     seed: int = 42,
 ) -> SplitsDict:
-    """Generic TabReD loader: try local data, fall back to synthetic."""
+    """Generic TabReD loader: staged native data, local CSV, else synthetic.
+
+    Staged native data (``scripts/skaha_stage_data.sh`` runs the official
+    ``tabred download``) lives in ``staged/tabred/<name>/`` and is used with
+    TabReD's canonical *time-based* split (train + val -> train, test -> test),
+    as in the TabReD paper; the training part is then subsampled to
+    ``n_samples`` rows.  Numeric and binary features are used as is (NaN ->
+    training median); categorical codes enter as ordinal numbers.
+    """
     import pandas as pd
 
-    csv_path = Path(data_dir) / f"{dataset_id}.csv"
     splits: SplitMetadata = {}
+    native = _load_tabred_native(dataset_id, n_samples=n_samples, seed=seed)
+    if native is not None:
+        return native
+
+    csv_path = Path(data_dir) / f"{dataset_id}.csv"
 
     # Existence check stays OUTSIDE the parse handler: a missing CSV is an
     # expected fallback trigger, not a parsing failure to swallow (DATA-02).
@@ -3811,6 +4112,30 @@ def _load_tcga_survival(
     return splits
 
 
+def _tcga_cache_name(projects: tuple[str, ...], n_samples: int, img_size: int) -> str:
+    return f"tcga_{'-'.join(sorted(projects))}_n{n_samples}_s{img_size}.npz"
+
+
+def _tcga_split(
+    X: np.ndarray, T: np.ndarray, E: np.ndarray, img_size: int, test_size: float, seed: int
+) -> SplitsDict:
+    C = (1.0 - E).astype(np.float32)  # harness: 1 = censored
+    Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(X, T, C, test_size=test_size, random_state=seed)
+    return {
+        "X_train": Xtr,
+        "X_test": Xte,
+        "y_train": Ytr,
+        "y_test": Yte,
+        "censoring_train": Ctr,
+        "censoring_test": Cte,
+        "_image_data": True,
+        "_image_size": img_size,
+        "_n_channels": 3,
+        "_skip_y_standardization": True,
+        "_n_real_slides": len(X),
+    }
+
+
 def _load_tcga_survival_real(
     n_samples: int,
     img_size: int,
@@ -3818,11 +4143,24 @@ def _load_tcga_survival_real(
     test_size: float,
     seed: int,
 ) -> SplitsDict:
-    """GDC real path for :func:`_load_tcga_survival` (may raise)."""
+    """GDC real path for :func:`_load_tcga_survival` (may raise).
+
+    The harvest (one GDC tile request per ~1 s, up to 25 tiles per slide)
+    takes 35-90 min for 200 slides, so it is cached once as
+    ``staged/tcga/<name>.npz`` (seed-independent; the split is per seed).
+    """
     import io as _io
     import math as _math
     import os as _os
     import time as _time
+
+    cache_name = _tcga_cache_name(projects, n_samples, img_size)
+    staged, _ = _staged_roots(_os.environ.get("TCGA_ROOT", ""), "tcga")
+    for cand in staged:
+        f = cand / cache_name
+        if f.is_file():
+            z = np.load(f)
+            return _tcga_split(z["X"], z["T"], z["E"], img_size, test_size, seed)
 
     import requests as _requests
     from PIL import Image as _Image
@@ -4059,23 +4397,16 @@ def _load_tcga_survival_real(
         X = np.stack(imgs).astype(np.float32)
         T = np.array(times, dtype=np.float32)
         E = np.array(events, dtype=np.float32)
-        C = (1.0 - E).astype(np.float32)  # harness: 1 = censored
-        Xtr, Xte, Ytr, Yte, Ctr, Cte = train_test_split(
-            X, T, C, test_size=test_size, random_state=seed
-        )
-        return {
-            "X_train": Xtr,
-            "X_test": Xte,
-            "y_train": Ytr,
-            "y_test": Yte,
-            "censoring_train": Ctr,
-            "censoring_test": Cte,
-            "_image_data": True,
-            "_image_size": img_size,
-            "_n_channels": 3,
-            "_skip_y_standardization": True,
-            "_n_real_slides": len(imgs),
-        }
+        for cand in staged:  # first writable mirror wins; caching is best-effort
+            try:
+                cand.mkdir(parents=True, exist_ok=True)
+                tmp = cand / (cache_name + ".tmp.npz")
+                np.savez_compressed(tmp, X=X, T=T, E=E)
+                tmp.replace(cand / cache_name)
+                break
+            except OSError:
+                continue
+        return _tcga_split(X, T, E, img_size, test_size, seed)
     raise RuntimeError(f"only {len(imgs)} slides harvested")
 
 
@@ -5891,6 +6222,18 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         ),
         loader=_registry_loader(_load_insurance_claims, n_samples=20000),
     ),
+    "zurich_delays": DatasetInfo(
+        name="zurich_delays",
+        category="tabular",
+        n_features=84,
+        n_samples=5465575,
+        description=(
+            "Zurich public-transport delays, raw (OpenML 40753, CC0): extremely "
+            "heavy-tailed delay with gross errors, from vehicle, line, stop, time and "
+            "weather; 100k-row random subsample."
+        ),
+        loader=_registry_loader(_load_zurich_delays, n_samples=100000),
+    ),
     "house_sales": DatasetInfo(
         name="house_sales",
         category="tabular",
@@ -5983,6 +6326,38 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "loads. Standard real-data MULTI-TARGET regression benchmark."
         ),
         loader=_registry_loader(_load_energy_efficiency),
+    ),
+    "mt_rf1": DatasetInfo(
+        name="mt_rf1",
+        category="tabular",
+        n_features=64,
+        n_samples=9125,
+        description="MULAN rf1: river-flow sensor readings, 8 targets (48 h ahead). Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_rf1"),
+    ),
+    "mt_scm20d": DatasetInfo(
+        name="mt_scm20d",
+        category="tabular",
+        n_features=61,
+        n_samples=8966,
+        description="MULAN scm20d: supply-chain management, 16 price targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_scm20d"),
+    ),
+    "mt_enb": DatasetInfo(
+        name="mt_enb",
+        category="tabular",
+        n_features=8,
+        n_samples=768,
+        description="MULAN enb (UCI Energy Efficiency): heating/cooling load, 2 targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_enb"),
+    ),
+    "mt_jura": DatasetInfo(
+        name="mt_jura",
+        category="tabular",
+        n_features=15,
+        n_samples=359,
+        description="MULAN jura: Swiss Jura soil, Cd/Co/Cu concentrations, 3 targets. Real multi-target data (OpenML).",
+        loader=_registry_loader(_load_openml_multitarget, name="mt_jura"),
     ),
     "make_regression_synthetic": DatasetInfo(
         name="make_regression_synthetic",
@@ -6486,6 +6861,34 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
 }
 
 
+STRICT_DATA_ENV = "TORCHREGRESS_HARNESS_STRICT_DATA"
+
+
+class SyntheticFallbackError(RuntimeError):
+    """A real dataset could not be loaded and strict data mode forbids a synthetic proxy."""
+
+
+def strict_data_enabled() -> bool:
+    """True when ``TORCHREGRESS_HARNESS_STRICT_DATA`` is set to a truthy value.
+
+    Paper and release runs set it so a missing download or staged mirror stops
+    the run instead of silently benchmarking a synthetic stand-in.
+    """
+    return os.environ.get(STRICT_DATA_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _enforce_strict_data(name: str, splits: SplitsDict) -> None:
+    if not strict_data_enabled() or not splits.get("_synthetic_fallback"):
+        return
+    if DATASET_REGISTRY[name].category == "synthetic":
+        return
+    reason = splits.get("_fallback_reason", "loader returned a synthetic proxy")
+    raise SyntheticFallbackError(
+        f"{name}: real data unavailable ({reason}); {STRICT_DATA_ENV} forbids synthetic fallback. "
+        "Stage the dataset or drop it from the run."
+    )
+
+
 def load_dataset(name: str, **kwargs: Any) -> SplitsDict:
     """Load a dataset by name from the registry.
 
@@ -6513,6 +6916,7 @@ def load_dataset(name: str, **kwargs: Any) -> SplitsDict:
     # Pop harness-level kwargs before passing through to the dataset loader
     standardize = bool(kwargs.pop("standardize_targets", True))
     splits = DATASET_REGISTRY[name].loader(**kwargs)
+    _enforce_strict_data(name, splits)
 
     # Standardise targets unless the dataset opts out (Tweedie, censored)
     # or the harness is explicitly configured to skip standardisation.

@@ -17,12 +17,23 @@ from harness.devices import current_device
 
 from .core import set_harness_seed
 from .datasets import SplitsDict
-from .metrics import compute_all_metrics
+from .metrics import compute_all_metrics, infinite_interval_note
 
 
 def _inverse_transform_y(y: np.ndarray, y_scaler: Any) -> np.ndarray:
-    """Inverse-transform standardised targets back to original scale."""
-    return y_scaler.inverse_transform(y.reshape(-1, 1)).ravel().astype(np.float64)
+    """Inverse-transform standardised targets back to original scale.
+
+    Applied as the scaler's affine map (``y * scale_ + mean_``) rather than
+    ``inverse_transform``: sklearn rejects non-finite input, but conformal
+    bounds are legitimately ``+-inf`` when a (Mondrian / prevalence) group has
+    too few calibration points -- which failed every ``Zoo_Prevalence`` row.
+    """
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    mean = getattr(y_scaler, "mean_", None)
+    scale = getattr(y_scaler, "scale_", None)
+    if mean is None or scale is None or np.size(mean) != 1:
+        return y_scaler.inverse_transform(y.reshape(-1, 1)).ravel().astype(np.float64)
+    return y * float(np.ravel(scale)[0]) + float(np.ravel(mean)[0])
 
 
 def _inverse_transform_predictions(
@@ -31,15 +42,27 @@ def _inverse_transform_predictions(
 ) -> dict[str, np.ndarray]:
     """Inverse-transform predictions back to original target scale.
 
-    Point estimates (``y_pred``, ``mean``, ``lower``, ``upper``) are fully
-    inverse-transformed.  Standard deviations (``std``) are scaled by the
+    Point estimates (``y_pred``, ``mean``, ``lower``, ``upper``) and predictive
+    ``samples`` are fully inverse-transformed.  Standard deviations (``std``) are scaled by the
     y-scaler's scale_ only (they don't have a location shift).
     """
     out = dict(predictions)
-    scale = float(y_scaler.scale_.item())
+    scale = float(np.asarray(y_scaler.scale_).reshape(-1)[0])
     for key in ("y_pred", "mean", "lower", "upper"):
         if key in out:
             out[key] = _inverse_transform_y(out.pop(key), y_scaler)
+    # Samples / quantile grids ([N, S] or any shape) are an elementwise affine
+    # map; leaving them standardized silently broke point and CRPS metrics for
+    # every sample-based method (TabICL, TabPFN, sdm models, ...).
+    if "samples" in out:
+        s = np.asarray(out.pop("samples"), dtype=np.float64)
+        mu = np.asarray(y_scaler.mean_, dtype=np.float64).reshape(-1)
+        sc = np.asarray(y_scaler.scale_, dtype=np.float64).reshape(-1)
+        if mu.size == 1:
+            s = s * sc[0] + mu[0]
+        elif s.shape[-1] == mu.size:  # multi-target: targets on the last axis
+            s = s * sc + mu
+        out["samples"] = s
     if "std" in out and scale != 0:
         out["std"] = (out.pop("std") * scale).astype(np.float64)
     return out
@@ -402,7 +425,9 @@ class HarnessRunner(ABC):
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Device": str(current_device()),
-                    "Notes": self.method_notes(method),
+                    "Notes": "; ".join(
+                        n for n in (self.method_notes(method), infinite_interval_note(metrics)) if n
+                    ),
                 }
 
             except ImportError as exc:

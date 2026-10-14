@@ -22,6 +22,15 @@ matplotlib = "*"
 tqdm = "*"
 zuko = "*"
 torchmetrics = "*"
+# Comparator deps from conda-forge so pip never swaps in a PyPI torch build
+# (CUDA 13) or builds against a mismatched toolkit on headless GPU nodes.
+pip = "*"
+torchvision = "*"
+lightning = "*"
+einops = "*"
+seaborn = "*"
+timm = "*"
+rich = "*"
 
 [feature.dev.dependencies]
 ruff = ">=0.6"
@@ -31,6 +40,9 @@ ty = ">=0.0.5"
 pytest = ">=8.0"
 pytest-cov = ">=5.0"
 pyyaml = "*"
+scoringrules = ">=0.11.0,<0.12"
+properscoring = ">=0.1,<0.2"
+hypothesis = ">=6.168.5,<7"
 
 [pypi-dependencies]
 torchregress = { path = "../torchregress", editable = true }
@@ -40,6 +52,13 @@ torchregress-harness = { path = ".", editable = true }
 default = { features = ["dev", "test"], solve-group = "default" }
 gpu = { features = ["gpu", "dev", "test"], solve-group = "gpu" }
 
+[feature.gpu.dependencies]
+# Headers for in-env CUDA extension builds (torchsort, needed by torchcp):
+# pytorch-gpu ships nvcc tools but not cuda_runtime.h.
+cuda-cudart-dev = "12.9.*"
+cuda-cccl = "12.9.*"
+cuda-nvcc = "12.9.*"
+
 [feature.gpu.system-requirements]
 cuda = "12"
 
@@ -48,7 +67,8 @@ lint = { cmd = "ruff check src/harness tests tools suites && ruff format --check
 format = "ruff format src/harness tests tools suites"
 typecheck = "ty check --python .pixi/envs/default src/harness"
 test = "pytest --cov=harness --cov-report=term"
-ci = { depends-on = ["lint", "typecheck", "test"] }
+provenance = "python tools/check_provenance.py leaderboard_results.json"
+ci = { depends-on = ["lint", "typecheck", "test", "provenance"] }
 experiments-smoke = "python -m suites.experiments.sweep --config experiments/configs/smoke.yaml --output results/experiments/smoke"
 experiments-tabular = "python -m suites.experiments.sweep --config experiments/configs/tabular-large.yaml --output results/experiments/tabular-large"
 experiments-image = "python -m suites.experiments.sweep --config experiments/configs/image-multitarget.yaml --output results/experiments/image-multitarget"

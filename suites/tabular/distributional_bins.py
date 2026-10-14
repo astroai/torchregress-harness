@@ -10,6 +10,7 @@ Methods
 * ``Split_CP`` — post-hoc split conformal (baseline, also used for binning)
 * ``GaussianNLL`` — diagonal Gaussian NLL → mean ± z·σ intervals
 * ``NormalizingFlow`` — zuko NSF flow → sample-based quantile intervals
+* ``NormalizingFlow_recipe`` — the same flow trained with the documented NLL / calibration recipe (``suites/_flow_recipe.py``)
 * ``NF_Ensemble_K{2,5,10,20}`` — K seeded NormalizingFlows with pooled
   samples for per-row quantile intervals (Proposal #10 + K-sweep validation §14).
   Architecture (hidden layers + transforms + per-member sample count) is
@@ -43,6 +44,7 @@ from suites._backbones import (
     _hidden_size,
     _train_one,
 )
+from suites._flow_recipe import fit_nsf_recipe
 
 try:
     from crepes import ConformalRegressor as _CrepesRegressor
@@ -205,6 +207,7 @@ class DistributionalBinsSuite(HarnessRunner):
             "Split_CP",
             "GaussianNLL",
             "NormalizingFlow",
+            "NormalizingFlow_recipe",
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
@@ -260,6 +263,11 @@ class DistributionalBinsSuite(HarnessRunner):
             "Split_CP": "post-hoc split conformal — baseline, also defines bins",
             "GaussianNLL": "diagonal Gaussian NLL → mean ± z·σ intervals",
             "NormalizingFlow": "zuko NSF normalizing flow → sample-based quantile intervals",
+            "NormalizingFlow_recipe": (
+                "NormalizingFlow trained with the docs/losses/nflows.md recipe: 15% validation "
+                "split, early stopping (patience 10, best weights restored), "
+                "bound=recommended_tail_bound(y_std), bins=16 → sample-based quantile intervals"
+            ),
             "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
             "Evidential": "NIG evidential regression → Student-t predictive intervals",
             "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
@@ -376,6 +384,13 @@ class DistributionalBinsSuite(HarnessRunner):
             )
             model.eval()
             return {"type": "nflow", "model": model, "flow": loss_fn}
+
+        # --- NormalizingFlow_recipe: documented NLL / calibration recipe ---
+        elif method == "NormalizingFlow_recipe":
+            model, loss_fn, info = fit_nsf_recipe(
+                X_train, y_train.reshape(len(y_train), -1), config, in_dim=in_dim, hidden=hidden
+            )
+            return {"type": "nflow", "model": model, "flow": loss_fn, "recipe": info}
 
         # --- NF_Ensemble_K{2,5,10,20}: K-sweep NormalizingFlows (Proposal #10 + §14) ---
         elif method in ("NF_Ensemble_K2", "NF_Ensemble_K5", "NF_Ensemble_K10", "NF_Ensemble_K20"):
@@ -643,9 +658,11 @@ class DistributionalBinsSuite(HarnessRunner):
             lo.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
             hi.fit(np.asarray(splits["X_train"]), np.asarray(splits["y_train"]))
             score = np.maximum(lo.predict(Xc) - yc, yc - hi.predict(Xc))
+            # crepes takes |residuals|; CQR scores are signed -> shift (see conformal.py).
+            shift = float(min(score.min(), 0.0))
             cr = _CrepesRegressor()
-            cr.fit(score)
-            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr}
+            cr.fit(score - shift)
+            return {"type": "crepes_cqr", "lo": lo, "hi": hi, "cr": cr, "shift": shift}
 
         # --- RandomPartition: M members on jittered target partitions ---        # CDF-space averaging onto the union grid; per-member CE training
         # (members have incompatible out-dims, so no shared-target .fit).
@@ -858,7 +875,8 @@ class DistributionalBinsSuite(HarnessRunner):
             # CQR conformity scores fitted above, predict_int on zeros gives
             # exactly ±Q (finite-sample corrected), applied to each quantile.
             iv = np.asarray(cr.predict_int(np.zeros(len(q_lo)), confidence=0.9))
-            lo_np, hi_np = q_lo + iv[:, 0], q_hi + iv[:, 1]
+            q = iv[:, 1] + float(model_state.get("shift", 0.0))
+            lo_np, hi_np = q_lo - q, q_hi + q
             return {
                 "lower": lo_np,
                 "upper": hi_np,
@@ -1132,15 +1150,7 @@ class DistributionalBinsSuite(HarnessRunner):
                     "Device": str(current_device()),
                     "Notes": self.method_notes(method),
                 }
-            except (
-                ValueError,
-                RuntimeError,
-                ImportError,
-                KeyError,
-                TypeError,
-                OSError,
-                NameError,
-            ) as exc:
+            except Exception as exc:  # noqa: BLE001 — one method failing must not drop the rest
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),

@@ -15,6 +15,8 @@ Methods
 * ``CNN+StudentT`` — CNN + Student-t NLL (heavy-tailed)
 * ``CNN+Huber`` / ``CNN+Barron`` — robust losses on CNN features
 * ``CNN+MC_Dropout`` — dropout CNN + MSE, 20 MC passes
+* ``CNN+RankNContrast`` — CNN encoder trained with ``RankNContrastLoss``
+  (Zha et al. 2023), then a least-squares linear probe on the frozen features
 * ``ResNet+GaussianNLL/MDN_K3/NormalizingFlow/Evidential/MultiQuantile``
 * ``timm_resnet18+GaussianNLL`` — timm backbone (if timm installed)
 * ``sklearn_RF`` / ``sklearn_GBR`` — flattened-pixel baselines
@@ -99,7 +101,7 @@ def _require_torch_uncertainty_version() -> None:
             f"torch-uncertainty {raw} is too old for the image regression suite "
             f"(needs >= {'.'.join(map(str, _TORCH_UNCERTAINTY_MIN_VERSION))}.0 for the reworked "
             "DistributionNLLLoss / distribution-parameter API).  Install from git main: "
-            "pip install 'git+https://github.com/torch-uncertainty/torch-uncertainty.git@94e511a737'"
+            "pip install 'git+https://github.com/torch-uncertainty/torch-uncertainty.git@3f82fe5d15'"
         )
 
 
@@ -193,6 +195,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+Huber",
             "CNN+Barron",
             "CNN+MC_Dropout",
+            "CNN+RankNContrast",
             "sklearn_RF",
             "sklearn_GBR",
         ]
@@ -256,6 +259,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+Huber": "4-layer CNN + PseudoHuber robust loss (point prediction)",
             "CNN+Barron": "4-layer CNN + Barron adaptive robust loss (point prediction)",
             "CNN+MC_Dropout": "dropout CNN + MSE, 20 MC passes (train mode at predict)",
+            "CNN+RankNContrast": "CNN encoder trained with RankNContrastLoss (32-d features), then a least-squares linear probe (point prediction)",
             "ResNet+GaussianNLL": "ResNet18 backbone + diagonal Gaussian NLL loss",
             "ResNet+MDN_K3": "ResNet18 backbone + 3-component MDN",
             "ResNet+NormalizingFlow": "ResNet18 context + zuko NSF normalizing flow",
@@ -488,7 +492,46 @@ class AgeRegressionSuite(ImageHarnessRunner):
             _train_image_model(model, nn.MSELoss(), train_loader, config)
             return {"type": "mc_dropout", "model": model, "n_passes": 20}
 
+        # --- Rank-N-Contrast representation + linear probe ---
+        elif method == "CNN+RankNContrast":
+            return self._fit_rank_n_contrast(in_channels, train_loader, config)
+
         raise ValueError(f"Unknown CNN method: {method}")
+
+    def _fit_rank_n_contrast(
+        self,
+        in_channels: int,
+        train_loader: torch.utils.data.DataLoader,
+        config: HarnessConfig,
+    ) -> dict[str, Any]:
+        """Two-stage Rank-N-Contrast: contrastive encoder, then a linear probe.
+
+        Stage 1 trains the CNN encoder with ``RankNContrastLoss`` (features
+        ordered by label distance, L2 similarity, temperature 2).  Stage 2
+        freezes it and fits ``y ~ features`` by least squares on the training
+        set (the paper's linear-probe protocol, closed form instead of SGD).
+        """
+        from torchregress.losses import RankNContrastLoss
+
+        feature_dim = 32
+        encoder = self._build_cnn(in_channels=in_channels, out_dim=feature_dim)
+        _train_image_model(encoder, RankNContrastLoss(temperature=2.0), train_loader, config)
+        encoder.eval()
+        device = next(encoder.parameters()).device
+        feats, targets = [], []
+        with torch.no_grad():
+            for batch in train_loader:
+                feats.append(encoder(batch[0].to(device)).cpu().double())
+                targets.append(batch[1].reshape(-1, 1).double())
+        F = torch.cat(feats)
+        design = torch.cat([F, torch.ones(len(F), 1, dtype=F.dtype)], dim=1)
+        coef = torch.linalg.lstsq(design, torch.cat(targets)).solution  # [feature_dim + 1, 1]
+        probe = nn.Linear(feature_dim, 1)
+        with torch.no_grad():
+            probe.weight.copy_(coef[:-1, 0].float().unsqueeze(0))
+            probe.bias.copy_(coef[-1].float())
+        model = nn.Sequential(encoder, probe.to(device)).eval()
+        return {"type": "point", "model": model}
 
     def _fit_observed_std(
         self,

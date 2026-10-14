@@ -63,6 +63,7 @@ from suites._backbones import (
     _train_lbfgs,
     _train_one,
 )
+from suites._tabular_mlp import N_MEMBERS, fit_tabmlp, predict_point
 
 # ---------------------------------------------------------------------------
 # Registry: sklearn methods
@@ -190,7 +191,7 @@ class SklearnBaselinesSuite(HarnessRunner):
             "synthetic_censored",
             "synthetic_eiv",
             "synthetic_sinusoidal",
-            "tabred_sberbank",
+            "zurich_delays",
             "tabred_cooking",
             "tabred_delivery",
             "tabred_maps",
@@ -207,7 +208,15 @@ class SklearnBaselinesSuite(HarnessRunner):
     # ------------------------------------------------------------------
 
     # Torchregress method keys (always available)
-    _TR_METHODS: list[str] = ["OLS", "GaussianNLL_Linear", "GaussianNLL", "MultiQuantile", "MSE"]
+    _TR_METHODS: list[str] = [
+        "OLS",
+        "GaussianNLL_Linear",
+        "GaussianNLL",
+        "MultiQuantile",
+        "MSE",
+        "TabularMLP",
+        "TabularMLP_Ens5",
+    ]
 
     def methods(self) -> list[str]:
         # torchregress methods first, then all sklearn methods
@@ -229,6 +238,17 @@ class SklearnBaselinesSuite(HarnessRunner):
             return "MLP + MultiQuantileLoss (q=0.1,0.5,0.9) → median & quantile intervals"
         if method == "MSE":
             return "3-layer MLP + Adam + MSE — Kaiming init (sklearn uses Glorot); converges to same optimum at 200+ epochs"
+        if method == "TabularMLP":
+            return (
+                "torchregress.models TabularMLP + fit_tabular with library defaults "
+                "(robust scaling, periodic embeddings, AdamW one-cycle, 15% validation early stopping) "
+                "and WeightedMSELoss; epochs = min(100, config.epochs)"
+            )
+        if method == "TabularMLP_Ens5":
+            return (
+                "5 TabularMLP members (fit_tabular_ensemble, seeds seed..seed+4), MSE head, "
+                "member predictions averaged; library defaults, epochs = min(100, config.epochs)"
+            )
         if method == "sklearn_MLPRegressor":
             return "3-layer MLP (ReLU) + Adam + MSE — Glorot init (torchregress uses Kaiming); converges to same optimum at 200+ epochs"
         if method in _SKLEARN_REGRESSORS:
@@ -329,6 +349,17 @@ class SklearnBaselinesSuite(HarnessRunner):
 
             return {"type": "mse", "model": model}
 
+        # --- torchregress: TabularMLP (library defaults) and 5-member ensemble ---
+        elif method in ("TabularMLP", "TabularMLP_Ens5"):
+            fit = fit_tabmlp(
+                X_train_np,
+                y_train_np,
+                config,
+                kind="mse",
+                n_members=N_MEMBERS if method == "TabularMLP_Ens5" else 1,
+            )
+            return {"type": "tabular_mlp", "fit": fit}
+
         # --- sklearn MLPRegressor — direct parity with torchregress MSE ---
         elif method == "sklearn_MLPRegressor":
             hidden = _hidden_size(in_dim)
@@ -389,10 +420,13 @@ class SklearnBaselinesSuite(HarnessRunner):
             m = model_state["model"]
             with torch.no_grad():
                 out = m(torch.from_numpy(X_test).float().to(current_device()))
-                # out shape: (N, 3) for quantiles [0.1, 0.5, 0.9]
-                lo = out[:, 0].detach().cpu().numpy().reshape(-1)
-                med = out[:, 1].detach().cpu().numpy().reshape(-1)
-                hi = out[:, 2].detach().cpu().numpy().reshape(-1)
+                # out shape: (N, 3) for quantiles [0.1, 0.5, 0.9].  Independent
+                # quantile heads can cross on heavy-tailed or discrete targets
+                # (zurich_delays, tabred_cooking): monotone rearrangement
+                # (Chernozhukov, Fernandez-Val & Galichon 2010) sorts them,
+                # which never increases the pinball loss.
+                q = torch.sort(out[:, :3], dim=1).values.detach().cpu().numpy()
+                lo, med, hi = q[:, 0], q[:, 1], q[:, 2]
             return {"y_pred": med, "lower": lo, "upper": hi}
 
         # --- torchregress: OLS → y_pred (analytic, matches sklearn LinearRegression) ---
@@ -403,6 +437,10 @@ class SklearnBaselinesSuite(HarnessRunner):
             A = torch.cat([X_t, ones], dim=-1)
             y_pred = (A @ coef).detach().cpu().numpy().reshape(-1)
             return {"y_pred": y_pred}
+
+        # --- torchregress: TabularMLP → y_pred ---
+        elif model_type == "tabular_mlp":
+            return {"y_pred": predict_point(model_state["fit"], X_test)}
 
         # --- torchregress: MSE → y_pred ---
         elif model_type == "mse":

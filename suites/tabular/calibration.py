@@ -57,6 +57,17 @@ from suites._backbones import _MLP, _carve_calibration_split, _hidden_size, _tra
 # ---------------------------------------------------------------------------
 
 
+_VTS_METHODS = ("VarianceTemperatureScaler", "VTS_Floor", "VTS_Floor_Clip")
+
+
+def _vts_kwargs(method: str) -> dict[str, Any]:
+    """Options of the VarianceTemperatureScaler variants benchmarked here."""
+    return {
+        "fit_floor": method != "VarianceTemperatureScaler",
+        "clip": 5.0 if method == "VTS_Floor_Clip" else None,
+    }
+
+
 class CalibrationSuite(HarnessRunner):
     """Post-hoc calibration benchmark suite.
 
@@ -81,6 +92,7 @@ class CalibrationSuite(HarnessRunner):
             "california_housing",
             "diabetes",
             "synthetic_hetero",
+            "synthetic_outliers",
         ]
 
     @property
@@ -96,6 +108,8 @@ class CalibrationSuite(HarnessRunner):
         return [
             "Uncalibrated",
             "VarianceTemperatureScaler",
+            "VTS_Floor",
+            "VTS_Floor_Clip",
             "IsotonicMeanCalibrator",
             "sklearn_IsotonicRegression",
         ]
@@ -109,6 +123,8 @@ class CalibrationSuite(HarnessRunner):
         notes = {
             "Uncalibrated": "raw Gaussian NLL model; no calibration",
             "VarianceTemperatureScaler": "scalar temperature on predictive variance (NLL optim)",
+            "VTS_Floor": "VarianceTemperatureScaler(fit_floor=True): T * var + f",
+            "VTS_Floor_Clip": "VarianceTemperatureScaler(fit_floor=True, clip=5): robust to outliers",
             "IsotonicMeanCalibrator": "PAVA isotonic regression on predicted means",
             "sklearn_IsotonicRegression": "sklearn IsotonicRegression on predicted means",
         }
@@ -157,9 +173,14 @@ class CalibrationSuite(HarnessRunner):
         if method == "Uncalibrated":
             pass  # no calibrator
 
-        elif method == "VarianceTemperatureScaler":
+        elif method in _VTS_METHODS:
             calibrator = VarianceTemperatureScaler()
-            calibrator.fit(cal_mean.unsqueeze(1), cal_var.unsqueeze(1), y_cal.unsqueeze(1))
+            calibrator.fit(
+                cal_mean.unsqueeze(1),
+                cal_var.unsqueeze(1),
+                y_cal.unsqueeze(1),
+                **_vts_kwargs(method),
+            )
 
         elif method == "IsotonicMeanCalibrator":
             calibrator = IsotonicMeanCalibrator()
@@ -208,7 +229,7 @@ class CalibrationSuite(HarnessRunner):
             calibrated_mean = mean.detach().cpu().numpy()
             calibrated_std = std.detach().cpu().numpy()
 
-        elif method == "VarianceTemperatureScaler":
+        elif method in _VTS_METHODS:
             calibrated_mean = mean.detach().cpu().numpy()
             calibrated_var = calibrator.transform(var.unsqueeze(1)).detach().cpu().numpy()
             calibrated_std = np.sqrt(calibrated_var.clip(1e-8))
@@ -354,15 +375,7 @@ class CalibrationSuite(HarnessRunner):
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (
-                ValueError,
-                RuntimeError,
-                ImportError,
-                KeyError,
-                TypeError,
-                OSError,
-                NameError,
-            ) as exc:
+            except Exception as exc:  # noqa: BLE001 — one method failing must not drop the rest
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -406,9 +419,14 @@ class CalibrationSuite(HarnessRunner):
         if method == "Uncalibrated":
             return None
 
-        elif method == "VarianceTemperatureScaler":
+        elif method in _VTS_METHODS:
             scaler = VarianceTemperatureScaler()
-            scaler.fit(cal_mean.unsqueeze(1), cal_var.unsqueeze(1), y_cal_t.unsqueeze(1))
+            scaler.fit(
+                cal_mean.unsqueeze(1),
+                cal_var.unsqueeze(1),
+                y_cal_t.unsqueeze(1),
+                **_vts_kwargs(method),
+            )
             return scaler
 
         elif method == "IsotonicMeanCalibrator":
@@ -443,7 +461,7 @@ class CalibrationSuite(HarnessRunner):
             calibrated_mean = mean
             calibrated_std = std
 
-        elif method == "VarianceTemperatureScaler":
+        elif method in _VTS_METHODS:
             calibrated_mean = mean
             with torch.no_grad():
                 var_t = torch.exp(out[:, 1]).clamp_min(1e-8)

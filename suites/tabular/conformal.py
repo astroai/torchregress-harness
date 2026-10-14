@@ -102,6 +102,7 @@ from suites._backbones import (
     _train_lbfgs,
     _train_one,
 )
+from suites._tabular_mlp import fit_tabmlp, predict_quantiles
 
 # ---------------------------------------------------------------------------
 # Interval helpers — torchregress
@@ -217,7 +218,7 @@ def _mapie_coverage_and_width(
 def _mapie_version() -> str:
     """Installed MAPIE version, annotated with the git commit when pip-installed from git.
 
-    e.g. ``"1.4.1"`` for a PyPI wheel or ``"1.5.0 (git 6478f16c9a)"`` for a
+    e.g. ``"1.4.1"`` for a PyPI wheel or ``"1.5.1.dev6 (git 3b84b8212d)"`` for a
     ``pip install git+https://github.com/scikit-learn-contrib/MAPIE.git`` install.
     """
     try:
@@ -239,7 +240,7 @@ def _require_mapie_version() -> None:
     except ImportError as exc:
         raise ImportError(
             "mapie not installed — install with: "
-            "pip install 'git+https://github.com/scikit-learn-contrib/MAPIE.git@6478f16c9a' "
+            "pip install 'git+https://github.com/scikit-learn-contrib/MAPIE.git@3b84b8212d' "
             "(see EXTERNAL_PINS.md)"
         ) from exc
     raw = getattr(mapie, "__version__", None)
@@ -283,10 +284,43 @@ def _mapie_fit(
     return scr
 
 
+# Rows of conformity scores a MAPIE predictor aggregates per test point
+# (upper bound for the block size; set per predictor by the fit halves).
+_MAPIE_REF_ROWS = 100_000
+
+
 def _mapie_predict(pred_obj: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Predict-half: interval prediction from a fitted MAPIE v1 predictor."""
-    _, intervals = pred_obj.predict_interval(_as_float64(X_test))
-    return _mapie_intervals_to_bounds(intervals)
+    """Predict-half: interval prediction from a fitted MAPIE v1 predictor.
+
+    Test rows go through MAPIE in blocks.  Cross-conformal (CV+) aggregation
+    materialises (n_test, n_train) float64 score arrays -- 15.6 GiB on
+    zurich_delays, which OOM-killed the 32 GB session.  Intervals are
+    per-test-point, so blocking gives the same bounds.
+    """
+    n_ref = int(getattr(pred_obj, "_n_conformalize_rows", 0) or _MAPIE_REF_ROWS)
+    _, lo, hi = mapie_predict_blocked(pred_obj, X_test, n_ref=n_ref)
+    return lo, hi
+
+
+def mapie_predict_blocked(
+    pred_obj: Any, X_test: np.ndarray, *, n_ref: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """``predict_interval`` in test-row blocks: (point, lower, upper).
+
+    ``n_ref`` is the number of conformity scores aggregated per test point
+    (the full fit set for cross-conformal); blocks keep each
+    (rows, n_ref) array under ~2**24 entries.
+    """
+    X = _as_float64(X_test)
+    block = max(1, (1 << 24) // max(1, int(n_ref)))
+    pts, los, his = [], [], []
+    for start in range(0, max(len(X), 1), block):
+        pred, intervals = pred_obj.predict_interval(X[start : start + block])
+        lo, hi = _mapie_intervals_to_bounds(intervals)
+        pts.append(np.asarray(pred).reshape(-1))
+        los.append(lo)
+        his.append(hi)
+    return np.concatenate(pts), np.concatenate(los), np.concatenate(his)
 
 
 def _mapie_split_linear_fit(
@@ -365,6 +399,7 @@ def _mapie_cross_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: i
         [_as_float64(splits["y_train"]).reshape(-1), _as_float64(splits["y_cal"]).reshape(-1)]
     )
     ccqr.fit_conformalize(X_all, y_all)
+    ccqr._n_conformalize_rows = len(X_all)  # block size for _mapie_predict
     return ccqr
 
 
@@ -404,9 +439,13 @@ def _crepes_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -
     q_hi_cal = hi.predict(splits["X_cal"])
     y_cal = np.asarray(splits["y_cal"]).reshape(-1)
     score = np.maximum(q_lo_cal - y_cal, y_cal - q_hi_cal)
+    # crepes' fit takes |residuals|, but CQR scores are signed (negative when
+    # the quantile band is too wide). Shift them to be non-negative so crepes
+    # sees the same order statistics, and undo the shift at prediction.
+    shift = float(min(score.min(), 0.0))
     cr = ConformalRegressor()
-    cr.fit(score)
-    return {"lo": lo, "hi": hi, "cr": cr}
+    cr.fit(score - shift)
+    return {"lo": lo, "hi": hi, "cr": cr, "shift": shift}
 
 
 def _crepes_cqr_predict(
@@ -419,7 +458,7 @@ def _crepes_cqr_predict(
     q_lo_test = state["lo"].predict(X_test)
     q_hi_test = state["hi"].predict(X_test)
     intervals = np.asarray(state["cr"].predict_int(np.zeros(1), confidence=1.0 - alpha))
-    q = float(intervals[0, 1])
+    q = float(intervals[0, 1]) + float(state.get("shift", 0.0))
     return q_lo_test - q, q_hi_test + q
 
 
@@ -727,6 +766,7 @@ class ConformalSuite(HarnessRunner):
             "tabred_delivery",
             "tabred_cooking",
             "tabred_weather",
+            "zurich_delays",
         ]
 
     @property
@@ -742,6 +782,7 @@ class ConformalSuite(HarnessRunner):
         methods = [
             "Split+MLP",
             "CQR+MLP",
+            "CQR+TabularMLP",
             "Split+Linear",
             "Split+Linear(post-hoc)",  # post-hoc cal → parity with MAPIE/crepes/torchcp
             # torchregress predictor-zoo rows (post-hoc classes on an MLP base).
@@ -808,6 +849,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
             "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
+            "CQR+TabularMLP": "torchregress.models TabularMLP (library defaults, MultiQuantileLoss alpha/2, 1-alpha/2) + fit_tabular + post-hoc CQR calibration; epochs = min(100, config.epochs)",
             "Split+Linear": "single linear layer + ConformalLoss(split); matched-capacity baseline",
             "Split+Linear(post-hoc)": "single linear layer + MSE → post-hoc residual calibration; parity with MAPIE/crepes/torchcp",
             "MAPIE_Split+Linear": "real mapie.regression.SplitConformalRegressor (absolute-residual score) on sklearn LinearRegression — MAPIE canonical",
@@ -913,6 +955,23 @@ class ConformalSuite(HarnessRunner):
                 "model": model,
                 "X_cal": X_cal,
                 "y_cal": y_cal,
+                "alpha": alpha,
+            }
+
+        # --- torchregress: CQR + TabularMLP quantile head (library defaults) ---
+        elif method == "CQR+TabularMLP":
+            fit = fit_tabmlp(
+                splits["X_train"],
+                splits["y_train"],
+                config,
+                kind="quantile",
+                quantiles=(alpha / 2, 1.0 - alpha / 2),
+            )
+            return {
+                "type": "cqr_tabular",
+                "fit": fit,
+                "X_cal": splits["X_cal"],
+                "y_cal": splits["y_cal"],
                 "alpha": alpha,
             }
 
@@ -1185,6 +1244,17 @@ class ConformalSuite(HarnessRunner):
             lo, hi = _torch_cqr_intervals(model, X_cal, y_cal, X_test_t, alpha=alpha)
             return {"lower": lo, "upper": hi}
 
+        elif model_type == "cqr_tabular":
+            q_cal = torch.from_numpy(predict_quantiles(model_state["fit"], model_state["X_cal"]))
+            q_test = torch.from_numpy(predict_quantiles(model_state["fit"], X_test))
+            y_cal = torch.from_numpy(np.asarray(model_state["y_cal"], dtype=np.float64))
+            score = torch.maximum(q_cal[:, 0] - y_cal, y_cal - q_cal[:, 1])
+            q = finite_sample_quantile(score, alpha).item()
+            return {
+                "lower": (q_test[:, 0] - q).numpy(),
+                "upper": (q_test[:, 1] + q).numpy(),
+            }
+
         # --- torchregress predictor zoo (fit carried predictor) ---
         elif model_type == "zoo_distributional":
             from torch.distributions import Normal as _Normal
@@ -1430,15 +1500,7 @@ class ConformalSuite(HarnessRunner):
                     "Notes": f"skipped: {type(exc).__name__}: {exc}",
                 }
 
-            except (
-                ValueError,
-                RuntimeError,
-                ImportError,
-                KeyError,
-                TypeError,
-                OSError,
-                NameError,
-            ) as exc:
+            except Exception as exc:  # noqa: BLE001 — one method failing must not drop the rest
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),

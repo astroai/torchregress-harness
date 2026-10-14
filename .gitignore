@@ -64,3 +64,8 @@ checkpoints/
 *.ckpt
 .sessions/
 sbi-logs/
+
+# release-run launcher state (scripts/canfar_launch_release.sh)
+.release_run
+release_logs.txt
+launch.log

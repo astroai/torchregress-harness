@@ -1,7 +1,19 @@
-"""Foundation model suite: torchregress vs TabPFN vs TabICL.
+"""Foundation model suite: torchregress vs tabular foundation models.
 
-Compares torchregress probabilistic models against TabPFN and TabICL
-tabular foundation models on real and synthetic benchmarks.
+Compares torchregress probabilistic models against pretrained tabular
+foundation models used zero-shot (in-context learning, no training):
+
+* TabPFN (Prior Labs, ``tabpfn``) and TabICL (``tabicl``) via their own
+  scikit-learn wrappers;
+* NVIDIA's Structured Data Models (``sdm``, Apache-2.0 code), which ships
+  KumoTabular (NVIDIA, 2026-09) and Google's TabFM
+  (2026-06) behind one interface.  TabFM's default weights are under the
+  non-commercial ``tabfm-non-commercial-v1.0`` licence, so the row passes
+  ``accept_license=True``: fine for benchmarking, not for production use.
+
+Every foundation model except TabFM (point output in sdm) returns a grid of predictive quantiles, scored as an
+empirical predictive distribution (point metrics from its mean, CRPS/PIT from
+the grid, 90% interval from the 5% and 95% quantiles).
 
 Canonical scenarios
 -------------------
@@ -13,6 +25,7 @@ Canonical scenarios
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
@@ -50,6 +63,32 @@ except ImportError:
     _TABICL_AVAILABLE = False
     _TABICL_ERROR = "TabICL not installed"
 
+try:
+    import sdm  # noqa: F401
+
+    _SDM_AVAILABLE = True
+except ImportError:
+    _SDM_AVAILABLE = False
+
+# Quantile grid for TabPFN/TabICL: midpoints of 99 equal-mass bins, so the
+# quantiles act as an equally weighted sample of the predictive distribution.
+_QUANTILE_LEVELS = [(k + 0.5) / 99 for k in range(99)]
+# sdm models (KumoTabular, TabFM) and their constructor options.  sdm's TabICLv2
+# is not listed: ``tabicl>=2.2`` already loads the same v2 checkpoint (row TabICL).
+_SDM_MODELS: dict[str, tuple[str, dict[str, Any]]] = {
+    "KumoTabular": ("KumoTabular", {"size": "large"}),
+    "TabFM": ("TabFM", {"accept_license": True}),
+}
+
+
+def _quantile_predictions(q: np.ndarray, levels: list[float]) -> dict[str, np.ndarray]:
+    """Score a [N, Q] quantile grid as samples plus a 90% interval."""
+    q = np.sort(np.asarray(q, dtype=np.float64), axis=1)  # repair rare crossings
+    lv = np.asarray(levels)
+    lower = np.array([np.interp(0.05, lv, row) for row in q])
+    upper = np.array([np.interp(0.95, lv, row) for row in q])
+    return {"samples": q, "lower": lower, "upper": upper}
+
 
 # ---------------------------------------------------------------------------
 
@@ -76,6 +115,8 @@ class FoundationModelSuite(HarnessRunner):
         return [
             "california_housing",
             "diabetes",
+            "house_sales",
+            "openml_year",
         ]
 
     @property
@@ -89,10 +130,17 @@ class FoundationModelSuite(HarnessRunner):
 
     def methods(self) -> list[str]:
         methods = ["GaussianNLL", "MDN"]
-        if _TABPFN_AVAILABLE:
+        # TabPFN needs a Prior Labs API key (licence acceptance): runs when TABPFN_TOKEN
+        # is set or with TORCHREGRESS_HARNESS_WITH_TABPFN=1.
+        if _TABPFN_AVAILABLE and (
+            os.environ.get("TORCHREGRESS_HARNESS_WITH_TABPFN") == "1"
+            or bool(os.environ.get("TABPFN_TOKEN"))
+        ):
             methods.append("TabPFN")
         if _TABICL_AVAILABLE:
             methods.append("TabICL")
+        if _SDM_AVAILABLE:
+            methods += list(_SDM_MODELS)
         return methods
 
     def library_name(self, method: str) -> str:
@@ -100,7 +148,24 @@ class FoundationModelSuite(HarnessRunner):
             return "tabpfn"
         if method == "TabICL":
             return "tabicl"
+        if method in _SDM_MODELS:
+            return "structured-data-models"
         return "torchregress"
+
+    def library_version(self, method: str) -> str:
+        from importlib.metadata import PackageNotFoundError, distribution
+
+        try:
+            dist = distribution(self.library_name(method))
+        except PackageNotFoundError:
+            return "not installed"
+        url = dist.read_text("direct_url.json") or ""
+        if '"commit_id"' in url:
+            import json
+
+            commit = json.loads(url).get("vcs_info", {}).get("commit_id", "")
+            return f"{dist.version} (git {commit[:10]})"
+        return dist.version
 
     def method_notes(self, method: str) -> str:
         notes = {
@@ -110,10 +175,15 @@ class FoundationModelSuite(HarnessRunner):
                 "→ mean & std via predict_mean_std()"
             ),
             "TabPFN": (
-                "TabPFNRegressor (pre-trained Transformer) → point predictions.  "
-                "Requires: tabpfn --accept-license (one-time)"
+                "TabPFNRegressor, 99 predictive quantiles.  "
+                "TabPFN 9 weights are gated: needs HF_TOKEN with the licence accepted"
             ),
-            "TabICL": "TabICLRegressor (in-context learning Transformer) → point predictions",
+            "TabICL": "TabICLRegressor (v2 checkpoint, tabicl>=2.2), 99 predictive quantiles",
+            "KumoTabular": "sdm KumoTabular (large, NVIDIA 2026), 999 predictive quantiles",
+            "TabFM": (
+                "sdm TabFM (Google 2026), point prediction only (single regression output); "
+                "weights are non-commercial (accept_license=True)"
+            ),
         }
         return notes.get(method, "")
 
@@ -187,6 +257,28 @@ class FoundationModelSuite(HarnessRunner):
             est.fit(X_train_np, y_train_np)
             return {"type": "tabicl", "model": est}
 
+        # --- sdm: KumoTabular / TabFM (in-context, no training) ---
+        elif method in _SDM_MODELS:
+            import sdm.models
+            from sdm import TableTensor
+
+            cls_name, kwargs = _SDM_MODELS[method]
+            device = current_device()
+            model = getattr(sdm.models, cls_name)(task="regression", device=device, **kwargs)
+            model.eval()
+            x = TableTensor.from_tensor(torch.as_tensor(X_train_np, dtype=torch.float32))
+            y = TableTensor.from_tensor(
+                torch.as_tensor(y_train_np, dtype=torch.float32).reshape(-1, 1)
+            )
+            model.fit(
+                x.to(device),
+                y.to(device),
+                # sdm samples context on the model device; a CPU generator raises
+                # "Expected a 'cuda' device type for generator" on GPU nodes.
+                generator=torch.Generator(device=device).manual_seed(config.seed),
+            )
+            return {"type": "sdm", "model": model}
+
         raise ValueError(f"Unknown method: {method}")
 
     # ------------------------------------------------------------------
@@ -219,16 +311,34 @@ class FoundationModelSuite(HarnessRunner):
                 "std": std.squeeze(-1).detach().cpu().numpy(),
             }
 
-        # --- TabPFN: point predictions only ---
+        # --- TabPFN: predictive quantiles ---
         elif model_type == "tabpfn":
             est = model_state["model"]
-            y_pred = np.asarray(est.predict(X_test), dtype=np.float64).reshape(-1)
-            return {"y_pred": y_pred}
+            q = est.predict(X_test, output_type="quantiles", quantiles=_QUANTILE_LEVELS)
+            return _quantile_predictions(
+                np.stack([np.asarray(c) for c in q], axis=1), _QUANTILE_LEVELS
+            )
 
-        # --- TabICL: point predictions only ---
+        # --- TabICL: predictive quantiles ---
         elif model_type == "tabicl":
             est = model_state["model"]
-            y_pred = np.asarray(est.predict(X_test), dtype=np.float64).reshape(-1)
-            return {"y_pred": y_pred}
+            q = np.asarray(est.predict(X_test, output_type="quantiles", alphas=_QUANTILE_LEVELS))
+            return _quantile_predictions(q.reshape(len(X_test), -1), _QUANTILE_LEVELS)
+
+        # --- sdm: 999 quantiles q001..q999 ---
+        elif model_type == "sdm":
+            from sdm import TableTensor
+
+            model = model_state["model"]
+            x = TableTensor.from_tensor(torch.as_tensor(X_test, dtype=torch.float32))
+            with torch.no_grad():
+                out = model.predict(x.to(current_device()))
+            q = out.numerical.detach().float().cpu().numpy().reshape(len(X_test), -1)
+            if q.shape[1] == 1:
+                # TabFM's sdm regression head is a single point output: score it as a
+                # point prediction (no CRPS / coverage), not as a zero-width distribution.
+                return {"y_pred": q[:, 0]}
+            levels = [(k + 1) / (q.shape[1] + 1) for k in range(q.shape[1])]
+            return _quantile_predictions(q, levels)
 
         raise ValueError(f"Unknown model type: {model_type}")

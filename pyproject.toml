@@ -46,7 +46,7 @@ dependencies = [
 # The floors below only guard against known-API breaks (v1 mapie API,
 # torch-uncertainty >= 0.13 regression-routine rework).
 conformal = [
-    "mapie>=1.4.1",
+    "mapie>=1.5.0",
     "crepes",
     "torchcp",
 ]
@@ -58,8 +58,10 @@ tweedie = [
     "scikit-lego",
 ]
 foundation = [
-    "tabpfn",
-    "tabicl",
+    "tabpfn>=9.1",
+    "tabicl>=2.2",
+    # KumoTabular, TabFM (git only; release runs install the latest main, see EXTERNAL_PINS.md)
+    "structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@main",
 ]
 boosting = [
     "lightgbm",
@@ -69,11 +71,30 @@ image = [
     "torchvision",
     "torch-uncertainty>=0.13.0",
     "lightning",
-    "lightning-uq-box>=0.3.0",
+    "lightning-uq-box>=0.4.0",
     "timm",
     "requests",
     "Pillow",
     "h5py",
+]
+# sbibm 1.1.0 pins sbi<0.22, so it is installed separately with --no-deps
+# (see EXTERNAL_PINS.md); the sbi_parity suite needs it for tasks and
+# reference posteriors.
+sbi = [
+    "sbi @ git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881",
+    "pyro-ppl",
+]
+causal = [
+    "econml>=0.17.0",
+    "doubleml>=0.11.4",
+]
+distributional = [
+    "ngboost>=0.5.11",
+    "laplace-torch>=0.2.3",
+]
+scoring = [
+    "scoringrules>=0.11.0",
+    "properscoring",
 ]
 test = [
     "pytest",
@@ -85,7 +106,7 @@ dev = [
     "ty",
 ]
 all = [
-    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,test,dev]",
+    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,test,dev]",
 ]
 
 [tool.setuptools]

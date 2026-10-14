@@ -23,26 +23,33 @@ from suites.tabular.causal import CausalSuite
 from suites.tabular.censored import CensoredSuite
 from suites.tabular.classification_shift import ClassificationShiftSuite
 from suites.tabular.conformal import ConformalSuite
+from suites.tabular.constrained_outputs import ConstrainedOutputsSuite
+from suites.tabular.density_parity import DensityParitySuite, ImageDensityParitySuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.ensembles import EnsemblesSuite
+from suites.tabular.fm_multitarget import FMMultiTargetSuite
+from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.label_shift import LabelShiftSuite
 from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
+from suites.tabular.orthogonal_inference import OrthogonalInferenceSuite
 from suites.tabular.ppi import PPISuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
 from suites.tabular.sbi_parity import SBIParitySuite
+from suites.tabular.semi_supervised import SemiSupervisedSuite
 from suites.tabular.sklearn_baselines import SklearnBaselinesSuite
 from suites.tabular.streaming_tta import StreamingTTASuite
 from suites.tabular.stress_matrix import StressMatrixSuite
 from suites.tabular.test_time_adaptation import TestTimeAdaptationSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
+from suites.tabular.uq_layer import UQLayerSuite
 
 from harness.runners import HarnessRunner
 
@@ -59,19 +66,27 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "test_time_adaptation": TestTimeAdaptationSuite,
     "ensembles": EnsemblesSuite,
     "uq": UQSuite,
+    "uq_layer": UQLayerSuite,
+    "fm_uq_scenarios": FMUQScenariosSuite,
+    "fm_multitarget": FMMultiTargetSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
     "ordinal": OrdinalSuite,
     "ppi": PPISuite,
     "sbi_parity": SBIParitySuite,
     "streaming_tta": StreamingTTASuite,
     "causal": CausalSuite,
+    "orthogonal_inference": OrthogonalInferenceSuite,
+    "constrained_outputs": ConstrainedOutputsSuite,
     "missing_data": MissingDataSuite,
     "label_shift": LabelShiftSuite,
     "likelihoods": LikelihoodsSuite,
+    "semi_supervised": SemiSupervisedSuite,
     "classification_shift": ClassificationShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
     "pzflow_parity": PzflowParitySuite,
+    "density_parity": DensityParitySuite,
+    "image_density_parity": ImageDensityParitySuite,
     "r2c_conformal": R2CConformalSuite,
     "age_regression": AgeRegressionSuite,
     "cell_counting": CellCountingSuite,
@@ -85,3 +100,20 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "image_robust": ImageRobustSuite,
     "image_calibration": ImageCalibrationSuite,
 }
+
+
+def supports_dataset(suite: HarnessRunner, dataset: str) -> bool:
+    """True when ``dataset`` is one of ``suite.supported_datasets``.
+
+    Drivers (``run_all.py``, ``leaderboard_regression.py``) consult this before
+    calling ``suite.run``: a suite handed a dataset it does not declare (e.g. a
+    univariate dataset for ``multivariate_intervals``) is skipped, not run into
+    a column of failed rows.
+    """
+    return dataset in suite.supported_datasets
+
+
+def split_supported(suite: HarnessRunner, datasets: list[str]) -> tuple[list[str], list[str]]:
+    """Partition ``datasets`` into (supported, unsupported) for ``suite``, order kept."""
+    supported = set(suite.supported_datasets)
+    return [d for d in datasets if d in supported], [d for d in datasets if d not in supported]

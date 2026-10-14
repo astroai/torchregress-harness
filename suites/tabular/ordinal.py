@@ -77,6 +77,49 @@ if _CORAL_PYTORCH_AVAILABLE:
 
 
 # ---------------------------------------------------------------------------
+# Target preparation (shared by every method in the suite)
+# ---------------------------------------------------------------------------
+
+DEFAULT_N_CLASSES = 5
+
+
+def discretize_splits(
+    splits: dict[str, Any],
+    n_classes: int | None = None,
+) -> dict[str, Any]:
+    """Return a copy of ``splits`` whose targets are ordinal class indices.
+
+    Every method in the suite (neural and external) is fitted and scored on
+    the *same* integer classes ``0..K-1``, so metrics are in class units and
+    comparable across rows.
+
+    * Targets that are already integer class labels (``synthetic_ordinal``,
+      ``folktables_decile``) are only validated / cast.
+    * Continuous targets (possibly z-scored by the harness) are binned into
+      ``n_classes`` equal-frequency classes using *train* quantiles. Quantile
+      binning is invariant to the affine y-standardisation, so original and
+      standardised units give identical classes.  The ``_y_scaler`` entry is
+      dropped: class indices must never be inverse-transformed.
+    """
+    out = dict(splits)
+    y_tr = np.asarray(splits["y_train"]).reshape(-1)
+    y_te = np.asarray(splits["y_test"]).reshape(-1)
+    is_int = np.all(np.isfinite(y_tr)) and np.all(y_tr == np.round(y_tr)) and y_tr.min() >= 0
+    if is_int:
+        k = int(splits.get("n_classes") or (max(y_tr.max(), y_te.max()) + 1))
+        out["y_train"] = y_tr.astype(np.int64)
+        out["y_test"] = y_te.astype(np.int64)
+    else:
+        k = int(n_classes or splits.get("n_classes") or DEFAULT_N_CLASSES)
+        edges = np.quantile(y_tr, np.linspace(0.0, 1.0, k + 1)[1:-1])
+        out["y_train"] = np.digitize(y_tr, edges).astype(np.int64)
+        out["y_test"] = np.digitize(y_te, edges).astype(np.int64)
+    out.pop("_y_scaler", None)
+    out["n_classes"] = k
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------
 
@@ -129,6 +172,27 @@ class OrdinalSuite(HarnessRunner):
         if method == "CORAL":
             return "torchregress"
         return "torchregress"
+
+    # ------------------------------------------------------------------
+    # run — put all methods on identical discretised classes
+    # ------------------------------------------------------------------
+
+    def run(
+        self,
+        dataset_name: str = "",
+        config: HarnessConfig | None = None,
+        splits: dict[str, Any] | None = None,
+        *,
+        scenario_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        cfg = config or HarnessConfig()
+        if splits is None and dataset_name:
+            from harness.datasets import load_dataset
+
+            splits = load_dataset(dataset_name, standardize_targets=cfg.standardize_targets)
+        if splits is not None:
+            splits = discretize_splits(splits)
+        return super().run(dataset_name, cfg, splits=splits, scenario_name=scenario_name)
 
     # ------------------------------------------------------------------
     # fit
@@ -237,7 +301,15 @@ class OrdinalSuite(HarnessRunner):
             # OrderedModel needs no intercept — it estimates cutpoints
             ord_model = OrderedModel(y_train_np, X_train_np, distr="logit")
             result = ord_model.fit(method="bfgs", disp=False, maxiter=200)
-            return {"type": "statsmodels", "model": result, "n_classes": n_classes}
+            # OrderedModel indexes the *observed* levels; keep them so predict()
+            # maps the argmax column back to the class label (a missing class
+            # in train would otherwise shift every index).
+            return {
+                "type": "statsmodels",
+                "model": result,
+                "n_classes": n_classes,
+                "classes": np.unique(y_train_np),
+            }
 
         raise ValueError(f"Unknown method: {method}")
 
@@ -302,6 +374,9 @@ class OrdinalSuite(HarnessRunner):
             # predict() returns class probabilities; argmax gives predicted class
             probs = np.asarray(m.predict(X_test))
             y_pred = probs.argmax(axis=1).astype(np.int64)
+            classes = model_state.get("classes")
+            if classes is not None:
+                y_pred = np.asarray(classes, dtype=np.int64)[y_pred]
 
         elif model_type == "cumlink_ensemble":
             # Ensemble PMF mean over class support → rounded class prediction.

@@ -65,6 +65,7 @@ from suites._backbones import (
 # ---------------------------------------------------------------------------
 
 _N_ENSEMBLE = 5  # number of independent MLPs per deep ensemble
+_N_POSTERIOR_DRAWS = 30  # weight-posterior draws for VariationalMLP predictions
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ class EnsemblesSuite(HarnessRunner):
             "make_regression_synthetic",
             "synthetic_hetero",
             "synthetic_outliers",
-            "tabred_sberbank",
+            "zurich_delays",
             "tabred_cooking",
             "tabred_delivery",
             "tabred_maps",
@@ -125,6 +126,8 @@ class EnsemblesSuite(HarnessRunner):
         "IVON",
         "BatchEnsemble",
         "MeanOnlyBatchEnsemble",
+        "HeteroBatchEnsemble",
+        "VariationalMLP",
         "Stacking",
         "HeteroscedasticEnsemble",
         "MCDropoutWrapper",
@@ -161,6 +164,8 @@ class EnsemblesSuite(HarnessRunner):
             "IVON": "natural-gradient VI optimizer + posterior MC sampling",
             "BatchEnsemble": "BatchEnsembleRegressor over BatchEnsembleMLPBackbone (4 members, heteroscedastic) → epi+alea intervals",
             "MeanOnlyBatchEnsemble": "BatchEnsembleRegressor mean-only (4 members, epistemic variance only — expect undercoverage: no aleatoric term)",
+            "HeteroBatchEnsemble": "HeteroscedasticBatchEnsembleModel on a BatchEnsembleLinear MLP backbone (4 members) → epi+alea intervals",
+            "VariationalMLP": "MLP of VariationalLinear layers + Gaussian head, NLL + KL/n (Bayes-by-Backprop), 30 posterior draws → mixture mean/std",
             "Stacking": "torchregress StackingEnsemble: 3 MSE MLPs → Linear meta on held-out slice (trails proper-CV sklearn stacking)",
             "HeteroscedasticEnsemble": "native hetero ensemble (3× Gaussian heads) → epi+alea split [contract: epistemic_plus_aleatoric]",
             "MCDropoutWrapper": "MC-Dropout wrapper over dropout MLP (20 draws) → mean/std [contract: epistemic_only]",
@@ -544,6 +549,9 @@ class EnsemblesSuite(HarnessRunner):
                         opt.step()
                 model.eval()
                 return {"type": "batchensemble", "model": model}
+
+            elif method in ("HeteroBatchEnsemble", "VariationalMLP"):
+                return self._fit_rank1_or_variational(method, X_train_np, y_train_np, config)
 
             elif method == "Stacking":
                 from torchregress.ensemble import StackingEnsemble
@@ -1088,6 +1096,35 @@ class EnsemblesSuite(HarnessRunner):
                 "std": std_np,
             }
 
+        # --- torchregress: VariationalLinear MLP → posterior-draw Gaussian mixture ---
+        elif model_type == "variational_mlp":
+            vm = model_state["model"]
+            vm.eval()  # VariationalLinear samples weights in eval mode too
+            dev = next(vm.parameters()).device
+            Xt = torch.from_numpy(X_test).float().to(dev)
+            means, variances = [], []
+            with torch.no_grad():
+                for _ in range(_N_POSTERIOR_DRAWS):
+                    out = vm(Xt)
+                    means.append(out[:, 0].detach().cpu().numpy().astype(np.float64))
+                    variances.append(
+                        np.exp(out[:, 1].detach().cpu().numpy().astype(np.float64)).clip(1e-12)
+                    )
+            m_s, v_s = np.stack(means), np.stack(variances)
+            mean_np = m_s.mean(axis=0)
+            epi_np, alea_np = m_s.var(axis=0), v_s.mean(axis=0)
+            std_np = np.sqrt(epi_np + alea_np)
+            z = 1.645
+            return {
+                "lower": mean_np - z * std_np,
+                "upper": mean_np + z * std_np,
+                "y_pred": mean_np,
+                "mean": mean_np,
+                "std": std_np,
+                "epistemic_var": epi_np,
+                "aleatoric_var": alea_np,
+            }
+
         # --- torchregress: HeteroscedasticBNN → epi/alea decomposition ---
         elif model_type == "heterobnn":
             hb = model_state["model"]
@@ -1108,6 +1145,107 @@ class EnsemblesSuite(HarnessRunner):
             }
 
         raise ValueError(f"Unknown model type: {model_type}")
+
+    @staticmethod
+    def _fit_rank1_or_variational(
+        method: str, X_train_np: np.ndarray, y_train_np: np.ndarray, config: HarnessConfig
+    ) -> dict[str, Any]:
+        """HeteroBatchEnsemble (BatchEnsembleLinear stack) or VariationalMLP (VariationalLinear stack)."""
+        from torch.utils.data import DataLoader, TensorDataset
+        from torchregress.ensemble import (
+            BatchEnsembleLinear,
+            HeteroscedasticBatchEnsembleModel,
+            VariationalLinear,
+        )
+        from torchregress.losses import GaussianNLLLoss
+
+        in_dim = X_train_np.shape[1]
+        hidden = _hidden_size(in_dim)
+        dev = current_device()
+        n_members = 4
+        if method == "HeteroBatchEnsemble":
+
+            class _RankOneBackbone(nn.Module):
+                """Two BatchEnsembleLinear layers: [B, D] -> [B, members, hidden]."""
+
+                def __init__(self) -> None:
+                    super().__init__()
+                    self.feature_dim = hidden
+                    self.net = nn.Sequential(
+                        BatchEnsembleLinear(in_dim, hidden, ensemble_size=n_members),
+                        nn.ReLU(),
+                        BatchEnsembleLinear(hidden, hidden, ensemble_size=n_members),
+                        nn.ReLU(),
+                    )
+
+                def forward(self, x: torch.Tensor) -> torch.Tensor:
+                    return self.net(x)
+
+            model: nn.Module = HeteroscedasticBatchEnsembleModel(
+                _RankOneBackbone(), output_size=1, ensemble_size=n_members, device=str(dev)
+            )
+        else:
+
+            class _VariationalMLP(nn.Module):
+                """Mean-field Gaussian MLP of VariationalLinear layers, [mean, log-var] head."""
+
+                def __init__(self) -> None:
+                    super().__init__()
+                    self.layers = nn.ModuleList(
+                        [
+                            VariationalLinear(in_dim, hidden),
+                            VariationalLinear(hidden, hidden),
+                            VariationalLinear(hidden, 2),
+                        ]
+                    )
+
+                def forward(self, x: torch.Tensor) -> torch.Tensor:
+                    h = x
+                    for i, layer in enumerate(self.layers):
+                        h = layer(h)
+                        if i < len(self.layers) - 1:
+                            h = torch.relu(h)
+                    return h
+
+                def kl_divergence(self) -> torch.Tensor:
+                    return sum(layer.kl_divergence() for layer in self.layers)  # type: ignore[return-value]
+
+            model = _VariationalMLP()
+        model.to(dev)
+        loader = DataLoader(
+            TensorDataset(
+                torch.from_numpy(X_train_np).float(),
+                torch.from_numpy(y_train_np).float().unsqueeze(1),
+            ),
+            batch_size=config.batch_size,
+            shuffle=True,
+        )
+        opt = torch.optim.Adam(model.parameters(), lr=config.lr)
+        gnll = GaussianNLLLoss()
+        n_data = len(X_train_np)
+        model.train()
+        for _ in range(config.epochs):
+            for Xb, yb in loader:
+                Xb, yb = Xb.to(dev), yb.to(dev)
+                opt.zero_grad(set_to_none=True)
+                if method == "HeteroBatchEnsemble":
+                    out = model(Xb)
+                    B = Xb.shape[0]
+                    flat = torch.cat(
+                        [
+                            out["means"].reshape(B * n_members, 1),
+                            out["log_vars"].reshape(B * n_members, 1),
+                        ],
+                        dim=-1,
+                    )
+                    loss = gnll(flat, yb.repeat_interleave(n_members, dim=0))
+                else:
+                    loss = gnll(model(Xb), yb) + model.kl_divergence() / n_data
+                loss.backward()
+                opt.step()
+        model.eval()
+        kind = "heteroensemble" if method == "HeteroBatchEnsemble" else "variational_mlp"
+        return {"type": kind, "model": model}
 
     def evaluate(
         self,

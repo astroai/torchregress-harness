@@ -16,6 +16,14 @@ Methods
   targets; K-sweep family per §15)
 * ``SLS`` — Super-Level-Set regression → boundary-sampled marginal intervals
   from minimum-volume level sets
+* ``SLS_earlystop`` — the raw SLS model trained with early stopping on a 15%
+  validation carve of the training rows (held-out region coverage vs ``tau``,
+  patience 10, best epoch restored); intervals are the raw level-set box
+* ``SLS+SLSConformal`` / ``SLS_lowrank+SLSConformal`` — the same SLS models fitted on
+  the training data minus a 25% calibration carve, with the level-set factor
+  calibrated by ``SLSConformal`` (box of the calibrated region)
+* ``MultivariateGaussian+Conformal`` — matched baseline: Mahalanobis-score
+  ``MultivariateScoreConformal`` ellipsoid (box), same carve
 """
 
 from __future__ import annotations
@@ -386,9 +394,147 @@ def _sls_predict_intervals(
     return mean, lower, upper
 
 
+def _sls_region_box(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    X: np.ndarray,
+    D: int,
+    *,
+    scale: float = 1.0,
+    n_samples: int = 500,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Bounding box of the conformal SLS region ``{y : G(x, y) <= scale * q_tau(x)}``.
+
+    ``scale`` is the ``SLSConformal`` calibrated factor ``r``.  In flow space
+    the region is the ellipsoid ``G(z) = z^T P z <= scale * q_tau`` with
+    precision ``P = A^T A`` (``A = L`` for the full frontier; for the
+    low-rank frontier ``P = diag(d) + V V^T`` and ``A = chol(P)^T``).  Boundary
+    points solve ``A z = w`` for ``w`` uniform on the sphere of radius
+    ``sqrt(scale * q_tau)``, are mapped back with ``flow.inverse`` and reduced
+    to a per-dimension min/max, exactly as for the raw rows.
+    """
+    import torch.nn.functional as F
+
+    frontier = loss_fn.frontier
+    flow = frontier.flow
+    model.eval()
+    X_t = torch.from_numpy(X).float().to(current_device())
+    N = X_t.shape[0]
+    with torch.no_grad():
+        context = model(X_t)
+        q = loss_fn.quantile_net(context)[:, 1].clamp(min=1e-8) * float(scale)
+        mu, L_params = frontier._get_params(context)
+        mat, _ = frontier._get_L_matrix_and_logdet(L_params)
+        if getattr(frontier, "mode", "full") == "low_rank":
+            diag_d, V = mat
+            prec = torch.diag_embed(diag_d) + V @ V.transpose(-1, -2)
+            jitter = 1e-6 * torch.eye(D, device=prec.device)
+            A = torch.linalg.cholesky(prec + jitter).transpose(-1, -2)  # upper
+            upper_tri = True
+        else:
+            A = mat
+            upper_tri = False
+        w = F.normalize(torch.randn(n_samples, N, D, device=A.device), dim=-1)
+        w = w * torch.sqrt(q).view(1, -1, 1)
+        z = torch.linalg.solve_triangular(A.unsqueeze(0), w.unsqueeze(-1), upper=upper_tri).squeeze(
+            -1
+        )
+        z_flow = z + mu.unsqueeze(0)
+        ctx = context.unsqueeze(0).expand(n_samples, -1, -1).reshape(-1, context.shape[-1])
+        y_s = flow.inverse(z_flow.reshape(-1, D), ctx).reshape(n_samples, N, D)
+        y_np = y_s.detach().cpu().numpy()
+        return mu.detach().cpu().numpy(), y_np.min(axis=0), y_np.max(axis=0)
+
+
+_ES_VAL_FRAC = 0.15
+_ES_PATIENCE = 10
+
+
+def _train_sls_early_stop(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    X: torch.Tensor,
+    y: torch.Tensor,
+    config: HarnessConfig,
+) -> dict[str, Any]:
+    """Train SLS with Adam, stopping on held-out region coverage; restore the best epoch.
+
+    A seeded 15% validation carve is removed from the training rows.  After
+    each epoch past the frontier-only warmup, the held-out region coverage
+    ``mean(G(x, y) <= q_tau(x))`` is compared with ``tau``; the epoch with the
+    smallest ``|coverage - tau|`` (strict improvement) is kept, and training
+    stops after ``_ES_PATIENCE`` epochs without one.  Epochs before the
+    quantile net starts training (``step_counter <= warmup_steps``) are not
+    candidates.  Optimiser, learning rate and batch size match ``_train_one``.
+    """
+    import copy
+
+    n = X.shape[0]
+    n_val = max(1, int(round(_ES_VAL_FRAC * n)))
+    if n - n_val < 2:
+        raise ValueError(f"training split too small for a validation carve: n={n}")
+    gen = torch.Generator().manual_seed(int(config.seed))
+    perm = torch.randperm(n, generator=gen)
+    va, tr = perm[:n_val].to(X.device), perm[n_val:].to(X.device)
+    X_tr, y_tr, X_va, y_va = X[tr], y[tr], X[va], y[va]
+
+    params = list(model.parameters()) + [p for p in loss_fn.parameters() if p.requires_grad]
+    opt = torch.optim.Adam(params, lr=config.lr)
+    loss_fn.to(X.device)
+    tau = float(loss_fn.tau)
+    best, best_state, best_epoch, bad, ran, best_cov = float("inf"), None, -1, 0, 0, float("nan")
+    for epoch in range(config.epochs):
+        ran = epoch + 1
+        model.train()
+        for idx in torch.randperm(len(X_tr), device=X.device).split(config.batch_size):
+            opt.zero_grad(set_to_none=True)
+            loss_fn(model(X_tr[idx]), y_tr[idx]).backward()
+            opt.step()
+        if loss_fn.step_counter <= loss_fn.warmup_steps:
+            continue
+        model.eval()
+        with torch.no_grad():
+            ctx = model(X_va)
+            g, _ = loss_fn.evaluate_frontier(y_va, ctx)
+            q = loss_fn.quantile_net(ctx)[:, 1]
+            cov = float((g <= q).float().mean())
+        score = abs(cov - tau)
+        if score < best:
+            best, best_cov, best_epoch, bad = score, cov, epoch, 0
+            best_state = copy.deepcopy((model.state_dict(), loss_fn.state_dict()))
+        else:
+            bad += 1
+            if bad >= _ES_PATIENCE:
+                break
+    if best_state is not None:
+        model.load_state_dict(best_state[0])
+        loss_fn.load_state_dict(best_state[1])
+    model.eval()
+    return {
+        "best_epoch": best_epoch,
+        "epochs_run": ran,
+        "n_val": n_val,
+        "val_region_coverage": best_cov,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------
+
+
+_CONF_NOTE = (
+    "{}; model fitted on the training data minus a 25% calibration carve "
+    "(_carve_calibration_split), alpha=0.1; the carve is not used for training, "
+    "unlike the legacy MVScore row"
+)
+
+_CONFORMAL_METHODS = (
+    "SLS+SLSConformal",
+    "SLS_lowrank+SLSConformal",
+    "MultivariateGaussian+Conformal",
+)
+_CONFORMAL_CAL_FRAC = 0.25  # same as ConformalSuite.CALIBRATION_FRAC
 
 
 class MultivariateIntervalsSuite(HarnessRunner):
@@ -446,6 +592,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
             "SLS_lowrank",
+            "SLS_earlystop",
+            "SLS+SLSConformal",
+            "SLS_lowrank+SLSConformal",
+            "MultivariateGaussian+Conformal",
             "MDN",
             "MultiQuantile",
             "HeteroEnsembleCov",
@@ -491,6 +641,18 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "NormalizingFlow": "zuko NSF flow → sample-based quantile intervals per output dim",
             "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
             "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
+            "SLS_earlystop": (
+                "SLS (same settings as the SLS row) trained on 85% of the training rows with early "
+                "stopping on a 15% validation carve (held-out region coverage |cov - tau|, patience "
+                "10, best epoch restored); raw level-set box, not conformally calibrated"
+            ),
+            "SLS+SLSConformal": _CONF_NOTE.format("SLSConformal on G/q_tau scores, SLS region box"),
+            "SLS_lowrank+SLSConformal": _CONF_NOTE.format(
+                "SLSConformal on G/q_tau scores, low-rank SLS region box"
+            ),
+            "MultivariateGaussian+Conformal": _CONF_NOTE.format(
+                "MultivariateScoreConformal (Mahalanobis) ellipsoid box"
+            ),
             "MDN": "multivariate mixture (3 full-cov Gaussians) → sampled intervals + full scoring",
             "MultiQuantile": "marginal 10/50/90% quantiles per dim → own intervals (no joint samples)",
             "HeteroEnsembleCov": "heteroscedastic ensemble → full epi+alea covariance → marginals + samples",
@@ -523,6 +685,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             y_train_np = y_train_np.reshape(-1, D)
         else:
             D = int(y_train_np.shape[1])
+
+        # --- *+Conformal rows: train on the fit part, calibrate on the carve ---
+        if method in _CONFORMAL_METHODS:
+            return self._fit_conformal(method, splits, config, X_train_np, y_train_np, D, hidden)
 
         X = torch.from_numpy(X_train_np).float().to(current_device())
         y = torch.from_numpy(y_train_np).float().to(current_device())
@@ -746,6 +912,30 @@ class MultivariateIntervalsSuite(HarnessRunner):
             model.eval()
             return {"type": "sls", "model": model, "loss_fn": loss_fn, "n_features": D}
 
+        # --- SLS_earlystop: SLS + early stopping on a validation carve ---
+        elif method == "SLS_earlystop":
+            from torchregress.losses.sls import SLSLoss
+
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=hidden)
+            loss_fn = SLSLoss(
+                d=D,
+                context_dim=hidden,
+                K=1,
+                mode="full",
+                hidden_dim=64,
+                n_transforms=4,
+                tau=0.9,
+                warmup_steps=50,
+            )
+            info = _train_sls_early_stop(model, loss_fn, X, y, config)
+            return {
+                "type": "sls",
+                "model": model,
+                "loss_fn": loss_fn,
+                "n_features": D,
+                "early_stop": info,
+            }
+
         # --- SLS_lowrank: low-rank frontier (scalable SLS) ---
         elif method == "SLS_lowrank":
             from torchregress.losses.sls import SLSLoss
@@ -874,6 +1064,95 @@ class MultivariateIntervalsSuite(HarnessRunner):
 
         raise ValueError(f"Unknown method: {method}")
 
+    def _fit_conformal(
+        self,
+        method: str,
+        splits: dict[str, np.ndarray],
+        config: HarnessConfig,
+        X_all: np.ndarray,
+        y_all: np.ndarray,
+        D: int,
+        hidden: int,
+    ) -> dict[str, Any]:
+        """Fit a base model on a proper-training part and calibrate on the carve.
+
+        Uses the harness ``_carve_calibration_split`` (25% calibration, at
+        least 50 rows, seeded permutation), so the calibration rows are
+        disjoint from the rows the model trains on; this is what makes the
+        finite-sample guarantee valid (the raw SLS threshold over-fits the
+        training rows).
+        """
+        from suites._backbones import _carve_calibration_split
+
+        carved = _carve_calibration_split(
+            {"X_train": X_all, "y_train": y_all, "X_test": splits["X_test"], "y_test": None},
+            cal_frac=_CONFORMAL_CAL_FRAC,
+            seed=config.seed,
+            smoke=False,
+            suite_name=self.name,
+        )
+        dev = current_device()
+        X = torch.from_numpy(carved["X_train"]).float().to(dev)
+        y = torch.from_numpy(carved["y_train"]).float().to(dev)
+        Xc = torch.from_numpy(carved["X_cal"]).float().to(dev)
+        yc = torch.from_numpy(carved["y_cal"]).float().to(dev)
+        in_dim = X.shape[1]
+
+        if method == "MultivariateGaussian+Conformal":
+            from torchregress.losses import MultivariateGaussianLoss
+            from torchregress.losses.conformal import MultivariateScoreConformal
+
+            n_params = D + D * (D + 1) // 2
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=n_params)
+            loss_fn = _CholeskyGaussianLossWrapper(D, MultivariateGaussianLoss(n_features=D))
+            _train_one(model, loss_fn, X, y, config)
+            model.eval()
+            with torch.no_grad():
+                out_c = model(Xc)
+                mu_c = out_c[:, :D]
+                cov_c = _covariance_from_cholesky_params(out_c[:, D:], D)
+            predictor = MultivariateScoreConformal(alpha=0.1)
+            predictor.calibrate(mu_c.detach(), cov_c.detach(), yc)
+            return {
+                "type": "mv_gaussian_conformal",
+                "model": model,
+                "predictor": predictor,
+                "n_features": D,
+                "n_cal": int(Xc.shape[0]),
+            }
+
+        from torchregress.losses.conformal import SLSConformal
+        from torchregress.losses.sls import SLSLoss
+
+        low_rank = method == "SLS_lowrank+SLSConformal"
+        model = _MultiOutputMLP(in_dim, hidden, out_dim=hidden)
+        # Identical SLSLoss settings to the raw SLS / SLS_lowrank rows.
+        loss_fn = SLSLoss(
+            d=D,
+            context_dim=hidden,
+            K=1,
+            mode="low_rank" if low_rank else "full",
+            rank=min(2, D) if low_rank else None,
+            hidden_dim=64,
+            n_transforms=4,
+            tau=0.9,
+            warmup_steps=50,
+        )
+        _train_one(model, loss_fn, X, y, config, loss_params=list(loss_fn.parameters()))
+        model.eval()
+        with torch.no_grad():
+            ctx_cal = model(Xc)
+        predictor = SLSConformal(loss_fn, alpha=0.1)
+        predictor.calibrate(ctx_cal.detach(), yc)
+        return {
+            "type": "sls_conformal",
+            "model": model,
+            "loss_fn": loss_fn,
+            "predictor": predictor,
+            "n_features": D,
+            "n_cal": int(Xc.shape[0]),
+        }
+
     # ------------------------------------------------------------------
     # predict
     # ------------------------------------------------------------------
@@ -995,6 +1274,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             with torch.no_grad():
                 params = model(torch.from_numpy(X_test).float().to(current_device()))
                 lw, means, chol = loss_fn._extract_distribution_parameters(params)
+                if getattr(loss_fn, "full_parameterization", "covariance") == "precision":
+                    # The factor is T with precision T T^T (library default
+                    # since 0.3.0); T^{-T} is a square root of the covariance.
+                    chol = torch.linalg.inv(chol).transpose(-1, -2)
             samples = _mdn_full_samples(
                 lw.detach().cpu().numpy().astype(np.float64),
                 means.detach().cpu().numpy().astype(np.float64),
@@ -1212,6 +1495,47 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 model_state["loss_fn"],
                 X_test,
                 D,
+                n_samples=500,
+            )
+            return {
+                "lower": lower.reshape(-1),
+                "upper": upper.reshape(-1),
+                "y_pred": mean.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- MultivariateGaussian+Conformal → Mahalanobis ellipsoid box ---
+        elif model_type == "mv_gaussian_conformal":
+            model = model_state["model"]
+            model.eval()
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                mean = out[:, :D]
+                cov = _covariance_from_cholesky_params(out[:, D:], D)
+            r_val = model_state["predictor"].region_radius()
+            var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8).detach().cpu().numpy()
+            half = np.sqrt(r_val * var)
+            mean_np = mean.detach().cpu().numpy()
+            return {
+                "lower": (mean_np - half).reshape(-1),
+                "upper": (mean_np + half).reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+            }
+
+        # --- SLS+SLSConformal → box of the calibrated level set ---
+        elif model_type == "sls_conformal":
+            r_val = float(model_state["predictor"].q_hat)
+            mean, lower, upper = _sls_region_box(
+                model_state["model"],
+                model_state["loss_fn"],
+                X_test,
+                D,
+                scale=r_val,
                 n_samples=500,
             )
             return {

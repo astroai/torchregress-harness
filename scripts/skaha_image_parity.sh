@@ -47,9 +47,9 @@ SMOKE="${SMOKE:-0}"
 [[ "${3:-}" == "--smoke" ]] && SMOKE=1
 [[ "${1:-}" == "--smoke" ]] && SMOKE=1
 
-MAPIE_PIN="${MAPIE_PIN:-6478f16c9a}"
-TU_PIN="${TU_PIN:-94e511a737}"
-LUQBOX_REF="${LUQBOX_REF:-v0.3.0}"
+MAPIE_PIN="${MAPIE_PIN:-3b84b8212d}"
+TU_PIN="${TU_PIN:-3f82fe5d15}"
+LUQBOX_REF="${LUQBOX_REF:-v0.4.0}"
 
 export PIXI_HOME="$HOME/.pixi"
 export PIXI_CACHE_DIR="$HOME/.cache/pixi"
