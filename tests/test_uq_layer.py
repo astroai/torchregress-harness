@@ -53,18 +53,22 @@ def test_method_grid() -> None:
 def test_same_base_same_numbers(rows: dict[str, dict]) -> None:
     """torchregress, MAPIE and crepes see identical base predictions: split rows agree.
 
-    The torchregress-vs-crepes checks always run; the MAPIE rows only exist when
-    ``mapie`` is installed, so those comparisons are skipped otherwise.
+    The crepes and MAPIE rows only exist when those packages are installed, so
+    each comparison runs only when its comparator is available.
     """
     gbm = uq_layer._GBM_BASE
+    if not (uq_layer._CREPES_AVAILABLE or uq_layer._MAPIE_AVAILABLE):
+        pytest.skip("neither crepes nor mapie installed")
     for base in (gbm, "RF", "DeepEnsK5", "TabularMLP"):
-        tr, cr = rows[f"tr_Split+{base}"], rows[f"crepes_Split+{base}"]
-        assert tr["RMSE"] == cr["RMSE"]
-        for key in ("Coverage", "Width", "IntervalScore"):
-            assert tr[key] == pytest.approx(cr[key], rel=1e-6, abs=1e-9), (base, key)
-        assert rows[f"tr_Normalized+{base}"]["Width"] == pytest.approx(
-            rows[f"crepes_Normalized+{base}"]["Width"], rel=1e-6
-        )
+        tr = rows[f"tr_Split+{base}"]
+        if uq_layer._CREPES_AVAILABLE:
+            cr = rows[f"crepes_Split+{base}"]
+            assert tr["RMSE"] == cr["RMSE"]
+            for key in ("Coverage", "Width", "IntervalScore"):
+                assert tr[key] == pytest.approx(cr[key], rel=1e-6, abs=1e-9), (base, key)
+            assert rows[f"tr_Normalized+{base}"]["Width"] == pytest.approx(
+                rows[f"crepes_Normalized+{base}"]["Width"], rel=1e-6
+            )
         if uq_layer._MAPIE_AVAILABLE:
             mp = rows[f"MAPIE_Split+{base}"]
             assert tr["RMSE"] == mp["RMSE"]
@@ -124,7 +128,7 @@ def test_tabicl_quantile_path_with_fake_checkpoint(monkeypatch: pytest.MonkeyPat
     monkeypatch.setitem(sys.modules, "tabicl", mod)
     monkeypatch.setattr(uq_layer, "_TABICL_AVAILABLE", True)
     out = _by_method(UQLayerSuite().run("synthetic_hetero", CFG))
-    uqs = ["tr_Split", "tr_CQR", "crepes_Normalized"]
+    uqs = ["tr_Split", "tr_CQR"] + (["crepes_Normalized"] if uq_layer._CREPES_AVAILABLE else [])
     if uq_layer._MAPIE_AVAILABLE:
         uqs.insert(1, "MAPIE_CQR")
     for uq in uqs:
