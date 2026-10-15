@@ -244,7 +244,9 @@ class KeypointRegressionSuite(ImageHarnessRunner):
                         B = out.shape[0]
                         o = out.reshape(B, 2, D)
                         means.append(o[:, 0, :].cpu().numpy())
-                        stds.append(np.sqrt(np.exp(o[:, 1, :]).clamp_min(1e-8).cpu().numpy()))
+                        stds.append(
+                            torch.exp(o[:, 1, :]).clamp_min(1e-8).sqrt().detach().cpu().numpy()
+                        )
                     elif t == "mv_gaussian":
                         mean = out[:, :D].cpu().numpy()
                         cov = _cov_from_chol_params(out[:, D:], D).cpu().numpy()

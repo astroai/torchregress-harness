@@ -522,7 +522,9 @@ class AgeRegressionSuite(ImageHarnessRunner):
         with torch.no_grad():
             for batch in train_loader:
                 feats.append(encoder(batch[0].to(device)).cpu().double())
-                targets.append(batch[1].reshape(-1, 1).double())
+                targets.append(batch[1].reshape(-1, 1).cpu().double())
+        # lstsq runs on CPU: loader tensors live on current_device() (cuda in
+        # release runs), so both operands are moved to CPU explicitly.
         F = torch.cat(feats)
         design = torch.cat([F, torch.ones(len(F), 1, dtype=F.dtype)], dim=1)
         coef = torch.linalg.lstsq(design, torch.cat(targets)).solution  # [feature_dim + 1, 1]

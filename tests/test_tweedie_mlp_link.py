@@ -77,3 +77,42 @@ def test_positive_support_rows_fit_on_positive_data():
     for r in rows:
         assert not r["Notes"].startswith(("skipped", "failed")), r
         assert math.isfinite(r["RMSE"]), r
+
+
+def _claims_standin(seed: int = 123, n: int = 6000, d: int = 6):
+    """Claims-like stand-in: ~95% zeros, lognormal(sigma=1.8) severities, 5 extreme values."""
+    import numpy as np
+
+    r = np.random.default_rng(seed)
+    X = r.normal(size=(n, d)).astype(np.float32)
+    pos = r.random(n) < np.exp(-3.0 + 0.4 * X[:, 0] - 0.3 * X[:, 1])
+    y = np.zeros(n)
+    y[pos] = np.exp(1.0 + 0.3 * X[pos, 2] + r.normal(0, 1.8, pos.sum()))
+    y[r.choice(np.flatnonzero(pos), 5, replace=False)] *= 200
+    X = (X - X.mean(0)) / X.std(0)
+    k = int(0.7 * n)
+    y = y.astype(np.float32)
+    return {
+        "X_train": X[:k],
+        "y_train": y[:k],
+        "X_test": X[k:],
+        "y_test": y[k:],
+        "_skip_y_standardization": True,
+    }
+
+
+@pytest.mark.parametrize("method", ["Tweedie", "CompoundPoisson"])
+def test_tweedie_mlp_rows_stable_on_heavy_tailed_claims(method):
+    """insurance_claims regression: MLP rows diverged (R2 ~ -30, deviance ~187 vs GLM 1.41).
+
+    The log-mean MLP recipe (bias = log mean(y), zero head, grad clipping,
+    early stopping on a train carve) must stay near the intercept-only/GLM level.
+    """
+    torch.set_num_threads(1)
+    suite = TweedieSuite()
+    suite.methods = lambda: [method, "Tweedie_Linear"]
+    rows = suite.run("claims_standin", HarnessConfig(seed=0, epochs=15), splits=_claims_standin())
+    by = {r["Method"].split("/")[-1]: r for r in rows}
+    mlp, lin = by[method], by["Tweedie_Linear"]
+    assert math.isfinite(mlp["R2"]) and mlp["R2"] > -0.1, mlp
+    assert mlp["TweedieDeviance"] < 1.5 * lin["TweedieDeviance"], (mlp, lin)
