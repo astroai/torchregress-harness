@@ -57,6 +57,72 @@ def _tweedie_deviance(y: np.ndarray, mu: np.ndarray, p: float) -> float:
     return float(mean_tweedie_deviance(y, mu, sample_weight=None, power=p))
 
 
+def _train_log_mean_mlp(
+    model: torch.nn.Module,
+    loss_fn: torch.nn.Module,
+    X: torch.Tensor,
+    y: torch.Tensor,
+    config: HarnessConfig,
+    *,
+    val_frac: float = 0.1,
+    max_grad_norm: float = 1.0,
+    patience: int = 10,
+) -> None:
+    """Adam recipe for an MLP that outputs log(mu) on zero-inflated, heavy-tailed y.
+
+    Plain ``_train_one`` diverges on claims-like targets (~95% zeros, lognormal
+    severities, a few extreme values): with a default-initialised head the first
+    steps are dominated by the extreme rows and the log-mean overshoots
+    (mu up to ~1e13 under the loss's clamp at 30). Three standard GLM-style fixes:
+
+    * start at the intercept-only GLM: final bias = log(mean(y_train)), final
+      weights = 0, so training begins at the null-model deviance;
+    * clip the global gradient norm so single extreme rows cannot blow up a step;
+    * keep the weights with the best deviance on a held-out carve of the
+      training set (early stopping; the test split is never seen).
+    """
+    head = [m for m in model.modules() if isinstance(m, torch.nn.Linear)][-1]
+    with torch.no_grad():
+        head.weight.zero_()
+        head.bias.fill_(float(torch.log(y.mean().clamp_min(1e-8))))
+
+    n = X.shape[0]
+    gen = torch.Generator().manual_seed(int(config.seed))
+    perm = torch.randperm(n, generator=gen).to(X.device)
+    n_val = int(round(val_frac * n)) if n >= 50 else 0
+    val_idx, tr_idx = perm[:n_val], perm[n_val:]
+    X_tr, y_tr = X[tr_idx], y[tr_idx]
+    X_val, y_val = X[val_idx], y[val_idx]
+
+    opt = torch.optim.Adam(model.parameters(), lr=config.lr)
+    best_val, best_state, bad = float("inf"), None, 0
+    n_tr = X_tr.shape[0]
+    for _ in range(config.epochs):
+        model.train()
+        order = torch.randperm(n_tr, device=X.device)
+        for i in range(0, n_tr, config.batch_size):
+            idx = order[i : i + config.batch_size]
+            opt.zero_grad(set_to_none=True)
+            loss = loss_fn(model(X_tr[idx]), y_tr[idx])
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            opt.step()
+        if n_val == 0:
+            continue
+        model.eval()
+        with torch.no_grad():
+            v = float(loss_fn(model(X_val), y_val))
+        if v < best_val - 1e-6:
+            best_val, bad = v, 0
+            best_state = {k: t.detach().clone() for k, t in model.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+
 # Rows whose loss has support y > 0 (GammaLoss p=2, InverseGaussianLoss p=3).
 _POSITIVE_SUPPORT_METHODS = frozenset({"Gamma", "Gamma_Linear", "InverseGaussian"})
 
@@ -186,7 +252,7 @@ class TweedieSuite(HarnessRunner):
                 in_dim = X.shape[1]
                 hidden = _hidden_size(in_dim)
                 model = _MLP(in_dim, hidden, out_dim=1)
-                _train_one(model, loss_fn, X, y, config)
+                _train_log_mean_mlp(model, loss_fn, X, y, config)
                 model.eval()
 
             return {"type": "torch", "model": model, "p_power": p_power}
