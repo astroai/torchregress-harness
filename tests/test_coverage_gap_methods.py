@@ -14,6 +14,7 @@ from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.label_shift import (
     LabelShiftSuite,
     _finite_interval_stats,
+    _shift_target,
     prior_ratio_weights,
 )
 
@@ -51,6 +52,43 @@ def test_prior_ratio_weights_track_the_shift(method: str) -> None:
     # BBSE only needs a confusion matrix; EM assumes calibrated posteriors and
     # the Gaussian-bin probabilities are not, so it stops at a biased fixed point.
     assert extra["PriorTV"] < (0.15 if method == "TT_BBSE" else 0.30)
+
+
+@pytest.mark.parametrize("method", ["ShiftFactoredTransport", "ShiftFactoredTransport+Conformal"])
+def test_transport_rows_are_not_inert_under_label_shift(method: str) -> None:
+    """Finding 8: the transport rows reported PriorTV 1.0 / TransportApplied 0.
+
+    Synthetic pure label shift with a known target prior: x = 4 noisy copies of y,
+    Gaussian predictive = least-squares mean + residual std (calibrated source
+    posterior); the target is the suite's logistic-in-y resample of the test rows.
+    """
+    rng = np.random.default_rng(0)
+    y_tr, y_te = rng.normal(size=1500), rng.normal(size=1000)
+    X_tr = y_tr[:, None] + 0.5 * rng.normal(size=(1500, 4))
+    X_te = y_te[:, None] + 0.5 * rng.normal(size=(1000, 4))
+    A = np.c_[X_tr, np.ones(len(X_tr))]
+    coef = np.linalg.lstsq(A, y_tr, rcond=None)[0]
+    p_tr, p_te = A @ coef, np.c_[X_te, np.ones(len(X_te))] @ coef
+    tgt_idx, _ = _shift_target(y_te, seed=0)
+    predictions = {
+        "y_train": y_tr,
+        "p_src": p_tr,
+        "_X_train": X_tr,
+        "_X_test": X_te,
+        "_y_cal": y_tr[-300:],
+    }
+    row = LabelShiftSuite._evaluate_transport(method, predictions, p_te, y_te, tgt_idx)
+    assert row["TransportApplied"] == 1.0
+    assert row["PriorTV"] < 0.9  # was 1.0: EM prior on the empty margin bins
+    assert row["PriorMassOutsideSourceRange"] < 0.1
+    # The EM prior is much closer to the oracle than "no shift"; the applied
+    # (shrunk, ratio-clipped) prior moves toward it.
+    assert row["SourcePriorTVOracle"] > 0.15
+    assert row["RawPriorTVOracle"] < 0.5 * row["SourcePriorTVOracle"]
+    assert row["AdaptedPriorTVOracle"] < row["SourcePriorTVOracle"]
+    # The transported predictive stays sane on the shifted rows (no edge collapse).
+    assert np.isfinite(row["NLL"]) and row["NLL"] < row["BaseNLL"] + 0.2
+    assert row["ShiftCoverage"] >= row["BaseShiftCoverage"] - 0.02
 
 
 def test_finite_interval_stats_handle_inf() -> None:

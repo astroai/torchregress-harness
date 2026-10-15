@@ -20,6 +20,16 @@ from .datasets import SplitsDict
 from .metrics import compute_all_metrics, infinite_interval_note
 
 
+class SkipMethod(Exception):
+    """Raised from ``fit`` when a method cannot be run on a dataset by design.
+
+    ``HarnessRunner.run`` records the row as ``"skipped: <reason>"`` with null
+    metrics (like a missing optional dependency) instead of ``"failed: ..."``.
+    Use it for structural incompatibilities, e.g. a loss whose support excludes
+    values present in the data, where changing the data would bias the estimand.
+    """
+
+
 def _inverse_transform_y(y: np.ndarray, y_scaler: Any) -> np.ndarray:
     """Inverse-transform standardised targets back to original scale.
 
@@ -430,7 +440,8 @@ class HarnessRunner(ABC):
                     ),
                 }
 
-            except ImportError as exc:
+            except (ImportError, SkipMethod) as exc:
+                reason = str(exc) if isinstance(exc, SkipMethod) else f"{type(exc).__name__}: {exc}"
                 row = {
                     "Method": f"{self.name}/{method}",
                     "Library": self.library_name(method),
@@ -444,7 +455,7 @@ class HarnessRunner(ABC):
                     "SourceURL": splits.get("_source_url", ""),
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                     "Device": str(current_device()),
-                    "Notes": f"skipped: {type(exc).__name__}: {exc}",
+                    "Notes": f"skipped: {reason}",
                 }
 
             except Exception as exc:

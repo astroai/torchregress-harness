@@ -7,6 +7,7 @@ silently substitute synthetic proxies when an explicit root is set.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 import pytest
@@ -91,11 +92,24 @@ def test_ucf_fallback_is_pure_synthetic(tmp_path: Path, monkeypatch) -> None:
     assert np.array_equal(np.asarray(splits["y_test"]), np.asarray(expected["y_test"]))
 
 
+def _parquet_engine_available() -> bool:
+    for name in ("pyarrow", "fastparquet"):
+        try:
+            importlib.import_module(name)
+            return True
+        except ImportError:
+            continue
+    return False
+
+
 def test_tlc_fare_real_data_contract() -> None:
     """NYC TLC loader reads the staged parquet with raw skewed targets."""
     import numpy as np
 
     from harness.datasets import _load_tlc_fare
+
+    if not _parquet_engine_available():
+        pytest.skip("no parquet engine (pyarrow/fastparquet) installed")
 
     splits = _load_tlc_fare(n_samples=5000)
     assert splits.get("_synthetic_fallback", False) is False

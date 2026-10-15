@@ -24,8 +24,8 @@ _CONFIG = "configuration dataclass consumed by a covered estimator; no behaviour
 _RESULT = "result container returned by a covered estimator; not called directly"
 _FACTORY = "factory/registry helper; the losses it builds are benchmarked directly"
 _PARITY = (
-    "metric not scored by any suite yet; scheduled for the metrics parity tests "
-    "vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+    "metric not scored by any suite; checked against scoringrules / scipy references "
+    "in tests/test_metrics_scoringrules_parity.py"
 )
 _HARNESS_POINT = (
     "harness computes this point metric itself (harness.core.compute_point_metrics); "
@@ -53,18 +53,14 @@ ALLOWLIST: dict[str, str] = {
     "BaseLoss": _BASE,
     "RegressionLoss": _BASE,
     "DistributionLoss": _BASE,
+    "BaseEIVLoss": "abstract EIV base class; exercised through FunctionalEIVLoss/StructuralEIVLoss (covered in eiv)",
     "ConformalPredictor": _BASE,
-    "LevelSetConformalPredictor": (
-        "base of SLSConformal (covered in distributional_bins SLS_CP and the "
-        "multivariate_intervals SLS+SLSConformal rows)"
-    ),
     "WeightedLossWrapper": "masking/weighting wrapper around torch losses; weighting is exercised via covered losses",
     "WeightedNLLLoss": "classification NLL wrapper (torch.nn.NLLLoss); no regression benchmark",
     "AsymmetricLeastSquaresLoss": "alias of ExpectileLoss (covered in robust_regression)",
     "ConsistencyRegLoss": "uncertain-ground-truth teacher/student loss; semi_supervised covers TeacherStudentTrainer/SAGEReg instead",
     "PseudoLabelConsistencyLoss": "uncertain-ground-truth pseudo-label loss; no pseudo-label suite beyond semi_supervised yet",
-    "DiscreteWasserstein1Loss": "W1 between binned PDFs; distributional_bins scores bins with CRPS/NLL, a W1 row is not wired yet",
-    "discrete_wasserstein1": "functional twin of DiscreteWasserstein1Loss (not benchmarked yet)",
+    "discrete_wasserstein1": "functional twin of DiscreteWasserstein1Loss (covered in ordinal)",
     "MahalanobisFrontier": "SLS frontier component built inside SLSLoss/SLSConformal (covered)",
     "UnionFrontier": "SLS multimodal frontier component built inside SLSLoss (covered)",
     "VolumePreservingFlow": "SLS flow component built inside SLSLoss (covered)",
@@ -157,7 +153,6 @@ ALLOWLIST: dict[str, str] = {
     "consistency_error": "teacher/student diagnostic for the uncertain-GT losses (not benchmarked yet)",
     "pseudo_label_acceptance_rate": "pseudo-label diagnostic for the uncertain-GT losses (not benchmarked yet)",
     # ------------------------------------------------------------- calibration
-    "SemiConformalCalibrator": "semi-supervised conformal under shift; no suite yet (candidate: label_shift)",
     # ---------------------------------------------------------------- ensemble
     "BaseEnsembleModel": _BASE,
     "EnsembleFitConfig": _CONFIG,
@@ -200,6 +195,7 @@ ALLOWLIST: dict[str, str] = {
     # --------------------------------------------------------- semi_supervised
     "SAGERegAgreement": _RESULT,
     "SAGERegOutput": _RESULT,
+    "SelfAgreementTrainer": "alias of TeacherStudentTrainer (same class; covered in semi_supervised)",
     "build_consensus_predictive_batch": "consensus builder called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "distributional_pseudo_loss": "pseudo-label loss called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "conformal_width_to_weight": "needs per-batch conformal intervals on unlabeled rows; no conformal pseudo-labeling row yet",

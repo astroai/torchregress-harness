@@ -51,23 +51,36 @@ def test_method_grid() -> None:
 
 
 def test_same_base_same_numbers(rows: dict[str, dict]) -> None:
-    """torchregress, MAPIE and crepes see identical base predictions: split rows agree."""
+    """torchregress, MAPIE and crepes see identical base predictions: split rows agree.
+
+    The crepes and MAPIE rows only exist when those packages are installed, so
+    each comparison runs only when its comparator is available.
+    """
     gbm = uq_layer._GBM_BASE
+    if not (uq_layer._CREPES_AVAILABLE or uq_layer._MAPIE_AVAILABLE):
+        pytest.skip("neither crepes nor mapie installed")
     for base in (gbm, "RF", "DeepEnsK5", "TabularMLP"):
-        tr, mp, cr = (rows[f"{m}+{base}"] for m in ("tr_Split", "MAPIE_Split", "crepes_Split"))
-        assert tr["RMSE"] == mp["RMSE"] == cr["RMSE"]
-        for key in ("Coverage", "Width", "IntervalScore"):
-            assert tr[key] == pytest.approx(mp[key], rel=1e-6, abs=1e-9), (base, key)
-            assert tr[key] == pytest.approx(cr[key], rel=1e-6, abs=1e-9), (base, key)
-        assert rows[f"tr_CQR+{base}"]["Width"] == pytest.approx(
-            rows[f"MAPIE_CQR+{base}"]["Width"], rel=1e-6
-        )
-        assert rows[f"tr_Normalized+{base}"]["Width"] == pytest.approx(
-            rows[f"crepes_Normalized+{base}"]["Width"], rel=1e-6
-        )
+        tr = rows[f"tr_Split+{base}"]
+        if uq_layer._CREPES_AVAILABLE:
+            cr = rows[f"crepes_Split+{base}"]
+            assert tr["RMSE"] == cr["RMSE"]
+            for key in ("Coverage", "Width", "IntervalScore"):
+                assert tr[key] == pytest.approx(cr[key], rel=1e-6, abs=1e-9), (base, key)
+            assert rows[f"tr_Normalized+{base}"]["Width"] == pytest.approx(
+                rows[f"crepes_Normalized+{base}"]["Width"], rel=1e-6
+            )
+        if uq_layer._MAPIE_AVAILABLE:
+            mp = rows[f"MAPIE_Split+{base}"]
+            assert tr["RMSE"] == mp["RMSE"]
+            for key in ("Coverage", "Width", "IntervalScore"):
+                assert tr[key] == pytest.approx(mp[key], rel=1e-6, abs=1e-9), (base, key)
+            assert rows[f"tr_CQR+{base}"]["Width"] == pytest.approx(
+                rows[f"MAPIE_CQR+{base}"]["Width"], rel=1e-6
+            )
 
 
 def test_cv_plus_matches_mapie(rows: dict[str, dict]) -> None:
+    pytest.importorskip("mapie")
     for base in (uq_layer._GBM_BASE, "RF"):
         a, b = rows[f"tr_CVPlus+{base}"], rows[f"MAPIE_CVPlus+{base}"]
         assert a["Width"] == pytest.approx(b["Width"], rel=1e-6)
@@ -115,7 +128,10 @@ def test_tabicl_quantile_path_with_fake_checkpoint(monkeypatch: pytest.MonkeyPat
     monkeypatch.setitem(sys.modules, "tabicl", mod)
     monkeypatch.setattr(uq_layer, "_TABICL_AVAILABLE", True)
     out = _by_method(UQLayerSuite().run("synthetic_hetero", CFG))
-    for uq in ("tr_Split", "MAPIE_CQR", "tr_CQR", "crepes_Normalized"):
+    uqs = ["tr_Split", "tr_CQR"] + (["crepes_Normalized"] if uq_layer._CREPES_AVAILABLE else [])
+    if uq_layer._MAPIE_AVAILABLE:
+        uqs.insert(1, "MAPIE_CQR")
+    for uq in uqs:
         r = out[f"{uq}+TabICL"]
         assert r["Coverage"] is not None, r["Notes"]
 

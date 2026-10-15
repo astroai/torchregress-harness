@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "051ac391",
+  "torchregress_commit": "95cb6ae5",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -47,6 +47,11 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "BaseEIVLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "abstract EIV base class; exercised through FunctionalEIVLoss/StructuralEIVLoss (covered in eiv)"
       },
       "BaseLoss": {
         "suites": [],
@@ -97,6 +102,23 @@
         "suites": [
           "ordinal",
           "r2c_conformal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CQR": {
+        "suites": [
+          "fm_multitarget",
+          "fm_uq_scenarios",
+          "uq",
+          "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CTI": {
+        "suites": [
+          "distributional_bins"
         ],
         "status": "covered",
         "reason": ""
@@ -211,9 +233,11 @@
         "reason": ""
       },
       "DiscreteWasserstein1Loss": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "W1 between binned PDFs; distributional_bins scores bins with CRPS/NLL, a W1 row is not wired yet"
+        "suites": [
+          "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "DistributionLoss": {
         "suites": [],
@@ -437,9 +461,11 @@
         "reason": ""
       },
       "LevelSetConformalPredictor": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "base of SLSConformal (covered in distributional_bins SLS_CP and the multivariate_intervals SLS+SLSConformal rows)"
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "LocalConformal": {
         "suites": [
@@ -565,6 +591,13 @@
         "status": "covered",
         "reason": ""
       },
+      "MultivariateScoreConformal": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "NegativeBinomialNLLLoss": {
         "suites": [
           "cell_counting"
@@ -584,6 +617,16 @@
           "age_regression",
           "photoz_imaging",
           "stress_matrix"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "NonExchangeableConformalRegressor": {
+        "suites": [
+          "conformal",
+          "fm_multitarget",
+          "fm_uq_scenarios",
+          "uq_layer"
         ],
         "status": "covered",
         "reason": ""
@@ -984,7 +1027,7 @@
       "discrete_wasserstein1": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "functional twin of DiscreteWasserstein1Loss (not benchmarked yet)"
+        "reason": "functional twin of DiscreteWasserstein1Loss (covered in ordinal)"
       },
       "expectile_loss": {
         "suites": [],
@@ -1089,12 +1132,12 @@
       "ContinuousRankedProbabilityScore": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "DawidSebastianiScore": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "EnergyScore": {
         "suites": [
@@ -1129,7 +1172,7 @@
       "HuberMetric": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "IntervalScore": {
         "suites": [
@@ -1169,7 +1212,7 @@
       "MedianAbsoluteDeviation": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "MedianAbsoluteError": {
         "suites": [],
@@ -1196,7 +1239,7 @@
       "NormalizedRMSE": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "OutlierFraction": {
         "suites": [
@@ -1208,7 +1251,7 @@
       "PinballMetric": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "PredictionIntervalCoverageProbability": {
         "suites": [],
@@ -1238,7 +1281,7 @@
       "TrimmedMeanSquaredError": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "TypicalityScore": {
         "suites": [],
@@ -1248,7 +1291,7 @@
       "VarioScore": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "VariogramScore": {
         "suites": [
@@ -1260,7 +1303,7 @@
       "WassersteinGaussian": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "attenuation_factor": {
         "suites": [
@@ -1328,7 +1371,7 @@
       "continuous_ranked_probability_score": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "crps_from_samples": {
         "suites": [
@@ -1447,7 +1490,7 @@
       "huber_loss": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "interval_metrics_report": {
         "suites": [],
@@ -1509,7 +1552,7 @@
       "median_absolute_deviation": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "median_absolute_error": {
         "suites": [],
@@ -1524,7 +1567,7 @@
       "normalized_rmse": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "observed_mae": {
         "suites": [
@@ -1551,7 +1594,7 @@
       "pinball_loss": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "pinball_metric": {
         "suites": [
@@ -1639,7 +1682,7 @@
       "trimmed_mean_squared_error": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "typicality_score": {
         "suites": [],
@@ -1663,7 +1706,7 @@
       "vario_score": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
       "variogram_score": {
         "suites": [
@@ -1675,7 +1718,7 @@
       "wasserstein_gaussian_p2": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "metric not scored by any suite yet; scheduled for the metrics parity tests vs scoringrules (RELEASE_0.3_STATUS still-to-do)"
+        "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       }
     },
     "calibration": {
@@ -1724,9 +1767,11 @@
         "reason": ""
       },
       "SemiConformalCalibrator": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "semi-supervised conformal under shift; no suite yet (candidate: label_shift)"
+        "suites": [
+          "test_time_adaptation"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "VarianceTemperatureScaler": {
         "suites": [
@@ -2446,6 +2491,11 @@
         "status": "allowlisted",
         "reason": "result container returned by a covered estimator; not called directly"
       },
+      "SelfAgreementTrainer": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "alias of TeacherStudentTrainer (same class; covered in semi_supervised)"
+      },
       "TeacherStudentTrainer": {
         "suites": [
           "semi_supervised"
@@ -2608,12 +2658,12 @@
     }
   },
   "summary": {
-    "exports": 370,
-    "covered": 222,
-    "allowlisted": 148,
+    "exports": 376,
+    "covered": 229,
+    "allowlisted": 147,
     "uncovered": 0,
-    "unique_names": 362,
-    "unique_covered": 220
+    "unique_names": 368,
+    "unique_covered": 227
   },
   "stale_allowlist": []
 }

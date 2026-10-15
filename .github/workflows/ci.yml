@@ -79,7 +79,10 @@ jobs:
           python-version: "3.13"
 
       - name: Install CPU torch first (avoid CUDA wheels)
-        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+        # torchvision must come from the same CPU index as torch: torchcp (conformal
+        # extra) requires torchvision unpinned, and a PyPI torchvision wheel
+        # otherwise replaces it and fails with `operator torchvision::nms does not exist`.
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install package with extra (${{ matrix.extra }})
         run: pip install -e ".[${{ matrix.extra }}]" -e "../torchregress[flows]"

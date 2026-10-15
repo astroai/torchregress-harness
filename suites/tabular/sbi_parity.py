@@ -135,7 +135,10 @@ class SBIParitySuite(HarnessRunner):
 
     def method_notes(self, method: str) -> str:
         return {
-            "torchregress_NSF": "zuko NSF conditional flow (PyTorch); pair: sbi_NPE",
+            "torchregress_NSF": (
+                "zuko NSF conditional flow (PyTorch), spline tail bound from "
+                "recommended_tail_bound(theta_train); pair: sbi_NPE"
+            ),
             "torchregress_MAF": "zuko MAF conditional flow; pair: sbi_NPE_MAF",
             "torchregress_MDN": f"MDNLoss, {MDN_COMPONENTS} diagonal components; pair: sbi_NPE_MDN",
             "pzflow_NSF": "pzflow Flow, default bijector (JAX)",
@@ -166,14 +169,27 @@ class SBIParitySuite(HarnessRunner):
             from torchregress.losses.nflows import (
                 NormalizingFlowLoss,
                 create_flow_model,
+                recommended_tail_bound,
             )
 
+            # The NSF spline is the identity outside [-B, B] (zuko B=5), so it
+            # cannot place mass at |theta| > 5: on gaussian_mixture
+            # (theta ~ U(-10, 10)^2) every posterior collapsed onto the bound
+            # edge (C2ST 0.997). Derive B from the training theta range instead
+            # (12.5 there; stays 5 for twomoons/slcp/gaussian_linear, whose
+            # rows are unchanged). theta is deliberately not z-scored: that
+            # also fixes gaussian_mixture but moved the other tasks' rows
+            # (gaussian_linear 0.62 -> 0.67 under this fixed-budget loop).
+            flow_kwargs: dict[str, Any] = {}
+            if _TR_FLOWS[method] == "nsf":
+                flow_kwargs["bound"] = recommended_tail_bound(y)
             flow = create_flow_model(
                 n_features=out_dim,
                 context_dim=hidden,
                 flow_type=_TR_FLOWS[method],
                 n_transforms=FLOW_TRANSFORMS,
                 hidden_features=[FLOW_HIDDEN, FLOW_HIDDEN],
+                **flow_kwargs,
             )
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=hidden)
             loss_fn = NormalizingFlowLoss(flow=flow)

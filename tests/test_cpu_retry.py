@@ -46,3 +46,14 @@ def test_needs_retry_false_without_oom(tmp_path: Path) -> None:
     gpu = _write(tmp_path / "g.json", [{"Method": "s/A", "Notes": "failed: ValueError: x"}])
     assert not cpu_retry.needs_retry(gpu)
     assert not cpu_retry.needs_retry(tmp_path / "missing.json")
+
+
+def test_merge_drops_oom_rows_the_cpu_run_does_not_produce(tmp_path: Path) -> None:
+    gpu = _write(
+        tmp_path / "gpu.json",
+        [{"Method": "s/A", "Notes": OOM}, {"Method": "s/PIT+A", "Notes": OOM}],
+    )
+    cpu = _write(tmp_path / "cpu.json", [{"Method": "s/A", "RMSE": 1.0, "Notes": ""}])
+    assert cpu_retry.merge(gpu, cpu) == 1
+    rows = json.loads(gpu.read_text())["rows"]
+    assert [r["Method"] for r in rows] == ["s/A"]

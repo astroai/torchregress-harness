@@ -31,6 +31,7 @@ _CALIBRATION_METHODS = frozenset(
         "JointTTA",
         "JointTTA_OTScore",
         "JointTTA_LabelShiftEM",
+        "SemiConformal",
     }
 )
 
@@ -76,6 +77,7 @@ class TestTimeAdaptationSuite(HarnessRunner):
             "JointTTA",
             "JointTTA_OTScore",
             "JointTTA_LabelShiftEM",
+            "SemiConformal",
         ]
 
     def method_notes(self, method: str) -> str:
@@ -89,6 +91,12 @@ class TestTimeAdaptationSuite(HarnessRunner):
             "JointTTA": "weighted joint conformal TTA (domain-clf weights); pseudo-label rounds disabled",
             "JointTTA_OTScore": "weighted joint conformal TTA (OT score weights); pseudo-label rounds disabled",
             "JointTTA_LabelShiftEM": "weighted joint conformal TTA (label-shift EM weights); pseudo-label rounds disabled",
+            "SemiConformal": (
+                "SemiConformalCalibrator: weighted split conformal on normalized residuals "
+                "|y - mu| / sigma of the static model, w(x) from a logistic domain classifier "
+                "(source vs unlabeled shifted target features, p clipped to [0.01, 0.99]); "
+                "Coverage_Unweighted is the same calibrator without weights"
+            ),
         }.get(method, "")
 
     def fit(
@@ -280,11 +288,76 @@ class TestTimeAdaptationSuite(HarnessRunner):
                 "CoverageHi": float(bounds[1]),
                 "tta_tgt_idx": out_idx,
             }
+        elif method == "SemiConformal":
+            return self._semi_conformal(model_state, X_source, X_target, out_idx)
         else:
             batch = self._batch(model, X_target)
             mean = np.asarray(batch.mean, dtype=np.float64).reshape(-1)
             std = np.asarray(batch.std, dtype=np.float64).reshape(-1)
             return self._prediction_dict(mean, std, {**_shift_severity()}, tgt_idx=out_idx)
+
+    def _semi_conformal(
+        self,
+        model_state: dict[str, Any],
+        X_source: np.ndarray,
+        X_target: np.ndarray,
+        out_idx: np.ndarray,
+    ) -> dict[str, Any]:
+        """Weighted split conformal under covariate shift (Tibshirani et al. 2019).
+
+        Shift weights ``w(x) = p_target(x) / p_source(x)`` come from a logistic
+        domain classifier fitted on the source training features vs the
+        unlabeled shifted target features (no target labels).
+        """
+        from sklearn.linear_model import LogisticRegression
+        from torchregress.calibration import SemiConformalCalibrator
+
+        model = model_state["model"]
+        X_cal = np.asarray(model_state["X_cal"], dtype=np.float64)
+        y_cal = np.asarray(model_state["y_cal"], dtype=np.float64).reshape(-1)
+        domain = LogisticRegression(max_iter=1000).fit(
+            np.vstack([X_source, X_target]),
+            np.r_[np.zeros(len(X_source)), np.ones(len(X_target))],
+        )
+
+        def _weights(X: np.ndarray) -> np.ndarray:
+            p = np.clip(domain.predict_proba(X)[:, 1], 0.01, 0.99)
+            return p / (1.0 - p) * (len(X_source) / len(X_target))
+
+        w_cal, w_tgt = _weights(X_cal), _weights(X_target)
+        cal = self._batch(model, X_cal)
+        tgt = self._batch(model, X_target)
+        mu_cal = np.asarray(cal.mean, dtype=np.float64).reshape(-1)
+        sd_cal = np.asarray(cal.std, dtype=np.float64).reshape(-1)
+        mean = np.asarray(tgt.mean, dtype=np.float64).reshape(-1)
+        std = np.asarray(tgt.std, dtype=np.float64).reshape(-1)
+        scores = torch.from_numpy(np.abs(y_cal - mu_cal) / sd_cal)
+
+        weighted = SemiConformalCalibrator().fit(scores, torch.from_numpy(w_cal))
+        # Per-target-point thresholds on the normalized score (+inf where the
+        # weighted calibration mass cannot reach the level).
+        q_w = weighted.compute_thresholds(torch.from_numpy(w_tgt), alpha=0.1)
+        q_w_np = np.asarray(q_w, dtype=np.float64).reshape(-1)
+        q_u = SemiConformalCalibrator().fit(scores).compute_thresholds(0.0, alpha=0.1)
+        finite = np.isfinite(q_w_np)
+        # Same diagnostics as the JointTTA rows: ESS and max of the normalized
+        # calibration weights.
+        w_norm = w_cal / w_cal.sum()
+        return {
+            "y_pred": mean,
+            "mean": mean,
+            "lower": mean - q_w_np * std,
+            "upper": mean + q_w_np * std,
+            "lower_unweighted": mean - float(q_u) * std,
+            "upper_unweighted": mean + float(q_u) * std,
+            "WeightESS": float(1.0 / np.sum(w_norm**2)),
+            "WeightMax": float(w_norm.max()),
+            "InfiniteFraction": float(1.0 - finite.mean()),
+            "ThresholdRatio": float(np.median(q_w_np[finite]) / float(q_u))
+            if finite.any()
+            else float("inf"),
+            "tta_tgt_idx": out_idx,
+        }
 
     @staticmethod
     def _prediction_dict(
@@ -313,23 +386,19 @@ class TestTimeAdaptationSuite(HarnessRunner):
         y_test: np.ndarray,
         config: HarnessConfig,
     ) -> dict[str, float]:
-        # Predictions cover the shifted evaluation rows; subset the targets
-        # with the stashed indices before scoring.
+        # Predictions are already on the shifted evaluation rows (row i is
+        # X_pool[tgt_idx[i]]), so only the targets are subset with the stashed
+        # indices; indexing the predictions again would score row i against
+        # the wrong target.
         y_full = np.asarray(y_test).reshape(-1)
         idx = np.asarray(predictions.get("tta_tgt_idx", np.arange(len(y_full)))).reshape(-1)
         idx = np.clip(idx.astype(np.int64), 0, max(len(y_full) - 1, 0))
-        sub: dict[str, np.ndarray] = {}
-        for key, value in predictions.items():
-            try:
-                arr = np.asarray(value).reshape(-1)
-            except Exception:
-                sub[key] = value  # type: ignore[assignment]
-                continue
-            if key == "tta_tgt_idx" or arr.shape[0] != len(y_full):
-                sub[key] = value  # type: ignore[assignment]
-            else:
-                sub[key] = arr[idx]
-        metrics = super().evaluate(method, sub, y_full[idx], config)
+        y_tgt = y_full[idx]
+        metrics = super().evaluate(method, predictions, y_tgt, config)
+        if "lower_unweighted" in predictions:
+            lo_u = np.asarray(predictions["lower_unweighted"], dtype=np.float64).reshape(-1)
+            hi_u = np.asarray(predictions["upper_unweighted"], dtype=np.float64).reshape(-1)
+            metrics["Coverage_Unweighted"] = float(np.mean((y_tgt >= lo_u) & (y_tgt <= hi_u)))
         for key in (
             "PriorTV",
             "SelectedFraction",
@@ -337,6 +406,8 @@ class TestTimeAdaptationSuite(HarnessRunner):
             "WeightMax",
             "CoverageLo",
             "CoverageHi",
+            "InfiniteFraction",
+            "ThresholdRatio",
         ):
             if key in predictions:
                 try:

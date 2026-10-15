@@ -9,6 +9,9 @@ Methods
 - MSE                    : MLP + WeightedMSELoss (treats classes as continuous)
 - OrdinalCrossEntropy    : MLP + OrdinalCrossEntropyLoss (K logits, softmax CE)
 - CumulativeLink         : MLP + CumulativeLinkLoss (K-1 cumulative logits, BCE)
+- DiscreteWasserstein1   : MLP + DiscreteWasserstein1Loss (K logits, W1 to the
+                           one-hot class on the unit-spaced class grid, i.e. the
+                           expected class distance E_p|Z - y|); PMF median
 - CORAL                  : MLP + CORALLoss (torchregress, CORAL-style cumulative ordinal)
 - CORN                   : MLP + corn_loss from coral-pytorch (K-1 logits)
 - mord_LogisticAT        : mord.LogisticAT (all-threshold ordinal logistic)
@@ -25,6 +28,7 @@ import torch.nn as nn
 from torchregress.losses import (
     CORALLoss,
     CumulativeLinkLoss,
+    DiscreteWasserstein1Loss,
     OrdinalCrossEntropyLoss,
     WeightedMSELoss,
 )
@@ -151,6 +155,7 @@ class OrdinalSuite(HarnessRunner):
             "MSE",
             "OrdinalCrossEntropy",
             "CumulativeLink",
+            "DiscreteWasserstein1",
             "CORAL",
             "CumulativeLinkEnsemble",
         ]
@@ -239,6 +244,17 @@ class OrdinalSuite(HarnessRunner):
             # CumulativeLinkLoss expects K-1 logits (binary classifiers for P(y > k))
             model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes - 1)
             _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
+            return {"type": "torch", "model": model, "n_classes": n_classes}
+
+        elif method == "DiscreteWasserstein1":
+            # K logits; W1 between softmax(logits) and the one-hot class on the
+            # class grid 0..K-1 (edges at half-integers), a distance-aware
+            # alternative to the softmax cross-entropy row.
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes)
+            w1 = DiscreteWasserstein1Loss(
+                bin_edges=np.arange(n_classes + 1, dtype=np.float64) - 0.5, from_logits=True
+            )
+            _train_one(model, w1, X, y.float(), config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "CumulativeLinkEnsemble":
@@ -364,6 +380,12 @@ class OrdinalSuite(HarnessRunner):
                     else:
                         probs = torch.sigmoid(logits)
                         y_pred = probs.gt(0.5).sum(dim=-1).long().detach().cpu().numpy()
+                elif method == "DiscreteWasserstein1":
+                    # W1 to a point mass is E_p|Z - y|: decode with the PMF
+                    # median (the absolute-loss Bayes action), not the mode.
+                    cdf = torch.softmax(logits, dim=-1).cumsum(dim=-1)
+                    y_pred = (cdf < 0.5).sum(dim=-1).clamp(max=n_classes - 1)
+                    y_pred = y_pred.long().detach().cpu().numpy()
                 else:
                     y_pred = logits.argmax(dim=-1).long().detach().cpu().numpy()
 
@@ -448,6 +470,10 @@ class OrdinalSuite(HarnessRunner):
             ),
             "CumulativeLink": (
                 "MLP + CumulativeLinkLoss — K-1 binary classifiers on cumulative logits"
+            ),
+            "DiscreteWasserstein1": (
+                "MLP + DiscreteWasserstein1Loss — K logits, W1 to the one-hot class on the "
+                "class grid (= expected class distance); PMF-median prediction"
             ),
             "CumulativeLinkEnsemble": (
                 "3× cumulative-link MLPs — PMF-space averaging + support-moment classes"

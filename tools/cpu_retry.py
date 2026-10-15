@@ -37,19 +37,28 @@ def needs_retry(path: Path) -> bool:
 def merge(gpu_path: Path, cpu_path: Path) -> int:
     gpu = json.loads(gpu_path.read_text())
     cpu_rows = {r["Method"]: r for r in json.loads(cpu_path.read_text()).get("rows", [])}
-    replaced = 0
-    for i, row in enumerate(gpu.get("rows", [])):
+    replaced = dropped = 0
+    rows = []
+    for row in gpu.get("rows", []):
         if not is_oom_row(row):
+            rows.append(row)
             continue
         new = cpu_rows.get(row["Method"])
         if new is None:
+            # The cpu run, which got past the OOM, does not produce this row:
+            # it is not applicable once the base fits (e.g. a PIT recalibration
+            # row on a point-only base), so drop the placeholder failure.
+            dropped += 1
             continue
         new = dict(new)
         note = "CUDA out of memory on the GPU slice; this row ran on cpu"
         new["Notes"] = f"{new['Notes']}; {note}" if new.get("Notes") else note
-        gpu["rows"][i] = new
+        rows.append(new)
         replaced += 1
-    gpu.setdefault("notes", []).append(f"cpu_retry: {replaced} CUDA-OOM row(s) rerun on cpu")
+    gpu["rows"] = rows
+    gpu.setdefault("notes", []).append(
+        f"cpu_retry: {replaced} CUDA-OOM row(s) rerun on cpu, {dropped} not produced on cpu dropped"
+    )
     gpu_path.write_text(json.dumps(gpu, indent=2) + "\n")
     return replaced
 
