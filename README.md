@@ -59,6 +59,10 @@ pixi run python tools/run_all.py --suites imbalanced_representation \
 pixi run python tools/run_all.py --suites freia_parity \
   --datasets diabetes,california_housing --epochs 60 \
   --output results/latest/freia_parity.json
+# Contrastive normalizing flow (CNF) reproduction (FAIR-Universe toy + sample)
+pixi run python tools/run_all.py --suites cnf_parity \
+  --datasets cnf_toy_gaussian,fair_universe_sample --epochs 60 \
+  --output results/latest/cnf_parity.json
 ```
 
 ### Optional benchmark extras (pip)

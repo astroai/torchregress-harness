@@ -101,6 +101,10 @@ scoring = [
 invertible = [
     "FrEIA>=0.2",
 ]
+# FAIR-Universe HiggsML sample (parquet) for the CNF reproduction suite.
+hep = [
+    "pyarrow",
+]
 test = [
     "pytest",
     "pytest-cov",

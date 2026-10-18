@@ -13,7 +13,7 @@ GPU campaign are recorded at the end.
 | CNRE / NRE-C | Miller, Weniger & Forré 2022, [arXiv:2210.06170](https://arxiv.org/abs/2210.06170), [code](https://github.com/bkmi/cnre) | Three tractable-likelihood simulators plus the sbibm benchmark (10 tasks). |
 | NPE / SNPE | Papamakarios & Murray 2016, [arXiv:1605.06376](https://arxiv.org/abs/1605.06376); Greenberg et al. 2019, [arXiv:1905.07488](https://arxiv.org/abs/1905.07488) | Toy Gaussian, Bayesian linear regression, Lotka-Volterra, M/G/1; Two Moons, SLCP, SLCP+distractors. |
 | sbibm benchmark | Lueckmann et al. 2021, [arXiv:2101.04653](https://arxiv.org/abs/2101.04653), [code](https://github.com/sbi-benchmark/sbibm) | Gaussian Linear, Gaussian Linear Uniform, SLCP, SLCP Distractors, Bernoulli GLM, Bernoulli GLM Raw, Gaussian Mixture, Two Moons, SIR, Lotka-Volterra. Common subset: SLCP, Two Moons, Bernoulli GLM, Gaussian Mixture, SIR. |
-| Contrastive normalizing flows (CNF) | Elsharkawy & Kahn 2025, [arXiv:2505.08709](https://arxiv.org/abs/2505.08709) | High-energy physics: two-Gaussian toy, **HiggsML / FAIR Universe Uncertainty Challenge** ([Zenodo 15131565](https://zenodo.org/records/15131565), 15.1 GB, CC-BY-4.0), MNIST appendix. **Not astronomy/strong lensing.** |
+| Contrastive normalizing flows (CNF) | Elsharkawy & Kahn 2025, [arXiv:2505.08709](https://arxiv.org/abs/2505.08709) | High-energy physics: two-Gaussian toy, **HiggsML / FAIR Universe Uncertainty Challenge** ([Zenodo 15131565](https://zenodo.org/records/15131565), 15.1 GB, CC-BY-4.0), MNIST appendix. The paper is HEP, but torchregress is domain-agnostic: the CNF method is reproduced below on the public FAIR-Universe sample. |
 | PRIME | Lim et al., ICML 2025, [poster](https://icml.cc/virtual/2025/poster/44388) | Real DIR re-splits: AgeDB-DIR, IMDB-WIKI-DIR, NYUD2-DIR, STS-B-DIR. Metrics MAE/GM/RMSE/δ1/MSE/Pearson on All/Many/Median/Few subsets. |
 | ConR | Keramati, Meng & Evans, ICLR 2024, [arXiv:2309.06651](https://arxiv.org/abs/2309.06651), [code](https://github.com/BorealisAI/ConR) | AgeDB-DIR, IMDB-WIKI-DIR, NYUD2-DIR, MPIIGaze-DIR (code licence CC BY-NC-SA 4.0). |
 | Continuous group DRO | Inspired by Sagawa et al. 2020, [arXiv:1911.08731](https://arxiv.org/abs/1911.08731) | Original Group DRO is classification over discrete groups: Waterbirds, CelebA, MultiNLI. The torchregress continuous variant is a new regression formulation. |
@@ -48,9 +48,12 @@ finding rather than shipping a broken baseline.
 
 ## 3. Real-data options
 
-- **SBI papers are synthetic-only.** The only real-data SBI benchmark among them
-  is the HiggsML/FAIR Universe challenge (15.1 GB); it targets HEP CNF, not
-  NRE/NPE parity. For NRE/NPE the faithful benchmark is sbibm.
+- **SBI papers are synthetic-only.** The only real-data benchmark among them
+  is the HiggsML/FAIR Universe challenge (15.1 GB); it targets the CNF
+  method, not NRE/NPE parity. For NRE/NPE the faithful benchmark is sbibm.
+  torchregress is not astronomy-only: the HEP CNF reproduction is in scope
+  (`cnf_parity`), and the public sample is enough to exercise the method
+  end-to-end.
 - **DIR papers use real data**, but the full DIR setup needs AgeDB/IMDB-WIKI/
   NYUD2/STS-B downloads and research-use licences (NYUD2 raw ~428 GB,
   IMDB-WIKI ~270 GB raw). They are not staged in this campaign; real tabular
@@ -61,7 +64,51 @@ finding rather than shipping a broken baseline.
   compares cINN, torchregress NSF and Gaussian NLL on the same real tabular
   regression splits.
 
-## 4. CANFAR GPU campaign
+## 4. Conformal-prediction ecosystem (awesome-conformal-prediction)
+
+Audit of [valeman/awesome-conformal-prediction](https://github.com/valeman/awesome-conformal-prediction)
+against the harness. The harness already compares **MAPIE**, **crepes**, and
+**torchcp** (split, CQR, CV+, jackknife-style and the torchregress predictor
+zoo) in the conformal suite, plus MAPIE/crepes in image conformal and
+multivariate-interval suites. Candidates not yet covered:
+
+| Candidate | Kind | Why it matters for the harness |
+|---|---|---|
+| [puncc](https://github.com/deel-ai/puncc) | PyTorch conformal library | Independent PyTorch implementation of split/CQR/risk-control regression wrappers; strongest missing software comparator. |
+| [conformal-tights](https://github.com/radix-ai/conformal-tights) | sklearn meta-estimator | Coherent quantiles/intervals across several targets; useful for multi-output interval parity. |
+| [cqr](https://github.com/yromano/cqr) | reference code | Original conformalized quantile regression implementation (Romano et al. 2019); good CQR parity reference. |
+| [TorchUQ](https://github.com/TorchUQ/torchuq) | PyTorch UQ/conformal toolkit | Benchmark-style UQ + conformal baselines; overlaps with torch-uncertainty but adds an independent API. |
+| [crepes-weighted](https://github.com/predict-idlab/crepes-weighted) | weighted conformal | Covariate-shift weighted CP; the harness has shift suites but no external weighted-CP comparator yet. |
+| [unquad](https://github.com/OliverHennhoefer/unquad) | conformal anomaly detection | Conformal OOD/anomaly detection; the harness has OOD metrics but no conformal-anomaly suite. |
+| [copula-conformal MTR](https://github.com/M-Soundouss/CopulaConformalMTR) | multi-target conformal | Multivariate interval alternative to the harness's own multivariate-intersection rows. |
+| [nonconformist](https://github.com/donlnz/nonconformist) | classic library | Widely cited but unmaintained; not recommended as a new dependency. |
+| Venn-ABERS (`venn-abers`, `VennABERS`) | probabilistic calibration | Relevant to calibration/risk but not to regression intervals directly. |
+
+Method-level gaps worth adding to the conformal suite: Mondrian/group-conditional
+coverage, weighted conformal under covariate shift, conformal risk control, and
+a proper jackknife+/CV+ external parity row. Priority for the next harness
+iteration: **puncc** (software parity), then **conformal-tights** and the
+official **cqr** reference; `nonconformist` should stay out because of
+maintenance status.
+
+## 5. Contrastive normalizing flow reproduction
+
+The preceding CNF paper is HEP but the method is domain-agnostic. The new
+`cnf_parity` suite reproduces the core recipe on:
+
+* the paper's two-Gaussian toy (2-D, rotation nuisance tests), and
+* the public FAIR-Universe HiggsML starting-kit sample (1000 simulated events,
+  28 features; the full challenge set is 15.1 GB on Zenodo 15131565).
+
+Implemented: contrastive loss with loss clamping at `k=-50`, `c=2` for the
+signal flow and `c=0.5` for the background flow, discrimination functions
+`Phi = p/(1+p)`, and a DNN classifier on raw features + `Phi` values. The
+paper's 30-layer gated-affine/quadratic coupling architecture is approximated
+with zuko NSF couplings (documented deviation); a challenge-score reproduction
+would require the full dataset and the Neyman confidence-belt pipeline, which
+is left as a follow-up.
+
+## 6. CANFAR GPU campaign
 
 A single multi-group headless run (`scripts/canfar_launch_release.sh`,
 `ALL_GPU=1`, one replica per group, `SEEDS=0`) with a job filter:
@@ -72,7 +119,8 @@ A single multi-group headless run (`scripts/canfar_launch_release.sh`,
   `eiv_estimators` (forward inversion/split/corrected score vs sklearn OLS),
   `imbalanced_representation` (PRIME/ConR/GroupDRO vs MSE; synthetic + real
   `california_housing`), `freia_parity` (cINN vs NSF/GaussianNLL; real tabular),
-  `calibration` (VarianceRestoring vs sklearn isotonic), and `eiv photoz_eiv`
+  `calibration` (VarianceRestoring vs sklearn isotonic), `cnf_parity` (CNF
+  reproduction on the FAIR-Universe sample + toy), and `eiv photoz_eiv`
   (real HSC photo-z EIV).
 - `image`: `cell_counting bbbc_cellcount[-tiny]` — real fluorescence images on
   GPU, exercising the image wrappers/backbones.

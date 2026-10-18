@@ -1442,6 +1442,123 @@ def _load_synthetic_cond_nongaussian(
     }
 
 
+def _load_cnf_toy_gaussian(
+    n_samples: int = 6000,
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """Two-Gaussian toy from Elsharkawy & Kahn (2025), Sec. 5.
+
+    Signal and background are 2-D Gaussians with the paper's means and
+    covariances.  Labels are 1 (signal) / 0 (background); no nuisance
+    parameters are applied here (the CNF suite rotates the test features).
+    """
+    rng = np.random.default_rng(seed)
+    mean_s = np.array([-3.25, 2.50])
+    cov_s = np.array([[2.58, 2.19], [2.19, 13.06]])
+    mean_b = np.array([-0.09, 5.00])
+    cov_b = np.array([[3.30, 2.63], [2.63, 14.23]])
+    n_signal = n_samples // 2
+    n_background = n_samples - n_signal
+    x_s = rng.multivariate_normal(mean_s, cov_s, size=n_signal)
+    x_b = rng.multivariate_normal(mean_b, cov_b, size=n_background)
+    X = np.concatenate([x_s, x_b], axis=0).astype(np.float32)
+    y = np.concatenate([np.ones(n_signal), np.zeros(n_background)]).astype(np.float32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed, stratify=y
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_skip_y_standardization": True,
+    }
+
+
+_FAIR_UNIVERSE_SAMPLE_URL = (
+    "https://raw.githubusercontent.com/FAIR-Universe/FAIR_Universe_dataset/main/"
+    "sample_data/FAIR_Universe_HiggsML_data.parquet"
+)
+_FAIR_UNIVERSE_FEATURES = [
+    "PRI_lep_pt",
+    "PRI_lep_eta",
+    "PRI_lep_phi",
+    "PRI_had_pt",
+    "PRI_had_eta",
+    "PRI_had_phi",
+    "PRI_jet_leading_pt",
+    "PRI_jet_leading_eta",
+    "PRI_jet_leading_phi",
+    "PRI_jet_subleading_pt",
+    "PRI_jet_subleading_eta",
+    "PRI_jet_subleading_phi",
+    "PRI_n_jets",
+    "PRI_jet_all_pt",
+    "PRI_met",
+    "PRI_met_phi",
+    "DER_mass_transverse_met_lep",
+    "DER_mass_vis",
+    "DER_pt_h",
+    "DER_deltaeta_jet_jet",
+    "DER_mass_jet_jet",
+    "DER_prodeta_jet_jet",
+    "DER_deltar_had_lep",
+    "DER_pt_tot",
+    "DER_sum_pt",
+    "DER_pt_ratio_lep_had",
+    "DER_met_phi_centrality",
+    "DER_lep_eta_centrality",
+]
+
+
+def _load_fair_universe_sample(
+    test_size: float = 0.3,
+    seed: int = 42,
+) -> SplitsDict:
+    """FAIR-Universe HiggsML sample (1000 real simulated HEP events, 28 features).
+
+    The sample is the public starting-kit parquet from the FAIR-Universe dataset
+    repository; the full challenge data is 15.1 GB on Zenodo (15131565).  Labels
+    are 1 for H->tautau signal and 0 for background; ``_skip_y_standardization``
+    keeps them binary.  Requires ``pyarrow`` (install the ``hep`` extra or
+    ``pip install pyarrow``).
+    """
+    import urllib.request
+
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - pandas is a harness dependency
+        raise ImportError("pandas is required to read the FAIR-Universe sample") from exc
+    cache = _image_cache_dir() / "fair_universe"
+    cache.mkdir(parents=True, exist_ok=True)
+    path = cache / "FAIR_Universe_HiggsML_data.parquet"
+    if not path.exists() or path.stat().st_size == 0:
+        try:
+            urllib.request.urlretrieve(_FAIR_UNIVERSE_SAMPLE_URL, path)
+        except Exception as exc:  # noqa: BLE001 - network is optional in tests
+            raise RuntimeError(
+                f"could not download the FAIR-Universe sample from {_FAIR_UNIVERSE_SAMPLE_URL}: {exc}"
+            ) from exc
+    df = pd.read_parquet(path)
+    missing = [c for c in _FAIR_UNIVERSE_FEATURES + ["labels"] if c not in df.columns]
+    if missing:
+        raise ValueError(f"FAIR-Universe sample is missing columns: {missing}")
+    X = df[_FAIR_UNIVERSE_FEATURES].to_numpy(dtype=np.float32)
+    y = df["labels"].to_numpy(dtype=np.float32).reshape(-1)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed, stratify=y
+    )
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "_skip_y_standardization": True,
+        "_source_url": _FAIR_UNIVERSE_SAMPLE_URL,
+    }
+
+
 def _load_synthetic_eiv(
     n_samples: int = 2000,
     n_features: int = 6,
@@ -6183,6 +6300,28 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Synthetic ordinal regression (5 classes from quantile-binned continuous target)"
         ),
         loader=_registry_loader(_load_synthetic_ordinal),
+    ),
+    "cnf_toy_gaussian": DatasetInfo(
+        name="cnf_toy_gaussian",
+        category="synthetic",
+        n_features=2,
+        n_samples=6000,
+        description=(
+            "Two-Gaussian toy from Elsharkawy & Kahn (2025): 2-D signal/background "
+            "Gaussians for contrastive-normalizing-flow reproduction and rotation tests."
+        ),
+        loader=_registry_loader(_load_cnf_toy_gaussian),
+    ),
+    "fair_universe_sample": DatasetInfo(
+        name="fair_universe_sample",
+        category="tabular",
+        n_features=28,
+        n_samples=1000,
+        description=(
+            "FAIR-Universe HiggsML starting-kit sample (1000 simulated HEP events, "
+            "28 features, signal/background labels); full challenge data is 15.1 GB."
+        ),
+        loader=_registry_loader(_load_fair_universe_sample),
     ),
     "synthetic_eiv": DatasetInfo(
         name="synthetic_eiv",

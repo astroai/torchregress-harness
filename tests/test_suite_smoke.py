@@ -19,6 +19,7 @@ from suites.image.keypoint_regression import KeypointRegressionSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.censored import CensoredSuite
+from suites.tabular.cnf_parity import CNFParitySuite
 from suites.tabular.conformal import ConformalSuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
@@ -41,6 +42,7 @@ from suites.tabular.uq import UQSuite
 
 ALL_SUITES = [
     ConformalSuite,
+    CNFParitySuite,
     BayesianLinearSuite,
     TweedieSuite,
     FoundationModelSuite,

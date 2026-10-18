@@ -22,6 +22,7 @@ from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.causal import CausalSuite
 from suites.tabular.censored import CensoredSuite
 from suites.tabular.classification_shift import ClassificationShiftSuite
+from suites.tabular.cnf_parity import CNFParitySuite
 from suites.tabular.conformal import ConformalSuite
 from suites.tabular.constrained_outputs import ConstrainedOutputsSuite
 from suites.tabular.density_parity import DensityParitySuite, ImageDensityParitySuite
@@ -59,6 +60,7 @@ from harness.runners import HarnessRunner
 
 ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "conformal": ConformalSuite,
+    "cnf_parity": CNFParitySuite,
     "bayesian_linear": BayesianLinearSuite,
     "censored": CensoredSuite,
     "tweedie": TweedieSuite,
