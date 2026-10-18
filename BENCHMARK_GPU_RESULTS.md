@@ -10,7 +10,8 @@ report `SyntheticFallback: false`.
 - Runs: `release_20261018_0805` (image + tabular), `release_20261018_0911`
   (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
   `release_20261018_1034` (Bernoulli-GLM SBI), `release_20261018_1222`
-  (CNF reproduction), `release_20261018_1354` (VIR + new conformal comparators);
+  (CNF reproduction), `release_20261018_1354` (VIR + new conformal comparators),
+  `release_20261018_1503` (Engression, UQ-shift, astronomical flow-EIV);
   two Gaussian-linear SBI attempts
   (`release_20261018_1033`, reduced-method `..._1137`) were stopped after
   >1 h without an artifact.
@@ -275,6 +276,72 @@ and is reported raw rather than tuned; its own calibration carve is documented
 in the row. puncc is installed `--no-deps` because it pins `numpy<2` while
 torchregress requires numpy>=2.5; its regression wrappers smoke-test fine on the
 numpy 2 stack but that combination is upstream-unsupported.
+
+## New regression benchmarks (GPU)
+
+Run `release_20261018_1503`, `config.device=cuda`, harness `e3f1b04`,
+torchregress `f9f71f2`.
+
+### Engression vs torchregress (`engression_parity`)
+
+Official `engression` 1.1.0, shared MLP capacity/budget (Engression's official
+lr/epochs/BN defaults deliberately overridden and documented):
+
+| dataset | method | RMSE | NLL | CRPS | Cov90 | train s |
+|---|---|--:|--:|--:|--:|--:|
+| california_housing | Engression | 0.641 | 1.110 | 0.323 | 0.921 | 34 |
+| california_housing | MSE_MLP | 0.582 | — | — | — | 6 |
+| california_housing | GaussianNLL | 0.627 | 2.034 | 0.372 | 0.915 | 16 |
+| california_housing | Quantile_MLP | 0.600 | — | — | 0.877 | 15 |
+| california_housing | NormalizingFlow_NLL | **0.570** | **0.609** | **0.273** | 0.843 | 123 |
+| synthetic_hetero | Engression | 0.384 | **0.486** | 0.216 | 0.933 | 14 |
+| synthetic_hetero | GaussianNLL | 0.383 | 0.572 | **0.212** | 0.800 | 7 |
+| synthetic_hetero | Quantile_MLP | **0.369** | — | — | 0.875 | 7 |
+| stress_noisy_inputs | Engression | **0.455** | **0.737** | **0.268** | 0.991 | 31 |
+| stress_noisy_inputs | GaussianNLL | 0.483 | 0.741 | 0.278 | 0.926 | 16 |
+| stress_noisy_inputs | Quantile_MLP | 0.476 | — | — | 0.949 | 15 |
+
+Engression is competitive/strong on the noisy-feature stress set and the
+synthetic heteroscedastic set, but on California housing the torchregress flow
+is clearly better on NLL/CRPS. These are proxy datasets for the paper's
+pre-additive-noise extrapolation setup, not a reproduction of its artificial
+extrapolation benchmark.
+
+### Regression UQ under shift (`uq_shift`)
+
+Gustafsson et al. (TMLR 2023) motivation; synthetic_hetero with mean shift
+(`x0 += 1.5 std_train`) and test-time heteroscedastic label noise:
+
+| shift | method | RMSE | NLL | Cov95 | NLL gap | Cov95 gap |
+|---|---|--:|--:|--:|--:|--:|
+| id | GaussianNLL | 0.383 | 0.572 | 0.877 | 0 | 0 |
+| id | MDN_K3 | 0.393 | 0.546 | 0.877 | 0 | 0 |
+| mean shift | GaussianNLL | 1.118 | 5.114 | 0.375 | +4.54 | −0.50 |
+| mean shift | MDN_K3 | 1.127 | 5.144 | 0.282 | +4.60 | −0.60 |
+| noise shift | MSE | 0.600 | 1.378 | 0.782 | +0.90 | −0.14 |
+| noise shift | GaussianNLL | 0.597 | 1.541 | 0.733 | +0.97 | −0.14 |
+
+The expected result is reproduced: all probabilistic heads become badly
+overconfident under covariate/mean shift, while test-time noise degrades
+coverage less sharply. OOD-gap columns are in the artifact for every dataset
+(California housing, stress_ood, synthetic_eiv, synthetic_hetero).
+
+### Astronomical flow-EIV (`astro_flow_eiv`)
+
+Synthetic bimodal latent, correlated heteroscedastic errors, linear relation
+y = 1.25 x + 0.40; ID = 500, OOD = 300 beyond the training support.
+
+| method | ID RMSE | ID slope | ID Cov90 | OOD RMSE | OOD slope | OOD Cov90 |
+|---|--:|--:|--:|--:|--:|--:|
+| OLS | 0.544 | 0.905 | 0.884 | 1.257 | 0.893 | 0.413 |
+| WLS | 0.562 | 0.870 | 0.338 | 1.241 | 0.860 | 0.050 |
+| ForwardInversion | 0.656 | 1.265 | 0.906 | **0.906** | **1.250** | **0.893** |
+| FlowEB | **0.541** | **1.208** | 0.868 | 1.695 | 0.714 | 0.210 |
+
+FlowEB removes most in-distribution slope attenuation (−3.3% vs −27.6% OLS)
+and has the best ID RMSE/NLL/CRPS; its prior shrinkage hurts OOD
+extrapolation, where forward inversion is best. This is a documented simplified
+ML-EB approximation of Jing & Li (AJ 2025), not the paper's `raddest` code.
 
 ## Caveats
 
