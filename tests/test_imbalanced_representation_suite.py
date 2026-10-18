@@ -14,7 +14,7 @@ def test_imbalanced_representation_registered() -> None:
     assert ALL_SUITES["imbalanced_representation"] is ImbalancedRepresentationSuite
     suite = ImbalancedRepresentationSuite()
     assert suite.supported_datasets == ["stress_imbalanced", "california_housing"]
-    assert {"MSE_PRIME", "MSE_ConR", "MSE_GroupDRO"} <= set(suite.methods())
+    assert {"MSE_PRIME", "MSE_ConR", "MSE_GroupDRO", "VIR"} <= set(suite.methods())
 
 
 def test_imbalanced_representation_smoke() -> None:

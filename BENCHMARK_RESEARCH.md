@@ -29,22 +29,20 @@ GPU campaign are recorded at the end.
 | **pzflow** | tabular normalizing flows | `pip install pzflow` | MIT | JAX; CPU/GPU | **Run** (`sbi_parity`) |
 | **FrEIA** | invertible coupling layers for a cINN | `pip install FrEIA` | MIT | PyTorch, GPU yes | **Run** (`freia_parity`) |
 | vislearn/conditional_INNs | reference cINN examples | git clone | **no licence** | — | Do not vendor; use FrEIA directly |
-| imbalanced-learn | classification samplers (SMOTE, ROS, …) | `pip install imbalanced-learn` | MIT | CPU | **No regression API** — not used as a regression comparator |
-| smogn | SMOGN regression resampling | `pip install smogn` | GPL-3.0 | CPU | Installed and tested; **incompatible with numpy 2 / pandas 3** (`np.quantile(interpolation=)`, scalar `choice`); not added |
-| ImbalancedLearningRegression | regression resampling (RO/SMOTE/ADASYN) | `pip install ImbalancedLearningRegression` | GPL-3.0 | CPU | Same numpy-2 incompatibility; random over-sampling works only after a shim; not added |
+| ~~imbalanced-learn~~ | classification samplers (SMOTE, ROS, …) | — | MIT | CPU | **Deliberately not used**: classification-only, and resampling/SMOTE is excluded from the torchregress roadmap (see imbalance decisions below). |
+| ~~smogn~~ | SMOGN regression resampling | — | GPL-3.0 | CPU | **Deliberately not used**: resampling/SMOTE family excluded; also incompatible with the current numpy 2/pandas 3 stack. |
+| ~~ImbalancedLearningRegression~~ | regression resampling (RO/SMOTE/ADASYN) | — | GPL-3.0 | CPU | **Deliberately not used**: same decision; package also incompatible with the current stack. |
 | YyzHarry/imbalanced-regression | LDS/FDS/DBS research code | git clone | MIT | PyTorch GPU | Possible follow-up; not dependency-installable |
 | swyft / lampe / bayesflow / pyabc | other SBI frameworks | pip | MIT/BSD | varies | Not in this campaign (sbibm/sbi covers the standard benchmark) |
 | scipy.odr | classical orthogonal distance regression | SciPy | BSD-3 | CPU | Already compared in the existing `eiv` suite |
 | linearmodels / semopy | IV/GMM, SEM | pip | NCSA/MIT | CPU | Not corrected-score equivalents; no added value |
 
-Notes from testing in the harness env: `smogn` and
-`ImbalancedLearningRegression` both call APIs removed in numpy 2/pandas 3
-(`np.quantile(..., interpolation=...)`; `int(np.random.choice(...))`), so they
-cannot be used as clean comparators without pinning an old scientific stack.
-The `imbalanced_representation` suite therefore keeps torchregress PRIME/ConR/
-continuous-GroupDRO vs MSE on synthetic and real tabular long-tailed data, and
-documents the absence of a usable regression-resampling package as a research
-finding rather than shipping a broken baseline.
+Resampling (SMOTE/SMOGN/SMOTER and variants) is **intentionally excluded** from
+the torchregress roadmap: synthetic-neighbour interpolation is hard to defend
+for continuous targets and the literature documents leakage/optimism traps
+(arXiv:2001.06296). The `imbalanced_representation` suite therefore stays
+loss/representation based (PRIME/ConR/continuous GroupDRO vs MSE) on synthetic
+and real tabular long-tailed data.
 
 ## 3. Real-data options
 
@@ -64,7 +62,30 @@ finding rather than shipping a broken baseline.
   compares cINN, torchregress NSF and Gaussian NLL on the same real tabular
   regression splits.
 
-## 4. Conformal-prediction ecosystem (awesome-conformal-prediction)
+## 4. Imbalance follow-up decisions (2026-10-18)
+
+- **Adopted: VIR** (Variational Imbalanced Regression, arXiv:2306.06599,
+  NeurIPS 2023). Regression-specific, UQ-aware, not superseded by PRIME/ConR;
+  reference code is preview/no-licence, so implement from the paper.
+- **Rejected: AutoBalance** (arXiv:2201.01212). Bi-level classification/fairness
+  loss search; no regression path worth adding.
+- **Existing coverage:** class-balanced effective-number weighting already sits
+  inside PRIME; LDS/FDS, Rank-N-Contrast, PRIME/ConR, Density/Propensity
+  weighting and continuous GroupDRO are already implemented.
+- **Corrected:** the historical `BalancedMSELoss` is inverse bin-frequency
+  weighting, not Ren et al.'s noise-adaptive Balanced MSE (BMC); docs and
+  docstrings no longer misattribute it. True BMC and RankSim are the remaining
+  regression-specific candidates.
+- **Excluded:** SMOTE/SMOGN/SMOTER/resampling, imbalanced SSL (DASO/RDA/CoSSL/
+  debiased pseudo-labels), LDAM/logit-adjustment/BBN/decoupling classification
+  methods, aLRP, CASED, class-rectification mining, flooding, loss-calibrated
+  BNNs, learned data-manipulation meta-learning, and tutorials.
+- **Follow-ups that matter:** Balanced MSE (Ren et al., CVPR 2022,
+  arXiv:2203.16427), RankSim (Gong et al., ICML 2022), and the existing
+  PRIME/ConR/FDS line; for classification history, LDAM+DRW/decoupling/logit
+  adjustment are the better references but out of scope.
+
+## 5. Conformal-prediction ecosystem (awesome-conformal-prediction)
 
 Audit of [valeman/awesome-conformal-prediction](https://github.com/valeman/awesome-conformal-prediction)
 against the harness. The harness already compares **MAPIE**, **crepes**, and
@@ -91,7 +112,7 @@ iteration: **puncc** (software parity), then **conformal-tights** and the
 official **cqr** reference; `nonconformist` should stay out because of
 maintenance status.
 
-## 5. Contrastive normalizing flow reproduction
+## 6. Contrastive normalizing flow reproduction
 
 The preceding CNF paper is HEP but the method is domain-agnostic. The new
 `cnf_parity` suite reproduces the core recipe on:
@@ -111,7 +132,7 @@ slightly improved accuracy/log-loss. Those are reported as measured negative/
 neutral findings; the full 15.1 GB challenge data and Neyman confidence-belt
 pipeline remain a follow-up.
 
-## 6. CANFAR GPU campaign
+## 7. CANFAR GPU campaign
 
 A single multi-group headless run (`scripts/canfar_launch_release.sh`,
 `ALL_GPU=1`, one replica per group, `SEEDS=0`) with a job filter:

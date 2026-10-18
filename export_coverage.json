@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "66d52fe",
+  "torchregress_commit": "f9f71f2",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -108,6 +108,7 @@
       },
       "CQR": {
         "suites": [
+          "conformal",
           "fm_multitarget",
           "fm_uq_scenarios",
           "uq",
@@ -391,6 +392,7 @@
           "ensembles",
           "fm_multitarget",
           "fm_uq_scenarios",
+          "freia_parity",
           "image_calibration",
           "image_conformal",
           "keypoint_regression",
@@ -658,6 +660,7 @@
           "age_regression",
           "distributional_bins",
           "fm_multitarget",
+          "freia_parity",
           "image_density_parity",
           "keypoint_regression",
           "likelihood_ratio",
@@ -1056,6 +1059,7 @@
           "age_regression",
           "distributional_bins",
           "fm_multitarget",
+          "freia_parity",
           "image_density_parity",
           "keypoint_regression",
           "likelihood_ratio",
@@ -2232,6 +2236,20 @@
         "status": "covered",
         "reason": ""
       },
+      "VIRLoss": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "VIRRegressor": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "WarmupMCTrainer": {
         "suites": [
           "eiv"
@@ -2840,12 +2858,12 @@
     }
   },
   "summary": {
-    "exports": 401,
-    "covered": 254,
+    "exports": 403,
+    "covered": 256,
     "allowlisted": 147,
     "uncovered": 0,
-    "unique_names": 393,
-    "unique_covered": 252
+    "unique_names": 395,
+    "unique_covered": 254
   },
   "stale_allowlist": []
 }

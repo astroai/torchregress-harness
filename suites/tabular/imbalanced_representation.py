@@ -12,6 +12,7 @@ Methods
 - ``MSE_GroupDRO``: ``GroupDROTrainer`` over four equal-width target regimes.
 - ``MSE_PRIME``: MLP encoder/head + ``PrimeLoss`` proxy regularizer.
 - ``MSE_ConR``: MLP encoder/head + ``ConR`` collapse regularizer.
+- ``VIR``: Variational Imbalanced Regression (NIG evidential head, label-density smoothing).
 
 Metrics are the standard harness point/interval metrics plus ``WorstGroupMAE``:
 the largest per-target-regime MAE over the fitted regimes (tail robustness).
@@ -25,6 +26,7 @@ import numpy as np
 import torch
 from torch import nn
 from torchregress.algorithms import ContinuousGroupDRO, GroupDROTrainer
+from torchregress.algorithms.vir import VIRLoss, VIRRegressor  # noqa: F401 - VIRLoss evidence
 from torchregress.losses import ConR, PrimeLoss, conr_loss, uniform_proxy_targets
 
 from harness.core import set_harness_seed
@@ -38,7 +40,7 @@ from harness.runners import (
 )
 from suites._backbones import _MLP, _hidden_size
 
-_METHODS = ["MSE", "MSE_GroupDRO", "MSE_PRIME", "MSE_ConR"]
+_METHODS = ["MSE", "MSE_GroupDRO", "MSE_PRIME", "MSE_ConR", "VIR"]
 _N_GROUPS = 4
 _FEATURE_DIM = 16
 
@@ -81,6 +83,7 @@ class ImbalancedRepresentationSuite(HarnessRunner):
             "MSE_GroupDRO": "GroupDROTrainer over 4 equal-width target regimes",
             "MSE_PRIME": "MLP encoder/head + PRIME proxy alignment (class-balanced)",
             "MSE_ConR": "MLP encoder/head + ConR inverse-density contrastive push",
+            "VIR": "Variational Imbalanced Regression: NIG evidential head + label-density smoothing",
         }
         return notes.get(method, "")
 
@@ -208,6 +211,28 @@ class ImbalancedRepresentationSuite(HarnessRunner):
         if method in {"MSE_PRIME", "MSE_ConR"}:
             state = self._fit_regularized(method, X, y, config)
             return {"type": "regularized", **state}
+        if method == "VIR":
+            encoder = nn.Sequential(
+                nn.Linear(int(X.shape[1]), _hidden_size(int(X.shape[1]))),
+                nn.SiLU(),
+                nn.Linear(_hidden_size(int(X.shape[1])), _FEATURE_DIM),
+                nn.SiLU(),
+            )
+            regressor = VIRRegressor(
+                encoder,
+                n_bins=12,
+                epochs=self._epochs(config),
+                batch_size=min(int(config.batch_size), len(X)),
+                lr=config.lr,
+                seed=int(config.seed),
+                device=str(device),
+            )
+            regressor.fit(X, y)
+            return {
+                "type": "vir",
+                "regressor": regressor,
+                "edges": self._edges(y.detach().cpu()),
+            }
         raise ValueError(f"Unknown method: {method}")
 
     def predict(
@@ -227,6 +252,16 @@ class ImbalancedRepresentationSuite(HarnessRunner):
                 )
             predictions: dict[str, Any] = {
                 "y_pred": np.asarray(prediction.detach().cpu()).reshape(-1)
+            }
+        elif kind == "vir":
+            mean, std = model_state["regressor"].predict(
+                torch.as_tensor(np.asarray(X_test), dtype=torch.float32, device=device),
+                return_std=True,
+            )
+            predictions = {
+                "y_pred": np.asarray(mean.detach().cpu()).reshape(-1),
+                "mean": np.asarray(mean.detach().cpu()).reshape(-1),
+                "std": np.asarray(std.detach().cpu()).reshape(-1),
             }
         elif kind == "groupdro":
             prediction = model_state["trainer"].predict(

@@ -34,7 +34,7 @@ This pulls in **conformal + bayesian + tweedie + foundation + boosting + image +
 
 | Group | Command | Libraries |
 |---|---|---|
-| Conformal | `pip install -e ".[conformal]"` | `mapie>=1.5.0` (git pin in `EXTERNAL_PINS.md`), `crepes`, `torchcp` |
+| Conformal | `pip install -e ".[conformal]"` | `mapie>=1.5.0` (git pin in `EXTERNAL_PINS.md`), `crepes`, `torchcp`, `conformal-tights>=0.5.0`; puncc is a separate `--no-deps` install (see below) |
 | Bayesian | `pip install -e ".[bayesian]"` | `botorch`, `gpytorch` |
 | Tweedie   | `pip install -e ".[tweedie]"`  | `scikit-lego` |
 | Foundation| `pip install -e ".[foundation]"` | `tabpfn>=9.1`, `tabicl>=2.2`, `structured-data-models` (git `main`) |
@@ -53,6 +53,36 @@ Most extras are **unpinned** in `pyproject.toml` (resolve latest compatible); so
 > Exact commit SHAs, rationale, and install commands: **[`EXTERNAL_PINS.md`](EXTERNAL_PINS.md)**.
 > The table above lists the PyPI floors; install from git per `EXTERNAL_PINS.md` before running paper benchmarks.
 
+#### puncc (numpy pin workaround)
+
+[`puncc`](https://github.com/deel-ai/puncc) (`deel.puncc`) 0.9.3 declares
+`numpy<2.0.0`, while `torchregress` requires `numpy>=2.5`.  It is therefore
+**not** part of the `conformal` extra: a plain `pip install -e ".[conformal]"`
+must not downgrade numpy.  The `puncc_Split+Linear` / `puncc_CQR+GBR` rows are
+import-gated, so the suite still runs without puncc.  To enable them, install
+puncc into the harness environment without dependency resolution (its runtime
+deps — joblib, matplotlib, pandas, scikit-learn, tqdm — are already present):
+
+```bash
+# pixi environment (the default here)
+uv pip install --python .pixi/envs/default/bin/python --no-deps puncc
+
+# or, into an active venv
+pip install --no-deps puncc
+```
+
+This is an **unsupported-by-upstream** numpy 2.x combination: the puncc 0.9.3
+regression wrappers (SplitCP / CQR), which the suite calls, work under
+numpy 2.5 in smoke tests, but puncc's own test matrix targets numpy 1.x.  For a
+fully upstream-supported run, build an isolated env with `numpy<2` and run the
+harness there instead.  `puncc` rows absent from an artifact therefore mean
+"not installed", not "failed".
+
+The native `CQR+GBR(reference)` row needs no external package: it
+reimplements the official [yromano/cqr](https://github.com/yromano/cqr) CQR
+routine (Romano, Patterson & Candès, 2019) in numpy/sklearn and is always
+benchmarked.
+
 ### Common subsets
 
 ```bash
@@ -66,7 +96,7 @@ pip install -e ".[conformal,bayesian,foundation]"
 
 | Extra | Suites / methods gated |
 |---|---|
-| `conformal` | MAPIE, crepes, torchcp conformal suites |
+| `conformal` | MAPIE, crepes, torchcp, conformal-tights (`conformal_tights_CQR+GBR`) conformal rows; puncc (`puncc_Split+Linear`, `puncc_CQR+GBR`) when installed with `--no-deps`; the native `CQR+GBR(reference)` row needs no extra |
 | `bayesian` | BoTorch / GPyTorch Bayesian linear |
 | `tweedie` | scikit-lego Tweedie (`tweedie`) |
 | `foundation` | TabPFN, TabICL, sdm KumoTabular / TabFM (`foundation_model`, FM UQ grid) |

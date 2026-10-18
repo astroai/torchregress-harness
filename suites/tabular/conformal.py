@@ -1,8 +1,8 @@
-"""Conformal prediction suite: torchregress vs MAPIE vs crepes vs torchcp.
+"""Conformal prediction suite: torchregress vs MAPIE / crepes / torchcp / puncc / conformal-tights.
 
 Ported from ``torchregress/examples/external_comparison_conformal_vs_mapie.py``.
 
-Compares split-conformal and CQR-based prediction intervals across four
+Compares split-conformal and CQR-based prediction intervals across the
 conformal-prediction libraries on a shared train/calibration/test split.
 
 Canonical scenarios
@@ -27,16 +27,31 @@ and ``regression_mean_width_score`` (from ``mapie.metrics``) alongside the
 harness's standard interval metrics.  This ensures we measure the external
 library on its own canonical terms.
 
-MAPIE integration
------------------
-``MAPIE_*`` rows call the **real** ``mapie.regression`` API
-(``SplitConformalRegressor`` / ``ConformalizedQuantileRegressor`` with
-``fit -> conformalize -> predict_interval``, and git-main
-``CrossConformalizedQuantileRegressor`` with its one-shot
-``fit_conformalize``) — no manual reimplementation.
+External comparator rows
+------------------------
+* ``MAPIE_*`` — the **real** ``mapie.regression`` API
+  (``SplitConformalRegressor`` / ``ConformalizedQuantileRegressor`` with
+  ``fit -> conformalize -> predict_interval``, and git-main
+  ``CrossConformalizedQuantileRegressor`` with its one-shot
+  ``fit_conformalize``) — no manual reimplementation.
+* ``crepes_*`` — ``crepes.ConformalRegressor`` calibration on sklearn bases.
+* ``torchcp_*`` — ``torchcp.regression.predictor.SplitPredictor``.
+* ``puncc_*`` — ``deel.puncc.regression.SplitCP`` / ``CQR`` on sklearn bases.
+  puncc declares ``numpy<2`` while torchregress requires ``numpy>=2.5``; the
+  row is import-gated and installed with ``--no-deps`` (see
+  ``OPTIONAL_DEPS.md``).
+* ``conformal_tights_CQR+GBR`` — ``conformal_tights``'s
+  ``ConformalCoherentQuantileRegressor`` (coherent quantiles + two-level
+  conformal calibration); the library carves its own calibration split.
+* ``CQR+GBR(reference)`` — independent NumPy/sklearn reimplementation of the
+  official CQR reference routine (Romano, Patterson & Candès, 2019,
+  https://github.com/yromano/cqr).  The reference is repo code, not a pip
+  package, so the suite implements its quantile-GBR + calibration rule
+  natively for CQR parity.
+
 The installed version (and git commit for pip git installs) is recorded in
-each row's ``LibraryVersion`` field; see ``EXTERNAL_PINS.md`` for the pinned
-upstream commit used for paper comparisons.
+each external row's ``LibraryVersion`` field; see ``EXTERNAL_PINS.md`` for the
+pinned upstream commits used for paper comparisons.
 """
 
 from __future__ import annotations
@@ -87,12 +102,42 @@ try:
 except ImportError:
     _TORCHCP_AVAILABLE = False
 
+# puncc (``deel.puncc``) declares ``numpy<2.0.0`` although the regression
+# wrappers run under the harness's numpy>=2.5; install it with ``--no-deps``
+# (see OPTIONAL_DEPS.md) and keep the rows import-gated.
+try:
+    from deel.puncc.api.prediction import BasePredictor as _PunccBasePredictor
+    from deel.puncc.api.prediction import DualPredictor as _PunccDualPredictor
+    from deel.puncc.regression import CQR as _PunccCQR
+    from deel.puncc.regression import SplitCP as _PunccSplitCP
+
+    _PUNCC_AVAILABLE = True
+except ImportError:
+    _PUNCC_AVAILABLE = False
+
+# conformal-tights eagerly imports its Darts forecaster, so the row is gated
+# on the full package (darts + xgboost) being importable.
+try:
+    from conformal_tights import ConformalCoherentQuantileRegressor
+
+    _CONFORMAL_TIGHTS_AVAILABLE = True
+except ImportError:
+    _CONFORMAL_TIGHTS_AVAILABLE = False
+
 try:
     import tabicl  # noqa: F401
 
     _TABICL_AVAILABLE = True
 except ImportError:
     _TABICL_AVAILABLE = False
+
+# Official CQR reference (Romano, Patterson & Candès, 2019): repo-only code,
+# no installable package.  The row reimplements its quantile-GBR +
+# calibration-conformalization routine natively (see _cqr_reference_fit).
+_CQR_REFERENCE_METHOD = "CQR+GBR(reference)"
+_CQR_REFERENCE_URL = "https://github.com/yromano/cqr"
+_CQR_REFERENCE_PAPER = "https://arxiv.org/abs/1905.03222"
+_CQR_REFERENCE_VERSION = "Romano et al. 2019 (native numpy/sklearn reference)"
 
 from suites._backbones import (
     _MLP,
@@ -228,6 +273,23 @@ def _mapie_version() -> str:
     except PackageNotFoundError:
         return "unknown"
     commit = pip_git_commit("mapie")
+    return f"{ver} (git {commit})" if commit else ver
+
+
+def _distribution_version(distribution: str) -> str:
+    """Installed version of a distribution, annotated with the git commit for VCS installs.
+
+    Used by the ``puncc`` / ``conformal-tights`` rows so every external
+    comparison is self-describing (PyPI wheel or a ``pip install
+    git+https://...@<sha>`` build), mirroring :func:`_mapie_version`.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        ver = version(distribution)
+    except PackageNotFoundError:
+        return "unknown"
+    commit = pip_git_commit(distribution)
     return f"{ver} (git {commit})" if commit else ver
 
 
@@ -517,6 +579,156 @@ def _torchcp_split_predict(cp: Any, X_test: np.ndarray) -> tuple[np.ndarray, np.
     raise RuntimeError(f"torchcp SplitPredictor unexpected output shape: {arr.shape}")
 
 
+def _puncc_split_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> Any:
+    """Fit-half for ``puncc_Split+Linear``: puncc SplitCP on sklearn LinearRegression.
+
+    ``SplitCP`` wraps ``BasePredictor(..., is_trained=False)``; its ``fit``
+    trains the point model on the fit split and stores the absolute-difference
+    conformity scores from the calibration split.
+    """
+    del alpha  # SplitCP calibrates scores; alpha is only needed at predict time
+    from sklearn.linear_model import LinearRegression
+
+    cp = _PunccSplitCP(
+        _PunccBasePredictor(LinearRegression(), is_trained=False),
+        random_state=seed,
+    )
+    cp.fit(
+        X_fit=_as_float64(splits["X_train"]),
+        y_fit=_as_float64(splits["y_train"]).reshape(-1),
+        X_calib=_as_float64(splits["X_cal"]),
+        y_calib=_as_float64(splits["y_cal"]).reshape(-1),
+    )
+    return cp
+
+
+def _puncc_cqr_fit(splits: dict[str, np.ndarray], *, alpha: float, seed: int) -> Any:
+    """Fit-half for ``puncc_CQR+GBR``: CQR on a DualPredictor of quantile GBRs."""
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    q_lo = GradientBoostingRegressor(loss="quantile", alpha=alpha / 2, random_state=seed)
+    q_hi = GradientBoostingRegressor(loss="quantile", alpha=1.0 - alpha / 2, random_state=seed)
+    cp = _PunccCQR(_PunccDualPredictor(models=[q_lo, q_hi]), random_state=seed)
+    cp.fit(
+        X_fit=_as_float64(splits["X_train"]),
+        y_fit=_as_float64(splits["y_train"]).reshape(-1),
+        X_calib=_as_float64(splits["X_cal"]),
+        y_calib=_as_float64(splits["y_cal"]).reshape(-1),
+    )
+    return cp
+
+
+def _puncc_predict(
+    cp: Any,
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for the ``puncc_*`` rows (``predict`` returns point, lower, upper)."""
+    _, lo, hi = cp.predict(_as_float64(X_test), alpha=alpha)
+    return np.asarray(lo, dtype=float).reshape(-1), np.asarray(hi, dtype=float).reshape(-1)
+
+
+def _conformal_tights_fit(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> Any:
+    """Fit-half for ``conformal_tights_CQR+GBR``.
+
+    ``ConformalCoherentQuantileRegressor`` takes one dataset and carves its own
+    conformal calibration split (``min(30% of rows, 1440)``), so the row passes
+    the full train+cal data — the same total information available to the
+    split-conformal rows — and records the internal carve in the row notes.
+    """
+    del alpha  # interval level is a predict-time argument
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    cp = ConformalCoherentQuantileRegressor(
+        estimator=GradientBoostingRegressor(random_state=seed),
+        random_state=seed,
+    )
+    X_all = np.vstack([_as_float64(splits["X_train"]), _as_float64(splits["X_cal"])])
+    y_all = np.concatenate(
+        [
+            _as_float64(splits["y_train"]).reshape(-1),
+            _as_float64(splits["y_cal"]).reshape(-1),
+        ]
+    )
+    cp.fit(X_all, y_all)
+    return cp
+
+
+def _conformal_tights_predict(
+    cp: Any,
+    X_test: np.ndarray,
+    *,
+    alpha: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``conformal_tights_CQR+GBR`` (coverage = 1 - alpha)."""
+    intervals = np.asarray(
+        cp.predict_interval(_as_float64(X_test), coverage=1.0 - alpha), dtype=float
+    )
+    if intervals.ndim != 2 or intervals.shape[1] != 2:
+        raise RuntimeError(
+            "conformal_tights ConformalCoherentQuantileRegressor unexpected "
+            f"interval shape: {intervals.shape}"
+        )
+    return intervals[:, 0].reshape(-1), intervals[:, 1].reshape(-1)
+
+
+def _cqr_reference_fit(
+    splits: dict[str, np.ndarray],
+    *,
+    alpha: float,
+    seed: int,
+) -> dict[str, Any]:
+    """Fit-half for ``CQR+GBR(reference)``: the official CQR routine, natively.
+
+    Mirrors the reference implementation distributed with
+    https://github.com/yromano/cqr (Romano, Patterson & Candès, 2019):
+
+    1. fit lower/upper quantile GBRs at levels ``alpha/2`` and ``1 - alpha/2``
+       on the fit split;
+    2. score the calibration split with
+       ``E_i = max(q_lo(x_i) - y_i, y_i - q_hi(x_i))``;
+    3. take the reference's *higher* order statistic at level
+       ``(1 - alpha) * (1 + 1/n_cal)`` (clamped at 1 for tiny calibration sets);
+    4. widen the quantile band by that calibrated score at prediction time.
+
+    This is an independent implementation (no torchregress conformal helpers,
+    no external package) so the row measures the published CQR recipe.
+    """
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    q_lo = GradientBoostingRegressor(loss="quantile", alpha=alpha / 2, random_state=seed)
+    q_hi = GradientBoostingRegressor(loss="quantile", alpha=1.0 - alpha / 2, random_state=seed)
+    X_train = _as_float64(splits["X_train"])
+    y_train = _as_float64(splits["y_train"]).reshape(-1)
+    q_lo.fit(X_train, y_train)
+    q_hi.fit(X_train, y_train)
+
+    X_cal = _as_float64(splits["X_cal"])
+    y_cal = _as_float64(splits["y_cal"]).reshape(-1)
+    scores = np.maximum(q_lo.predict(X_cal) - y_cal, y_cal - q_hi.predict(X_cal))
+    n_cal = int(scores.size)
+    level = min((1.0 - alpha) * (1.0 + 1.0 / max(n_cal, 1)), 1.0)
+    # CQR's finite-sample correction uses the "higher" empirical quantile.
+    q = float(np.quantile(scores, level, method="higher"))
+    return {"q_lo": q_lo, "q_hi": q_hi, "q": q, "n_cal": n_cal}
+
+
+def _cqr_reference_predict(
+    state: dict[str, Any],
+    X_test: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict-half for ``CQR+GBR(reference)``: widen the quantile band by q."""
+    X = _as_float64(X_test)
+    q = float(state["q"])
+    return state["q_lo"].predict(X) - q, state["q_hi"].predict(X) + q
+
+
 def _tabicl_split_fit(splits: dict[str, np.ndarray], *, alpha: float) -> dict[str, Any]:
     """Fit-half for TabICL split rows: backbone fit + conformal calibration."""
     from tabicl import TabICLRegressor
@@ -598,6 +810,14 @@ def _external_fit(
         return _crepes_cqr_fit(splits, alpha=alpha, seed=seed)
     if method == "torchcp_Split+Linear":
         return _torchcp_split_fit(splits, alpha=alpha)
+    if method == "puncc_Split+Linear":
+        return _puncc_split_fit(splits, alpha=alpha, seed=seed)
+    if method == "puncc_CQR+GBR":
+        return _puncc_cqr_fit(splits, alpha=alpha, seed=seed)
+    if method == "conformal_tights_CQR+GBR":
+        return _conformal_tights_fit(splits, alpha=alpha, seed=seed)
+    if method == _CQR_REFERENCE_METHOD:
+        return _cqr_reference_fit(splits, alpha=alpha, seed=seed)
     if method in ("Split+TabICL", "MAPIE_Split+TabICL"):
         return _tabicl_split_fit(splits, alpha=alpha)
     if method == "crepes_Split+TabICL":
@@ -621,6 +841,12 @@ def _external_predict(
         return _crepes_cqr_predict(predictor, X_test, alpha=alpha)
     if method == "torchcp_Split+Linear":
         return _torchcp_split_predict(predictor, X_test)
+    if method.startswith("puncc"):
+        return _puncc_predict(predictor, X_test, alpha=alpha)
+    if method == "conformal_tights_CQR+GBR":
+        return _conformal_tights_predict(predictor, X_test, alpha=alpha)
+    if method == _CQR_REFERENCE_METHOD:
+        return _cqr_reference_predict(predictor, X_test)
     if method in ("Split+TabICL", "MAPIE_Split+TabICL"):
         return _tabicl_split_predict(predictor, X_test)
     if method == "crepes_Split+TabICL":
@@ -752,7 +978,10 @@ class ConformalSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Conformal prediction intervals: torchregress vs MAPIE / crepes / torchcp"
+        return (
+            "Conformal prediction intervals: torchregress vs MAPIE / crepes / "
+            "torchcp / puncc / conformal-tights + CQR reference"
+        )
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -783,6 +1012,9 @@ class ConformalSuite(HarnessRunner):
             "Split+MLP",
             "CQR+MLP",
             "CQR+TabularMLP",
+            # Native reimplementation of the official CQR reference routine
+            # (Romano et al. 2019); no external dependency, always benchmarked.
+            _CQR_REFERENCE_METHOD,
             "Split+Linear",
             "Split+Linear(post-hoc)",  # post-hoc cal → parity with MAPIE/crepes/torchcp
             # torchregress predictor-zoo rows (post-hoc classes on an MLP base).
@@ -811,6 +1043,10 @@ class ConformalSuite(HarnessRunner):
                 methods.append("crepes_Split+TabICL")
         if _TORCHCP_AVAILABLE:
             methods.append("torchcp_Split+Linear")
+        if _PUNCC_AVAILABLE:
+            methods.extend(["puncc_Split+Linear", "puncc_CQR+GBR"])
+        if _CONFORMAL_TIGHTS_AVAILABLE:
+            methods.append("conformal_tights_CQR+GBR")
         return methods
 
     def library_name(self, method: str) -> str:
@@ -822,17 +1058,31 @@ class ConformalSuite(HarnessRunner):
             return "crepes"
         if method.startswith("torchcp"):
             return "torchcp"
+        if method.startswith("puncc"):
+            return "puncc"
+        if method.startswith("conformal_tights"):
+            return "conformal-tights"
+        if method == _CQR_REFERENCE_METHOD:
+            return "cqr-reference"
         return "torchregress"
 
     def library_version(self, method: str) -> str:
         """Version of the external library backing a method row.
 
-        MAPIE rows self-report the installed version (plus git commit when
+        External rows self-report the installed version (plus git commit when
         pip-installed from git) so artifacts record the exact upstream code
-        they were compared against — see ``EXTERNAL_PINS.md``.
+        they were compared against — see ``EXTERNAL_PINS.md``.  The native CQR
+        reference row reports the paper/repo provenance instead of a package
+        version.
         """
         if method.startswith("MAPIE"):
             return _mapie_version()
+        if method.startswith("puncc"):
+            return _distribution_version("puncc")
+        if method.startswith("conformal_tights"):
+            return _distribution_version("conformal-tights")
+        if method == _CQR_REFERENCE_METHOD:
+            return _CQR_REFERENCE_VERSION
         return ""
 
     def method_notes(self, method: str) -> str:
@@ -858,6 +1108,31 @@ class ConformalSuite(HarnessRunner):
             "MAPIE_CrossCQR+GBR": "real mapie.regression.CrossConformalizedQuantileRegressor (K-fold cross-conformal CQR, Romano et al. 2019) on sklearn GradientBoostingRegressor(loss='quantile') — no calibration split: CV out-of-fold scores over the full train+cal data; requires MAPIE git main",
             "crepes_Split+Linear": "sklearn LinearRegression + crepes.ConformalRegressor",
             "crepes_CQR+GBR": "sklearn GradientBoostingRegressor + crepes ConformalRegressor",
+            _CQR_REFERENCE_METHOD: (
+                "independent numpy/sklearn implementation of the official "
+                "Romano, Patterson & Candès (2019) CQR reference "
+                f"({_CQR_REFERENCE_URL}; paper {_CQR_REFERENCE_PAPER}): "
+                "quantile GBRs at alpha/2 and 1-alpha/2 + "
+                "calibration score max(q_lo-y, y-q_hi) with the reference's "
+                "higher order statistic at (1-alpha)(1+1/n_cal); no package exists "
+                "— this row is the CQR parity reference"
+            ),
+            "puncc_Split+Linear": (
+                "deel.puncc.regression.SplitCP (absolute-difference score, constant "
+                "interval) on sklearn LinearRegression"
+            ),
+            "puncc_CQR+GBR": (
+                "deel.puncc.regression.CQR (CQR score + interval) on a DualPredictor "
+                "of sklearn GradientBoostingRegressor(loss='quantile')"
+            ),
+            "conformal_tights_CQR+GBR": (
+                "conformal_tights.ConformalCoherentQuantileRegressor (coherent "
+                "quantiles + two-level absolute/relative calibration) on sklearn "
+                "GradientBoostingRegressor; fit on full train+cal because the "
+                "library carves its own calibration split (min(30% of rows, 1440)); "
+                "coherence is enforced on its calibration design, so rare "
+                "out-of-sample quantile crossings (inverted bounds) are possible"
+            ),
             "torchcp_Split+Linear": (
                 "sklearn LinearRegression + torchcp.regression.predictor.SplitPredictor "
                 "(wrapped in torch nn.Module adapter for 1.x API)"
@@ -1195,6 +1470,9 @@ class ConformalSuite(HarnessRunner):
             method.startswith("MAPIE_")
             or method.startswith("crepes_")
             or method.startswith("torchcp_")
+            or method.startswith("puncc_")
+            or method.startswith("conformal_tights_")
+            or method == _CQR_REFERENCE_METHOD
             or "TabICL" in method
         ):
             predictor = _external_fit(method, splits, alpha=alpha, seed=config.seed)

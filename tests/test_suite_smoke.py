@@ -562,23 +562,17 @@ def test_conformal_mapie_methods_call_real_library() -> None:
     assert "mapie" in ver.lower() or "1." in ver or "git" in ver.lower()
 
 
-def test_conformal_mapie_rows_report_library_version() -> None:
-    """MAPIE rows must carry a LibraryVersion field (suite hook)."""
-    from suites.tabular.conformal import (
-        _MAPIE_AVAILABLE,
-        ConformalSuite,
-    )
-
-    if not _MAPIE_AVAILABLE:
-        pytest.skip("mapie not installed — install per EXTERNAL_PINS.md")
+def test_conformal_external_rows_report_library_version() -> None:
+    """External conformal rows must carry a LibraryVersion; internal rows stay empty."""
+    from suites.tabular.conformal import ConformalSuite
 
     suite = ConformalSuite()
-    mapie_methods = [m for m in suite.methods() if m.startswith("MAPIE")]
-    assert mapie_methods, "MAPIE methods must be registered when mapie is installed"
+    external_prefixes = ("MAPIE", "puncc", "conformal_tights")
+    external_always = {"CQR+GBR(reference)"}
     for method in suite.methods():
-        if method.startswith("MAPIE"):
+        if method.startswith(external_prefixes) or method in external_always:
             assert suite.library_version(method), (
-                f"MAPIE method {method} must self-report its library version"
+                f"external row {method} must self-report its library/version provenance"
             )
         else:
             assert suite.library_version(method) == ""

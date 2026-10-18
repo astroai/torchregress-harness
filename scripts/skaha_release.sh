@@ -188,6 +188,10 @@ case "$GROUP" in
     pip_install "jax[cpu]" "git+https://github.com/jfcrenshaw/pzflow.git@$PZFLOW_PIN"
     pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # density_parity
     pip_install "FrEIA>=0.2"  # freia_parity (cINN)
+    # Conformal comparators: puncc pins numpy<2, so install without deps
+    # (numpy/scipy/torch are constrained below); conformal-tights pulls darts.
+    pip_install --no-deps "puncc>=0.9.3"
+    pip_install "conformal-tights>=0.5.0"
     ;;
 esac
 

@@ -49,6 +49,13 @@ conformal = [
     "mapie>=1.5.0",
     "crepes",
     "torchcp",
+    # Coherent conformal quantile/interval meta-estimator (conformal_tights
+    # rows).  It pulls xgboost and darts (the Darts forecaster import is eager).
+    "conformal-tights>=0.5.0",
+    # NOTE: puncc is deliberately NOT listed here.  puncc 0.9.3 declares
+    # numpy<2.0.0 while torchregress requires numpy>=2.5, so pip would silently
+    # downgrade numpy.  Install it into the harness env with --no-deps instead
+    # (see OPTIONAL_DEPS.md); the puncc_* rows are import-gated.
 ]
 bayesian = [
     "botorch",
