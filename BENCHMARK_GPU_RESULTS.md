@@ -343,6 +343,34 @@ and has the best ID RMSE/NLL/CRPS; its prior shrinkage hurts OOD
 extrapolation, where forward inversion is best. This is a documented simplified
 ML-EB approximation of Jing & Li (AJ 2025), not the paper's `raddest` code.
 
+## BMC and RankSim (GPU)
+
+Run `release_20261018_1626`, harness `544abcd`, torchregress `7707e0b`;
+`config.device=cuda`, shared MLP budget, single seed. BMC uses a fixed
+normalized target-noise scale `sigma=0.15*std(y)` for comparability (the
+library also supports a fitted prior and optional sigma); RankSim uses
+`gamma=1` (mean reduction).
+
+| dataset | method | RMSE | WorstGroupMAE | TailRMSE |
+|---|---|--:|--:|--:|
+| california_housing | MSE | 0.600 | 0.850 | 1.226 |
+| california_housing | GroupDRO | 0.718 | **0.611** | 1.144 |
+| california_housing | PRIME | 0.612 | 0.898 | 1.242 |
+| california_housing | ConR | 0.620 | 0.873 | 1.211 |
+| california_housing | **BMC** | **0.598** | 0.745 | **1.113** |
+| california_housing | RankSim | 0.603 | 0.862 | 1.212 |
+| california_housing | VIR | 0.602 | 0.799 | 1.152 |
+| stress_imbalanced | MSE | 0.596 | 0.616 | 1.033 |
+| stress_imbalanced | GroupDRO | 0.671 | **0.592** | 1.014 |
+| stress_imbalanced | ConR | 0.615 | 0.578 | 1.028 |
+| stress_imbalanced | BMC | 0.598 | 0.615 | 1.044 |
+| stress_imbalanced | RankSim | 0.616 | 0.629 | 1.087 |
+| stress_imbalanced | VIR | 0.613 | 0.607 | 1.071 |
+
+BMC is the best non-DRO method on California housing worst-region error and tail
+RMSE, while GroupDRO remains best on worst-group MAE. RankSim is neutral under
+this shared-budget setting. These are single-seed results, not a ranking.
+
 ## Caveats
 
 - Single seed, one GPU slice type; C2ST/calibration metrics are stochastic.
