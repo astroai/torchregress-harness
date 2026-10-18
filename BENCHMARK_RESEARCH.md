@@ -127,7 +127,7 @@ New harness coverage from the follow-up literature review:
   heteroscedastic-noise views, with coverage/width, NLL/CRPS, PIT/ECE and
   per-shift `OOD_gap_*` columns.
 - **Astronomical flow-based EIV** (Jing & Li, AJ 2025, arXiv:2411.08747) —
-  `astro_flow_eiv` implements a simplified flow empirical-Bayes ML estimator
+  `flow_eiv` implements a simplified flow empirical-Bayes ML estimator
   (1-D latent mixture, correlated heteroscedastic errors, Gauss-Hermite
   observed likelihood) and compares it with OLS/WLS and forward inversion on a
   synthetic bimodal, heteroscedastic, ID/OOD EIV design. The paper's `raddest`

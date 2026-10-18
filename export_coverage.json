@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "f9f71f2",
+  "torchregress_commit": "0a5730f",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -1415,12 +1415,12 @@
       "bias": {
         "suites": [
           "age_regression",
-          "astro_flow_eiv",
           "cell_counting",
           "censored_imaging",
           "crowd_counting",
           "depth_estimation",
           "eiv",
+          "flow_eiv",
           "fm_multitarget",
           "image_calibration",
           "image_conformal",
@@ -1928,12 +1928,12 @@
       "bias": {
         "suites": [
           "age_regression",
-          "astro_flow_eiv",
           "cell_counting",
           "censored_imaging",
           "crowd_counting",
           "depth_estimation",
           "eiv",
+          "flow_eiv",
           "fm_multitarget",
           "image_calibration",
           "image_conformal",
@@ -2150,8 +2150,8 @@
       },
       "ForwardInversionRegressor": {
         "suites": [
-          "astro_flow_eiv",
-          "eiv_estimators"
+          "eiv_estimators",
+          "flow_eiv"
         ],
         "status": "covered",
         "reason": ""

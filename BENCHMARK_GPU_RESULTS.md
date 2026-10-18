@@ -11,7 +11,7 @@ report `SyntheticFallback: false`.
   (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
   `release_20261018_1034` (Bernoulli-GLM SBI), `release_20261018_1222`
   (CNF reproduction), `release_20261018_1354` (VIR + new conformal comparators),
-  `release_20261018_1503` (Engression, UQ-shift, astronomical flow-EIV);
+  `release_20261018_1503` (Engression, UQ-shift, flow-based EIV);
   two Gaussian-linear SBI attempts
   (`release_20261018_1033`, reduced-method `..._1137`) were stopped after
   >1 h without an artifact.
@@ -326,7 +326,7 @@ overconfident under covariate/mean shift, while test-time noise degrades
 coverage less sharply. OOD-gap columns are in the artifact for every dataset
 (California housing, stress_ood, synthetic_eiv, synthetic_hetero).
 
-### Astronomical flow-EIV (`astro_flow_eiv`)
+### Astronomical flow-EIV (`flow_eiv`)
 
 Synthetic bimodal latent, correlated heteroscedastic errors, linear relation
 y = 1.25 x + 0.40; ID = 500, OOD = 300 beyond the training support.

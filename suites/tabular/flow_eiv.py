@@ -125,7 +125,7 @@ from harness.runners import HarnessConfig, HarnessRunner, SkipMethod
 # Design constants
 # ---------------------------------------------------------------------------
 
-DATASET_NAME = "synthetic_astro_flow_eiv"
+DATASET_NAME = "synthetic_flow_eiv"
 PAPER_URL = "https://arxiv.org/abs/2411.08747"
 TRUE_SLOPE = 1.25
 TRUE_INTERCEPT = 0.40
@@ -248,9 +248,7 @@ def _generate_splits(config: HarnessConfig) -> dict[str, Any]:
         "true_intercept": TRUE_INTERCEPT,
         "ood_x_min": float(x_ood.min()),
         "ood_x_max": float(x_ood.max()),
-        "_source_url": (
-            f"{PAPER_URL} (synthetic design defined in suites/tabular/astro_flow_eiv.py)"
-        ),
+        "_source_url": (f"{PAPER_URL} (synthetic design defined in suites/tabular/flow_eiv.py)"),
     }
 
 
@@ -589,12 +587,12 @@ def _flow_mixture_nll(
 # ---------------------------------------------------------------------------
 
 
-class AstroFlowEIVSuite(HarnessRunner):
+class FlowEIVSuite(HarnessRunner):
     """Linear EIV regression with a simplified flow-based empirical-Bayes method."""
 
     @property
     def name(self) -> str:
-        return "astro_flow_eiv"
+        return "flow_eiv"
 
     @property
     def description(self) -> str:
@@ -950,8 +948,7 @@ class AstroFlowEIVSuite(HarnessRunner):
             raise ValueError("splits must contain X_train and y_train")
         if "_y_scaler" in splits:
             raise ValueError(
-                "astro_flow_eiv expects native-scale targets; "
-                "do not pass target-standardised splits"
+                "flow_eiv expects native-scale targets; do not pass target-standardised splits"
             )
 
         rows: list[dict[str, Any]] = []
@@ -1026,4 +1023,4 @@ class AstroFlowEIVSuite(HarnessRunner):
         return rows
 
 
-__all__ = ["AstroFlowEIVSuite", "DATASET_NAME", "TRUE_INTERCEPT", "TRUE_SLOPE"]
+__all__ = ["FlowEIVSuite", "DATASET_NAME", "TRUE_INTERCEPT", "TRUE_SLOPE"]

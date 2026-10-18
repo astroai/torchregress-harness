@@ -72,9 +72,9 @@ pixi run python tools/run_all.py --suites uq_shift \
   --datasets stress_ood,synthetic_hetero --epochs 60 \
   --output results/latest/uq_shift.json
 # Astronomical flow empirical-Bayes EIV benchmark (suite-generated design)
-pixi run python tools/run_all.py --suites astro_flow_eiv \
-  --datasets synthetic_astro_flow_eiv --epochs 60 \
-  --output results/latest/astro_flow_eiv.json
+pixi run python tools/run_all.py --suites flow_eiv \
+  --datasets synthetic_flow_eiv --epochs 60 \
+  --output results/latest/flow_eiv.json
 ```
 
 ### Optional benchmark extras (pip)

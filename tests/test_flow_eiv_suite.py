@@ -5,10 +5,10 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from suites.tabular.astro_flow_eiv import (
+from suites.tabular.flow_eiv import (
     DATASET_NAME,
     TRUE_SLOPE,
-    AstroFlowEIVSuite,
+    FlowEIVSuite,
     _gauss_hermite,
     _generate_splits,
 )
@@ -27,9 +27,9 @@ def test_gauss_hermite_rule_normalisation() -> None:
     assert np.isclose(integral, 1.0 / np.sqrt(2.0), rtol=1e-10)
 
 
-def test_astro_flow_eiv_metadata() -> None:
-    suite = AstroFlowEIVSuite()
-    assert suite.name == "astro_flow_eiv"
+def test_flow_eiv_metadata() -> None:
+    suite = FlowEIVSuite()
+    assert suite.name == "flow_eiv"
     assert isinstance(suite.description, str) and suite.description
     assert suite.supported_datasets == [DATASET_NAME]
     assert suite.methods() == ["OLS", "WLS", "ForwardInversion", "FlowEB"]
@@ -44,7 +44,7 @@ def test_astro_flow_eiv_metadata() -> None:
     assert TRUE_SLOPE > 0
 
 
-def test_astro_flow_eiv_generator_is_truly_extrapolating() -> None:
+def test_flow_eiv_generator_is_truly_extrapolating() -> None:
     """The OOD split must be outside the training support, with correlated errors."""
     cfg = HarnessConfig(seed=0, epochs=2, smoke=True, batch_size=64)
     splits = _generate_splits(cfg)
@@ -67,10 +67,10 @@ def test_astro_flow_eiv_generator_is_truly_extrapolating() -> None:
     np.testing.assert_array_equal(splits["X_test_ood"], again["X_test_ood"])
 
 
-def test_astro_flow_eiv_smoke_run_is_finite_and_fast() -> None:
+def test_flow_eiv_smoke_run_is_finite_and_fast() -> None:
     """Metadata plus the requested tiny smoke protocol: finite metrics, <40 s."""
     cfg = HarnessConfig(seed=0, epochs=2, smoke=True, batch_size=64)
-    suite = AstroFlowEIVSuite()
+    suite = FlowEIVSuite()
 
     start = time.perf_counter()
     rows = suite.run(DATASET_NAME, config=cfg)

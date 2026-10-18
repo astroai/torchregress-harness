@@ -17,7 +17,6 @@ from suites.image.image_ensembles_uq import ImageEnsemblesUQSuite
 from suites.image.image_robust import ImageRobustSuite
 from suites.image.keypoint_regression import KeypointRegressionSuite
 from suites.image.photoz_imaging import PhotozImagingSuite
-from suites.tabular.astro_flow_eiv import AstroFlowEIVSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.causal import CausalSuite
@@ -32,6 +31,7 @@ from suites.tabular.eiv import EIVSuite
 from suites.tabular.eiv_estimators import EIVEstimatorsSuite
 from suites.tabular.engression_parity import EngressionParitySuite
 from suites.tabular.ensembles import EnsemblesSuite
+from suites.tabular.flow_eiv import FlowEIVSuite
 from suites.tabular.fm_multitarget import FMMultiTargetSuite
 from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
 from suites.tabular.foundation_model import FoundationModelSuite
@@ -95,7 +95,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "likelihoods": LikelihoodsSuite,
     "semi_supervised": SemiSupervisedSuite,
     "classification_shift": ClassificationShiftSuite,
-    "astro_flow_eiv": AstroFlowEIVSuite,
+    "flow_eiv": FlowEIVSuite,
     "distributional_bins": DistributionalBinsSuite,
     "engression_parity": EngressionParitySuite,
     "eiv": EIVSuite,
