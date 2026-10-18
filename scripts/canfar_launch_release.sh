@@ -131,6 +131,23 @@ DRY=()
 
 group_spec() { # <group> -> "replicas cpu memGB gpu"
   # ALL_GPU=1 gives every group one GPU (and the CUDA pixi env in the session).
+  # CPU_OVERRIDE shrinks the CPU request when the full group slice does not
+  # schedule on a busy cluster (MEM_GB does the same for memory).
+  local __spec
+  if [ "${ALL_GPU:-0}" = 1 ]; then
+    case "$1" in
+      tabular) __spec="${TAB_REPLICAS:-12} 8 32 1" ;;
+      sbi) __spec="${SBI_REPLICAS:-5} 8 32 1" ;;
+      fm) __spec="${FM_REPLICAS:-2} 8 64 1" ;;
+      image) __spec="${IMG_REPLICAS:-6} 8 64 1" ;;
+      *) __spec="" ;;
+    esac
+    if [ -n "$__spec" ]; then
+      set -- $__spec
+      echo "$1 ${CPU_OVERRIDE:-$2} ${MEM_GB:-$3} 1"
+      return
+    fi
+  fi
   if [ "${ALL_GPU:-0}" = 1 ]; then
     case "$1" in
       tabular) echo "${TAB_REPLICAS:-12} 8 32 1" ; return ;;

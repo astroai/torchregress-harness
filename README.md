@@ -81,6 +81,7 @@ See [OPTIONAL_DEPS.md](OPTIONAL_DEPS.md) for the coverage map and [EXTERNAL_PINS
 | [leaderboard_results.md](leaderboard_results.md) | Generated leaderboard |
 | [EXPORT_COVERAGE.md](EXPORT_COVERAGE.md) | Generated torchregress export coverage (`tools/export_coverage.py`) |
 | [BENCHMARK_RESEARCH.md](BENCHMARK_RESEARCH.md) | Original-paper datasets and comparator-package research for the benchmark campaign |
+| [BENCHMARK_GPU_RESULTS.md](BENCHMARK_GPU_RESULTS.md) | Measured CANFAR GPU results (sbi/pzflow parity, FrEIA cINN, real image/tabular data) |
 | [RELEASE_0.3_STATUS.md](RELEASE_0.3_STATUS.md) | 0.3.0 release run status and CANFAR launch |
 | [PAPER_RUN_STATUS.md](PAPER_RUN_STATUS.md) | Paper benchmark run log |
 | [EXHAUSTIVE_REPORT.md](EXHAUSTIVE_REPORT.md) | Capability, QA and parity summary |

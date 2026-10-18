@@ -1,0 +1,203 @@
+# CANFAR GPU benchmark results (2026-10-18)
+
+Headless CANFAR sessions on `images.canfar.net/astroai/base:latest`, one GPU
+each, `--device cuda`. Every artifact below reports
+`environment.cuda_available: true` and `config.device: "cuda"`; real-data jobs
+report `SyntheticFallback: false`.
+
+- Harness: `ee41b02` + `0dc4029` (FrEIA suite, calibration CUDA fix)
+- torchregress: `66d52fe`
+- Runs: `release_20261018_0805` (image + tabular), `release_20261018_0911`
+  (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
+  `release_20261018_1034` (Bernoulli-GLM SBI), and one remaining
+  `release_20261018_1033` (Gaussian-linear SBI).
+- Single seed per job (`seed 0`), 60 epochs where applicable; flexible or
+  4-core GPU slices were used. These are comparative snapshots, not
+  statistically converged rankings.
+
+See [BENCHMARK_RESEARCH.md](BENCHMARK_RESEARCH.md) for what the original
+papers used and why a given comparator was selected.
+
+## Established-package SBI parity (`sbi_parity`, sbibm tasks)
+
+Lower C2ST is better (0.5 = indistinguishable from the reference posterior).
+`SBC95` is the marginal 95% coverage; `SBI_minp` is sbi's own SBC diagnostic.
+
+**sbibm Two Moons**
+
+| method | library | C2ST | MeanRMSE | SBC95 | SBI minp | train s |
+|---|---|--:|--:|--:|--:|--:|
+| torchregress_NSF | torchregress | 0.504 | 0.0127 | 0.980 | 0.114 | 356 |
+| torchregress_MAF | torchregress | 0.691 | 0.0464 | 0.930 | 0.000 | 146 |
+| torchregress_MDN | torchregress | 0.565 | 0.0132 | 0.995 | 0.022 | 80 |
+| pzflow_NSF | pzflow | 0.536 | 0.0602 | 0.960 | 0.005 | 25 |
+| sbi_NPE | sbi | 0.494 | 0.0207 | 0.940 | 0.050 | 109 |
+| sbi_NPE_MAF | sbi | 0.652 | 0.0355 | 0.955 | 0.076 | 41 |
+| sbi_NPE_MDN | sbi | 0.492 | 0.0298 | 0.945 | 0.007 | 28 |
+| sbi_FMPE | sbi | 0.670 | 0.0308 | 0.920 | 0.018 | 29 |
+| sbi_NPSE | sbi | 0.525 | 0.0148 | 0.965 | 0.008 | 111 |
+
+**sbibm SLCP**
+
+| method | C2ST | MeanRMSE | SBC95 | SBI minp | train s |
+|---|--:|--:|--:|--:|--:|
+| torchregress_NSF | 0.872 | 0.972 | 0.916 | 0.005 | 356 |
+| torchregress_MAF | 0.930 | 1.349 | 0.964 | 0.000 | 148 |
+| torchregress_MDN | 0.936 | 1.497 | 0.960 | 0.014 | 81 |
+| pzflow_NSF | 0.855 | 1.199 | 0.930 | 0.012 | 96 |
+| sbi_NPE | 0.855 | 1.133 | 0.942 | 0.032 | 118 |
+| sbi_NPE_MAF | 0.906 | 1.037 | 0.906 | 0.000 | 51 |
+| sbi_NPE_MDN | 0.867 | 0.967 | 0.900 | 0.094 | 94 |
+| sbi_FMPE | 0.825 | 0.973 | 0.904 | 0.009 | 57 |
+| sbi_NPSE | 0.797 | 0.719 | 0.930 | 0.050 | 179 |
+
+**sbibm Gaussian Mixture**
+
+| method | C2ST | MeanRMSE | SBC95 | SBI minp | train s |
+|---|--:|--:|--:|--:|--:|
+| torchregress_NSF | 0.644 | 0.226 | 0.910 | 0.094 | 369 |
+| torchregress_MAF | 0.691 | 0.173 | 0.900 | 0.012 | 140 |
+| torchregress_MDN | 0.514 | 0.122 | 0.935 | 0.551 | 81 |
+| pzflow_NSF | 0.579 | 0.135 | 0.920 | 0.253 | 26 |
+| sbi_NPE | 0.502 | 0.077 | 0.940 | 0.103 | 58 |
+| sbi_NPE_MAF | 0.685 | 0.215 | 0.905 | 0.014 | 42 |
+| sbi_NPE_MDN | 0.561 | 0.184 | 0.950 | 0.197 | 24 |
+| sbi_FMPE | 0.564 | 0.106 | 0.910 | 0.487 | 78 |
+| sbi_NPSE | 0.545 | 0.156 | 0.925 | 0.180 | 37 |
+
+**sbibm Bernoulli GLM**
+
+| method | C2ST | MeanRMSE | SBC95 | SBI minp | train s |
+|---|--:|--:|--:|--:|--:|
+| torchregress_NSF | 0.744 | 0.735 | 0.937 | 0.001 | 366 |
+| torchregress_MAF | 0.732 | 0.637 | 0.956 | 0.001 | 148 |
+| torchregress_MDN | 0.760 | 0.914 | 0.944 | 0.011 | 79 |
+| pzflow_NSF | 0.802 | 0.512 | 0.908 | 0.002 | 267 |
+| sbi_NPE | 0.675 | 0.465 | 0.962 | 0.002 | 111 |
+| sbi_NPE_MAF | 0.678 | 0.486 | 0.941 | 0.076 | 45 |
+| sbi_NPE_MDN | 0.673 | 0.646 | 0.960 | 0.040 | 59 |
+| sbi_FMPE | 0.654 | 0.328 | 0.942 | 0.000 | 34 |
+| sbi_NPSE | 0.664 | 0.629 | 0.955 | 0.009 | 62 |
+
+<!-- gaussian-linear table appended when the last run finishes -->
+
+## Real image data (`cell_counting`, BBBC005 fluorescence images)
+
+GPU, real counts (no synthetic fallback), `bbbc_cellcount`:
+
+| method | RMSE | MAE | R² | train s |
+|---|--:|--:|--:|--:|
+| CNN+MSE | 4.777 | 3.469 | 0.975 | 20.1 |
+| CNN+Poisson | 7.598 | 6.115 | 0.937 | 22.0 |
+| CNN+PoissonLR | 5.875 | 4.521 | 0.962 | 21.9 |
+| CNN+ZIP | 4.994 | 3.955 | 0.973 | 23.2 |
+| CNN+NegBin | 13.421 | 9.437 | 0.802 | 23.4 |
+| CNN+GaussianNLL | 5.785 | 4.216 | 0.963 | 19.6 |
+| CNN+PoissonGaussian | 7.401 | 5.284 | 0.940 | 22.9 |
+| CNN+EnhancedPG_fixed | 5.360 | 4.211 | 0.968 | 23.3 |
+| CNN+EnhancedPG_learned | 7.597 | 5.908 | 0.937 | 23.6 |
+| CNN+PoissonGaussianLR | 5.764 | 4.736 | 0.963 | 22.7 |
+| sklearn_RF | 12.046 | 8.622 | 0.841 | 29.3 |
+
+## Real tabular data
+
+### EIV/LatentNN methods on HSC photo-z EIV (`photoz_eiv`)
+
+| method | RMSE | MAE | R² | Attenuation | train s |
+|---|--:|--:|--:|--:|--:|
+| NoiseAware | **0.063** | **0.035** | **0.988** | 0.986 | 92 |
+| MSE | 0.124 | 0.073 | 0.953 | 0.950 | 33 |
+| EnsembleEIV | 0.150 | 0.096 | 0.932 | 1.009 | 56 |
+| InputNoiseBinnedPDF | 0.150 | 0.087 | 0.932 | 0.905 | 57 |
+| RC | 0.152 | 0.096 | 0.930 | 0.933 | 49 |
+| InputNoiseMC | 0.160 | 0.098 | 0.922 | 0.898 | 54 |
+| MSE_WarmupMC | 0.167 | 0.090 | 0.915 | 0.905 | 106 |
+| FunctionalEIV | 0.175 | 0.108 | 0.907 | 0.858 | 151 |
+| SIMEX | 0.267 | 0.184 | 0.783 | 1.085 | 1182 |
+| ODR | 0.372 | 0.335 | 0.577 | 0.594 | 557 |
+| SciPyODR (external) | 3.949 | 3.184 | −46.5 | 0.805 | 6 |
+| TLS / TLS_Init+FunctionalEIV | skipped (ill-conditioned design) | | | | |
+
+### FrEIA cINN vs conditional density estimators on real tabular data
+
+| dataset | method | RMSE | NLL | CRPS | train s |
+|---|---|--:|--:|--:|--:|
+| diabetes | GaussianNLL | 53.12 | 5.545 | 30.40 | 2.1 |
+| diabetes | NSF | 55.95 | 5.720 | 31.73 | 11.3 |
+| diabetes | FrEIA_cINN | 74.17 | 5.728 | 43.05 | 4.8 |
+| california_housing | GaussianNLL | 0.642 | 40.00 | 12.29 | 16.5 |
+| california_housing | NSF | **0.573** | **0.822** | **0.269** | 118 |
+| california_housing | FrEIA_cINN | 1.156 | 1.565 | 0.644 | 49 |
+| openml_year | GaussianNLL | **0.159** | **−0.465** | **0.083** | 32 |
+| openml_year | NSF | 0.162 | 6.560 | 0.083 | 243 |
+| openml_year | FrEIA_cINN | 0.353 | 0.379 | 0.202 | 98 |
+
+The FrEIA cINN is a genuine external framework (MIT, GPU) and trains
+successfully, but under the shared budget the torchregress NSF is stronger on
+the two smaller tabular problems; Gaussian NLL wins the large OpenML-year set.
+
+### Imbalanced regression (`stress_imbalanced` synthetic + real California housing)
+
+| dataset | method | RMSE | TailRMSE | WorstGroupMAE | train s |
+|---|---|--:|--:|--:|--:|
+| stress_imbalanced | MSE | 0.596 | 1.033 | 0.616 | 11 |
+| stress_imbalanced | GroupDRO | 0.671 | 1.014 | 0.592 | 4 |
+| stress_imbalanced | PRIME | 0.617 | 1.036 | 0.592 | 34 |
+| stress_imbalanced | ConR | 0.615 | 1.028 | **0.578** | 29 |
+| california_housing | MSE | **0.600** | 1.226 | 0.850 | 12 |
+| california_housing | GroupDRO | 0.718 | **1.144** | **0.611** | 4 |
+| california_housing | PRIME | 0.612 | 1.242 | 0.898 | 38 |
+| california_housing | ConR | 0.620 | 1.211 | 0.873 | 31 |
+
+### Likelihood-ratio/SBI suite on GPU (exact-reference synthetic tasks)
+
+**Gaussian linear**
+
+| method | PostMeanRMSE | MLE RMSE | W1 | Cov95 | SBC min p | TARP err | ESS | train s |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| torchregress_NRE | 0.225 | 0.421 | **0.046** | 1.00 | 0.129 | 0.060 | 157 | 24 |
+| torchregress_NRE_multiclass | 0.233 | 0.401 | 0.056 | 1.00 | 0.101 | 0.055 | 154 | 23 |
+| torchregress_ContrastiveFlow | **0.219** | 0.475 | 0.060 | 1.00 | 0.083 | 0.080 | 153 | 345 |
+| torchregress_NPE | 0.254 | — | 0.066 | 1.00 | 0.026 | 0.065 | — | 145 |
+| sklearn_NRE | 1.312 | 1.622 | 1.392 | 1.00 | 0.060 | 0.060 | 1680 | 0.04 |
+
+**Bimodal**
+
+| method | PostMeanRMSE | MLE RMSE | W1 | Cov95 | SBC min p | TARP err | ESS | train s |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| torchregress_NRE | 0.999 | 1.655 | 0.122 | 0.83 | 0.364 | 0.060 | 216 | 24 |
+| torchregress_NRE_multiclass | 0.979 | 1.396 | 0.108 | 1.00 | 0.121 | 0.055 | 226 | 23 |
+| torchregress_ContrastiveFlow | 0.901 | 1.299 | **0.071** | 1.00 | 0.667 | **0.030** | 277 | 371 |
+| torchregress_NPE | **0.882** | — | 0.081 | 0.67 | 0.598 | 0.035 | — | 148 |
+| sklearn_NRE | 0.951 | 1.321 | 0.480 | 1.00 | 0.084 | 0.050 | 1680 | 0.03 |
+
+### Calibration (GPU, including CUDA isotonic fix)
+
+Selected `california_housing` and `synthetic_hetero` rows (`MACE` lower is
+better):
+
+| dataset | method | RMSE | MACE | NLL |
+|---|---|--:|--:|--:|
+| california_housing | Uncalibrated | 0.612 | 0.0135 | 22.13 |
+| california_housing | VTS_Floor_Clip | 0.612 | 0.0189 | **0.942** |
+| california_housing | IsotonicMeanCalibrator | **0.610** | 0.0149 | 20.74 |
+| california_housing | VarianceRestoring | 0.630 | **0.0079** | 23.90 |
+| california_housing | sklearn_IsotonicRegression | 0.610 | 0.0149 | 20.74 |
+| synthetic_hetero | Uncalibrated | 0.381 | 0.0207 | 0.527 |
+| synthetic_hetero | VarianceTemperatureScaler | 0.381 | 0.0130 | 0.457 |
+| synthetic_hetero | VarianceRestoring | 0.404 | 0.0223 | 0.601 |
+
+The GPU run also exposed and fixed a real defect: the isotonic calibrator's
+transform path indexed a CUDA tensor with CPU indices; it now runs on CPU in
+the harness and is covered by the CUDA rerun.
+
+## Caveats
+
+- Single seed, one GPU slice type; C2ST/calibration metrics are stochastic.
+- `sbi`/`sbibm`/`pzflow` versions are the release pins in
+  `scripts/skaha_release.sh`; `FrEIA` is an optional harness extra.
+- The exact-reference SBI tasks are synthetic by construction; sbibm is the
+  faithful benchmark for NRE/NPE, while real-data coverage is provided by the
+  image/tabular suites above.
+- The DIR datasets used by PRIME/ConR (AgeDB, IMDB-WIKI, NYUD2, STS-B) are
+  research-use and multi-GB; they were not staged for this campaign.
