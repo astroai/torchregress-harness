@@ -371,6 +371,39 @@ BMC is the best non-DRO method on California housing worst-region error and tail
 RMSE, while GroupDRO remains best on worst-group MAE. RankSim is neutral under
 this shared-budget setting. These are single-seed results, not a ranking.
 
+## Massive mixed sweep (partial snapshot)
+
+Run `release_20261018_1533` launched the full harness fleet on CANFAR headless
+GPUs: **160 tabular jobs (4 replicas), 31 image jobs (2 replicas), 3
+large-tabular jobs (8c/128G) and 5 SBI jobs**, all with `SEEDS=0`, `EPOCHS=60`.
+Artifacts are written per job under
+`/arc/projects/ots/torchregress-harness/runs/release_20261018_1533/<group>/`
+and are pulled with `PULL_GROUPS=... scripts/canfar_launch_release.sh pull`;
+a snapshot tarball is in `.sessions/release_20261018_1533.tgz`.
+
+At the snapshot time (2026-10-18 23:40 UTC) 68 artifacts were complete,
+including all 16 image rows from replica 1 (age regression, cell counting,
+censored imaging, depth, crowd counting, keypoint, image conformal/UQ/robust),
+60 tabular suite-dataset artifacts (conformal, calibration, ensembles,
+stress matrix, freia/CNF parity, robust, sklearn baselines, Tweedie, censored,
+Bayesian linear, SBI parity) and the two SBI tasks that had finished. Selected
+GPU examples:
+
+| run | metric | value |
+|---|---|---|
+| image / age_regression / ixi_brainage | CNN+BetaNLL MAE | 15.38 |
+| image / age_regression / udacity_steering | CNN+BetaNLL MAE | 0.184 |
+| image / cell_counting / bbbc_cellcount | best MAE | see artifact |
+| tabular / stress_matrix / stress_ood | DeepEnsemble_K10 NLL | 0.680 |
+| tabular / stress_matrix / stress_ood | GaussianNLL_MLP NLL | 6.809 |
+| tabular / stress_matrix / stress_imbalanced | MSE_MLP RMSE | 0.473 |
+| tabular / conformal / california_housing | 22 rows | see artifact |
+
+The long-running jobs (conformal on the largest tabular sets, NYU-depth image
+download/training, folktables large-tabular, and the Gaussian-linear SBI task)
+were still running at the snapshot; the next `pull` refreshes the same
+tarball. Do not interpret the partial snapshot as a completed fleet result.
+
 ## Caveats
 
 - Single seed, one GPU slice type; C2ST/calibration metrics are stochastic.
