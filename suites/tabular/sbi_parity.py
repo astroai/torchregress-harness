@@ -97,7 +97,7 @@ class SBIParitySuite(HarnessRunner):
         ]
 
     def methods(self) -> list[str]:
-        return [
+        methods = [
             "torchregress_NSF",
             "torchregress_MAF",
             "torchregress_MDN",
@@ -108,6 +108,15 @@ class SBIParitySuite(HarnessRunner):
             "sbi_FMPE",
             "sbi_NPSE",
         ]
+        # Targeted diagnostic runs can restrict the (expensive) comparator set,
+        # e.g. SBI_PARITY_METHODS=torchregress_NSF,sbi_NPE for a slow task.
+        import os
+
+        selected = os.environ.get("SBI_PARITY_METHODS", "").strip()
+        if selected:
+            keep = {m.strip() for m in selected.split(",") if m.strip()}
+            methods = [m for m in methods if m in keep]
+        return methods
 
     def library_name(self, method: str) -> str:
         if method.startswith("torchregress_"):
