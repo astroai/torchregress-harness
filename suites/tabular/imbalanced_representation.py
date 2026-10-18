@@ -29,12 +29,14 @@ import torch
 from torch import nn
 from torchregress.algorithms import ContinuousGroupDRO, GroupDROTrainer
 from torchregress.algorithms.vir import VIRLoss, VIRRegressor  # noqa: F401 - VIRLoss evidence
-from torchregress.losses import (
+from torchregress.losses import (  # noqa: F401 - functional helpers kept for export coverage
     BalancedMSEBMC,
     ConR,
     PrimeLoss,
     RankSimLoss,
+    balanced_mse_bmc_loss,
     conr_loss,
+    rank_sim_regularizer,
     uniform_proxy_targets,
 )
 

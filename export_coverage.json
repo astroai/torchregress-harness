@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "0a5730f",
+  "torchregress_commit": "2a99f4c",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -30,6 +30,13 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "alias of ExpectileLoss (covered in robust_regression)"
+      },
+      "BalancedMSEBMC": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "BalancedMSELoss": {
         "suites": [
@@ -809,6 +816,13 @@
         "status": "covered",
         "reason": ""
       },
+      "RankSimLoss": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "RegressionLoss": {
         "suites": [],
         "status": "allowlisted",
@@ -1017,6 +1031,13 @@
         "status": "allowlisted",
         "reason": "functional twin of AsymmetricLaplaceNLLLoss (covered in likelihoods)"
       },
+      "balanced_mse_bmc_loss": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "beta_nll_loss": {
         "suites": [],
         "status": "allowlisted",
@@ -1161,6 +1182,13 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "functional kernel of RankNContrastLoss (covered in age_regression)"
+      },
+      "rank_sim_regularizer": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "recommended_tail_bound": {
         "suites": [
@@ -2870,12 +2898,12 @@
     }
   },
   "summary": {
-    "exports": 403,
-    "covered": 256,
+    "exports": 407,
+    "covered": 260,
     "allowlisted": 147,
     "uncovered": 0,
-    "unique_names": 395,
-    "unique_covered": 254
+    "unique_names": 399,
+    "unique_covered": 258
   },
   "stale_allowlist": []
 }
