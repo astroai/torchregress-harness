@@ -63,6 +63,18 @@ pixi run python tools/run_all.py --suites freia_parity \
 pixi run python tools/run_all.py --suites cnf_parity \
   --datasets cnf_toy_gaussian,fair_universe_sample --epochs 60 \
   --output results/latest/cnf_parity.json
+# Engression vs torchregress regression/UQ baselines
+pixi run python tools/run_all.py --suites engression_parity \
+  --datasets synthetic_hetero,stress_noisy_inputs --epochs 60 \
+  --output results/latest/engression_parity.json
+# Regression UQ under covariate/mean/noise shifts
+pixi run python tools/run_all.py --suites uq_shift \
+  --datasets stress_ood,synthetic_hetero --epochs 60 \
+  --output results/latest/uq_shift.json
+# Astronomical flow empirical-Bayes EIV benchmark (suite-generated design)
+pixi run python tools/run_all.py --suites astro_flow_eiv \
+  --datasets synthetic_astro_flow_eiv --epochs 60 \
+  --output results/latest/astro_flow_eiv.json
 ```
 
 ### Optional benchmark extras (pip)

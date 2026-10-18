@@ -14,6 +14,7 @@ from suites.image.image_conformal import ImageConformalSuite
 from suites.image.image_ensembles_uq import ImageEnsemblesUQSuite
 from suites.image.image_robust import ImageRobustSuite
 from suites.image.keypoint_regression import KeypointRegressionSuite
+from suites.tabular.astro_flow_eiv import AstroFlowEIVSuite
 
 # All suites should be importable
 from suites.tabular.bayesian_linear import BayesianLinearSuite
@@ -24,6 +25,7 @@ from suites.tabular.conformal import ConformalSuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.eiv_estimators import EIVEstimatorsSuite
+from suites.tabular.engression_parity import EngressionParitySuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
 from suites.tabular.freia_parity import FreiaParitySuite
@@ -54,7 +56,9 @@ ALL_SUITES = [
     EnsemblesSuite,
     ImbalancedRepresentationSuite,
     UQSuite,
+    AstroFlowEIVSuite,
     DistributionalBinsSuite,
+    EngressionParitySuite,
     MultivariateIntervalsSuite,
     PzflowParitySuite,
     CensoredSuite,

@@ -21,7 +21,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `BarronLoss` | `age_regression`, `image_robust`, `photoz_imaging`, `robust_regression` | covered |
 | `BaseEIVLoss` | - | allowlisted: abstract EIV base class; exercised through FunctionalEIVLoss/StructuralEIVLoss (covered in eiv) |
 | `BaseLoss` | - | allowlisted: abstract base class; exercised through its covered subclasses |
-| `BetaNLLLoss` | `age_regression`, `calibration`, `depth_estimation`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `photoz_imaging`, `sklearn_baselines`, `stress_matrix`, `uq`, `uq_layer` | covered |
+| `BetaNLLLoss` | `age_regression`, `calibration`, `depth_estimation`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `photoz_imaging`, `sklearn_baselines`, `stress_matrix`, `uq`, `uq_layer`, `uq_shift` | covered |
 | `BetaRegressionNLLLoss` | `distributional_bins`, `likelihoods` | covered |
 | `BinReweightedMSELoss` | `stress_matrix` | covered |
 | `BoxCoxTransformLoss` | `tweedie` | covered |
@@ -61,7 +61,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `GEVNLLLoss` | `distributional_bins`, `likelihoods` | covered |
 | `GammaLoss` | `tweedie` | covered |
 | `GaussianCRPSLoss` | `age_regression`, `depth_estimation`, `photoz_imaging` | covered |
-| `GaussianNLLLoss` | `age_regression`, `cell_counting`, `conformal`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `eiv`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `freia_parity`, `image_calibration`, `image_conformal`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `semi_supervised`, `sklearn_baselines`, `stress_matrix`, `test_time_adaptation`, `uq`, `uq_layer` | covered |
+| `GaussianNLLLoss` | `age_regression`, `cell_counting`, `conformal`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `eiv`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `freia_parity`, `image_calibration`, `image_conformal`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `semi_supervised`, `sklearn_baselines`, `stress_matrix`, `test_time_adaptation`, `uq`, `uq_layer`, `uq_shift` | covered |
 | `GaussianWassersteinBoundLoss` | `multivariate_intervals` | covered |
 | `InputNoiseAugmentationLoss` | `eiv`, `stress_matrix` | covered |
 | `InputNoiseBinnedPDFLoss` | `eiv` | covered |
@@ -79,10 +79,10 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `LowRankGaussianLoss` | `keypoint_regression`, `multivariate_intervals` | covered |
 | `MDNLoss` | `sbi_parity` | covered |
 | `MahalanobisFrontier` | - | allowlisted: SLS frontier component built inside SLSLoss/SLSConformal (covered) |
-| `MixtureDensityLoss` | `age_regression`, `depth_estimation`, `distributional_bins`, `eiv`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `image_density_parity`, `likelihoods`, `multivariate_intervals`, `photoz_imaging` | covered |
+| `MixtureDensityLoss` | `age_regression`, `depth_estimation`, `distributional_bins`, `eiv`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `image_density_parity`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `uq_shift` | covered |
 | `MonteCarloConformal` | `distributional_bins` | covered |
 | `MultiExpectileLoss` | `robust_regression` | covered |
-| `MultiQuantileLoss` | `age_regression`, `conformal`, `constrained_outputs`, `depth_estimation`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `image_conformal`, `multivariate_intervals`, `photoz_imaging`, `r2c_conformal`, `robust_regression`, `sklearn_baselines`, `uq`, `uq_layer` | covered |
+| `MultiQuantileLoss` | `age_regression`, `conformal`, `constrained_outputs`, `depth_estimation`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `image_conformal`, `multivariate_intervals`, `photoz_imaging`, `r2c_conformal`, `robust_regression`, `sklearn_baselines`, `uq`, `uq_layer` | covered |
 | `MultiTargetConformal` | `multivariate_intervals` | covered |
 | `MultivariateGaussianLoss` | `keypoint_regression`, `multivariate_intervals` | covered |
 | `MultivariateScoreConformal` | `multivariate_intervals` | covered |
@@ -91,7 +91,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `NoisyInputPredictor` | `eiv` | covered |
 | `NoisyTargetGaussianNLL` | `age_regression`, `photoz_imaging`, `stress_matrix` | covered |
 | `NonExchangeableConformalRegressor` | `conformal`, `fm_multitarget`, `fm_uq_scenarios`, `uq_layer` | covered |
-| `NormalizingFlowLoss` | `age_regression`, `distributional_bins`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
+| `NormalizingFlowLoss` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
 | `OrdinalCrossEntropyLoss` | `ordinal` | covered |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | covered |
 | `PoissonDevianceLoss` | `cell_counting` | covered |
@@ -143,7 +143,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `corrected_score_eiv_loss` | `eiv_estimators` | covered |
 | `create_contrastive_flow_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_flow_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
-| `create_flow_model` | `age_regression`, `distributional_bins`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
+| `create_flow_model` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
 | `create_gaussian_nll` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_loss_from_config` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_mdn_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
@@ -206,7 +206,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `VariogramScore` | `multivariate_intervals` | covered |
 | `WassersteinGaussian` | - | allowlisted: metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py |
 | `attenuation_factor` | `eiv`, `eiv_estimators` | covered |
-| `bias` | `age_regression`, `cell_counting`, `censored_imaging`, `crowd_counting`, `depth_estimation`, `eiv`, `fm_multitarget`, `image_calibration`, `image_conformal`, `image_density_parity`, `image_ensembles_uq`, `image_robust`, `keypoint_regression`, `likelihoods`, `photoz_imaging`, `sklearn_baselines`, `tweedie` | covered |
+| `bias` | `age_regression`, `astro_flow_eiv`, `cell_counting`, `censored_imaging`, `crowd_counting`, `depth_estimation`, `eiv`, `fm_multitarget`, `image_calibration`, `image_conformal`, `image_density_parity`, `image_ensembles_uq`, `image_robust`, `keypoint_regression`, `likelihoods`, `photoz_imaging`, `sklearn_baselines`, `tweedie` | covered |
 | `calibration_metrics_report` | - | allowlisted: report aggregator over calibration metrics; harness reports PIT-based ECE/MACE |
 | `calibration_score` | - | allowlisted: quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests |
 | `censoring_rate` | - | allowlisted: censored-data descriptor (fraction censored), not a model score |
@@ -227,7 +227,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `ensemble_variance_decomposition` | - | allowlisted: alias of uncertainty_decomposition (covered in ensembles) |
 | `entropy_score` | - | allowlisted: OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity) |
 | `expected_calibration_error` | - | allowlisted: quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests |
-| `gaussian_nll` | `age_regression`, `cell_counting`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `sklearn_baselines`, `uq` | covered |
+| `gaussian_nll` | `age_regression`, `cell_counting`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `sklearn_baselines`, `uq` | covered |
 | `gaussian_nll_ensemble` | - | allowlisted: functional twin of GaussianNLLEnsemble (covered in ensembles) |
 | `highest_posterior_density_coverage` | `pzflow_parity` | covered |
 | `highest_posterior_density_level` | - | allowlisted: HPD level helper; suites use highest_posterior_density_coverage (covered) |
@@ -250,7 +250,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `ood_metrics_report` | `stress_matrix`, `test_time_adaptation` | covered |
 | `ordinal_accuracy` | `ordinal` | covered |
 | `pinball_loss` | - | allowlisted: metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py |
-| `pinball_metric` | `distributional_bins`, `multivariate_intervals` | covered |
+| `pinball_metric` | `distributional_bins`, `engression_parity`, `multivariate_intervals` | covered |
 | `prediction_interval_coverage` | - | allowlisted: compatibility alias of prediction_interval_coverage_probability |
 | `prediction_interval_coverage_probability` | - | allowlisted: harness computes coverage in harness.metrics.compute_interval_metrics |
 | `probability_integral_transform` | - | allowlisted: harness computes PIT itself (harness.metrics.compute_pit_values); parity pending metrics parity tests |
@@ -289,7 +289,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `SemiConformalCalibrator` | `test_time_adaptation` | covered |
 | `VarianceRestoringCalibrator` | `calibration` | covered |
 | `VarianceTemperatureScaler` | `bayesian_linear`, `calibration`, `fm_multitarget`, `fm_uq_scenarios`, `image_calibration`, `uq`, `uq_layer` | covered |
-| `bias` | `age_regression`, `cell_counting`, `censored_imaging`, `crowd_counting`, `depth_estimation`, `eiv`, `fm_multitarget`, `image_calibration`, `image_conformal`, `image_density_parity`, `image_ensembles_uq`, `image_robust`, `keypoint_regression`, `likelihoods`, `photoz_imaging`, `sklearn_baselines`, `tweedie` | covered |
+| `bias` | `age_regression`, `astro_flow_eiv`, `cell_counting`, `censored_imaging`, `crowd_counting`, `depth_estimation`, `eiv`, `fm_multitarget`, `image_calibration`, `image_conformal`, `image_density_parity`, `image_ensembles_uq`, `image_robust`, `keypoint_regression`, `likelihoods`, `photoz_imaging`, `sklearn_baselines`, `tweedie` | covered |
 | `calibration_metrics_report` | - | allowlisted: report aggregator over calibration metrics; harness reports PIT-based ECE/MACE |
 | `calibration_score` | - | allowlisted: quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests |
 | `expected_calibration_error` | - | allowlisted: quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests |
@@ -331,7 +331,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `AdaptivePriorGuide` | - | allowlisted: guide network built inside VIDSRegressor (covered in ensembles) |
 | `ContinuousGroupDRO` | `imbalanced_representation` | covered |
 | `ErrorAwareFeatureEncoder` | - | allowlisted: feature encoder for inputs with known errors; eiv benchmarks NoiseAwareRegressor/SIMEX instead |
-| `ForwardInversionRegressor` | `eiv_estimators` | covered |
+| `ForwardInversionRegressor` | `astro_flow_eiv`, `eiv_estimators` | covered |
 | `GroupDROTrainer` | `imbalanced_representation` | covered |
 | `HeteroscedasticLaplaceRegressor` | `ensembles` | covered |
 | `IRLSConfig` | `robust_regression` | covered |

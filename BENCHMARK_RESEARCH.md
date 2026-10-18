@@ -112,6 +112,33 @@ iteration: **puncc** (software parity), then **conformal-tights** and the
 official **cqr** reference; `nonconformist` should stay out because of
 maintenance status.
 
+## 6. Next-generation regression benchmarks (2026-10-18)
+
+New harness coverage from the follow-up literature review:
+
+- **Engression** (Shen & Meinshausen, JRSS-B 2024, arXiv:2307.00835) —
+  `engression_parity` compares the official PyPI package (1.1.0) against
+  torchregress MSE, Gaussian NLL, quantile and flow baselines on pre-additive
+  noise / extrapolation proxies and real tabular data. Shared budget; package
+  defaults (lr, epochs, BN) are deliberately overridden and documented.
+- **Regression UQ under distribution shift** (Gustafsson et al., TMLR 2023,
+  arXiv:2302.03679) — `uq_shift` evaluates MSE, Gaussian NLL, Beta NLL and MDN
+  on in-distribution, covariate-shift, mean-shift and test-time
+  heteroscedastic-noise views, with coverage/width, NLL/CRPS, PIT/ECE and
+  per-shift `OOD_gap_*` columns.
+- **Astronomical flow-based EIV** (Jing & Li, AJ 2025, arXiv:2411.08747) —
+  `astro_flow_eiv` implements a simplified flow empirical-Bayes ML estimator
+  (1-D latent mixture, correlated heteroscedastic errors, Gauss-Hermite
+  observed likelihood) and compares it with OLS/WLS and forward inversion on a
+  synthetic bimodal, heteroscedastic, ID/OOD EIV design. The paper's `raddest`
+  code is not public, so this is a documented approximation, not a replication.
+
+Deferred/watch list from the same review: **DistPred** (arXiv:2406.11397,
+sample-based proper-scoring-rule regression; prototype later), **OASIS**
+(arXiv:2606.22572, observation-aware SBI; too new), and the general-distribution
+conformal theory (arXiv:2405.06627, cited in the conformal docs). AutoBalance and
+the fairness-accuracy frontier remain out of scope.
+
 ## 6. Contrastive normalizing flow reproduction
 
 The preceding CNF paper is HEP but the method is domain-agnostic. The new

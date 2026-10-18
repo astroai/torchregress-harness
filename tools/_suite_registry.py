@@ -17,6 +17,7 @@ from suites.image.image_ensembles_uq import ImageEnsemblesUQSuite
 from suites.image.image_robust import ImageRobustSuite
 from suites.image.keypoint_regression import KeypointRegressionSuite
 from suites.image.photoz_imaging import PhotozImagingSuite
+from suites.tabular.astro_flow_eiv import AstroFlowEIVSuite
 from suites.tabular.bayesian_linear import BayesianLinearSuite
 from suites.tabular.calibration import CalibrationSuite
 from suites.tabular.causal import CausalSuite
@@ -29,6 +30,7 @@ from suites.tabular.density_parity import DensityParitySuite, ImageDensityParity
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
 from suites.tabular.eiv_estimators import EIVEstimatorsSuite
+from suites.tabular.engression_parity import EngressionParitySuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.fm_multitarget import FMMultiTargetSuite
 from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
@@ -55,6 +57,7 @@ from suites.tabular.test_time_adaptation import TestTimeAdaptationSuite
 from suites.tabular.tweedie import TweedieSuite
 from suites.tabular.uq import UQSuite
 from suites.tabular.uq_layer import UQLayerSuite
+from suites.tabular.uq_shift import UQShiftSuite
 
 from harness.runners import HarnessRunner
 
@@ -75,6 +78,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "imbalanced_representation": ImbalancedRepresentationSuite,
     "uq": UQSuite,
     "uq_layer": UQLayerSuite,
+    "uq_shift": UQShiftSuite,
     "fm_uq_scenarios": FMUQScenariosSuite,
     "fm_multitarget": FMMultiTargetSuite,
     "multivariate_intervals": MultivariateIntervalsSuite,
@@ -91,7 +95,9 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "likelihoods": LikelihoodsSuite,
     "semi_supervised": SemiSupervisedSuite,
     "classification_shift": ClassificationShiftSuite,
+    "astro_flow_eiv": AstroFlowEIVSuite,
     "distributional_bins": DistributionalBinsSuite,
+    "engression_parity": EngressionParitySuite,
     "eiv": EIVSuite,
     "eiv_estimators": EIVEstimatorsSuite,
     "pzflow_parity": PzflowParitySuite,

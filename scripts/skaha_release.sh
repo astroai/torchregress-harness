@@ -192,6 +192,7 @@ case "$GROUP" in
     # (numpy/scipy/torch are constrained below); conformal-tights pulls darts.
     pip_install --no-deps "puncc>=0.9.3"
     pip_install "conformal-tights>=0.5.0"
+    pip_install "engression>=1.1.0"  # engression_parity
     ;;
 esac
 

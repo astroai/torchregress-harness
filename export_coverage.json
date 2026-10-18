@@ -71,7 +71,8 @@
           "sklearn_baselines",
           "stress_matrix",
           "uq",
-          "uq_layer"
+          "uq_layer",
+          "uq_shift"
         ],
         "status": "covered",
         "reason": ""
@@ -389,6 +390,7 @@
           "depth_estimation",
           "distributional_bins",
           "eiv",
+          "engression_parity",
           "ensembles",
           "fm_multitarget",
           "fm_uq_scenarios",
@@ -404,7 +406,8 @@
           "stress_matrix",
           "test_time_adaptation",
           "uq",
-          "uq_layer"
+          "uq_layer",
+          "uq_shift"
         ],
         "status": "covered",
         "reason": ""
@@ -553,7 +556,8 @@
           "image_density_parity",
           "likelihoods",
           "multivariate_intervals",
-          "photoz_imaging"
+          "photoz_imaging",
+          "uq_shift"
         ],
         "status": "covered",
         "reason": ""
@@ -578,6 +582,7 @@
           "conformal",
           "constrained_outputs",
           "depth_estimation",
+          "engression_parity",
           "ensembles",
           "fm_multitarget",
           "fm_uq_scenarios",
@@ -659,6 +664,7 @@
         "suites": [
           "age_regression",
           "distributional_bins",
+          "engression_parity",
           "fm_multitarget",
           "freia_parity",
           "image_density_parity",
@@ -1058,6 +1064,7 @@
         "suites": [
           "age_regression",
           "distributional_bins",
+          "engression_parity",
           "fm_multitarget",
           "freia_parity",
           "image_density_parity",
@@ -1408,6 +1415,7 @@
       "bias": {
         "suites": [
           "age_regression",
+          "astro_flow_eiv",
           "cell_counting",
           "censored_imaging",
           "crowd_counting",
@@ -1551,6 +1559,7 @@
           "crowd_counting",
           "depth_estimation",
           "distributional_bins",
+          "engression_parity",
           "fm_multitarget",
           "fm_uq_scenarios",
           "foundation_model",
@@ -1693,6 +1702,7 @@
       "pinball_metric": {
         "suites": [
           "distributional_bins",
+          "engression_parity",
           "multivariate_intervals"
         ],
         "status": "covered",
@@ -1918,6 +1928,7 @@
       "bias": {
         "suites": [
           "age_regression",
+          "astro_flow_eiv",
           "cell_counting",
           "censored_imaging",
           "crowd_counting",
@@ -2139,6 +2150,7 @@
       },
       "ForwardInversionRegressor": {
         "suites": [
+          "astro_flow_eiv",
           "eiv_estimators"
         ],
         "status": "covered",

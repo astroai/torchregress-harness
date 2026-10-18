@@ -99,6 +99,10 @@ distributional = [
     "ngboost>=0.5.11",
     "laplace-torch>=0.2.3",
 ]
+# Official Engression distributional-regression package (PyPI, torch-based).
+engression = [
+    "engression>=1.1.0",
+]
 scoring = [
     "scoringrules>=0.11.0",
     "properscoring",
@@ -122,7 +126,7 @@ dev = [
     "ty",
 ]
 all = [
-    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,test,dev]",
+    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,engression,test,dev]",
 ]
 
 [tool.setuptools]

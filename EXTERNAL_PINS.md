@@ -31,6 +31,7 @@ how to install / re-pin them.
 | **scikit-learn** | PyPI | `1.9.1` | 2026-09-10 | Baselines and MAPIE/crepes backends. Previous: 1.9.0 |
 | **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 | **lifelines** | PyPI `lifelines` | PyPI latest | — | `lifelines_LogNormalAFT` comparator (tabular censored suite) |
+| **engression** | PyPI `engression` | `1.1.0` | — | Official Engression distributional-regression package (Shen & Meinshausen, JRSS-B 2024); `engression_parity` rows, torch-based and GPU-capable |
 | **crepes** | PyPI `crepes` | PyPI latest | — | `crepes_CQR` comparator (distributional_bins) + conformal suite |
 | **ppi-python** | PyPI `ppi-python` (`ppi_py`, Angelopoulos et al.) | `0.2.3` | — | Official PPI package: `PPI_py_Mean/Quantile` comparator rows (ppi suite) |
 | **survset** | PyPI `survset` (Drysdale 2022) | PyPI latest | — | SurvSet time-to-event repository loader (`survset_hdfail` real survival data) |
@@ -62,6 +63,9 @@ pip install lightning   # required by torch-uncertainty routines
 
 # Lightning-UQ-Box (stress-matrix comparator)
 pip install "git+https://github.com/lightning-uq-box/lightning-uq-box.git@d1b7f6a49995c70eeef9fc878f2967f83273c49d"
+
+# Engression (PyPI)
+pip install "engression>=1.1.0"
 
 # sbi + sbibm (sbibm 1.1.0 pins sbi<0.22, so install it without its deps)
 pip install "git+https://github.com/sbi-dev/sbi.git@29af13750100b61ad528c3f8a49daa0ef8c96881" pyro-ppl future
