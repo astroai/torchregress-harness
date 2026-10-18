@@ -10,6 +10,7 @@
 #   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
 #   ALL_GPU=1 scripts/canfar_launch_release.sh launch   # every group on a GPU session
+#   FLEX=1 scripts/canfar_launch_release.sh launch      # flexible CPU/RAM slices (queue-friendly)
 #   RUN_GROUPS="fm image" scripts/canfar_launch_release.sh launch   # only some groups
 #
 # Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
@@ -155,11 +156,18 @@ failed_replicas() { # <group> <canfar output> -> replica numbers Skaha refused t
 }
 
 create() { # <name> <cpu> <mem> <gpu> <replicas> [-e K=V ...]: one canfar create, output on stdout
-  local name="$1" cpu="$2" mem="$3" gpu="$4" reps="$5" gpu_args=()
+  local name="$1" cpu="$2" mem="$3" gpu="$4" reps="$5" gpu_args=() size_args=()
   shift 5
   [ "$gpu" -gt 0 ] && gpu_args=(--gpu "$gpu")
+  # FLEX=1 asks for flexible CPU/RAM so sessions can schedule on heterogeneous
+  # spare capacity; otherwise reserve the (often scarce) exact slice.
+  if [ "${FLEX:-0}" = 1 ]; then
+    size_args=()  # omitted CPU/RAM = flexible allocation by the server
+  else
+    size_args=(--cpu "$cpu" --memory "$mem")
+  fi
   canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "$name" \
-    --cpu "$cpu" --memory "$mem" ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
+    ${size_args[@]+"${size_args[@]}"} ${gpu_args[@]+"${gpu_args[@]}"} --replicas "$reps" \
     ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} "$@" \
     -- python3 -c "$(bootstrap scripts/skaha_release.sh)" 2>&1
 }
