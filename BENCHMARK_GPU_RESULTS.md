@@ -9,8 +9,9 @@ report `SyntheticFallback: false`.
 - torchregress: `66d52fe`
 - Runs: `release_20261018_0805` (image + tabular), `release_20261018_0911`
   (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
-  `release_20261018_1034` (Bernoulli-GLM SBI), and one remaining
-  `release_20261018_1033` (Gaussian-linear SBI).
+  `release_20261018_1034` (Bernoulli-GLM SBI); two Gaussian-linear SBI
+  attempts (`release_20261018_1033`, reduced-method `..._1137`) were
+  stopped after >1 h without an artifact.
 - Single seed per job (`seed 0`), 60 epochs where applicable; flexible or
   4-core GPU slices were used. These are comparative snapshots, not
   statistically converged rankings.
@@ -79,7 +80,13 @@ Lower C2ST is better (0.5 = indistinguishable from the reference posterior).
 | sbi_FMPE | 0.654 | 0.328 | 0.942 | 0.000 | 34 |
 | sbi_NPSE | 0.664 | 0.629 | 0.955 | 0.009 | 62 |
 
-<!-- gaussian-linear table appended when the last run finishes -->
+**sbibm Gaussian Linear**: not completed in this campaign. Two GPU runs
+(the full 9-method suite and a reduced 6-method suite) exceeded one hour
+without producing an artifact, while the four lighter sbibm tasks finished
+in 25–50 min each. The likely cause is one of the 10-D-target comparator
+trainings stalling rather than a GPU failure; this task remains open for a
+dedicated run with per-method timeouts. The result is reported as missing,
+not as a parity claim.
 
 ## Real image data (`cell_counting`, BBBC005 fluorescence images)
 
