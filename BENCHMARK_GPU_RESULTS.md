@@ -10,7 +10,8 @@ report `SyntheticFallback: false`.
 - Runs: `release_20261018_0805` (image + tabular), `release_20261018_0911`
   (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
   `release_20261018_1034` (Bernoulli-GLM SBI), `release_20261018_1222`
-  (CNF reproduction); two Gaussian-linear SBI attempts
+  (CNF reproduction), `release_20261018_1354` (VIR + new conformal comparators);
+  two Gaussian-linear SBI attempts
   (`release_20261018_1033`, reduced-method `..._1137`) were stopped after
   >1 h without an artifact.
 - Single seed per job (`seed 0`), 60 epochs where applicable; flexible or
@@ -233,6 +234,47 @@ The CNF is competitive with the DNN on the real sample and clearly better than
 the two independent NLL flows, but it does not establish a parity or
 uncertainty-coverage claim. The full 15.1 GB challenge data and the paper's
 Neyman confidence-belt pipeline are a documented follow-up.
+
+## VIR and new conformal comparators (GPU)
+
+Run `release_20261018_1354`, `config.device=cuda`. torchregress `f9f71f2`,
+harness `04bb08e`.
+
+**VIR on imbalanced regression** (`imbalanced_representation`)
+
+| dataset | method | RMSE | WorstGroupMAE | TailRMSE | NLL | CRPS |
+|---|---|--:|--:|--:|--:|--:|
+| stress_imbalanced | MSE | 0.596 | 0.616 | 1.033 | — | — |
+| stress_imbalanced | GroupDRO | 0.671 | 0.592 | 1.014 | — | — |
+| stress_imbalanced | PRIME | 0.617 | 0.592 | 1.036 | — | — |
+| stress_imbalanced | ConR | 0.615 | **0.578** | 1.028 | — | — |
+| stress_imbalanced | VIR | 0.613 | 0.607 | 1.071 | 0.939 | 0.329 |
+| california_housing | MSE | **0.600** | 0.850 | 1.226 | — | — |
+| california_housing | GroupDRO | 0.718 | **0.611** | **1.144** | — | — |
+| california_housing | PRIME | 0.612 | 0.898 | 1.242 | — | — |
+| california_housing | ConR | 0.620 | 0.873 | 1.211 | — | — |
+| california_housing | VIR | 0.602 | 0.800 | 1.152 | 0.783 | 0.297 |
+
+VIR gives the best real-data worst-region MAE/tail tradeoff among the
+loss/representation methods while also producing NLL/CRPS/coverage; on the
+synthetic stress target, representation losses remain slightly better in the
+extra tail. These are single-seed observations.
+
+**Conformal parity — coverage at nominal 90% (GPU host, sklearn rows are CPU work)**
+
+| dataset | puncc split | puncc CQR | native CQR reference | conformal-tights CQR | torchregress Split+MLP |
+|---|--:|--:|--:|--:|--:|
+| california_housing | 0.901 | 0.921 | 0.921 | **0.847** | 0.913 |
+| diabetes | 0.925 | 0.940 | 0.940 | **0.774** | 0.940 |
+| synthetic_hetero | 0.925 | 0.912 | 0.912 | **0.853** | 0.920 |
+
+puncc (`deel.puncc` 0.9.3) and the independent CQR reference agree exactly on
+matched GBR bases, which validates the CQR implementation. concrete-tights
+coherent CQR **under-covers** on these harness splits at nominal 90% (0.77–0.85)
+and is reported raw rather than tuned; its own calibration carve is documented
+in the row. puncc is installed `--no-deps` because it pins `numpy<2` while
+torchregress requires numpy>=2.5; its regression wrappers smoke-test fine on the
+numpy 2 stack but that combination is upstream-unsupported.
 
 ## Caveats
 
