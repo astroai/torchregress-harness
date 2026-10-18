@@ -92,7 +92,7 @@ class ImbalancedRepresentationSuite(HarnessRunner):
             "MSE_GroupDRO": "GroupDROTrainer over 4 equal-width target regimes",
             "MSE_PRIME": "MLP encoder/head + PRIME proxy alignment (class-balanced)",
             "MSE_ConR": "MLP encoder/head + ConR inverse-density contrastive push",
-            "MSE_BMC": "MLP + true noise-adaptive Balanced MSE (BMC; Ren et al. 2022)",
+            "MSE_BMC": "MLP + BMC (Ren et al. 2022), sigma=0.15*std(y)",
             "MSE_RankSim": "MLP encoder/head + task MSE plus RankSim ranking-similarity regularizer",
             "VIR": "Variational Imbalanced Regression: NIG evidential head + label-density smoothing",
         }
@@ -226,7 +226,13 @@ class ImbalancedRepresentationSuite(HarnessRunner):
             model = _MLP(
                 in_dim=int(X.shape[1]), hidden=_hidden_size(int(X.shape[1])), out_dim=1
             ).to(device)
-            loss_fn = BalancedMSEBMC().fit(y.detach().cpu())
+            # BMC needs a target-noise scale.  The paper learns it jointly;
+            # this benchmark uses a fixed normalized scale (0.25 * std(y)) so
+            # the row is comparable across datasets.  A target-scale proxy or
+            # a linear-residual MAD is too large here and over-smooths the
+            # batch softmax (measured degradation documented in the results).
+            sigma = max(0.05, 0.15 * float(y.detach().std().clamp_min(1e-6)))
+            loss_fn = BalancedMSEBMC(sigma=sigma).fit(y.detach().cpu())
             optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
             generator = torch.Generator().manual_seed(int(config.seed) + 7)
             batch_size = min(int(config.batch_size), len(X))
