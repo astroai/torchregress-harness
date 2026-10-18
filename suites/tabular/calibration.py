@@ -187,7 +187,7 @@ class CalibrationSuite(HarnessRunner):
 
         elif method == "IsotonicMeanCalibrator":
             calibrator = IsotonicMeanCalibrator()
-            calibrator.fit(cal_mean, y_cal.unsqueeze(1))
+            calibrator.fit(cal_mean.detach().cpu(), y_cal.detach().cpu().unsqueeze(1))
 
         elif method == "PITCalibrator":
             pit_cal = PITCalibrator.pit_from_gaussian(cal_mean, cal_std, y_cal.unsqueeze(1))
@@ -245,7 +245,7 @@ class CalibrationSuite(HarnessRunner):
             calibrated_std = np.sqrt(calibrated_var.clip(1e-8))
 
         elif method == "IsotonicMeanCalibrator":
-            calibrated_mean = calibrator.transform(mean).detach().cpu().numpy()
+            calibrated_mean = calibrator.transform(mean.detach().cpu()).detach().cpu().numpy()
             calibrated_std = std.detach().cpu().numpy()
 
         elif method == "PITCalibrator":
@@ -450,8 +450,11 @@ class CalibrationSuite(HarnessRunner):
             return scaler
 
         elif method == "IsotonicMeanCalibrator":
+            # PAVA stores breakpoints on the fit device; CPU keeps the transform
+            # path device-agnostic (the CUDA searchsorted path is not used by
+            # the calibrator's inference code).
             calibrator = IsotonicMeanCalibrator()
-            calibrator.fit(cal_mean, y_cal_t.unsqueeze(1))
+            calibrator.fit(cal_mean.detach().cpu(), y_cal_t.detach().cpu().unsqueeze(1))
             return calibrator
 
         elif method == "VarianceRestoring":
@@ -500,7 +503,7 @@ class CalibrationSuite(HarnessRunner):
 
         elif method == "IsotonicMeanCalibrator":
             calibrated_mean = (
-                calibrator.transform(torch.from_numpy(mean).float().to(current_device()))
+                calibrator.transform(torch.from_numpy(mean).float())
                 .detach()
                 .cpu()
                 .numpy()
