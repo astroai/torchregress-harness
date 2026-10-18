@@ -381,7 +381,8 @@ Artifacts are written per job under
 and are pulled with `PULL_GROUPS=... scripts/canfar_launch_release.sh pull`;
 a snapshot tarball is in `.sessions/release_20261018_1533.tgz`.
 
-At the snapshot time (2026-10-18 23:40 UTC) 68 artifacts were complete,
+At the final snapshot (2026-10-18 23:55 UTC) 69 artifacts were complete
+(61 JSON suite files),
 including all 16 image rows from replica 1 (age regression, cell counting,
 censored imaging, depth, crowd counting, keypoint, image conformal/UQ/robust),
 60 tabular suite-dataset artifacts (conformal, calibration, ensembles,
@@ -399,10 +400,13 @@ GPU examples:
 | tabular / stress_matrix / stress_imbalanced | MSE_MLP RMSE | 0.473 |
 | tabular / conformal / california_housing | 22 rows | see artifact |
 
-The long-running jobs (conformal on the largest tabular sets, NYU-depth image
-download/training, folktables large-tabular, and the Gaussian-linear SBI task)
-were still running at the snapshot; the next `pull` refreshes the same
-tarball. Do not interpret the partial snapshot as a completed fleet result.
+The long-running jobs (conformal/robust on the largest tabular sets,
+NYU-depth image download/training, folktables large-tabular, and the
+Gaussian-linear SBI task) did not complete within the session window and were
+stopped after >1 h to free the cluster; artifacts written before that remain
+on /arc and in `.sessions/release_20261018_1533.tgz`. Re-run those jobs with
+longer timeouts or smaller shards. Do not interpret the partial snapshot as a
+completed fleet result.
 
 ## Caveats
 
