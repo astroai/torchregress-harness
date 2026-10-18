@@ -9,9 +9,10 @@ report `SyntheticFallback: false`.
 - torchregress: `66d52fe`
 - Runs: `release_20261018_0805` (image + tabular), `release_20261018_0911`
   (calibration rerun), `release_20261018_0944` (Gaussian-mixture SBI),
-  `release_20261018_1034` (Bernoulli-GLM SBI); two Gaussian-linear SBI
-  attempts (`release_20261018_1033`, reduced-method `..._1137`) were
-  stopped after >1 h without an artifact.
+  `release_20261018_1034` (Bernoulli-GLM SBI), `release_20261018_1222`
+  (CNF reproduction); two Gaussian-linear SBI attempts
+  (`release_20261018_1033`, reduced-method `..._1137`) were stopped after
+  >1 h without an artifact.
 - Single seed per job (`seed 0`), 60 epochs where applicable; flexible or
   4-core GPU slices were used. These are comparative snapshots, not
   statistically converged rankings.
@@ -197,6 +198,41 @@ better):
 The GPU run also exposed and fixed a real defect: the isotonic calibrator's
 transform path indexed a CUDA tensor with CPU indices; it now runs on CPU in
 the harness and is covered by the CUDA rerun.
+
+## Contrastive Normalizing Flow reproduction (paper method, GPU)
+
+`cnf_parity`, run `release_20261018_1222`, `config.device=cuda`.  The suite
+implements the paper's contrastive loss with clamping at `k=-50`, `c=2` for
+the signal flow and `c=0.5` for the background flow, and the
+`Phi = p/(1+p)` DNN classifier.  The paper's 30-layer gated-affine/quadratic
+coupling architecture is approximated with zuko NSF couplings, so this is a
+method reproduction, not a numerical replication of the paper's tables.
+
+**Two-Gaussian toy (2-D, 4200 train / 1800 test), rotation nuisance**
+
+| method | clean acc | clean AUC | rot15 acc | rot30 acc | rot45 acc | rot30 AUC | train s |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| DNN | 0.811 | 0.896 | 0.733 | 0.613 | 0.541 | 0.716 | 4.5 |
+| NF_NLL | 0.802 | 0.887 | 0.743 | 0.613 | 0.545 | 0.691 | 84.7 |
+| CNF | 0.809 | 0.895 | 0.725 | 0.613 | 0.536 | 0.706 | 122.2 |
+
+At this architecture/budget the CNF's rotation robustness is **not** better
+than the plain DNN — an honest negative result relative to the paper's toy
+claim. The paper's custom gated/quadratic coupling and its full training recipe
+remain candidates for closing that gap.
+
+**FAIR-Universe HiggsML sample (1000 real simulated events, 28 features; 700 train / 300 test)**
+
+| method | accuracy | AUC | log-loss | train s |
+|---|--:|--:|--:|--:|
+| DNN | 0.793 | 0.843 | 0.502 | 0.9 |
+| NF_NLL | 0.480 | 0.659 | 3.580 | 10.2 |
+| CNF | **0.807** | 0.842 | **0.493** | 14.5 |
+
+The CNF is competitive with the DNN on the real sample and clearly better than
+the two independent NLL flows, but it does not establish a parity or
+uncertainty-coverage claim. The full 15.1 GB challenge data and the paper's
+Neyman confidence-belt pipeline are a documented follow-up.
 
 ## Caveats
 

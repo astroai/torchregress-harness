@@ -104,9 +104,12 @@ Implemented: contrastive loss with loss clamping at `k=-50`, `c=2` for the
 signal flow and `c=0.5` for the background flow, discrimination functions
 `Phi = p/(1+p)`, and a DNN classifier on raw features + `Phi` values. The
 paper's 30-layer gated-affine/quadratic coupling architecture is approximated
-with zuko NSF couplings (documented deviation); a challenge-score reproduction
-would require the full dataset and the Neyman confidence-belt pipeline, which
-is left as a follow-up.
+with zuko NSF couplings (documented deviation). On the CANFAR GPU run the toy
+reproduction did **not** recover the paper's rotation-robustness advantage
+over a plain DNN, while on the real sample it matched the DNN's AUC and
+slightly improved accuracy/log-loss. Those are reported as measured negative/
+neutral findings; the full 15.1 GB challenge data and Neyman confidence-belt
+pipeline remain a follow-up.
 
 ## 6. CANFAR GPU campaign
 
