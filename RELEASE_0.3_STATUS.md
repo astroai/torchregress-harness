@@ -332,7 +332,7 @@ scripts/canfar_launch_release.sh report             # after all groups finish
 
 | Group | Jobs (suite x dataset) | Default replicas | Resources |
 |---|---:|---:|---|
-| tabular | 140 | 12 | 8 cores, 32 GB |
+| tabular | 146 | 12 | 8 cores, 32 GB |
 | sbi | 5 | 5 | 8 cores, 32 GB |
 | fm (foundation models) | 4 | 2 | 8 cores, 64 GB, 1 GPU |
 | image | 31 | 6 | 8 cores, 64 GB, 1 GPU |

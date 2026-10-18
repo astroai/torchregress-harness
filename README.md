@@ -39,6 +39,24 @@ pixi run python tools/run_canonical.py --scenario mapie_reference --smoke
 
 Config-driven sweeps: `pixi run experiments-smoke` (also `experiments-tabular`, `experiments-image`, `experiments-ablations`, `experiments-all`; configs in `experiments/configs/`).
 
+Likelihood-ratio/SBI and attenuation-free EIV coverage (self-contained synthetic tasks,
+no optional `sbi`/`sbibm` dependency):
+
+```bash
+# NRE vs contrastive flow vs NPE vs sklearn NRE on exact-reference SBI tasks
+pixi run python tools/run_all.py --suites likelihood_ratio \
+  --datasets synthetic_sbi_gaussian_linear,synthetic_sbi_bimodal --epochs 40 \
+  --output results/latest/likelihood_ratio.json
+# Forward inversion, split-measurement and corrected-score EIV vs MSE/sklearn OLS
+pixi run python tools/run_all.py --suites eiv_estimators \
+  --datasets synthetic_eiv,synthetic_eiv_highnoise --epochs 30 \
+  --output results/latest/eiv_estimators.json
+# PRIME / ConR / continuous group DRO on a long-tailed target
+pixi run python tools/run_all.py --suites imbalanced_representation \
+  --datasets stress_imbalanced --epochs 60 \
+  --output results/latest/imbalanced_representation.json
+```
+
 ### Optional benchmark extras (pip)
 
 ```bash

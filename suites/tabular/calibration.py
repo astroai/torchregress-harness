@@ -43,6 +43,7 @@ from sklearn.isotonic import IsotonicRegression
 from torchregress.calibration import (
     IsotonicMeanCalibrator,
     PITCalibrator,
+    VarianceRestoringCalibrator,
     VarianceTemperatureScaler,
 )
 from torchregress.losses import BetaNLLLoss
@@ -111,6 +112,7 @@ class CalibrationSuite(HarnessRunner):
             "VTS_Floor",
             "VTS_Floor_Clip",
             "IsotonicMeanCalibrator",
+            "VarianceRestoring",
             "sklearn_IsotonicRegression",
         ]
 
@@ -126,6 +128,7 @@ class CalibrationSuite(HarnessRunner):
             "VTS_Floor": "VarianceTemperatureScaler(fit_floor=True): T * var + f",
             "VTS_Floor_Clip": "VarianceTemperatureScaler(fit_floor=True, clip=5): robust to outliers",
             "IsotonicMeanCalibrator": "PAVA isotonic regression on predicted means",
+            "VarianceRestoring": "marginal variance/tail-restoring affine map on predicted means",
             "sklearn_IsotonicRegression": "sklearn IsotonicRegression on predicted means",
         }
         return notes.get(method, "")
@@ -191,6 +194,13 @@ class CalibrationSuite(HarnessRunner):
             calibrator = PITCalibrator()
             calibrator.fit(pit_cal)
 
+        elif method == "VarianceRestoring":
+            calibrator = VarianceRestoringCalibrator()
+            calibrator.fit(
+                cal_mean.detach().cpu().unsqueeze(1),
+                y_cal.detach().cpu().unsqueeze(1),
+            )
+
         elif method == "sklearn_IsotonicRegression":
             calibrator = IsotonicRegression(out_of_bounds="clip")
             calibrator.fit(
@@ -244,6 +254,16 @@ class CalibrationSuite(HarnessRunner):
             # calibrated probability → invert via Gaussian CDF
             # For simplicity, return original mean/std (ECE is the metric)
             calibrated_mean = mean.detach().cpu().numpy()
+            calibrated_std = std.detach().cpu().numpy()
+
+        elif method == "VarianceRestoring":
+            calibrated_mean = (
+                calibrator.transform(mean.detach().cpu().unsqueeze(1))
+                .detach()
+                .cpu()
+                .numpy()
+                .reshape(-1)
+            )
             calibrated_std = std.detach().cpu().numpy()
 
         elif method == "sklearn_IsotonicRegression":
@@ -434,6 +454,16 @@ class CalibrationSuite(HarnessRunner):
             calibrator.fit(cal_mean, y_cal_t.unsqueeze(1))
             return calibrator
 
+        elif method == "VarianceRestoring":
+            # torchregress' calibrator maps in float64; run it on CPU so the
+            # harness also works on MPS backends (which reject float64).
+            calibrator = VarianceRestoringCalibrator()
+            calibrator.fit(
+                cal_mean.detach().cpu().unsqueeze(1),
+                y_cal_t.detach().cpu().unsqueeze(1),
+            )
+            return calibrator
+
         elif method == "sklearn_IsotonicRegression":
             calibrator = IsotonicRegression(out_of_bounds="clip")
             calibrator.fit(
@@ -471,6 +501,16 @@ class CalibrationSuite(HarnessRunner):
         elif method == "IsotonicMeanCalibrator":
             calibrated_mean = (
                 calibrator.transform(torch.from_numpy(mean).float().to(current_device()))
+                .detach()
+                .cpu()
+                .numpy()
+                .reshape(-1)
+            )
+            calibrated_std = std
+
+        elif method == "VarianceRestoring":
+            calibrated_mean = (
+                calibrator.transform(torch.from_numpy(mean).float())
                 .detach()
                 .cpu()
                 .numpy()

@@ -78,6 +78,13 @@ class SplitMetadata(TypedDict, total=False):
     prior_dist: Any
     sbc_theta: np.ndarray
     sbc_x: np.ndarray
+    # Self-contained synthetic SBI tasks (harness.synthetic_sbi): the task
+    # identifier plus the deterministic simulator spec used to rebuild the
+    # analytic/truncated reference posterior.
+    sbi_task: str
+    sbi_seed: int
+    sbi_noise_std: float
+    sbi_matrix: np.ndarray
     # SBI tasks carry a vector-valued target.
     n_targets: int
     prior_low: float
@@ -748,6 +755,56 @@ def _load_sbibm_bernoulli_glm(
 ) -> SplitsDict:
     """sbibm Bernoulli GLM with sufficient-statistic observations."""
     return _load_sbibm_task("bernoulli_glm", n_samples, n_observations, n_sbc_simulations, seed)
+
+
+def _load_synthetic_sbi_gaussian_linear(
+    n_samples: int = 4000,
+    n_observations: int = 3,
+    n_sbc_simulations: int = 200,
+    seed: int = 42,
+) -> SplitsDict:
+    """Self-contained linear-Gaussian SBI task (truncated-Gaussian posterior)."""
+    from .synthetic_sbi import make_gaussian_linear_splits
+
+    splits = cast(
+        SplitsDict,
+        make_gaussian_linear_splits(
+            n_samples=n_samples,
+            n_observations=n_observations,
+            n_sbc_simulations=n_sbc_simulations,
+            seed=seed,
+        ),
+    )
+    splits["_source_url"] = (
+        "synthetic SBI: 2-D theta ~ U[-2,2]^2, 4-D x = A theta + N(0, 0.5^2); "
+        "analytic truncated-Gaussian reference posterior"
+    )
+    return splits
+
+
+def _load_synthetic_sbi_bimodal(
+    n_samples: int = 4000,
+    n_observations: int = 3,
+    n_sbc_simulations: int = 200,
+    seed: int = 42,
+) -> SplitsDict:
+    """Self-contained quadratic SBI task (bimodal posterior marginals)."""
+    from .synthetic_sbi import make_bimodal_splits
+
+    splits = cast(
+        SplitsDict,
+        make_bimodal_splits(
+            n_samples=n_samples,
+            n_observations=n_observations,
+            n_sbc_simulations=n_sbc_simulations,
+            seed=seed,
+        ),
+    )
+    splits["_source_url"] = (
+        "synthetic SBI: 2-D theta ~ U[-2,2]^2, x_d = theta_d^2 + N(0, 0.4^2); "
+        "exact bimodal reference posterior by 1-D CDF inversion"
+    )
+    return splits
 
 
 def _load_galaxiesml_eiv(
@@ -6046,6 +6103,30 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "posterior with reference samples for C2ST."
         ),
         loader=_registry_loader(_load_sbibm_twomoons, n_samples=10000),
+    ),
+    "synthetic_sbi_gaussian_linear": DatasetInfo(
+        name="synthetic_sbi_gaussian_linear",
+        category="synthetic",
+        n_features=4,
+        n_samples=4000,
+        description=(
+            "Self-contained linear-Gaussian SBI task: 2-D parameters, 4-D "
+            "Gaussian observations, analytic truncated-Gaussian posterior, "
+            "and held-out SBC simulations (no sbibm/sbi dependency)."
+        ),
+        loader=_registry_loader(_load_synthetic_sbi_gaussian_linear),
+    ),
+    "synthetic_sbi_bimodal": DatasetInfo(
+        name="synthetic_sbi_bimodal",
+        category="synthetic",
+        n_features=2,
+        n_samples=4000,
+        description=(
+            "Self-contained quadratic SBI task: 2-D parameters, bimodal "
+            "posterior marginals, exact reference draws by 1-D CDF inversion, "
+            "and held-out SBC simulations."
+        ),
+        loader=_registry_loader(_load_synthetic_sbi_bimodal),
     ),
     "galaxiesml_eiv": DatasetInfo(
         name="galaxiesml_eiv",

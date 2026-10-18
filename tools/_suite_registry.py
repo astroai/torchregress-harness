@@ -27,11 +27,14 @@ from suites.tabular.constrained_outputs import ConstrainedOutputsSuite
 from suites.tabular.density_parity import DensityParitySuite, ImageDensityParitySuite
 from suites.tabular.distributional_bins import DistributionalBinsSuite
 from suites.tabular.eiv import EIVSuite
+from suites.tabular.eiv_estimators import EIVEstimatorsSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.fm_multitarget import FMMultiTargetSuite
 from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
 from suites.tabular.foundation_model import FoundationModelSuite
+from suites.tabular.imbalanced_representation import ImbalancedRepresentationSuite
 from suites.tabular.label_shift import LabelShiftSuite
+from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
 from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
@@ -65,6 +68,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "stress_matrix": StressMatrixSuite,
     "test_time_adaptation": TestTimeAdaptationSuite,
     "ensembles": EnsemblesSuite,
+    "imbalanced_representation": ImbalancedRepresentationSuite,
     "uq": UQSuite,
     "uq_layer": UQLayerSuite,
     "fm_uq_scenarios": FMUQScenariosSuite,
@@ -73,6 +77,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "ordinal": OrdinalSuite,
     "ppi": PPISuite,
     "sbi_parity": SBIParitySuite,
+    "likelihood_ratio": LikelihoodRatioSuite,
     "streaming_tta": StreamingTTASuite,
     "causal": CausalSuite,
     "orthogonal_inference": OrthogonalInferenceSuite,
@@ -84,6 +89,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "classification_shift": ClassificationShiftSuite,
     "distributional_bins": DistributionalBinsSuite,
     "eiv": EIVSuite,
+    "eiv_estimators": EIVEstimatorsSuite,
     "pzflow_parity": PzflowParitySuite,
     "density_parity": DensityParitySuite,
     "image_density_parity": ImageDensityParitySuite,

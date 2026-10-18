@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.2.0",
-  "torchregress_commit": "95cb6ae5",
+  "torchregress_commit": "66d52fe",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -178,6 +178,13 @@
         "status": "covered",
         "reason": ""
       },
+      "ConR": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "ConformalLoss": {
         "suites": [
           "conformal",
@@ -200,7 +207,15 @@
       },
       "ContrastiveFlowLoss": {
         "suites": [
-          "distributional_bins"
+          "distributional_bins",
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "CorrectedScoreEIVLoss": {
+        "suites": [
+          "eiv_estimators"
         ],
         "status": "covered",
         "reason": ""
@@ -605,6 +620,13 @@
         "status": "covered",
         "reason": ""
       },
+      "NeuralRatioLoss": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "NoisyInputPredictor": {
         "suites": [
           "eiv"
@@ -638,6 +660,7 @@
           "fm_multitarget",
           "image_density_parity",
           "keypoint_regression",
+          "likelihood_ratio",
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
@@ -698,6 +721,13 @@
           "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PrimeLoss": {
+        "suites": [
+          "imbalanced_representation"
         ],
         "status": "covered",
         "reason": ""
@@ -831,6 +861,13 @@
           "fm_uq_scenarios",
           "image_conformal",
           "uq_layer"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "SplitMeasurementLoss": {
+        "suites": [
+          "eiv_estimators"
         ],
         "status": "covered",
         "reason": ""
@@ -983,6 +1020,27 @@
         "status": "covered",
         "reason": ""
       },
+      "build_ratio_classifier": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "conr_loss": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "corrected_score_eiv_loss": {
+        "suites": [
+          "eiv_estimators"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "create_contrastive_flow_loss": {
         "suites": [],
         "status": "allowlisted",
@@ -1000,6 +1058,7 @@
           "fm_multitarget",
           "image_density_parity",
           "keypoint_regression",
+          "likelihood_ratio",
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
@@ -1068,6 +1127,20 @@
         "status": "allowlisted",
         "reason": "shape helper for LowRankGaussianLoss heads (covered in multivariate_intervals)"
       },
+      "neural_ratio_logits": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "neural_ratio_loss": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "quantile_loss": {
         "suites": [],
         "status": "allowlisted",
@@ -1081,7 +1154,8 @@
       "recommended_tail_bound": {
         "suites": [
           "distributional_bins",
-          "pzflow_parity"
+          "pzflow_parity",
+          "sbi_parity"
         ],
         "status": "covered",
         "reason": ""
@@ -1112,6 +1186,13 @@
         "status": "allowlisted",
         "reason": "output-parsing helper used inside LowRankGaussianLoss (covered)"
       },
+      "split_measurement_loss": {
+        "suites": [
+          "eiv_estimators"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "sqr_loss": {
         "suites": [],
         "status": "allowlisted",
@@ -1126,6 +1207,13 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "functional twin of TweedieLoss (covered in tweedie)"
+      },
+      "uniform_proxy_targets": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
       }
     },
     "metrics": {
@@ -1307,7 +1395,8 @@
       },
       "attenuation_factor": {
         "suites": [
-          "eiv"
+          "eiv",
+          "eiv_estimators"
         ],
         "status": "covered",
         "reason": ""
@@ -1329,7 +1418,8 @@
           "keypoint_regression",
           "likelihoods",
           "photoz_imaging",
-          "sklearn_baselines"
+          "sklearn_baselines",
+          "tweedie"
         ],
         "status": "covered",
         "reason": ""
@@ -1657,10 +1747,31 @@
         "status": "covered",
         "reason": ""
       },
+      "sbc_rank_histogram": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "sbc_uniformity_pvalue": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "sharpness": {
         "suites": [],
         "status": "allowlisted",
         "reason": "functional twin of Sharpness; harness computes it itself"
+      },
+      "simulation_based_calibration_ranks": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "tail_mae": {
         "suites": [],
@@ -1671,6 +1782,13 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "called for every row by harness.metrics.compute_all_metrics (src/, outside the suite scan)"
+      },
+      "tarp_coverage": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "task_agnostic_correlations": {
         "suites": [
@@ -1773,6 +1891,13 @@
         "status": "covered",
         "reason": ""
       },
+      "VarianceRestoringCalibrator": {
+        "suites": [
+          "calibration"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "VarianceTemperatureScaler": {
         "suites": [
           "bayesian_linear",
@@ -1803,7 +1928,8 @@
           "keypoint_regression",
           "likelihoods",
           "photoz_imaging",
-          "sklearn_baselines"
+          "sklearn_baselines",
+          "tweedie"
         ],
         "status": "covered",
         "reason": ""
@@ -1995,10 +2121,31 @@
         "status": "allowlisted",
         "reason": "guide network built inside VIDSRegressor (covered in ensembles)"
       },
+      "ContinuousGroupDRO": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "ErrorAwareFeatureEncoder": {
         "suites": [],
         "status": "allowlisted",
         "reason": "feature encoder for inputs with known errors; eiv benchmarks NoiseAwareRegressor/SIMEX instead"
+      },
+      "ForwardInversionRegressor": {
+        "suites": [
+          "eiv_estimators"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GroupDROTrainer": {
+        "suites": [
+          "imbalanced_representation"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "HeteroscedasticLaplaceRegressor": {
         "suites": [
@@ -2088,6 +2235,13 @@
       "WarmupMCTrainer": {
         "suites": [
           "eiv"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "build_decoder_mlp": {
+        "suites": [
+          "eiv_estimators"
         ],
         "status": "covered",
         "reason": ""
@@ -2373,6 +2527,27 @@
         "status": "covered",
         "reason": ""
       },
+      "effective_sample_size": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "grid_log_posterior": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "maximum_likelihood_estimate": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "median_heuristic_bandwidth": {
         "suites": [],
         "status": "allowlisted",
@@ -2388,6 +2563,13 @@
       "orthogonal_partially_linear": {
         "suites": [
           "orthogonal_inference"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "posterior_log_weights": {
+        "suites": [
+          "likelihood_ratio"
         ],
         "status": "covered",
         "reason": ""
@@ -2658,12 +2840,12 @@
     }
   },
   "summary": {
-    "exports": 376,
-    "covered": 229,
+    "exports": 401,
+    "covered": 254,
     "allowlisted": 147,
     "uncovered": 0,
-    "unique_names": 368,
-    "unique_covered": 227
+    "unique_names": 393,
+    "unique_covered": 252
   },
   "stale_allowlist": []
 }
