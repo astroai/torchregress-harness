@@ -187,6 +187,7 @@ case "$GROUP" in
   tabular|tabular_big)
     pip_install "jax[cpu]" "git+https://github.com/jfcrenshaw/pzflow.git@$PZFLOW_PIN"
     pip_install "git+https://github.com/sbi-dev/sbi.git@$SBI_PIN"  # density_parity
+    pip_install "FrEIA>=0.2"  # freia_parity (cINN)
     ;;
 esac
 

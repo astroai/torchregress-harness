@@ -149,7 +149,7 @@ def _samples_from_grid(
     weights = torch.as_tensor(np.exp(log_weights - log_weights.max()), dtype=torch.float64)
     weights = weights / weights.sum()
     index = torch.multinomial(weights, n_samples, replacement=True, generator=rng)
-    return grid[np.asarray(index)]
+    return grid[np.asarray(index.detach().cpu())]
 
 
 class LikelihoodRatioSuite(HarnessRunner):

@@ -32,6 +32,7 @@ from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.fm_multitarget import FMMultiTargetSuite
 from suites.tabular.fm_uq_scenarios import FMUQScenariosSuite
 from suites.tabular.foundation_model import FoundationModelSuite
+from suites.tabular.freia_parity import FreiaParitySuite
 from suites.tabular.imbalanced_representation import ImbalancedRepresentationSuite
 from suites.tabular.label_shift import LabelShiftSuite
 from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
@@ -62,6 +63,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "censored": CensoredSuite,
     "tweedie": TweedieSuite,
     "foundation_model": FoundationModelSuite,
+    "freia_parity": FreiaParitySuite,
     "robust_regression": RobustRegressionSuite,
     "calibration": CalibrationSuite,
     "sklearn_baselines": SklearnBaselinesSuite,

@@ -70,7 +70,7 @@ class ImbalancedRepresentationSuite(HarnessRunner):
 
     @property
     def supported_datasets(self) -> list[str]:
-        return ["stress_imbalanced"]
+        return ["stress_imbalanced", "california_housing"]
 
     def methods(self) -> list[str]:
         return list(_METHODS)

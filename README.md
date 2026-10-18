@@ -53,8 +53,12 @@ pixi run python tools/run_all.py --suites eiv_estimators \
   --output results/latest/eiv_estimators.json
 # PRIME / ConR / continuous group DRO on a long-tailed target
 pixi run python tools/run_all.py --suites imbalanced_representation \
-  --datasets stress_imbalanced --epochs 60 \
+  --datasets stress_imbalanced,california_housing --epochs 60 \
   --output results/latest/imbalanced_representation.json
+# Conditional invertible network (cINN) parity via FrEIA on real tabular data
+pixi run python tools/run_all.py --suites freia_parity \
+  --datasets diabetes,california_housing --epochs 60 \
+  --output results/latest/freia_parity.json
 ```
 
 ### Optional benchmark extras (pip)
@@ -76,6 +80,7 @@ See [OPTIONAL_DEPS.md](OPTIONAL_DEPS.md) for the coverage map and [EXTERNAL_PINS
 | [PARITY_REPORT.md](PARITY_REPORT.md) | Generated parity report vs external libraries |
 | [leaderboard_results.md](leaderboard_results.md) | Generated leaderboard |
 | [EXPORT_COVERAGE.md](EXPORT_COVERAGE.md) | Generated torchregress export coverage (`tools/export_coverage.py`) |
+| [BENCHMARK_RESEARCH.md](BENCHMARK_RESEARCH.md) | Original-paper datasets and comparator-package research for the benchmark campaign |
 | [RELEASE_0.3_STATUS.md](RELEASE_0.3_STATUS.md) | 0.3.0 release run status and CANFAR launch |
 | [PAPER_RUN_STATUS.md](PAPER_RUN_STATUS.md) | Paper benchmark run log |
 | [EXHAUSTIVE_REPORT.md](EXHAUSTIVE_REPORT.md) | Capability, QA and parity summary |

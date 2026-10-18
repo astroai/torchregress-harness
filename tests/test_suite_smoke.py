@@ -25,6 +25,7 @@ from suites.tabular.eiv import EIVSuite
 from suites.tabular.eiv_estimators import EIVEstimatorsSuite
 from suites.tabular.ensembles import EnsemblesSuite
 from suites.tabular.foundation_model import FoundationModelSuite
+from suites.tabular.freia_parity import FreiaParitySuite
 from suites.tabular.imbalanced_representation import ImbalancedRepresentationSuite
 from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
@@ -43,6 +44,7 @@ ALL_SUITES = [
     BayesianLinearSuite,
     TweedieSuite,
     FoundationModelSuite,
+    FreiaParitySuite,
     RobustRegressionSuite,
     CalibrationSuite,
     LikelihoodRatioSuite,

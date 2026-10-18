@@ -96,6 +96,11 @@ scoring = [
     "scoringrules>=0.11.0",
     "properscoring",
 ]
+# Conditional invertible networks (cINN) via the FrEIA framework; used by
+# the freia_parity suite for density/regression parity on real tabular data.
+invertible = [
+    "FrEIA>=0.2",
+]
 test = [
     "pytest",
     "pytest-cov",
@@ -106,7 +111,7 @@ dev = [
     "ty",
 ]
 all = [
-    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,test,dev]",
+    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,test,dev]",
 ]
 
 [tool.setuptools]
