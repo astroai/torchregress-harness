@@ -12,6 +12,8 @@ Methods
 - ``MSE_GroupDRO``: ``GroupDROTrainer`` over four equal-width target regimes.
 - ``MSE_PRIME``: MLP encoder/head + ``PrimeLoss`` proxy regularizer.
 - ``MSE_ConR``: MLP encoder/head + ``ConR`` collapse regularizer.
+- ``MSE_BMC``: MLP + true noise-adaptive Balanced MSE (BMC; Ren et al. 2022).
+- ``MSE_RankSim``: MLP encoder/head + task MSE + RankSim ranking-similarity regularizer.
 - ``VIR``: Variational Imbalanced Regression (NIG evidential head, label-density smoothing).
 
 Metrics are the standard harness point/interval metrics plus ``WorstGroupMAE``:
@@ -27,7 +29,14 @@ import torch
 from torch import nn
 from torchregress.algorithms import ContinuousGroupDRO, GroupDROTrainer
 from torchregress.algorithms.vir import VIRLoss, VIRRegressor  # noqa: F401 - VIRLoss evidence
-from torchregress.losses import ConR, PrimeLoss, conr_loss, uniform_proxy_targets
+from torchregress.losses import (
+    BalancedMSEBMC,
+    ConR,
+    PrimeLoss,
+    RankSimLoss,
+    conr_loss,
+    uniform_proxy_targets,
+)
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
@@ -40,7 +49,7 @@ from harness.runners import (
 )
 from suites._backbones import _MLP, _hidden_size
 
-_METHODS = ["MSE", "MSE_GroupDRO", "MSE_PRIME", "MSE_ConR", "VIR"]
+_METHODS = ["MSE", "MSE_GroupDRO", "MSE_PRIME", "MSE_ConR", "MSE_BMC", "MSE_RankSim", "VIR"]
 _N_GROUPS = 4
 _FEATURE_DIM = 16
 
@@ -83,6 +92,8 @@ class ImbalancedRepresentationSuite(HarnessRunner):
             "MSE_GroupDRO": "GroupDROTrainer over 4 equal-width target regimes",
             "MSE_PRIME": "MLP encoder/head + PRIME proxy alignment (class-balanced)",
             "MSE_ConR": "MLP encoder/head + ConR inverse-density contrastive push",
+            "MSE_BMC": "MLP + true noise-adaptive Balanced MSE (BMC; Ren et al. 2022)",
+            "MSE_RankSim": "MLP encoder/head + task MSE plus RankSim ranking-similarity regularizer",
             "VIR": "Variational Imbalanced Regression: NIG evidential head + label-density smoothing",
         }
         return notes.get(method, "")
@@ -211,6 +222,52 @@ class ImbalancedRepresentationSuite(HarnessRunner):
         if method in {"MSE_PRIME", "MSE_ConR"}:
             state = self._fit_regularized(method, X, y, config)
             return {"type": "regularized", **state}
+        if method == "MSE_BMC":
+            model = _MLP(
+                in_dim=int(X.shape[1]), hidden=_hidden_size(int(X.shape[1])), out_dim=1
+            ).to(device)
+            loss_fn = BalancedMSEBMC().fit(y.detach().cpu())
+            optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+            generator = torch.Generator().manual_seed(int(config.seed) + 7)
+            batch_size = min(int(config.batch_size), len(X))
+            for _ in range(self._epochs(config)):
+                order = torch.randperm(len(X), generator=generator).to(device)
+                for start in range(0, len(X), batch_size):
+                    idx = order[start : start + batch_size]
+                    optimizer.zero_grad(set_to_none=True)
+                    loss = loss_fn(model(X[idx]).squeeze(-1), y[idx])
+                    loss.backward()
+                    optimizer.step()
+            model.eval()
+            return {"type": "plain", "model": model, "edges": self._edges(y.detach().cpu())}
+        if method == "MSE_RankSim":
+            encoder, head = _make_encoder(int(X.shape[1]), _hidden_size(int(X.shape[1])))
+            encoder, head = encoder.to(device), head.to(device)
+            regularizer = RankSimLoss(gamma=1.0).to(device)
+            optimizer = torch.optim.Adam(
+                list(encoder.parameters()) + list(head.parameters()), lr=config.lr
+            )
+            generator = torch.Generator().manual_seed(int(config.seed) + 8)
+            batch_size = min(int(config.batch_size), len(X))
+            for _ in range(self._epochs(config)):
+                order = torch.randperm(len(X), generator=generator).to(device)
+                for start in range(0, len(X), batch_size):
+                    idx = order[start : start + batch_size]
+                    optimizer.zero_grad(set_to_none=True)
+                    features = encoder(X[idx])
+                    prediction = head(features).squeeze(-1)
+                    loss = torch.nn.functional.mse_loss(prediction, y[idx])
+                    loss = loss + regularizer(features, y[idx])
+                    loss.backward()
+                    optimizer.step()
+            encoder.eval()
+            head.eval()
+            return {
+                "type": "regularized",
+                "encoder": encoder,
+                "head": head,
+                "edges": self._edges(y.detach().cpu()),
+            }
         if method == "VIR":
             encoder = nn.Sequential(
                 nn.Linear(int(X.shape[1]), _hidden_size(int(X.shape[1]))),
