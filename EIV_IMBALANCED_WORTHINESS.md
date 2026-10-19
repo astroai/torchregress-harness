@@ -44,8 +44,8 @@ Key observations:
 `photoz_eiv` is now complete: `NoiseAware` is best (RMSE 0.063, attenuation
 0.986), plain MSE is second (0.124), while classic EIV/ODR/SIMEX are worse and
 much slower (SIMEX ~20 min). This is a strong caution that real photometric
-noise is not a clean linear-EIV problem. `galaxiesml_eiv` was still downloading
-its 3 GB HDF5 corpus at snapshot time and is not claimed. The flow-EIV
+noise is not a clean linear-EIV problem. `galaxiesml_eiv` did not complete: the 3 GB HDF5 download/training stalled
+past the 90 min budget and is not claimed. The flow-EIV
 baseline is a documented simplified ML-EB approximation, not the paper's
 `raddest` code.
 

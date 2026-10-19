@@ -382,8 +382,8 @@ and continues after a timeout instead of blocking its shard.
   completed in the relaunch (`release_20261018_2203`): `NoiseAware` wins
   (RMSE 0.063) over MSE 0.124 and the classic EIV/ODR/SIMEX variants, a useful
   caution that real photometric noise is not a clean linear-EIV problem.
-  `galaxiesml_eiv` was still downloading its 3 GB HDF5 corpus and is not
-  claimed. Full recommendations:
+  `galaxiesml_eiv` did not complete (3 GB HDF5 download/training stalled past
+  the 90 min budget) and is not claimed. Full recommendations:
   [`EIV_IMBALANCED_WORTHINESS.md`](EIV_IMBALANCED_WORTHINESS.md).
 - **Image run `release_20261018_1747`** — 27/31 artifacts. The heavy NYU/KITTI
   and Shanghai crowd jobs now complete or return cleanly; all rows report
