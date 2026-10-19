@@ -1,19 +1,19 @@
 # torchregress Parity Report
 
-Generated 2026-10-15 by `tools/build_parity_report.py` from the release run artifacts. Do not edit by hand: regenerate.
+Generated 2026-10-19 by `tools/build_parity_report.py` from the release run artifacts. Do not edit by hand: regenerate.
 
 | Field | Value |
 | --- | --- |
-| Run tag | `release_20261013_1917` |
-| torchregress commit | `6ae7272` |
-| torchregress-harness commit | `9e8c72b` |
+| Run tag | `release_20261013_1917+rerun_20261019_0254` |
+| torchregress commit | `b29d04d21bf22664ecc20763cc968b813af7b1be` |
+| torchregress-harness commit | `1c13c8f21367906d47035fa107a9e97f51f40f0d` |
 | Job groups | `fm`, `image`, `sbi`, `tabular`, `tabular_big` |
 | Job artifacts | 579 |
 | Result rows | 15616 (1512 per-bin detail rows not tabulated) |
 
 **Notes:**
 
-- Pending reruns: image `age_regression`, `keypoint_regression` and `image_density_parity` (device-handling fixes at harness `1435827`) and `tweedie / insurance_claims` (MLP log-mean fix at `9e8c72b`). This report will be regenerated when they land.
+- Run #6 tabular/fm/sbi artifacts with the post-fix reruns from release_20261019_0254 overlaid (seed 0). sbi gaussian_linear remains the known no-convergence timeout.
 
 ## Contents
 
@@ -51,9 +51,9 @@ Union of the `versions_replica_*.txt` files (replicas per group: fm: 6, image: 1
 | `scikit-learn` | 1.9.1 (fm, image, sbi, tabular, tabular_big) |  |
 | `scipy` | 1.18.1 (fm, image, sbi, tabular, tabular_big) |  |
 | `scoringrules` | 0.11.0 (fm, image, sbi, tabular, tabular_big) |  |
-| `structured-data-models` | 0.2.0rc2.dev34+g837fc07b8 @ `837fc07b8` (fm); 0.2.0rc2.dev49+g70ca27ed4 @ `70ca27ed4` (fm); not installed (image, sbi, tabular, tabular_big) | **differs** |
+| `structured-data-models` | 0.2.0rc2.dev34+g837fc07b8 @ `837fc07b8` (fm); 0.2.0rc2.dev80+g878a3ba6d @ `878a3ba6d` (fm); not installed (image, sbi, tabular, tabular_big) | **differs** |
 | `tabicl` | 2.2.0 @ `c91f00df1` (fm); not installed (image, sbi, tabular, tabular_big) | partial |
-| `tabpfn` | 9.2.0 @ `ffd53715d` (fm); not installed (fm, image, sbi, tabular, tabular_big) | partial |
+| `tabpfn` | not installed (fm, image, sbi, tabular, tabular_big) |  |
 | `torch-uncertainty` | 0.13.0 @ `3f82fe5d1` (fm, image, sbi, tabular, tabular_big) |  |
 | `torchcp` | 1.2.1 (fm, image, sbi, tabular, tabular_big) |  |
 | `torchregress` | 0.2.0 (fm, image, sbi, tabular, tabular_big) |  |
@@ -66,109 +66,19 @@ Union of the `versions_replica_*.txt` files (replicas per group: fm: 6, image: 1
 | --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fm` | 42 | 3.13.16 | 2.13.0 | True | cuda | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda True |
 | `image` | 93 | 3.13.16 | 2.13.0 | True | cuda | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda True |
-| `sbi` | 15 | 3.13.16 | 2.13.0 | False | cpu | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda False |
-| `tabular` | 420 | 3.13.16 | 2.13.0 | False | cpu | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda False |
+| `sbi` | 15 | 3.13.16 | 2.13.0 | False, True | cpu, cuda | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda False; python 3.13.16 \| torch 2.13.0 \| cuda True |
+| `tabular` | 420 | 3.13.16 | 2.13.0 | False, True | cpu, cuda | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda False; python 3.13.16 \| torch 2.13.0 \| cuda True |
 | `tabular_big` | 9 | 3.13.16 | 2.13.0 | True | cuda | 0, 1, 2 | 60 | 64 | 0.001 | 20 | False | python 3.13.16 \| torch 2.13.0 \| cuda True |
 
-Job timestamps span 2026-10-13T19:21:11.114299+00:00 to 2026-10-15T11:49:09.223295+00:00.
+Job timestamps span 2026-10-13T19:21:11.114299+00:00 to 2026-10-19T11:06:26.482053+00:00.
 
 ## Provenance
 
-- Tabulated rows: 14104 (ok 13966, failed 39, skipped 99); per-bin detail rows: 1512.
-- Rows that ran on CPU after a CUDA failure (`‡` in the tables): 30.
+- Tabulated rows: 14104 (ok 13985, failed 20, skipped 99); per-bin detail rows: 1512.
+- Rows that ran on CPU after a CUDA failure (`‡` in the tables): 37.
 - Rows with `SyntheticFallback` true: 54, all on synthetic-by-design datasets unless listed below.
 
 Synthetic-fallback check: **OK** (no real dataset fell back to synthetic data).
-
-## Key findings
-
-Curated summary for the torchregress 0.3.0 release (run #6, `release_20261013_1917`).
-Everything else in this report is generated. Pair counts and verdicts are defined
-in [Parity](#parity-torchregress-vs-comparators) and Appendix C. Run narrative:
-[`ANALYSIS.md`](results/release_20261013_1917/ANALYSIS.md).
-
-**Parity with external implementations**
-
-- **Deterministic pairs (same algorithm on the same fitted model or data):** 280 pairs.
-  203 are exact (≤ 1e-6 relative), 63 close (≤ 2%), 4 differ and 10 cannot be scored
-  because both rows are skipped (Jackknife+ refits above 500 models on 9 `uq_layer`
-  datasets; torchcp 1.2.1 has no `torchcp.regression.predictors` module for the image
-  CNN row).
-- **Conformal wrappers match MAPIE and crepes exactly.** All 181 scoreable `uq_layer`
-  pairs (`tr_{Split,Normalized,CQR,CVPlus}+Base` vs `MAPIE_*` / `crepes_*` on DeepEnsK5,
-  LightGBM, RF and TabularMLP bases, 10 datasets) are exact. The same holds for
-  `BLR_Linear` vs sklearn `BayesianRidge` (3/3) and `IsotonicMeanCalibrator` vs sklearn
-  `IsotonicRegression` (4/4).
-- **Linear-model parity is close, not exact.** The cause is L-BFGS in float32 against
-  closed-form or IRLS solvers. `Split+Linear(post-hoc)` vs MAPIE / crepes / torchcp is
-  close on all 10 conformal datasets (30 pairs; at most 0.55% in width, on
-  `tabred_delivery`). `Tweedie_Linear` / `CompoundPoisson_Linear` vs the statsmodels GLM
-  agree to within 0.01% in deviance (R² differs by 1.24% on `insurance_claims`, where
-  R² ≈ 0.007). `tr_Linear` vs the scipy MLE matches NLL to within 0.006% on all 6
-  likelihood families. `Huber_Linear` vs statsmodels RLM and `Quantile_Linear` vs
-  sklearn `QuantileRegressor` are within 1.9%.
-- **New deterministic differences: `sklearn_baselines / OLS`.** This path uses
-  `torch.linalg.lstsq` and does not match sklearn `LinearRegression` on 4 of 17
-  datasets. On `tabred_delivery`, `tabred_maps` and `tabred_weather` its RMSE is
-  10–14% higher, and on `insurance_claims` its MAE differs by 27%. The L-BFGS
-  `GaussianNLL_Linear` row stays within 0.3% of sklearn on every dataset, so the
-  numerical issue is in the lstsq path. The earlier hand-curated report listed OLS as
-  identical. This is an open item.
-- **Independently trained flows and posteriors (matched pairs) do not agree within
-  2%.** 77 pairs: 11 close, 65 differ, 1 unscored. 46 of them agree within seed noise
-  (z ≤ 2 on every key metric). On `sbi_parity`, sbi NPE has the lower C2ST than
-  `torchregress_NSF` on 4 of 5 sbibm tasks: bernoulli_glm 0.749 vs 0.675,
-  gaussian_linear 0.628 vs 0.534, gaussian_mixture 0.624 vs 0.513 and twomoons
-  0.588 vs 0.498. torchregress is better on slcp (0.805 vs 0.851). gaussian_mixture
-  is fixed relative to the earlier 0.997 ([ANALYSIS §5](results/release_20261013_1917/ANALYSIS.md#5-reruns-after-the-follow-up-fixes-2026-10-15))
-  but still trails.
-- **MDN density parity is mixed.** In `density_parity`, `torchregress_MDN` has a higher
-  NLL than `sbi_MDN` on energy_efficiency (−0.76 vs −1.33), mt_enb (−0.85 vs −1.24) and
-  mt_scm20d (0.33 vs −0.01). It has a lower NLL on mt_rf1 and pzflow_galaxies. The
-  precision-parameterisation library item stays open
-  ([ANALYSIS §2–3](results/release_20261013_1917/ANALYSIS.md#3-open-harness--library-items-from-this-run)).
-- **torchregress_NSF has much tighter calibrated intervals than pzflow's default
-  flow.** In `pzflow_parity` its interval score is 73–96% lower on all 4 datasets
-  (e.g. 0.082 vs 2.03 on pzflow_galaxies), and its NLL is lower on 3 of 4. The
-  exception is energy_efficiency (2.61 vs 2.49). `normflows_NSF` is known-bad (a
-  broadcast error on 1-D inputs) on all 12 rows.
-- **DoubleML parity holds.** `tr_Orthogonal_Poly3` vs `DoubleML_PLR_Poly3Ridge` is
-  within 2% and within seed noise on both PLR designs.
-- **Method pairs, where the model or recipe differs by design: 79 pairs, 6 close.**
-  These are worth reading before making claims:
-  - torchcp's R2C collapses on house_sales (coverage 0.00) and openml_year (0.60),
-    while `R2C+Softmax` covers 0.947–0.995.
-  - The library `IRLS` row (Huber weights, `max_iter=10`) has 21–52% higher RMSE than
-    statsmodels RLM. It is not tuned to match; `Huber_Linear` is the parity row.
-
-**Run health**
-
-- Provenance: no real dataset fell back to synthetic data. 54 synthetic-fallback rows
-  are all on `stress_*` datasets, which are synthetic by design. 30 rows ran on CPU
-  after CUDA failures (marked ‡): likelihoods NSF, TabFM, KumoTabular and the
-  multitarget NSF.
-- 39 rows failed and 99 were skipped (Appendix A). Of the failures:
-  - 15 are `age_regression / CNN+RankNContrast` and 6 are keypoint GaussianNLL.
-    Both are device-handling bugs, fixed at harness `1435827`; reruns are pending.
-  - 3 are `image_density_parity / sbi_zuko_NSF` (NVML assert).
-  - 3 are `label_shift / TT_BBSE` on folktables_income (ill-conditioned confusion
-    matrix; raises by design).
-  - 12 are the known-bad `normflows_NSF` rows.
-- `tweedie` MLP rows still fail on `insurance_claims` (R² −20.8 for Tweedie /
-  CompoundPoisson against 0.007 for the GLM). The rerun at harness `9e8c72b` (GLM
-  intercept start, clipping, early stopping) is pending
-  ([ANALYSIS §3](results/release_20261013_1917/ANALYSIS.md#3-open-harness--library-items-from-this-run)).
-- Comparator drift:
-  - `MAPIE_CrossCQR+GBR` moved to nominal coverage because the MAPIE pin moved to
-    `929740a` ([ANALYSIS §2](results/release_20261013_1917/ANALYSIS.md#2-against-run-5-same-jobs-2-364-common-cells)).
-  - In the `fm` group, `structured-data-models` was recorded at two commits
-    (`837fc07`, `70ca27e`), and `tabpfn` is installed in only 1 of 6 replicas (see
-    Comparator versions).
-  - The pip metadata for `torchregress` reads 0.2.0 in every replica. The commit
-    above is the authoritative reference.
-- Seed spread: 1 847 table cells have a relative std above 5%. 1 298 of them are in
-  `fm_uq_scenarios`, mostly the perturbed scenarios. Rank those cells with error bars
-  only.
 
 ## Summary
 
@@ -177,17 +87,17 @@ in [Parity](#parity-torchregress-vs-comparators) and Appendix C. Run narrative:
 | `fm` | [fm_multitarget](#fm_multitarget-fm) | 12 | 4 | 19 | 210 | 0 | 0 |
 | `fm` | [fm_uq_scenarios](#fm_uq_scenarios-fm) | 18 | 6 | 289 | 5192 | 0 | 0 |
 | `fm` | [foundation_model](#foundation_model-fm) | 12 | 4 | 6 | 65 | 0 | 0 |
-| `image` | [age_regression](#age_regression-image) | 15 | 5 | 28 | 405 | 15 | 0 |
+| `image` | [age_regression](#age_regression-image) | 15 | 5 | 28 | 415 | 5 | 0 |
 | `image` | [cell_counting](#cell_counting-image) | 6 | 2 | 11 | 66 | 0 | 0 |
 | `image` | [censored_imaging](#censored_imaging-image) | 12 | 4 | 5 | 60 | 0 | 0 |
 | `image` | [crowd_counting](#crowd_counting-image) | 9 | 3 | 5 | 45 | 0 | 0 |
 | `image` | [depth_estimation](#depth_estimation-image) | 15 | 5 | 12 | 180 | 0 | 0 |
 | `image` | [image_calibration](#image_calibration-image) | 3 | 1 | 3 | 9 | 0 | 0 |
 | `image` | [image_conformal](#image_conformal-image) | 3 | 1 | 10 | 27 | 0 | 3 |
-| `image` | [image_density_parity](#image_density_parity-image) | 9 | 3 | 8 | 69 | 3 | 0 |
+| `image` | [image_density_parity](#image_density_parity-image) | 9 | 3 | 8 | 72 | 0 | 0 |
 | `image` | [image_ensembles_uq](#image_ensembles_uq-image) | 3 | 1 | 5 | 15 | 0 | 0 |
 | `image` | [image_robust](#image_robust-image) | 15 | 5 | 12 | 180 | 0 | 0 |
-| `image` | [keypoint_regression](#keypoint_regression-image) | 3 | 1 | 9 | 21 | 6 | 0 |
+| `image` | [keypoint_regression](#keypoint_regression-image) | 3 | 1 | 9 | 27 | 0 | 0 |
 | `sbi` | [sbi_parity](#sbi_parity-sbi) | 15 | 5 | 9 | 135 | 0 | 0 |
 | `tabular` | [bayesian_linear](#bayesian_linear-tabular) | 9 | 3 | 6 | 54 | 0 | 0 |
 | `tabular` | [calibration](#calibration-tabular) | 12 | 4 | 6 | 72 | 0 | 0 |
@@ -220,7 +130,7 @@ in [Parity](#parity-torchregress-vs-comparators) and Appendix C. Run narrative:
 | `tabular` | [uq_layer](#uq_layer-tabular) | 30 | 10 | 50 | 1446 | 0 | 54 |
 | `tabular_big` | [eiv](#eiv-tabular_big) | 3 | 1 | 25 | 69 | 0 | 6 |
 | `tabular_big` | [likelihoods](#likelihoods-tabular_big) | 6 | 2 | 10 | 60 | 0 | 0 |
-| **total** |  | **579** | **193** | **904** | **13966** | **39** | **99** |
+| **total** |  | **579** | **193** | **904** | **13985** | **20** | **99** |
 
 ## Parity: torchregress vs comparators
 
@@ -241,9 +151,9 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | deterministic | `uq_layer` | 181 | 0 | 0 | 9 | 0 | 190 |
 | matched | `conformal` | 0 | 4 | 6 | 0 | 7 | 10 |
 | matched | `density_parity` | 0 | 2 | 33 | 0 | 22 | 35 |
-| matched | `image_density_parity` | 0 | 3 | 11 | 1 | 9 | 15 |
+| matched | `image_density_parity` | 0 | 3 | 12 | 0 | 10 | 15 |
 | matched | `orthogonal_inference` | 0 | 2 | 0 | 0 | 2 | 2 |
-| matched | `sbi_parity` | 0 | 0 | 15 | 0 | 6 | 15 |
+| matched | `sbi_parity` | 0 | 0 | 15 | 0 | 7 | 15 |
 | method | `age_regression` | 0 | 0 | 10 | 0 | 4 | 10 |
 | method | `causal` | 0 | 0 | 2 | 0 | 2 | 2 |
 | method | `censored` | 0 | 0 | 2 | 0 | 0 | 2 |
@@ -258,11 +168,11 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | method | `pzflow_parity` | 0 | 0 | 4 | 4 | 0 | 8 |
 | method | `r2c_conformal` | 0 | 0 | 5 | 0 | 0 | 5 |
 | method | `robust_regression` | 0 | 0 | 3 | 0 | 0 | 3 |
-| method | `sbi_parity` | 0 | 0 | 5 | 0 | 0 | 5 |
+| method | `sbi_parity` | 0 | 0 | 5 | 0 | 1 | 5 |
 | method | `stress_matrix` | 0 | 0 | 1 | 0 | 0 | 1 |
 | **deterministic total** |  | **203** | **63** | **4** | **10** | **0** | **280** |
-| **matched total** |  | **0** | **11** | **65** | **1** | **46** | **77** |
-| **method total** |  | **0** | **6** | **69** | **4** | **18** | **79** |
+| **matched total** |  | **0** | **11** | **66** | **0** | **48** | **77** |
+| **method total** |  | **0** | **6** | **69** | **4** | **19** | **79** |
 
 ### Deterministic pairs
 
@@ -607,7 +517,7 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | `image_density_parity` | synthetic_image_keypoint | `torchregress_MAF` | `sbi_zuko_MAF` | 3 | NLL 11.3877 vs 9.7852 (16.38%, z=1.0)<br>CRPS 0.5894 vs 0.5546 (5.91%, z=1.0)<br>Cov90_marg 0.9201 vs 0.9094 (1.16%, z=2.2) | no | **differs** |
 | `image_density_parity` | synthetic_image_keypoint | `torchregress_MDN` | `sbi_MDN` | 3 | NLL 11.4285 vs 11.3806 (0.42%, z=4.6)<br>CRPS 0.5892 vs 0.5898 (0.11%, z=1.2)<br>Cov90_marg 0.9297 vs 0.9227 (0.76%, z=1.2) | no | close |
 | `image_density_parity` | synthetic_image_keypoint | `torchregress_NSF` | `sbi_NSF` | 3 | NLL 9.1681 vs 10.5001 (12.69%, z=1.1)<br>CRPS 0.5553 vs 0.5817 (4.54%, z=0.9)<br>Cov90_marg 0.8826 vs 0.8914 (0.99%, z=2.4) | no | **differs** |
-| `image_density_parity` | synthetic_image_keypoint | `torchregress_NSF` | `sbi_zuko_NSF` | 0 | no common ok seeds | - | n/a |
+| `image_density_parity` | synthetic_image_keypoint | `torchregress_NSF` | `sbi_zuko_NSF` | 3 | NLL 9.1681 vs 8.9837 (2.05%, z=0.1)<br>CRPS 0.5553 vs 0.5513 (0.72%, z=0.1)<br>Cov90_marg 0.8826 vs 0.8753 (0.83%, z=0.5) | yes | **differs** |
 | `image_density_parity` | udacity_steering | `torchregress_MAF` | `sbi_MAF` | 3 | NLL 9.4583 vs 1.2557 (653.22%, z=1.0)<br>CRPS 0.4676 vs 0.4899 (4.56%, z=0.8)<br>Cov90_marg 0.8708 vs 0.8733 (0.29%, z=0.1) | yes | **differs** |
 | `image_density_parity` | udacity_steering | `torchregress_MAF` | `sbi_zuko_MAF` | 3 | NLL 9.4583 vs 104.0 (90.91%, z=1.8)<br>CRPS 0.4676 vs 0.4582 (2.01%, z=0.3)<br>Cov90_marg 0.8708 vs 0.8467 (2.78%, z=1.2) | yes | **differs** |
 | `image_density_parity` | udacity_steering | `torchregress_MDN` | `sbi_MDN` | 3 | NLL 0.1382 vs 6.708e-04 (13.75%, z=0.7)<br>CRPS 0.4871 vs 0.4772 (2.03%, z=1.5)<br>Cov90_marg 0.8950 vs 0.9033 (0.92%, z=1.9) | yes | **differs** |
@@ -624,12 +534,12 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | `sbi_parity` | sbibm_gaussian_mixture | `torchregress_MAF` | `sbi_NPE_MAF` | 3 | C2ST 0.6927 vs 0.6519 (5.89%, z=1.2)<br>MeanRMSE 0.2389 vs 0.1861 (22.10%, z=1.3) | yes | **differs** |
 | `sbi_parity` | sbibm_gaussian_mixture | `torchregress_MDN` | `sbi_NPE_MDN` | 3 | C2ST 0.5505 vs 0.5405 (1.82%, z=0.5)<br>MeanRMSE 0.1231 vs 0.1705 (27.78%, z=3.2) | no | **differs** |
 | `sbi_parity` | sbibm_gaussian_mixture | `torchregress_NSF` | `sbi_NPE` | 3 | C2ST 0.6236 vs 0.5130 (17.74%, z=4.8)<br>MeanRMSE 0.1996 vs 0.0909 (54.45%, z=4.2) | no | **differs** |
-| `sbi_parity` | sbibm_slcp | `torchregress_MAF` | `sbi_NPE_MAF` | 3 | C2ST 0.9166 vs 0.9292 (1.35%, z=0.6)<br>MeanRMSE 1.0100 vs 1.0748 (6.03%, z=0.4) | yes | **differs** |
-| `sbi_parity` | sbibm_slcp | `torchregress_MDN` | `sbi_NPE_MDN` | 3 | C2ST 0.8971 vs 0.8716 (2.85%, z=0.7)<br>MeanRMSE 1.2191 vs 0.9831 (19.36%, z=0.8) | yes | **differs** |
-| `sbi_parity` | sbibm_slcp | `torchregress_NSF` | `sbi_NPE` | 3 | C2ST 0.8047 vs 0.8514 (5.47%, z=2.8)<br>MeanRMSE 0.8948 vs 1.2247 (26.94%, z=2.6) | no | **differs** |
-| `sbi_parity` | sbibm_twomoons | `torchregress_MAF` | `sbi_NPE_MAF` | 3 | C2ST 0.5889 vs 0.6285 (6.30%, z=0.7)<br>MeanRMSE 0.0180 vs 0.0241 (25.49%, z=0.9) | yes | **differs** |
-| `sbi_parity` | sbibm_twomoons | `torchregress_MDN` | `sbi_NPE_MDN` | 3 | C2ST 0.6861 vs 0.5338 (22.21%, z=1.2)<br>MeanRMSE 0.0269 vs 0.0419 (35.62%, z=0.9) | yes | **differs** |
-| `sbi_parity` | sbibm_twomoons | `torchregress_NSF` | `sbi_NPE` | 3 | C2ST 0.5885 vs 0.4982 (15.33%, z=2.6)<br>MeanRMSE 0.0161 vs 0.0187 (14.26%, z=0.9) | no | **differs** |
+| `sbi_parity` | sbibm_slcp | `torchregress_MAF` | `sbi_NPE_MAF` | 3 | C2ST 0.9223 vs 0.9292 (0.74%, z=0.3)<br>MeanRMSE 1.0425 vs 1.0748 (3.01%, z=0.2) | yes | **differs** |
+| `sbi_parity` | sbibm_slcp | `torchregress_MDN` | `sbi_NPE_MDN` | 3 | C2ST 0.8947 vs 0.8716 (2.58%, z=0.7)<br>MeanRMSE 1.1837 vs 0.9831 (16.94%, z=0.8) | yes | **differs** |
+| `sbi_parity` | sbibm_slcp | `torchregress_NSF` | `sbi_NPE` | 3 | C2ST 0.8231 vs 0.8514 (3.32%, z=1.0)<br>MeanRMSE 0.8784 vs 1.2247 (28.27%, z=3.0) | no | **differs** |
+| `sbi_parity` | sbibm_twomoons | `torchregress_MAF` | `sbi_NPE_MAF` | 3 | C2ST 0.6375 vs 0.6285 (1.41%, z=0.1)<br>MeanRMSE 0.0288 vs 0.0241 (16.09%, z=0.4) | yes | **differs** |
+| `sbi_parity` | sbibm_twomoons | `torchregress_MDN` | `sbi_NPE_MDN` | 3 | C2ST 0.6854 vs 0.5338 (22.13%, z=1.2)<br>MeanRMSE 0.0262 vs 0.0419 (37.44%, z=0.9) | yes | **differs** |
+| `sbi_parity` | sbibm_twomoons | `torchregress_NSF` | `sbi_NPE` | 3 | C2ST 0.5731 vs 0.4982 (13.06%, z=1.7)<br>MeanRMSE 0.0161 vs 0.0187 (14.32%, z=0.9) | yes | **differs** |
 
 ### Method pairs
 
@@ -678,14 +588,14 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | `ensembles` | tabred_weather | `Stacking` | `sklearn_StackingRegressor` | 3 | RMSE 1.8358 vs 1.6762 (8.69%, z=23.3) | no | **differs** |
 | `ensembles` | zurich_delays | `Stacking` | `sklearn_StackingRegressor` | 3 | RMSE 111.5 vs 111.1 (0.30%, z=0.2) | yes | close |
 | `image_ensembles_uq` | synthetic_image_regression | `MC_Dropout` | `luqbox_MCDropout` | 3 | RMSE 0.0567 vs 0.0787 (27.98%, z=2.7)<br>NLL -0.1096 vs -0.8788 (76.92%, z=3.6) | no | **differs** |
-| `label_shift` | california_housing | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4443 vs 0.8611 (48.40%, z=9.9)<br>RMSE 0.5843 vs 0.5843 (0, z=0.0) | no | **differs** |
-| `label_shift` | diabetes | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4737 vs 0.5654 (16.20%, z=4.6)<br>RMSE 53.1870 vs 53.1870 (0, z=0.0) | no | **differs** |
-| `label_shift` | folktables_income | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4135 vs 5.9586 (93.06%, z=3.9)<br>RMSE 80208.4 vs 80208.4 (0, z=0.0) | no | **differs** |
+| `label_shift` | california_housing | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4592 vs 0.8611 (46.67%, z=9.3)<br>RMSE 0.5822 vs 0.5822 (0, z=0.0) | no | **differs** |
+| `label_shift` | diabetes | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4745 vs 0.5654 (16.07%, z=4.5)<br>RMSE 53.1711 vs 53.1711 (0, z=0.0) | no | **differs** |
+| `label_shift` | folktables_income | `LibDomainClassifier` | `DomainClassifier` | 3 | WeightRMSE 0.4135 vs 5.9586 (93.06%, z=3.9)<br>RMSE 80119.7 vs 80119.7 (0, z=0.0) | no | **differs** |
 | `missing_data` | california_housing | `PropensityWeighted` | `sklearn_IPW` | 3 | RMSE 0.7527 vs 0.8029 (6.25%, z=0.4) | yes | **differs** |
 | `missing_data` | diabetes | `PropensityWeighted` | `sklearn_IPW` | 3 | RMSE 54.8692 vs 54.2739 (1.08%, z=1.6) | yes | close |
 | `missing_data` | folktables_income | `PropensityWeighted` | `sklearn_IPW` | 3 | RMSE 82628.1 vs 74295.5 (10.08%, z=6.6) | no | **differs** |
-| `ordinal` | folktables_decile | `CumulativeLink` | `statsmodels_OrderedModel` | 3 | MAE 1.4714 vs 1.5238 (3.44%, z=19.8)<br>QWK 0.7227 vs 0.7300 (1.01%, z=20.7) | no | **differs** |
-| `ordinal` | synthetic_ordinal | `CumulativeLink` | `statsmodels_OrderedModel` | 3 | MAE 0.2642 vs 0.2500 (5.36%, z=2.6)<br>QWK 0.9322 vs 0.9357 (0.38%, z=2.5) | no | **differs** |
+| `ordinal` | folktables_decile | `CumulativeLink` | `statsmodels_OrderedModel` | 3 | MAE 1.4660 vs 1.5238 (3.80%, z=16.8)<br>QWK 0.7224 vs 0.7300 (1.04%, z=25.6) | no | **differs** |
+| `ordinal` | synthetic_ordinal | `CumulativeLink` | `statsmodels_OrderedModel` | 3 | MAE 0.2692 vs 0.2500 (7.12%, z=3.3)<br>QWK 0.9298 vs 0.9357 (0.64%, z=3.4) | no | **differs** |
 | `ppi` | california_housing | `PPI_Mean` | `PPI_py_Mean` | 3 | Estimate 1.9805 vs 1.9806 (7.8e-03%, z=0.0)<br>CIWidth 0.2082 vs 0.2102 (0.94%, z=0.2) | yes | close |
 | `ppi` | california_housing | `PPI_Quantile` | `PPI_py_Quantile` | 3 | Estimate 1.7457 vs 1.7574 (0.67%, z=0.2)<br>CIWidth 0.4767 vs 0.4751 (0.35%, z=0.0) | yes | close |
 | `ppi` | diabetes | `PPI_Mean` | `PPI_py_Mean` | 3 | Estimate 150.6 vs 150.6 (0.02%, z=0.0)<br>CIWidth 31.3126 vs 27.1887 (13.17%, z=2.3) | no | **differs** |
@@ -711,8 +621,8 @@ Pairs come from the explicit rules in Appendix C, evaluated per dataset on the s
 | `sbi_parity` | sbibm_bernoulli_glm | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.7493 vs 0.8006 (6.41%, z=6.2)<br>MeanRMSE 0.7053 vs 0.5768 (18.22%, z=2.3) | no | **differs** |
 | `sbi_parity` | sbibm_gaussian_linear | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.6285 vs 0.7928 (20.73%, z=11.9)<br>MeanRMSE 0.1991 vs 0.2056 (3.14%, z=0.6) | no | **differs** |
 | `sbi_parity` | sbibm_gaussian_mixture | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.6236 vs 0.5546 (11.06%, z=2.9)<br>MeanRMSE 0.1996 vs 0.1068 (46.48%, z=3.2) | no | **differs** |
-| `sbi_parity` | sbibm_slcp | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.8047 vs 0.8591 (6.32%, z=4.0)<br>MeanRMSE 0.8948 vs 1.0855 (17.57%, z=1.3) | no | **differs** |
-| `sbi_parity` | sbibm_twomoons | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.5885 vs 0.5167 (12.20%, z=2.0)<br>MeanRMSE 0.0161 vs 0.0425 (62.17%, z=2.7) | no | **differs** |
+| `sbi_parity` | sbibm_slcp | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.8231 vs 0.8591 (4.19%, z=1.3)<br>MeanRMSE 0.8784 vs 1.0855 (19.08%, z=1.4) | yes | **differs** |
+| `sbi_parity` | sbibm_twomoons | `torchregress_NSF` | `pzflow_NSF` | 3 | C2ST 0.5731 vs 0.5167 (9.84%, z=1.2)<br>MeanRMSE 0.0161 vs 0.0425 (62.20%, z=2.7) | no | **differs** |
 | `stress_matrix` | stress_ood | `stress_ood/MC_Dropout` | `stress_ood/luqbox_MCDropout` | 3 | RMSE 0.6794 vs 0.7663 (11.34%, z=1.5)<br>NLL 1.8226 vs 1.1330 (60.86%, z=6.0) | no | **differs** |
 
 ## Results by suite
@@ -829,330 +739,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.8933 ± 0.0127 | 0.8945 ± 0.0339 | 1.2997 ± 0.0721 † | 0.3858 ± 0.0159 | 0.8478 ± 0.0308 | 2.2332 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.8300 ± 0.0056 | 1.5006 ± 0.0212 | 2.2182 ± 0.0723 | 0.4881 ± 0.0179 | 0.4543 ± 0.0296 | 2.0354 |
-| `Raw+TabICL [clean]` | tabicl | 0.8880 ± 0.0191 | 0.9960 ± 0.0580 | 1.4704 ± 0.0237 | 0.4124 ± 0.0035 | 0.7828 ± 0.0184 | 1.8248 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.9140 ± 0.0000 | 1.4305 ± 0.0149 | 2.0198 ± 0.0192 | 0.5022 ± 0.0087 | 0.7176 ± 0.0204 | 24.5051 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9000 ± 0.0200 | 0.9099 ± 0.0279 | 1.3005 ± 0.0736 † | 0.3858 ± 0.0159 | 0.8577 ± 0.0365 | 2.2332 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.8993 ± 0.0035 | 1.5922 ± 0.0201 | 2.1962 ± 0.0658 | 0.4881 ± 0.0179 | 0.6845 ± 0.0549 | 2.0354 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.8980 ± 0.0217 | 1.0161 ± 0.0400 | 1.4691 ± 0.0265 | 0.4124 ± 0.0035 | 0.8164 ± 0.0260 | 1.8248 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8910 ± 0.0111 | 1.3403 ± 0.0382 | 2.0183 ± 0.0159 | 0.5022 ± 0.0087 | 0.6967 ± 0.0337 | 24.5051 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9000 ± 0.0182 | 0.9210 ± 0.0335 | **1.2992 ± 0.0763** † | 0.3858 ± 0.0159 | 0.8573 ± 0.0318 | 2.2332 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.8930 ± 0.0078 | 2.9702 ± 0.1511 | 3.1421 ± 0.0949 | 0.4881 ± 0.0179 | 0.5939 ± 0.0122 | 2.0354 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.8960 ± 0.0200 | 1.0236 ± 0.0385 | 1.4667 ± 0.0303 | 0.4124 ± 0.0035 | 0.8020 ± 0.0230 | 1.8248 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8877 ± 0.0075 | 1.3073 ± 0.0349 | 2.0265 ± 0.0115 | 0.5022 ± 0.0087 | 0.6875 ± 0.0311 | 24.5051 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.9027 ± 0.0102 | 1.0128 ± 0.0057 | 1.7444 ± 0.0868 | 0.3858 ± 0.0159 | 0.7955 ± 0.0156 | 2.2332 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8907 ± 0.0206 | 1.3074 ± 0.0531 | 2.1756 ± 0.1072 | 0.4881 ± 0.0179 | 0.6801 ± 0.0577 | 2.0354 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8983 ± 0.0111 | 1.0048 ± 0.0116 | 1.6956 ± 0.1056 † | **0.3799 ± 0.0206** | 0.8026 ± 0.0390 | 8.2082 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8963 ± 0.0107 | 1.0874 ± 0.0393 | 1.8774 ± 0.0278 | 0.4124 ± 0.0035 | 0.7802 ± 0.0138 | 1.8248 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8897 ± 0.0153 | 1.3911 ± 0.0258 | 2.1637 ± 0.0299 | 0.5022 ± 0.0087 | 0.6835 ± 0.0522 | 24.5051 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9030 ± 0.0149 | 0.9522 ± 0.0430 | 1.4576 ± 0.0625 | 0.3858 ± 0.0159 | 0.7853 ± 0.0335 | 2.2332 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8950 ± 0.0140 | 1.2706 ± 0.0069 | 2.1006 ± 0.0817 | 0.4881 ± 0.0179 | 0.6805 ± 0.0479 | 2.0354 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.8977 ± 0.0142 | 1.0001 ± 0.0479 | 1.6178 ± 0.0337 | 0.4124 ± 0.0035 | 0.7769 ± 0.0141 | 1.8248 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8877 ± 0.0075 | 1.3073 ± 0.0349 | 2.0265 ± 0.0115 | 0.5022 ± 0.0087 | 0.6875 ± 0.0311 | 24.5051 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9013 ± 0.0231 | 0.9233 ± 0.0388 | 1.3003 ± 0.0762 † | 0.3862 ± 0.0161 | 0.8579 ± 0.0383 | 2.2332 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8963 ± 0.0099 | 2.3624 ± 0.2339 | 2.6704 ± 0.1532 † | 0.4863 ± 0.0177 | 0.5310 ± 0.0460 | 2.0354 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8967 ± 0.0199 | 1.0234 ± 0.0400 | 1.4676 ± 0.0291 | 0.4132 ± 0.0057 | 0.8080 ± 0.0266 | 1.8248 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8843 ± 0.0074 | 1.3414 ± 0.0556 | 1.9979 ± 0.0187 | 0.5103 ± 0.0116 | 0.7181 ± 0.0319 | 24.5051 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8953 ± 0.0023 | 1.0473 ± 0.0452 | 1.8842 ± 0.0716 | 0.3859 ± 0.0160 | 0.6789 ± 0.0351 | 2.2332 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8927 ± 0.0057 | 1.4046 ± 0.0207 | 2.3284 ± 0.1075 | 0.4877 ± 0.0179 | 0.6179 ± 0.0375 | 2.0354 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.8993 ± 0.0110 | 1.0915 ± 0.0802 | 1.8571 ± 0.0991 † | 0.3814 ± 0.0215 | 0.6860 ± 0.0675 | 8.2082 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9040 ± 0.0087 | 1.1818 ± 0.0391 | 2.0233 ± 0.0254 | 0.4125 ± 0.0041 | 0.6988 ± 0.0595 | 1.8248 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8890 ± 0.0066 | 1.5033 ± 0.0395 | 2.4082 ± 0.0478 | 0.5053 ± 0.0096 | 0.5999 ± 0.0284 | 24.5051 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.9013 ± 0.0042 | 1.0458 ± 0.0591 | 1.9131 ± 0.0750 | 0.3858 ± 0.0159 | 0.6619 ± 0.0177 | 2.2332 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.8957 ± 0.0116 | 1.4071 ± 0.0258 | 2.4008 ± 0.1264 † | 0.4881 ± 0.0179 | 0.5589 ± 0.0533 | 2.0354 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.9010 ± 0.0108 | 1.0827 ± 0.0663 | 1.8602 ± 0.0993 † | **0.3799 ± 0.0206** | 0.6678 ± 0.0508 | 8.2082 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.8983 ± 0.0080 | 1.1509 ± 0.0567 | 2.0596 ± 0.0099 | 0.4124 ± 0.0035 | 0.6534 ± 0.0141 | 1.8248 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.8927 ± 0.0110 | 1.4669 ± 0.0341 | 2.4345 ± 0.0598 | 0.5022 ± 0.0087 | 0.5547 ± 0.0075 | 24.5051 |
+| `Raw+KumoTabular [clean]` | sdm | 0.8933 ± 0.0127 | 0.8945 ± 0.0339 | 1.2997 ± 0.0721 † | 0.3858 ± 0.0159 | 0.8478 ± 0.0308 | 3.5686 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.8300 ± 0.0056 | 1.5006 ± 0.0212 | 2.2182 ± 0.0723 | 0.4881 ± 0.0179 | 0.4543 ± 0.0296 | 1.9963 |
+| `Raw+TabICL [clean]` | tabicl | 0.8880 ± 0.0191 | 0.9960 ± 0.0580 | 1.4704 ± 0.0237 | 0.4124 ± 0.0035 | 0.7828 ± 0.0184 | 1.8530 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.9140 ± 0.0000 | 1.4305 ± 0.0149 | 2.0198 ± 0.0192 | 0.5022 ± 0.0087 | 0.7176 ± 0.0204 | 24.4665 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9000 ± 0.0200 | 0.9099 ± 0.0279 | 1.3005 ± 0.0736 † | 0.3858 ± 0.0159 | 0.8577 ± 0.0365 | 3.5686 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.8993 ± 0.0035 | 1.5922 ± 0.0201 | 2.1962 ± 0.0658 | 0.4881 ± 0.0179 | 0.6845 ± 0.0549 | 1.9963 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.8980 ± 0.0217 | 1.0161 ± 0.0400 | 1.4691 ± 0.0265 | 0.4124 ± 0.0035 | 0.8164 ± 0.0260 | 1.8530 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8910 ± 0.0111 | 1.3403 ± 0.0382 | 2.0183 ± 0.0159 | 0.5022 ± 0.0087 | 0.6967 ± 0.0337 | 24.4665 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9000 ± 0.0182 | 0.9210 ± 0.0335 | **1.2992 ± 0.0763** † | 0.3858 ± 0.0159 | 0.8573 ± 0.0318 | 3.5686 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.8930 ± 0.0078 | 2.9702 ± 0.1511 | 3.1421 ± 0.0949 | 0.4881 ± 0.0179 | 0.5939 ± 0.0122 | 1.9963 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.8960 ± 0.0200 | 1.0236 ± 0.0385 | 1.4667 ± 0.0303 | 0.4124 ± 0.0035 | 0.8020 ± 0.0230 | 1.8530 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8877 ± 0.0075 | 1.3073 ± 0.0349 | 2.0265 ± 0.0115 | 0.5022 ± 0.0087 | 0.6875 ± 0.0311 | 24.4665 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.9027 ± 0.0102 | 1.0128 ± 0.0057 | 1.7444 ± 0.0868 | 0.3858 ± 0.0159 | 0.7955 ± 0.0156 | 3.5686 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8907 ± 0.0206 | 1.3074 ± 0.0531 | 2.1756 ± 0.1072 | 0.4881 ± 0.0179 | 0.6801 ± 0.0577 | 1.9963 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8983 ± 0.0111 | 1.0048 ± 0.0116 | 1.6956 ± 0.1056 † | **0.3799 ± 0.0206** | 0.8026 ± 0.0390 | 14.8261 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8963 ± 0.0107 | 1.0874 ± 0.0393 | 1.8774 ± 0.0278 | 0.4124 ± 0.0035 | 0.7802 ± 0.0138 | 1.8530 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8897 ± 0.0153 | 1.3911 ± 0.0258 | 2.1637 ± 0.0299 | 0.5022 ± 0.0087 | 0.6835 ± 0.0522 | 24.4665 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9030 ± 0.0149 | 0.9522 ± 0.0430 | 1.4576 ± 0.0625 | 0.3858 ± 0.0159 | 0.7853 ± 0.0335 | 3.5686 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8950 ± 0.0140 | 1.2706 ± 0.0069 | 2.1006 ± 0.0817 | 0.4881 ± 0.0179 | 0.6805 ± 0.0479 | 1.9963 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.8977 ± 0.0142 | 1.0001 ± 0.0479 | 1.6178 ± 0.0337 | 0.4124 ± 0.0035 | 0.7769 ± 0.0141 | 1.8530 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8877 ± 0.0075 | 1.3073 ± 0.0349 | 2.0265 ± 0.0115 | 0.5022 ± 0.0087 | 0.6875 ± 0.0311 | 24.4665 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9013 ± 0.0231 | 0.9233 ± 0.0388 | 1.3003 ± 0.0762 † | 0.3862 ± 0.0161 | 0.8579 ± 0.0383 | 3.5686 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8963 ± 0.0099 | 2.3624 ± 0.2339 | 2.6704 ± 0.1532 † | 0.4863 ± 0.0177 | 0.5310 ± 0.0460 | 1.9963 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8967 ± 0.0199 | 1.0234 ± 0.0400 | 1.4676 ± 0.0291 | 0.4132 ± 0.0057 | 0.8080 ± 0.0266 | 1.8530 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8843 ± 0.0074 | 1.3414 ± 0.0556 | 1.9979 ± 0.0187 | 0.5103 ± 0.0116 | 0.7181 ± 0.0319 | 24.4665 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8953 ± 0.0023 | 1.0473 ± 0.0452 | 1.8842 ± 0.0716 | 0.3859 ± 0.0160 | 0.6789 ± 0.0351 | 3.5686 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8927 ± 0.0057 | 1.4046 ± 0.0207 | 2.3284 ± 0.1075 | 0.4877 ± 0.0179 | 0.6179 ± 0.0375 | 1.9963 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.8993 ± 0.0110 | 1.0915 ± 0.0802 | 1.8571 ± 0.0991 † | 0.3814 ± 0.0215 | 0.6860 ± 0.0675 | 14.8261 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9040 ± 0.0087 | 1.1818 ± 0.0391 | 2.0233 ± 0.0254 | 0.4125 ± 0.0041 | 0.6988 ± 0.0595 | 1.8530 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8890 ± 0.0066 | 1.5033 ± 0.0395 | 2.4082 ± 0.0478 | 0.5053 ± 0.0096 | 0.5999 ± 0.0284 | 24.4665 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.9013 ± 0.0042 | 1.0458 ± 0.0591 | 1.9131 ± 0.0750 | 0.3858 ± 0.0159 | 0.6619 ± 0.0177 | 3.5686 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.8957 ± 0.0116 | 1.4071 ± 0.0258 | 2.4008 ± 0.1264 † | 0.4881 ± 0.0179 | 0.5589 ± 0.0533 | 1.9963 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.9010 ± 0.0108 | 1.0827 ± 0.0663 | 1.8602 ± 0.0993 † | **0.3799 ± 0.0206** | 0.6678 ± 0.0508 | 14.8261 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.8983 ± 0.0080 | 1.1509 ± 0.0567 | 2.0596 ± 0.0099 | 0.4124 ± 0.0035 | 0.6534 ± 0.0141 | 1.8530 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.8927 ± 0.0110 | 1.4669 ± 0.0341 | 2.4345 ± 0.0598 | 0.5022 ± 0.0087 | 0.5547 ± 0.0075 | 24.4665 |
 
 ##### fm_uq_scenarios / california_housing@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9360 ± 0.0046 | 1.6564 ± 0.0369 | **1.8464 ± 0.0101** | 0.4809 ± 0.0155 | 0.8697 ± 0.0279 | 1.8082 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7900 ± 0.0114 | 1.6482 ± 0.0560 | 2.5024 ± 0.0670 | 0.5605 ± 0.0132 | 0.3749 ± 0.0095 | 1.8767 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9407 ± 0.0076 | 1.9352 ± 0.0786 | 2.1301 ± 0.0511 | 0.4958 ± 0.0096 | 0.8465 ± 0.0422 | 1.7219 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9040 ± 0.0166 | 1.7948 ± 0.0893 | 2.4701 ± 0.0116 | 0.5898 ± 0.0234 | 0.7742 ± 0.0264 | 24.9950 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9393 ± 0.0059 | 1.6690 ± 0.0525 | 1.8511 ± 0.0168 | 0.4809 ± 0.0155 | 0.8770 ± 0.0318 | 1.8082 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8737 ± 0.0035 | 1.7675 ± 0.0505 | 2.4433 ± 0.0622 | 0.5605 ± 0.0132 | 0.5282 ± 0.0721 | 1.8767 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9447 ± 0.0059 | 1.9465 ± 0.0784 | 2.1346 ± 0.0543 | 0.4958 ± 0.0096 | 0.8658 ± 0.0423 | 1.7219 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8847 ± 0.0117 | 1.7219 ± 0.0710 | 2.4725 ± 0.0176 | 0.5898 ± 0.0234 | 0.7380 ± 0.0353 | 24.9950 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9407 ± 0.0080 | 1.7043 ± 0.1050 | 1.8756 ± 0.0499 | 0.4809 ± 0.0155 | 0.8749 ± 0.0363 | 1.8082 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8523 ± 0.0378 | 2.3416 ± 0.1425 | 2.7515 ± 0.0738 | 0.5605 ± 0.0132 | 0.4654 ± 0.1205 | 1.8767 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9453 ± 0.0050 | 1.9859 ± 0.1041 | 2.1596 ± 0.0800 | 0.4958 ± 0.0096 | 0.8668 ± 0.0524 | 1.7219 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8780 ± 0.0089 | 1.6559 ± 0.0457 | 2.4602 ± 0.0272 | 0.5898 ± 0.0234 | 0.7304 ± 0.0251 | 24.9950 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8210 ± 0.0223 | 1.1834 ± 0.0579 | 2.3763 ± 0.1167 | 0.4809 ± 0.0155 | 0.5137 ± 0.0664 | 1.8082 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.8667 ± 0.0211 | 1.6135 ± 0.0857 | 2.4992 ± 0.0400 | 0.5605 ± 0.0132 | 0.5571 ± 0.0515 | 1.8767 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8360 ± 0.0182 | 1.2241 ± 0.0599 | 2.2366 ± 0.0628 | 0.4690 ± 0.0100 | 0.4230 ± 0.0439 | 8.2300 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.8467 ± 0.0295 | 1.3068 ± 0.0784 | 2.3550 ± 0.0814 | 0.4958 ± 0.0096 | 0.4707 ± 0.0874 | 1.7219 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.8380 ± 0.0207 | 1.7064 ± 0.0170 | 2.7140 ± 0.0880 | 0.5898 ± 0.0234 | 0.4366 ± 0.1425 | 24.9950 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9337 ± 0.0055 | 1.6968 ± 0.0460 | 2.0898 ± 0.0264 | 0.4809 ± 0.0155 | 0.8784 ± 0.0151 | 1.8082 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8623 ± 0.0160 | 1.4551 ± 0.0557 | 2.4433 ± 0.0520 | 0.5605 ± 0.0132 | 0.7772 ± 0.0159 | 1.8767 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9490 ± 0.0056 | 1.9397 ± 0.0512 | 2.3232 ± 0.0056 | 0.4958 ± 0.0096 | 0.8946 ± 0.0105 | 1.7219 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8780 ± 0.0089 | 1.6559 ± 0.0457 | 2.4602 ± 0.0272 | 0.5898 ± 0.0234 | 0.7304 ± 0.0251 | 24.9950 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9430 ± 0.0092 | 1.7107 ± 0.0924 | 1.8798 ± 0.0429 | 0.4817 ± 0.0140 | 0.8768 ± 0.0439 | 1.8082 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8587 ± 0.0281 | 2.1934 ± 0.0584 | 2.6910 ± 0.0414 | 0.5625 ± 0.0115 | 0.5480 ± 0.0501 | 1.8767 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9433 ± 0.0074 | 1.9915 ± 0.0937 | 2.1663 ± 0.0729 | 0.4946 ± 0.0080 | 0.8525 ± 0.0707 | 1.7219 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8863 ± 0.0049 | 1.7225 ± 0.0358 | 2.4630 ± 0.0057 | 0.5717 ± 0.0036 | 0.7785 ± 0.0273 | 24.9950 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.7997 ± 0.0286 | 0.9868 ± 0.0290 | 2.4963 ± 0.1480 † | 0.4809 ± 0.0154 | 0.6911 ± 0.0165 | 1.8082 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.8547 ± 0.0175 | 1.4602 ± 0.0744 | 2.5618 ± 0.0810 | 0.5620 ± 0.0118 | 0.7606 ± 0.0193 | 1.8767 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.8057 ± 0.0230 | 1.0097 ± 0.0359 | 2.3298 ± 0.0914 | **0.4668 ± 0.0104** | 0.6974 ± 0.0407 | 8.2300 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.8010 ± 0.0036 | 1.0933 ± 0.0207 | 2.5641 ± 0.0431 | 0.4951 ± 0.0097 | 0.6347 ± 0.0133 | 1.7219 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.8547 ± 0.0272 | 1.5933 ± 0.0740 | 2.7827 ± 0.1085 | 0.5844 ± 0.0161 | 0.7820 ± 0.0458 | 24.9950 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8093 ± 0.0163 | 0.9900 ± 0.0165 | 2.4986 ± 0.1262 † | 0.4809 ± 0.0155 | 0.6986 ± 0.0110 | 1.8082 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8420 ± 0.0120 | 1.4006 ± 0.0633 | 2.6181 ± 0.0685 | 0.5605 ± 0.0132 | 0.7107 ± 0.0150 | 1.8767 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.8050 ± 0.0220 | 0.9995 ± 0.0302 | 2.3214 ± 0.0966 | 0.4690 ± 0.0100 | 0.7085 ± 0.0445 | 8.2300 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.8020 ± 0.0010 | 1.0366 ± 0.0083 | 2.5336 ± 0.0722 | 0.4958 ± 0.0096 | 0.6224 ± 0.0144 | 1.7219 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.8497 ± 0.0313 | 1.5069 ± 0.0758 | 2.7431 ± 0.1143 | 0.5898 ± 0.0234 | 0.7622 ± 0.0414 | 24.9950 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9360 ± 0.0046 | 1.6564 ± 0.0369 | **1.8464 ± 0.0101** | 0.4809 ± 0.0155 | 0.8697 ± 0.0279 | 1.8837 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7900 ± 0.0114 | 1.6482 ± 0.0560 | 2.5024 ± 0.0670 | 0.5605 ± 0.0132 | 0.3749 ± 0.0095 | 1.8736 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9407 ± 0.0076 | 1.9352 ± 0.0786 | 2.1301 ± 0.0511 | 0.4958 ± 0.0096 | 0.8465 ± 0.0422 | 1.7618 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9040 ± 0.0166 | 1.7948 ± 0.0893 | 2.4701 ± 0.0116 | 0.5898 ± 0.0234 | 0.7742 ± 0.0264 | 25.5219 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9393 ± 0.0059 | 1.6690 ± 0.0525 | 1.8511 ± 0.0168 | 0.4809 ± 0.0155 | 0.8770 ± 0.0318 | 1.8837 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8737 ± 0.0035 | 1.7675 ± 0.0505 | 2.4433 ± 0.0622 | 0.5605 ± 0.0132 | 0.5282 ± 0.0721 | 1.8736 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9447 ± 0.0059 | 1.9465 ± 0.0784 | 2.1346 ± 0.0543 | 0.4958 ± 0.0096 | 0.8658 ± 0.0423 | 1.7618 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8847 ± 0.0117 | 1.7219 ± 0.0710 | 2.4725 ± 0.0176 | 0.5898 ± 0.0234 | 0.7380 ± 0.0353 | 25.5219 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9407 ± 0.0080 | 1.7043 ± 0.1050 | 1.8756 ± 0.0499 | 0.4809 ± 0.0155 | 0.8749 ± 0.0363 | 1.8837 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8523 ± 0.0378 | 2.3416 ± 0.1425 | 2.7515 ± 0.0738 | 0.5605 ± 0.0132 | 0.4654 ± 0.1205 | 1.8736 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9453 ± 0.0050 | 1.9859 ± 0.1041 | 2.1596 ± 0.0800 | 0.4958 ± 0.0096 | 0.8668 ± 0.0524 | 1.7618 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8780 ± 0.0089 | 1.6559 ± 0.0457 | 2.4602 ± 0.0272 | 0.5898 ± 0.0234 | 0.7304 ± 0.0251 | 25.5219 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8210 ± 0.0223 | 1.1834 ± 0.0579 | 2.3763 ± 0.1167 | 0.4809 ± 0.0155 | 0.5137 ± 0.0664 | 1.8837 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.8667 ± 0.0211 | 1.6135 ± 0.0857 | 2.4992 ± 0.0400 | 0.5605 ± 0.0132 | 0.5571 ± 0.0515 | 1.8736 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8360 ± 0.0182 | 1.2241 ± 0.0599 | 2.2366 ± 0.0628 | 0.4690 ± 0.0100 | 0.4230 ± 0.0439 | 8.0954 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.8467 ± 0.0295 | 1.3068 ± 0.0784 | 2.3550 ± 0.0814 | 0.4958 ± 0.0096 | 0.4707 ± 0.0874 | 1.7618 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.8380 ± 0.0207 | 1.7064 ± 0.0170 | 2.7140 ± 0.0880 | 0.5898 ± 0.0234 | 0.4366 ± 0.1425 | 25.5219 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9337 ± 0.0055 | 1.6968 ± 0.0460 | 2.0898 ± 0.0264 | 0.4809 ± 0.0155 | 0.8784 ± 0.0151 | 1.8837 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8623 ± 0.0160 | 1.4551 ± 0.0557 | 2.4433 ± 0.0520 | 0.5605 ± 0.0132 | 0.7772 ± 0.0159 | 1.8736 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9490 ± 0.0056 | 1.9397 ± 0.0512 | 2.3232 ± 0.0056 | 0.4958 ± 0.0096 | 0.8946 ± 0.0105 | 1.7618 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8780 ± 0.0089 | 1.6559 ± 0.0457 | 2.4602 ± 0.0272 | 0.5898 ± 0.0234 | 0.7304 ± 0.0251 | 25.5219 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9430 ± 0.0092 | 1.7107 ± 0.0924 | 1.8798 ± 0.0429 | 0.4817 ± 0.0140 | 0.8768 ± 0.0439 | 1.8837 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8587 ± 0.0281 | 2.1934 ± 0.0584 | 2.6910 ± 0.0414 | 0.5625 ± 0.0115 | 0.5480 ± 0.0501 | 1.8736 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9433 ± 0.0074 | 1.9915 ± 0.0937 | 2.1663 ± 0.0729 | 0.4946 ± 0.0080 | 0.8525 ± 0.0707 | 1.7618 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8863 ± 0.0049 | 1.7225 ± 0.0358 | 2.4630 ± 0.0057 | 0.5717 ± 0.0036 | 0.7785 ± 0.0273 | 25.5219 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.7997 ± 0.0286 | 0.9868 ± 0.0290 | 2.4963 ± 0.1480 † | 0.4809 ± 0.0154 | 0.6911 ± 0.0165 | 1.8837 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.8547 ± 0.0175 | 1.4602 ± 0.0744 | 2.5618 ± 0.0810 | 0.5620 ± 0.0118 | 0.7606 ± 0.0193 | 1.8736 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.8057 ± 0.0230 | 1.0097 ± 0.0359 | 2.3298 ± 0.0914 | **0.4668 ± 0.0104** | 0.6974 ± 0.0407 | 8.0954 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.8010 ± 0.0036 | 1.0933 ± 0.0207 | 2.5641 ± 0.0431 | 0.4951 ± 0.0097 | 0.6347 ± 0.0133 | 1.7618 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.8547 ± 0.0272 | 1.5933 ± 0.0740 | 2.7827 ± 0.1085 | 0.5844 ± 0.0161 | 0.7820 ± 0.0458 | 25.5219 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8093 ± 0.0163 | 0.9900 ± 0.0165 | 2.4986 ± 0.1262 † | 0.4809 ± 0.0155 | 0.6986 ± 0.0110 | 1.8837 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8420 ± 0.0120 | 1.4006 ± 0.0633 | 2.6181 ± 0.0685 | 0.5605 ± 0.0132 | 0.7107 ± 0.0150 | 1.8736 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.8050 ± 0.0220 | 0.9995 ± 0.0302 | 2.3214 ± 0.0966 | 0.4690 ± 0.0100 | 0.7085 ± 0.0445 | 8.0954 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.8020 ± 0.0010 | 1.0366 ± 0.0083 | 2.5336 ± 0.0722 | 0.4958 ± 0.0096 | 0.6224 ± 0.0144 | 1.7618 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.8497 ± 0.0313 | 1.5069 ± 0.0758 | 2.7431 ± 0.1143 | 0.5898 ± 0.0234 | 0.7622 ± 0.0414 | 25.5219 |
 
 ##### fm_uq_scenarios / california_housing@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.8887 ± 0.0021 | 0.7449 ± 0.0511 | **1.1516 ± 0.0931** † | 0.5556 ± 0.0173 | 0.8429 ± 0.0099 | 1.7918 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8410 ± 0.0070 | 1.3028 ± 0.0545 | 2.2804 ± 0.1740 † | 0.6765 ± 0.0391 | 0.4561 ± 0.0383 | 1.8326 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.8913 ± 0.0186 | 0.8524 ± 0.0583 | 1.4582 ± 0.0833 † | 0.6092 ± 0.0205 | 0.7791 ± 0.0324 | 1.6578 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9523 ± 0.0021 | 2.2289 ± 0.1048 | 3.1416 ± 0.2232 † | 0.6838 ± 0.0401 | 0.7279 ± 0.0317 | 19.0766 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8897 ± 0.0186 | 0.7471 ± 0.0556 | 1.1521 ± 0.0928 † | 0.5556 ± 0.0173 | 0.8387 ± 0.0161 | 1.7918 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8903 ± 0.0025 | 1.3322 ± 0.0530 | 2.2732 ± 0.1748 † | 0.6765 ± 0.0391 | 0.6437 ± 0.0136 | 1.8326 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8990 ± 0.0101 | 0.8611 ± 0.0468 | 1.4572 ± 0.0839 † | 0.6092 ± 0.0205 | 0.7914 ± 0.0221 | 1.6578 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9013 ± 0.0078 | 1.9941 ± 0.1486 | 3.0601 ± 0.2326 † | 0.6838 ± 0.0401 | 0.7048 ± 0.0539 | 19.0766 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8930 ± 0.0161 | 0.7559 ± 0.0706 | 1.1524 ± 0.0875 † | 0.5556 ± 0.0173 | 0.8428 ± 0.0273 | 1.7918 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.8870 ± 0.0131 | 3.6948 ± 0.4567 | 3.9099 ± 0.3298 † | 0.6765 ± 0.0391 | 0.5676 ± 0.0259 | 1.8326 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8973 ± 0.0121 | 0.8789 ± 0.0274 | 1.4468 ± 0.0919 † | 0.6092 ± 0.0205 | 0.7977 ± 0.0151 | 1.6578 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.8990 ± 0.0137 | 1.4518 ± 0.1918 | 2.8281 ± 0.1949 † | 0.6838 ± 0.0401 | 0.5957 ± 0.0865 | 19.0766 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9030 ± 0.0052 | 1.0910 ± 0.1787 | 2.0416 ± 0.0602 | 0.5556 ± 0.0173 | 0.7736 ± 0.0464 | 1.7918 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8913 ± 0.0133 | 1.3732 ± 0.0687 | 2.3658 ± 0.1445 † | 0.6765 ± 0.0391 | 0.6777 ± 0.0524 | 1.8326 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9047 ± 0.0040 | 0.9881 ± 0.0665 | 1.7405 ± 0.0839 | **0.5256 ± 0.0219** | 0.7673 ± 0.0300 | 8.2662 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8943 ± 0.0084 | 1.0413 ± 0.1760 | 2.2236 ± 0.0898 | 0.6092 ± 0.0205 | 0.6792 ± 0.0939 | 1.6578 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.8937 ± 0.0137 | 1.3599 ± 0.0705 | 2.3774 ± 0.1643 † | 0.6838 ± 0.0401 | 0.6325 ± 0.0523 | 19.0766 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8967 ± 0.0084 | 0.8092 ± 0.0579 | 1.6591 ± 0.0936 † | 0.5556 ± 0.0173 | 0.7143 ± 0.0300 | 1.7918 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8880 ± 0.0205 | 0.7933 ± 0.0779 | 2.8596 ± 0.2875 † | 0.6765 ± 0.0391 | 0.3966 ± 0.0801 | 1.8326 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8987 ± 0.0064 | 0.8615 ± 0.0471 | 1.9810 ± 0.0975 | 0.6092 ± 0.0205 | 0.6608 ± 0.0282 | 1.6578 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.8990 ± 0.0137 | 1.4518 ± 0.1918 | 2.8281 ± 0.1949 † | 0.6838 ± 0.0401 | 0.5957 ± 0.0865 | 19.0766 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8933 ± 0.0182 | 0.7581 ± 0.0752 | 1.1533 ± 0.0858 † | 0.5554 ± 0.0164 | 0.8428 ± 0.0273 | 1.7918 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.8907 ± 0.0087 | 1.7828 ± 0.0719 | 2.5317 ± 0.1970 † | 0.6759 ± 0.0377 | 0.5034 ± 0.0331 | 1.8326 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8957 ± 0.0143 | 0.8738 ± 0.0152 | 1.4476 ± 0.0921 † | 0.6100 ± 0.0161 | 0.7955 ± 0.0156 | 1.6578 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8930 ± 0.0125 | 1.5559 ± 0.0993 | 2.6738 ± 0.2150 † | 0.8607 ± 0.1262 | 0.6749 ± 0.0444 | 19.0766 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9013 ± 0.0067 | 0.6682 ± 0.0724 | 2.6192 ± 0.1350 † | 0.5556 ± 0.0172 | 0.4747 ± 0.0051 | 1.7918 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.8990 ± 0.0104 | 1.3281 ± 0.1591 | 3.3592 ± 0.2241 † | 0.6765 ± 0.0390 | 0.4505 ± 0.0552 | 1.8326 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.8967 ± 0.0064 | 0.9584 ± 0.1319 | 2.7326 ± 0.1295 | 0.5264 ± 0.0219 | 0.3961 ± 0.0775 | 8.2662 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8973 ± 0.0086 | 0.7798 ± 0.0675 | 2.9814 ± 0.1033 | 0.6094 ± 0.0200 | 0.4276 ± 0.0525 | 1.6578 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8957 ± 0.0110 | 1.8085 ± 0.2020 | 3.4717 ± 0.2242 † | 0.6903 ± 0.0419 | 0.4555 ± 0.0398 | 19.0766 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9013 ± 0.0049 | 0.5987 ± 0.0468 | 2.6576 ± 0.1549 † | 0.5556 ± 0.0173 | 0.4396 ± 0.0163 | 1.7918 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8953 ± 0.0140 | 0.9665 ± 0.1749 | 3.5945 ± 0.2427 † | 0.6765 ± 0.0391 | 0.2776 ± 0.0781 | 1.8326 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.8930 ± 0.0100 | 0.9352 ± 0.1364 | 2.7365 ± 0.1310 | **0.5256 ± 0.0219** | 0.3813 ± 0.0686 | 8.2662 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8950 ± 0.0050 | 0.6723 ± 0.0517 | 3.0713 ± 0.1339 | 0.6092 ± 0.0205 | 0.3497 ± 0.0501 | 1.6578 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.8947 ± 0.0085 | 1.3840 ± 0.1313 | 3.6694 ± 0.2576 † | 0.6838 ± 0.0401 | 0.2957 ± 0.0280 | 19.0766 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.8887 ± 0.0021 | 0.7449 ± 0.0511 | **1.1516 ± 0.0931** † | 0.5556 ± 0.0173 | 0.8429 ± 0.0099 | 1.8595 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8410 ± 0.0070 | 1.3028 ± 0.0545 | 2.2804 ± 0.1740 † | 0.6765 ± 0.0391 | 0.4561 ± 0.0383 | 1.8321 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.8913 ± 0.0186 | 0.8524 ± 0.0583 | 1.4582 ± 0.0833 † | 0.6092 ± 0.0205 | 0.7791 ± 0.0324 | 1.6945 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9523 ± 0.0021 | 2.2289 ± 0.1048 | 3.1416 ± 0.2232 † | 0.6838 ± 0.0401 | 0.7279 ± 0.0317 | 19.8419 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8897 ± 0.0186 | 0.7471 ± 0.0556 | 1.1521 ± 0.0928 † | 0.5556 ± 0.0173 | 0.8387 ± 0.0161 | 1.8595 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8903 ± 0.0025 | 1.3322 ± 0.0530 | 2.2732 ± 0.1748 † | 0.6765 ± 0.0391 | 0.6437 ± 0.0136 | 1.8321 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8990 ± 0.0101 | 0.8611 ± 0.0468 | 1.4572 ± 0.0839 † | 0.6092 ± 0.0205 | 0.7914 ± 0.0221 | 1.6945 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9013 ± 0.0078 | 1.9941 ± 0.1486 | 3.0601 ± 0.2326 † | 0.6838 ± 0.0401 | 0.7048 ± 0.0539 | 19.8419 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8930 ± 0.0161 | 0.7559 ± 0.0706 | 1.1524 ± 0.0875 † | 0.5556 ± 0.0173 | 0.8428 ± 0.0273 | 1.8595 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.8870 ± 0.0131 | 3.6948 ± 0.4567 | 3.9099 ± 0.3298 † | 0.6765 ± 0.0391 | 0.5676 ± 0.0259 | 1.8321 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8973 ± 0.0121 | 0.8789 ± 0.0274 | 1.4468 ± 0.0919 † | 0.6092 ± 0.0205 | 0.7977 ± 0.0151 | 1.6945 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.8990 ± 0.0137 | 1.4518 ± 0.1918 | 2.8281 ± 0.1949 † | 0.6838 ± 0.0401 | 0.5957 ± 0.0865 | 19.8419 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9030 ± 0.0052 | 1.0910 ± 0.1787 | 2.0416 ± 0.0602 | 0.5556 ± 0.0173 | 0.7736 ± 0.0464 | 1.8595 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8913 ± 0.0133 | 1.3732 ± 0.0687 | 2.3658 ± 0.1445 † | 0.6765 ± 0.0391 | 0.6777 ± 0.0524 | 1.8321 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9047 ± 0.0040 | 0.9881 ± 0.0665 | 1.7405 ± 0.0839 | **0.5256 ± 0.0219** | 0.7673 ± 0.0300 | 8.2426 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8943 ± 0.0084 | 1.0413 ± 0.1760 | 2.2236 ± 0.0898 | 0.6092 ± 0.0205 | 0.6792 ± 0.0939 | 1.6945 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.8937 ± 0.0137 | 1.3599 ± 0.0705 | 2.3774 ± 0.1643 † | 0.6838 ± 0.0401 | 0.6325 ± 0.0523 | 19.8419 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8967 ± 0.0084 | 0.8092 ± 0.0579 | 1.6591 ± 0.0936 † | 0.5556 ± 0.0173 | 0.7143 ± 0.0300 | 1.8595 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8880 ± 0.0205 | 0.7933 ± 0.0779 | 2.8596 ± 0.2875 † | 0.6765 ± 0.0391 | 0.3966 ± 0.0801 | 1.8321 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8987 ± 0.0064 | 0.8615 ± 0.0471 | 1.9810 ± 0.0975 | 0.6092 ± 0.0205 | 0.6608 ± 0.0282 | 1.6945 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.8990 ± 0.0137 | 1.4518 ± 0.1918 | 2.8281 ± 0.1949 † | 0.6838 ± 0.0401 | 0.5957 ± 0.0865 | 19.8419 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8933 ± 0.0182 | 0.7581 ± 0.0752 | 1.1533 ± 0.0858 † | 0.5554 ± 0.0164 | 0.8428 ± 0.0273 | 1.8595 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.8907 ± 0.0087 | 1.7828 ± 0.0719 | 2.5317 ± 0.1970 † | 0.6759 ± 0.0377 | 0.5034 ± 0.0331 | 1.8321 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8957 ± 0.0143 | 0.8738 ± 0.0152 | 1.4476 ± 0.0921 † | 0.6100 ± 0.0161 | 0.7955 ± 0.0156 | 1.6945 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8930 ± 0.0125 | 1.5559 ± 0.0993 | 2.6738 ± 0.2150 † | 0.8607 ± 0.1262 | 0.6749 ± 0.0444 | 19.8419 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9013 ± 0.0067 | 0.6682 ± 0.0724 | 2.6192 ± 0.1350 † | 0.5556 ± 0.0172 | 0.4747 ± 0.0051 | 1.8595 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.8990 ± 0.0104 | 1.3281 ± 0.1591 | 3.3592 ± 0.2241 † | 0.6765 ± 0.0390 | 0.4505 ± 0.0552 | 1.8321 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.8967 ± 0.0064 | 0.9584 ± 0.1319 | 2.7326 ± 0.1295 | 0.5264 ± 0.0219 | 0.3961 ± 0.0775 | 8.2426 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8973 ± 0.0086 | 0.7798 ± 0.0675 | 2.9814 ± 0.1033 | 0.6094 ± 0.0200 | 0.4276 ± 0.0525 | 1.6945 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8957 ± 0.0110 | 1.8085 ± 0.2020 | 3.4717 ± 0.2242 † | 0.6903 ± 0.0419 | 0.4555 ± 0.0398 | 19.8419 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9013 ± 0.0049 | 0.5987 ± 0.0468 | 2.6576 ± 0.1549 † | 0.5556 ± 0.0173 | 0.4396 ± 0.0163 | 1.8595 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8953 ± 0.0140 | 0.9665 ± 0.1749 | 3.5945 ± 0.2427 † | 0.6765 ± 0.0391 | 0.2776 ± 0.0781 | 1.8321 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.8930 ± 0.0100 | 0.9352 ± 0.1364 | 2.7365 ± 0.1310 | **0.5256 ± 0.0219** | 0.3813 ± 0.0686 | 8.2426 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8950 ± 0.0050 | 0.6723 ± 0.0517 | 3.0713 ± 0.1339 | 0.6092 ± 0.0205 | 0.3497 ± 0.0501 | 1.6945 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.8947 ± 0.0085 | 1.3840 ± 0.1313 | 3.6694 ± 0.2576 † | 0.6838 ± 0.0401 | 0.2957 ± 0.0280 | 19.8419 |
 
 ##### fm_uq_scenarios / california_housing@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.8707 ± 0.0015 | 0.8550 ± 0.0409 | 1.6147 ± 0.0756 | 0.4547 ± 0.0280 | 0.7610 ± 0.0268 | 1.5485 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.7047 ± 0.0061 | 1.1326 ± 0.0079 | 3.4118 ± 0.2780 † | 0.6049 ± 0.0219 | 0.2876 ± 0.0344 | 1.9440 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.8417 ± 0.0031 | 0.9057 ± 0.0362 | 1.8223 ± 0.1706 † | 0.4850 ± 0.0323 | 0.6801 ± 0.0428 | 1.4783 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0150 | 1.2162 ± 0.0032 | 2.4986 ± 0.1483 † | 0.5647 ± 0.0212 | 0.6308 ± 0.0402 | 22.4301 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8693 ± 0.0096 | 0.8605 ± 0.0292 | 1.6136 ± 0.0784 | 0.4547 ± 0.0280 | 0.7561 ± 0.0197 | 1.5485 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7923 ± 0.0258 | 1.2766 ± 0.0472 | 3.2125 ± 0.3132 † | 0.6049 ± 0.0219 | 0.4034 ± 0.0328 | 1.9440 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8357 ± 0.0184 | 0.9049 ± 0.0249 | 1.8243 ± 0.1736 † | 0.4850 ± 0.0323 | 0.6745 ± 0.0541 | 1.4783 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8240 ± 0.0096 | 1.1588 ± 0.0189 | 2.5333 ± 0.1571 † | 0.5647 ± 0.0212 | 0.6021 ± 0.0344 | 22.4301 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8700 ± 0.0085 | 0.8631 ± 0.0232 | **1.6068 ± 0.0947** † | 0.4547 ± 0.0280 | 0.7611 ± 0.0251 | 1.5485 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7897 ± 0.0193 | 1.5000 ± 0.0530 | 3.2234 ± 0.3268 † | 0.6049 ± 0.0219 | 0.4015 ± 0.0297 | 1.9440 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8327 ± 0.0257 | 0.8939 ± 0.0359 | 1.8360 ± 0.1821 † | 0.4850 ± 0.0323 | 0.6701 ± 0.0697 | 1.4783 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8217 ± 0.0122 | 1.1458 ± 0.0339 | 2.5537 ± 0.1805 † | 0.5647 ± 0.0212 | 0.5897 ± 0.0338 | 22.4301 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8187 ± 0.0090 | 0.7638 ± 0.0285 | 2.3799 ± 0.1856 † | 0.4547 ± 0.0280 | 0.5603 ± 0.0059 | 1.5485 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8013 ± 0.0162 | 1.0534 ± 0.0512 | 3.2073 ± 0.2385 † | 0.6049 ± 0.0219 | 0.4442 ± 0.0288 | 1.9440 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8313 ± 0.0116 | 0.8126 ± 0.0661 | 2.2670 ± 0.1260 † | **0.4477 ± 0.0211** | 0.5874 ± 0.0192 | 7.4770 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8287 ± 0.0153 | 0.8730 ± 0.0554 | 2.5042 ± 0.1687 † | 0.4850 ± 0.0323 | 0.5898 ± 0.0164 | 1.4783 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8123 ± 0.0197 | 1.0765 ± 0.0620 | 2.8423 ± 0.0665 | 0.5647 ± 0.0212 | 0.5435 ± 0.0599 | 22.4301 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8513 ± 0.0038 | 0.8615 ± 0.0414 | 1.8138 ± 0.0960 † | 0.4547 ± 0.0280 | 0.6796 ± 0.0445 | 1.5485 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8117 ± 0.0180 | 1.0854 ± 0.0723 | 2.9186 ± 0.2874 † | 0.6049 ± 0.0219 | 0.5075 ± 0.0396 | 1.9440 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8470 ± 0.0066 | 0.9104 ± 0.0177 | 2.0408 ± 0.1993 † | 0.4850 ± 0.0323 | 0.6556 ± 0.0295 | 1.4783 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8217 ± 0.0122 | 1.1458 ± 0.0339 | 2.5537 ± 0.1805 † | 0.5647 ± 0.0212 | 0.5897 ± 0.0338 | 22.4301 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8687 ± 0.0107 | 0.8568 ± 0.0251 | 1.6224 ± 0.1006 † | 0.4570 ± 0.0255 | 0.7574 ± 0.0202 | 1.5485 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7947 ± 0.0206 | 1.4997 ± 0.0686 | 3.2309 ± 0.3747 † | 0.6105 ± 0.0196 | 0.4053 ± 0.0606 | 1.9440 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8357 ± 0.0229 | 0.9019 ± 0.0279 | 1.8306 ± 0.1989 † | 0.4886 ± 0.0266 | 0.6739 ± 0.0713 | 1.4783 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8293 ± 0.0170 | 1.1619 ± 0.0391 | 2.4606 ± 0.1895 † | 0.5939 ± 0.0230 | 0.6345 ± 0.0456 | 22.4301 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8083 ± 0.0170 | 0.7389 ± 0.0390 | 2.4946 ± 0.2456 † | 0.4553 ± 0.0273 | 0.5139 ± 0.0329 | 1.5485 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7800 ± 0.0135 | 1.0035 ± 0.0281 | 3.3261 ± 0.2667 † | 0.6061 ± 0.0213 | 0.4022 ± 0.0317 | 1.9440 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8037 ± 0.0067 | 0.7562 ± 0.0377 | 2.4831 ± 0.2112 † | 0.4536 ± 0.0217 | 0.4943 ± 0.0276 | 7.4770 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8147 ± 0.0110 | 0.8241 ± 0.0247 | 2.6295 ± 0.2555 † | 0.4859 ± 0.0305 | 0.5309 ± 0.0353 | 1.4783 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7933 ± 0.0070 | 1.0531 ± 0.0054 | 3.0937 ± 0.2386 † | 0.5777 ± 0.0210 | 0.4640 ± 0.0177 | 22.4301 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7953 ± 0.0060 | 0.7266 ± 0.0323 | 2.5707 ± 0.2339 † | 0.4547 ± 0.0280 | 0.4782 ± 0.0160 | 1.5485 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7723 ± 0.0006 | 0.9919 ± 0.0117 | 3.5404 ± 0.2111 † | 0.6049 ± 0.0219 | 0.3423 ± 0.0401 | 1.9440 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.8017 ± 0.0046 | 0.7576 ± 0.0323 | 2.5001 ± 0.1670 † | **0.4477 ± 0.0211** | 0.4887 ± 0.0326 | 7.4770 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.8093 ± 0.0068 | 0.8267 ± 0.0198 | 2.7162 ± 0.2674 † | 0.4850 ± 0.0323 | 0.5028 ± 0.0356 | 1.4783 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7943 ± 0.0075 | 1.0468 ± 0.0194 | 3.1329 ± 0.1479 | 0.5647 ± 0.0212 | 0.4553 ± 0.0285 | 22.4301 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.8707 ± 0.0015 | 0.8550 ± 0.0409 | 1.6147 ± 0.0756 | 0.4547 ± 0.0280 | 0.7610 ± 0.0268 | 1.6170 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.7047 ± 0.0061 | 1.1326 ± 0.0079 | 3.4118 ± 0.2780 † | 0.6049 ± 0.0219 | 0.2876 ± 0.0344 | 1.9441 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.8417 ± 0.0031 | 0.9057 ± 0.0362 | 1.8223 ± 0.1706 † | 0.4850 ± 0.0323 | 0.6801 ± 0.0428 | 1.5128 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0150 | 1.2162 ± 0.0032 | 2.4986 ± 0.1483 † | 0.5647 ± 0.0212 | 0.6308 ± 0.0402 | 22.8679 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8693 ± 0.0096 | 0.8605 ± 0.0292 | 1.6136 ± 0.0784 | 0.4547 ± 0.0280 | 0.7561 ± 0.0197 | 1.6170 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7923 ± 0.0258 | 1.2766 ± 0.0472 | 3.2125 ± 0.3132 † | 0.6049 ± 0.0219 | 0.4034 ± 0.0328 | 1.9441 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8357 ± 0.0184 | 0.9049 ± 0.0249 | 1.8243 ± 0.1736 † | 0.4850 ± 0.0323 | 0.6745 ± 0.0541 | 1.5128 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8240 ± 0.0096 | 1.1588 ± 0.0189 | 2.5333 ± 0.1571 † | 0.5647 ± 0.0212 | 0.6021 ± 0.0344 | 22.8679 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8700 ± 0.0085 | 0.8631 ± 0.0232 | **1.6068 ± 0.0947** † | 0.4547 ± 0.0280 | 0.7611 ± 0.0251 | 1.6170 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7897 ± 0.0193 | 1.5000 ± 0.0530 | 3.2234 ± 0.3268 † | 0.6049 ± 0.0219 | 0.4015 ± 0.0297 | 1.9441 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8327 ± 0.0257 | 0.8939 ± 0.0359 | 1.8360 ± 0.1821 † | 0.4850 ± 0.0323 | 0.6701 ± 0.0697 | 1.5128 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8217 ± 0.0122 | 1.1458 ± 0.0339 | 2.5537 ± 0.1805 † | 0.5647 ± 0.0212 | 0.5897 ± 0.0338 | 22.8679 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8187 ± 0.0090 | 0.7638 ± 0.0285 | 2.3799 ± 0.1856 † | 0.4547 ± 0.0280 | 0.5603 ± 0.0059 | 1.6170 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8013 ± 0.0162 | 1.0534 ± 0.0512 | 3.2073 ± 0.2385 † | 0.6049 ± 0.0219 | 0.4442 ± 0.0288 | 1.9441 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8313 ± 0.0116 | 0.8126 ± 0.0661 | 2.2670 ± 0.1260 † | **0.4477 ± 0.0211** | 0.5874 ± 0.0192 | 7.4757 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8287 ± 0.0153 | 0.8730 ± 0.0554 | 2.5042 ± 0.1687 † | 0.4850 ± 0.0323 | 0.5898 ± 0.0164 | 1.5128 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8123 ± 0.0197 | 1.0765 ± 0.0620 | 2.8423 ± 0.0665 | 0.5647 ± 0.0212 | 0.5435 ± 0.0599 | 22.8679 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8513 ± 0.0038 | 0.8615 ± 0.0414 | 1.8138 ± 0.0960 † | 0.4547 ± 0.0280 | 0.6796 ± 0.0445 | 1.6170 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8117 ± 0.0180 | 1.0854 ± 0.0723 | 2.9186 ± 0.2874 † | 0.6049 ± 0.0219 | 0.5075 ± 0.0396 | 1.9441 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8470 ± 0.0066 | 0.9104 ± 0.0177 | 2.0408 ± 0.1993 † | 0.4850 ± 0.0323 | 0.6556 ± 0.0295 | 1.5128 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8217 ± 0.0122 | 1.1458 ± 0.0339 | 2.5537 ± 0.1805 † | 0.5647 ± 0.0212 | 0.5897 ± 0.0338 | 22.8679 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8687 ± 0.0107 | 0.8568 ± 0.0251 | 1.6224 ± 0.1006 † | 0.4570 ± 0.0255 | 0.7574 ± 0.0202 | 1.6170 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7947 ± 0.0206 | 1.4997 ± 0.0686 | 3.2309 ± 0.3747 † | 0.6105 ± 0.0196 | 0.4053 ± 0.0606 | 1.9441 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8357 ± 0.0229 | 0.9019 ± 0.0279 | 1.8306 ± 0.1989 † | 0.4886 ± 0.0266 | 0.6739 ± 0.0713 | 1.5128 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8293 ± 0.0170 | 1.1619 ± 0.0391 | 2.4606 ± 0.1895 † | 0.5939 ± 0.0230 | 0.6345 ± 0.0456 | 22.8679 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8083 ± 0.0170 | 0.7389 ± 0.0390 | 2.4946 ± 0.2456 † | 0.4553 ± 0.0273 | 0.5139 ± 0.0329 | 1.6170 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7800 ± 0.0135 | 1.0035 ± 0.0281 | 3.3261 ± 0.2667 † | 0.6061 ± 0.0213 | 0.4022 ± 0.0317 | 1.9441 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8037 ± 0.0067 | 0.7562 ± 0.0377 | 2.4831 ± 0.2112 † | 0.4536 ± 0.0217 | 0.4943 ± 0.0276 | 7.4757 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8147 ± 0.0110 | 0.8241 ± 0.0247 | 2.6295 ± 0.2555 † | 0.4859 ± 0.0305 | 0.5309 ± 0.0353 | 1.5128 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7933 ± 0.0070 | 1.0531 ± 0.0054 | 3.0937 ± 0.2386 † | 0.5777 ± 0.0210 | 0.4640 ± 0.0177 | 22.8679 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7953 ± 0.0060 | 0.7266 ± 0.0323 | 2.5707 ± 0.2339 † | 0.4547 ± 0.0280 | 0.4782 ± 0.0160 | 1.6170 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7723 ± 0.0006 | 0.9919 ± 0.0117 | 3.5404 ± 0.2111 † | 0.6049 ± 0.0219 | 0.3423 ± 0.0401 | 1.9441 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.8017 ± 0.0046 | 0.7576 ± 0.0323 | 2.5001 ± 0.1670 † | **0.4477 ± 0.0211** | 0.4887 ± 0.0326 | 7.4757 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.8093 ± 0.0068 | 0.8267 ± 0.0198 | 2.7162 ± 0.2674 † | 0.4850 ± 0.0323 | 0.5028 ± 0.0356 | 1.5128 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7943 ± 0.0075 | 1.0468 ± 0.0194 | 3.1329 ± 0.1479 | 0.5647 ± 0.0212 | 0.4553 ± 0.0285 | 22.8679 |
 
 ##### fm_uq_scenarios / california_housing@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.8960 ± 0.0096 | 2.1330 ± 0.0100 | **2.8107 ± 0.1755** † | 0.7261 ± 0.0307 | 0.6786 ± 0.0357 | 1.8141 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.8260 ± 0.0148 | 2.0995 ± 0.0173 | 3.1102 ± 0.1544 | 0.7447 ± 0.0306 | 0.3667 ± 0.0410 | 1.8510 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.8980 ± 0.0131 | 2.1733 ± 0.0057 | 2.8321 ± 0.1972 † | 0.7296 ± 0.0349 | 0.6907 ± 0.0423 | 1.6664 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.9180 ± 0.0123 | 2.3034 ± 0.0310 | 3.1112 ± 0.1424 | 0.7304 ± 0.0304 | 0.6225 ± 0.0198 | 17.4593 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8937 ± 0.0211 | 2.1372 ± 0.0306 | 2.8123 ± 0.1734 † | 0.7261 ± 0.0307 | 0.6544 ± 0.0710 | 1.8141 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0281 | 2.3154 ± 0.0794 | 3.0497 ± 0.1208 | 0.7447 ± 0.0306 | 0.5966 ± 0.0742 | 1.8510 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8967 ± 0.0279 | 2.1788 ± 0.0401 | 2.8378 ± 0.1918 † | 0.7296 ± 0.0349 | 0.6752 ± 0.0891 | 1.6664 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8963 ± 0.0234 | 2.1688 ± 0.0887 | 3.1043 ± 0.1522 | 0.7304 ± 0.0304 | 0.5967 ± 0.0074 | 17.4593 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8957 ± 0.0191 | 2.1168 ± 0.0909 | 2.8170 ± 0.1703 † | 0.7261 ± 0.0307 | 0.6813 ± 0.0426 | 1.8141 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9007 ± 0.0116 | 3.5113 ± 0.0280 | 3.6461 ± 0.0165 | 0.7447 ± 0.0306 | 0.5722 ± 0.0387 | 1.8510 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8987 ± 0.0300 | 2.1685 ± 0.1192 | 2.8485 ± 0.1841 † | 0.7296 ± 0.0349 | 0.6866 ± 0.0708 | 1.6664 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0244 | 2.1330 ± 0.1151 | 3.1012 ± 0.1568 † | 0.7304 ± 0.0304 | 0.5911 ± 0.0170 | 17.4593 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.8967 ± 0.0201 | 2.1531 ± 0.0998 | 3.2719 ± 0.2419 † | 0.7261 ± 0.0307 | 0.5781 ± 0.0297 | 1.8141 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9027 ± 0.0287 | 2.2149 ± 0.1676 | 3.3444 ± 0.1949 † | 0.7447 ± 0.0306 | 0.5766 ± 0.0452 | 1.8510 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8957 ± 0.0237 | 2.1207 ± 0.1263 | 3.0773 ± 0.2091 † | **0.7174 ± 0.0320** | 0.6137 ± 0.0233 | 8.2253 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8933 ± 0.0224 | 2.1540 ± 0.1294 | 3.3073 ± 0.2237 † | 0.7296 ± 0.0349 | 0.5781 ± 0.0297 | 1.6664 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9003 ± 0.0285 | 2.1455 ± 0.0554 | 3.1230 ± 0.1946 † | 0.7304 ± 0.0304 | 0.6023 ± 0.0225 | 17.4593 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8977 ± 0.0108 | 2.1867 ± 0.0949 | 3.1824 ± 0.1686 † | 0.7261 ± 0.0307 | 0.5927 ± 0.0185 | 1.8141 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0311 | 2.2474 ± 0.1297 | 3.3177 ± 0.1696 † | 0.7447 ± 0.0306 | 0.5479 ± 0.0481 | 1.8510 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9027 ± 0.0155 | 2.1898 ± 0.1030 | 3.1933 ± 0.2165 † | 0.7296 ± 0.0349 | 0.6143 ± 0.0123 | 1.6664 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0244 | 2.1330 ± 0.1151 | 3.1012 ± 0.1568 † | 0.7304 ± 0.0304 | 0.5911 ± 0.0170 | 17.4593 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8890 ± 0.0218 | 2.0578 ± 0.0865 | 2.8384 ± 0.2014 † | 0.7257 ± 0.0300 | 0.6970 ± 0.0404 | 1.8141 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8953 ± 0.0110 | 3.0406 ± 0.1699 | 3.3439 ± 0.1059 | 0.7433 ± 0.0329 | 0.4796 ± 0.0593 | 1.8510 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8937 ± 0.0315 | 2.1281 ± 0.1255 | 2.8601 ± 0.2035 † | 0.7294 ± 0.0341 | 0.6928 ± 0.0655 | 1.6664 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8993 ± 0.0143 | 2.2346 ± 0.0910 | 3.0116 ± 0.1425 | 0.7379 ± 0.0317 | 0.7042 ± 0.0252 | 17.4593 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9023 ± 0.0067 | 2.3084 ± 0.0765 | 3.2490 ± 0.2036 † | 0.7260 ± 0.0305 | 0.6054 ± 0.0355 | 1.8141 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0151 | 2.3683 ± 0.1198 | 3.2806 ± 0.1825 † | 0.7447 ± 0.0314 | 0.5951 ± 0.0681 | 1.8510 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0152 | 2.2662 ± 0.1111 | 3.1966 ± 0.2312 † | 0.7230 ± 0.0329 | 0.5857 ± 0.0540 | 8.2253 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8957 ± 0.0074 | 2.2885 ± 0.0871 | 3.2718 ± 0.2340 † | 0.7294 ± 0.0344 | 0.5997 ± 0.0338 | 1.6664 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9010 ± 0.0142 | 2.3339 ± 0.1165 | 3.2220 ± 0.2206 † | 0.7368 ± 0.0319 | 0.5942 ± 0.0500 | 17.4593 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.8960 ± 0.0238 | 2.2600 ± 0.1601 | 3.4186 ± 0.2072 † | 0.7261 ± 0.0307 | 0.4955 ± 0.0154 | 1.8141 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8973 ± 0.0199 | 2.2756 ± 0.1448 | 3.4693 ± 0.2148 † | 0.7447 ± 0.0306 | 0.4581 ± 0.0327 | 1.8510 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.8887 ± 0.0267 | 2.1621 ± 0.1508 | 3.2682 ± 0.2371 † | **0.7174 ± 0.0320** | 0.5087 ± 0.0335 | 8.2253 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.8957 ± 0.0231 | 2.2502 ± 0.1447 | 3.4260 ± 0.2407 † | 0.7296 ± 0.0349 | 0.5105 ± 0.0183 | 1.6664 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0211 | 2.2065 ± 0.1271 | 3.2915 ± 0.2209 † | 0.7304 ± 0.0304 | 0.5077 ± 0.0219 | 17.4593 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.8960 ± 0.0096 | 2.1330 ± 0.0100 | **2.8107 ± 0.1755** † | 0.7261 ± 0.0307 | 0.6786 ± 0.0357 | 1.9155 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.8260 ± 0.0148 | 2.0995 ± 0.0173 | 3.1102 ± 0.1544 | 0.7447 ± 0.0306 | 0.3667 ± 0.0410 | 1.8505 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.8980 ± 0.0131 | 2.1733 ± 0.0057 | 2.8321 ± 0.1972 † | 0.7296 ± 0.0349 | 0.6907 ± 0.0423 | 1.7070 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.9180 ± 0.0123 | 2.3034 ± 0.0310 | 3.1112 ± 0.1424 | 0.7304 ± 0.0304 | 0.6225 ± 0.0198 | 17.8729 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8937 ± 0.0211 | 2.1372 ± 0.0306 | 2.8123 ± 0.1734 † | 0.7261 ± 0.0307 | 0.6544 ± 0.0710 | 1.9155 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0281 | 2.3154 ± 0.0794 | 3.0497 ± 0.1208 | 0.7447 ± 0.0306 | 0.5966 ± 0.0742 | 1.8505 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8967 ± 0.0279 | 2.1788 ± 0.0401 | 2.8378 ± 0.1918 † | 0.7296 ± 0.0349 | 0.6752 ± 0.0891 | 1.7070 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8963 ± 0.0234 | 2.1688 ± 0.0887 | 3.1043 ± 0.1522 | 0.7304 ± 0.0304 | 0.5967 ± 0.0074 | 17.8729 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8957 ± 0.0191 | 2.1168 ± 0.0909 | 2.8170 ± 0.1703 † | 0.7261 ± 0.0307 | 0.6813 ± 0.0426 | 1.9155 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9007 ± 0.0116 | 3.5113 ± 0.0280 | 3.6461 ± 0.0165 | 0.7447 ± 0.0306 | 0.5722 ± 0.0387 | 1.8505 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8987 ± 0.0300 | 2.1685 ± 0.1192 | 2.8485 ± 0.1841 † | 0.7296 ± 0.0349 | 0.6866 ± 0.0708 | 1.7070 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0244 | 2.1330 ± 0.1151 | 3.1012 ± 0.1568 † | 0.7304 ± 0.0304 | 0.5911 ± 0.0170 | 17.8729 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.8967 ± 0.0201 | 2.1531 ± 0.0998 | 3.2719 ± 0.2419 † | 0.7261 ± 0.0307 | 0.5781 ± 0.0297 | 1.9155 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9027 ± 0.0287 | 2.2149 ± 0.1676 | 3.3444 ± 0.1949 † | 0.7447 ± 0.0306 | 0.5766 ± 0.0452 | 1.8505 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8957 ± 0.0237 | 2.1207 ± 0.1263 | 3.0773 ± 0.2091 † | **0.7174 ± 0.0320** | 0.6137 ± 0.0233 | 8.0839 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8933 ± 0.0224 | 2.1540 ± 0.1294 | 3.3073 ± 0.2237 † | 0.7296 ± 0.0349 | 0.5781 ± 0.0297 | 1.7070 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9003 ± 0.0285 | 2.1455 ± 0.0554 | 3.1230 ± 0.1946 † | 0.7304 ± 0.0304 | 0.6023 ± 0.0225 | 17.8729 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8977 ± 0.0108 | 2.1867 ± 0.0949 | 3.1824 ± 0.1686 † | 0.7261 ± 0.0307 | 0.5927 ± 0.0185 | 1.9155 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0311 | 2.2474 ± 0.1297 | 3.3177 ± 0.1696 † | 0.7447 ± 0.0306 | 0.5479 ± 0.0481 | 1.8505 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9027 ± 0.0155 | 2.1898 ± 0.1030 | 3.1933 ± 0.2165 † | 0.7296 ± 0.0349 | 0.6143 ± 0.0123 | 1.7070 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0244 | 2.1330 ± 0.1151 | 3.1012 ± 0.1568 † | 0.7304 ± 0.0304 | 0.5911 ± 0.0170 | 17.8729 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8890 ± 0.0218 | 2.0578 ± 0.0865 | 2.8384 ± 0.2014 † | 0.7257 ± 0.0300 | 0.6970 ± 0.0404 | 1.9155 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8953 ± 0.0110 | 3.0406 ± 0.1699 | 3.3439 ± 0.1059 | 0.7433 ± 0.0329 | 0.4796 ± 0.0593 | 1.8505 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8937 ± 0.0315 | 2.1281 ± 0.1255 | 2.8601 ± 0.2035 † | 0.7294 ± 0.0341 | 0.6928 ± 0.0655 | 1.7070 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8993 ± 0.0143 | 2.2346 ± 0.0910 | 3.0116 ± 0.1425 | 0.7379 ± 0.0317 | 0.7042 ± 0.0252 | 17.8729 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9023 ± 0.0067 | 2.3084 ± 0.0765 | 3.2490 ± 0.2036 † | 0.7260 ± 0.0305 | 0.6054 ± 0.0355 | 1.9155 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.8980 ± 0.0151 | 2.3683 ± 0.1198 | 3.2806 ± 0.1825 † | 0.7447 ± 0.0314 | 0.5951 ± 0.0681 | 1.8505 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0152 | 2.2662 ± 0.1111 | 3.1966 ± 0.2312 † | 0.7230 ± 0.0329 | 0.5857 ± 0.0540 | 8.0839 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8957 ± 0.0074 | 2.2885 ± 0.0871 | 3.2718 ± 0.2340 † | 0.7294 ± 0.0344 | 0.5997 ± 0.0338 | 1.7070 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9010 ± 0.0142 | 2.3339 ± 0.1165 | 3.2220 ± 0.2206 † | 0.7368 ± 0.0319 | 0.5942 ± 0.0500 | 17.8729 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.8960 ± 0.0238 | 2.2600 ± 0.1601 | 3.4186 ± 0.2072 † | 0.7261 ± 0.0307 | 0.4955 ± 0.0154 | 1.9155 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8973 ± 0.0199 | 2.2756 ± 0.1448 | 3.4693 ± 0.2148 † | 0.7447 ± 0.0306 | 0.4581 ± 0.0327 | 1.8505 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.8887 ± 0.0267 | 2.1621 ± 0.1508 | 3.2682 ± 0.2371 † | **0.7174 ± 0.0320** | 0.5087 ± 0.0335 | 8.0839 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.8957 ± 0.0231 | 2.2502 ± 0.1447 | 3.4260 ± 0.2407 † | 0.7296 ± 0.0349 | 0.5105 ± 0.0183 | 1.7070 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8957 ± 0.0211 | 2.2065 ± 0.1271 | 3.2915 ± 0.2209 † | 0.7304 ± 0.0304 | 0.5077 ± 0.0219 | 17.8729 |
 
 ##### fm_uq_scenarios / california_housing@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 0.8630 ± 0.0422 | 2.7563 ± 0.3692 | 4.0288 ± 0.0299 | 0.9539 ± 0.0114 | 0.7934 ± 0.0574 | 1.7896 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.7420 ± 0.0140 | 1.7796 ± 0.0735 | 3.3818 ± 0.0717 | 0.8224 ± 0.0175 | 0.3732 ± 0.0188 | 1.8444 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.8677 ± 0.0316 | 2.6448 ± 0.1909 | 3.7771 ± 0.1679 | 0.8619 ± 0.0157 | 0.8146 ± 0.0184 | 1.6868 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.6670 ± 0.0062 | 1.7963 ± 0.0354 | 5.8204 ± 0.1092 | 0.9563 ± 0.0175 | 0.4555 ± 0.0388 | 23.9784 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.8663 ± 0.0372 | 2.7717 ± 0.3518 | 4.0183 ± 0.0225 | 0.9539 ± 0.0114 | 0.7902 ± 0.0522 | 1.7896 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.7963 ± 0.0114 | 1.8712 ± 0.0644 | 3.2690 ± 0.0536 | 0.8224 ± 0.0175 | 0.5518 ± 0.0262 | 1.8444 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.8710 ± 0.0270 | 2.6650 ± 0.1672 | 3.7655 ± 0.1512 | 0.8619 ± 0.0157 | 0.8146 ± 0.0184 | 1.6868 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6297 ± 0.0070 | 1.7061 ± 0.0121 | 6.0472 ± 0.0577 | 0.9563 ± 0.0175 | 0.4466 ± 0.0383 | 23.9784 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.8750 ± 0.0295 | 2.8186 ± 0.2952 | 3.9794 ± 0.0306 | 0.9539 ± 0.0114 | 0.8088 ± 0.0323 | 1.7896 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8547 ± 0.0029 | 3.0866 ± 0.1543 | 3.4684 ± 0.0830 | 0.8224 ± 0.0175 | 0.5007 ± 0.0304 | 1.8444 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.8750 ± 0.0220 | 2.7016 ± 0.1216 | 3.7473 ± 0.1293 | 0.8619 ± 0.0157 | 0.8211 ± 0.0147 | 1.6868 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6270 ± 0.0046 | 1.6412 ± 0.0166 | 6.0307 ± 0.0709 | 0.9563 ± 0.0175 | 0.4438 ± 0.0430 | 23.9784 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.4533 ± 0.0297 | 0.9578 ± 0.0419 | 7.6992 ± 0.2256 | 0.9539 ± 0.0114 | 0.3068 ± 0.0584 | 1.7896 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.6290 ± 0.0325 | 1.2915 ± 0.0469 | 5.0019 ± 0.2529 † | 0.8224 ± 0.0175 | 0.5428 ± 0.0282 | 1.8444 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.4557 ± 0.0163 | 1.0227 ± 0.0630 | 6.8739 ± 0.1782 | 0.8959 ± 0.0092 | 0.2744 ± 0.0302 | 8.0608 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.5203 ± 0.0045 | 1.0384 ± 0.0376 | 6.2620 ± 0.1494 | 0.8619 ± 0.0157 | 0.3376 ± 0.0119 | 1.6868 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.5830 ± 0.0040 | 1.3251 ± 0.0248 | 6.1994 ± 0.0520 | 0.9563 ± 0.0175 | 0.4293 ± 0.0493 | 23.9784 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.8297 ± 0.0421 | 2.9276 ± 0.3156 | 4.8907 ± 0.1343 | 0.9539 ± 0.0114 | 0.5887 ± 0.0584 | 1.7896 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.6837 ± 0.0299 | 1.5067 ± 0.0510 | 4.5364 ± 0.2377 † | 0.8224 ± 0.0175 | 0.5383 ± 0.0209 | 1.8444 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.8297 ± 0.0257 | 2.6535 ± 0.1080 | 4.4316 ± 0.1557 | 0.8619 ± 0.0157 | 0.6423 ± 0.0416 | 1.6868 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6270 ± 0.0046 | 1.6412 ± 0.0166 | 6.0307 ± 0.0709 | 0.9563 ± 0.0175 | 0.4438 ± 0.0430 | 23.9784 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.8763 ± 0.0292 | 2.8233 ± 0.2807 | 3.9622 ± 0.0528 | 0.9560 ± 0.0115 | 0.8116 ± 0.0301 | 1.7896 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8553 ± 0.0032 | 2.5443 ± 0.2331 | **3.1600 ± 0.1194** | 0.8226 ± 0.0181 | 0.4752 ± 0.0327 | 1.8444 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8743 ± 0.0230 | 2.7016 ± 0.1237 | 3.7434 ± 0.1297 | 0.8663 ± 0.0101 | 0.8211 ± 0.0147 | 1.6868 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6117 ± 0.0049 | 1.6835 ± 0.0188 | 5.9485 ± 0.0659 | 0.9345 ± 0.0188 | 0.4667 ± 0.0203 | 23.9784 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.5140 ± 0.0332 | 1.0473 ± 0.0452 | 7.2981 ± 0.3890 † | 0.9541 ± 0.0110 | 0.2472 ± 0.0486 | 1.7896 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.6583 ± 0.0335 | 1.4046 ± 0.0207 | 4.9721 ± 0.3249 † | **0.8221 ± 0.0178** | 0.4641 ± 0.0310 | 1.8444 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.5093 ± 0.0197 | 1.0915 ± 0.0802 | 6.8181 ± 0.2322 | 0.8964 ± 0.0083 | 0.2237 ± 0.0440 | 8.0608 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.5930 ± 0.0358 | 1.1818 ± 0.0391 | 5.7727 ± 0.3878 † | 0.8623 ± 0.0147 | 0.2576 ± 0.0183 | 1.6868 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.6463 ± 0.0115 | 1.5033 ± 0.0395 | 6.0480 ± 0.0935 | 0.9607 ± 0.0165 | 0.3355 ± 0.0765 | 23.9784 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.5123 ± 0.0365 | 1.0458 ± 0.0591 | 7.4437 ± 0.4077 † | 0.9539 ± 0.0114 | 0.2413 ± 0.0526 | 1.7896 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.6693 ± 0.0246 | 1.4071 ± 0.0258 | 4.8859 ± 0.2436 | 0.8224 ± 0.0175 | 0.4190 ± 0.0167 | 1.8444 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.5063 ± 0.0218 | 1.0827 ± 0.0663 | 6.8123 ± 0.2267 | 0.8959 ± 0.0092 | 0.2083 ± 0.0584 | 8.0608 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.5803 ± 0.0272 | 1.1509 ± 0.0567 | 5.9975 ± 0.3824 † | 0.8619 ± 0.0157 | 0.2228 ± 0.0365 | 1.6868 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.6373 ± 0.0123 | 1.4669 ± 0.0341 | 6.1454 ± 0.1015 | 0.9563 ± 0.0175 | 0.2936 ± 0.0757 | 23.9784 |
+| `Raw+KumoTabular [noise_test]` | sdm | 0.8630 ± 0.0422 | 2.7563 ± 0.3692 | 4.0288 ± 0.0299 | 0.9539 ± 0.0114 | 0.7934 ± 0.0574 | 1.8496 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.7420 ± 0.0140 | 1.7796 ± 0.0735 | 3.3818 ± 0.0717 | 0.8224 ± 0.0175 | 0.3732 ± 0.0188 | 1.8430 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.8677 ± 0.0316 | 2.6448 ± 0.1909 | 3.7771 ± 0.1679 | 0.8619 ± 0.0157 | 0.8146 ± 0.0184 | 1.7244 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.6670 ± 0.0062 | 1.7963 ± 0.0354 | 5.8204 ± 0.1092 | 0.9563 ± 0.0175 | 0.4555 ± 0.0388 | 24.5004 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.8663 ± 0.0372 | 2.7717 ± 0.3518 | 4.0183 ± 0.0225 | 0.9539 ± 0.0114 | 0.7902 ± 0.0522 | 1.8496 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.7963 ± 0.0114 | 1.8712 ± 0.0644 | 3.2690 ± 0.0536 | 0.8224 ± 0.0175 | 0.5518 ± 0.0262 | 1.8430 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.8710 ± 0.0270 | 2.6650 ± 0.1672 | 3.7655 ± 0.1512 | 0.8619 ± 0.0157 | 0.8146 ± 0.0184 | 1.7244 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6297 ± 0.0070 | 1.7061 ± 0.0121 | 6.0472 ± 0.0577 | 0.9563 ± 0.0175 | 0.4466 ± 0.0383 | 24.5004 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.8750 ± 0.0295 | 2.8186 ± 0.2952 | 3.9794 ± 0.0306 | 0.9539 ± 0.0114 | 0.8088 ± 0.0323 | 1.8496 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8547 ± 0.0029 | 3.0866 ± 0.1543 | 3.4684 ± 0.0830 | 0.8224 ± 0.0175 | 0.5007 ± 0.0304 | 1.8430 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.8750 ± 0.0220 | 2.7016 ± 0.1216 | 3.7473 ± 0.1293 | 0.8619 ± 0.0157 | 0.8211 ± 0.0147 | 1.7244 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6270 ± 0.0046 | 1.6412 ± 0.0166 | 6.0307 ± 0.0709 | 0.9563 ± 0.0175 | 0.4438 ± 0.0430 | 24.5004 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.4533 ± 0.0297 | 0.9578 ± 0.0419 | 7.6992 ± 0.2256 | 0.9539 ± 0.0114 | 0.3068 ± 0.0584 | 1.8496 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.6290 ± 0.0325 | 1.2915 ± 0.0469 | 5.0019 ± 0.2529 † | 0.8224 ± 0.0175 | 0.5428 ± 0.0282 | 1.8430 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.4557 ± 0.0163 | 1.0227 ± 0.0630 | 6.8739 ± 0.1782 | 0.8959 ± 0.0092 | 0.2744 ± 0.0302 | 7.9817 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.5203 ± 0.0045 | 1.0384 ± 0.0376 | 6.2620 ± 0.1494 | 0.8619 ± 0.0157 | 0.3376 ± 0.0119 | 1.7244 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.5830 ± 0.0040 | 1.3251 ± 0.0248 | 6.1994 ± 0.0520 | 0.9563 ± 0.0175 | 0.4293 ± 0.0493 | 24.5004 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.8297 ± 0.0421 | 2.9276 ± 0.3156 | 4.8907 ± 0.1343 | 0.9539 ± 0.0114 | 0.5887 ± 0.0584 | 1.8496 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.6837 ± 0.0299 | 1.5067 ± 0.0510 | 4.5364 ± 0.2377 † | 0.8224 ± 0.0175 | 0.5383 ± 0.0209 | 1.8430 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.8297 ± 0.0257 | 2.6535 ± 0.1080 | 4.4316 ± 0.1557 | 0.8619 ± 0.0157 | 0.6423 ± 0.0416 | 1.7244 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6270 ± 0.0046 | 1.6412 ± 0.0166 | 6.0307 ± 0.0709 | 0.9563 ± 0.0175 | 0.4438 ± 0.0430 | 24.5004 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.8763 ± 0.0292 | 2.8233 ± 0.2807 | 3.9622 ± 0.0528 | 0.9560 ± 0.0115 | 0.8116 ± 0.0301 | 1.8496 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8553 ± 0.0032 | 2.5443 ± 0.2331 | **3.1600 ± 0.1194** | 0.8226 ± 0.0181 | 0.4752 ± 0.0327 | 1.8430 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8743 ± 0.0230 | 2.7016 ± 0.1237 | 3.7434 ± 0.1297 | 0.8663 ± 0.0101 | 0.8211 ± 0.0147 | 1.7244 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6117 ± 0.0049 | 1.6835 ± 0.0188 | 5.9485 ± 0.0659 | 0.9345 ± 0.0188 | 0.4667 ± 0.0203 | 24.5004 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.5140 ± 0.0332 | 1.0473 ± 0.0452 | 7.2981 ± 0.3890 † | 0.9541 ± 0.0110 | 0.2472 ± 0.0486 | 1.8496 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.6583 ± 0.0335 | 1.4046 ± 0.0207 | 4.9721 ± 0.3249 † | **0.8221 ± 0.0178** | 0.4641 ± 0.0310 | 1.8430 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.5093 ± 0.0197 | 1.0915 ± 0.0802 | 6.8181 ± 0.2322 | 0.8964 ± 0.0083 | 0.2237 ± 0.0440 | 7.9817 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.5930 ± 0.0358 | 1.1818 ± 0.0391 | 5.7727 ± 0.3878 † | 0.8623 ± 0.0147 | 0.2576 ± 0.0183 | 1.7244 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.6463 ± 0.0115 | 1.5033 ± 0.0395 | 6.0480 ± 0.0935 | 0.9607 ± 0.0165 | 0.3355 ± 0.0765 | 24.5004 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.5123 ± 0.0365 | 1.0458 ± 0.0591 | 7.4437 ± 0.4077 † | 0.9539 ± 0.0114 | 0.2413 ± 0.0526 | 1.8496 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.6693 ± 0.0246 | 1.4071 ± 0.0258 | 4.8859 ± 0.2436 | 0.8224 ± 0.0175 | 0.4190 ± 0.0167 | 1.8430 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.5063 ± 0.0218 | 1.0827 ± 0.0663 | 6.8123 ± 0.2267 | 0.8959 ± 0.0092 | 0.2083 ± 0.0584 | 7.9817 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.5803 ± 0.0272 | 1.1509 ± 0.0567 | 5.9975 ± 0.3824 † | 0.8619 ± 0.0157 | 0.2228 ± 0.0365 | 1.7244 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.6373 ± 0.0123 | 1.4669 ± 0.0341 | 6.1454 ± 0.1015 | 0.9563 ± 0.0175 | 0.2936 ± 0.0757 | 24.5004 |
 
 ##### fm_uq_scenarios / california_housing@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9733 ± 0.0025 | 1.8636 ± 0.0655 | 1.9876 ± 0.1001 † | 0.3939 ± 0.0132 | 0.9477 ± 0.0129 | 1.8096 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.9163 ± 0.0055 | 2.4762 ± 0.0194 | 3.0395 ± 0.1047 | 0.4958 ± 0.0157 | 0.7154 ± 0.0185 | 2.1389 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9487 ± 0.0159 | 1.9699 ± 0.0706 | 2.1746 ± 0.0265 | 0.4284 ± 0.0063 | 0.9078 ± 0.0072 | 1.6903 |
-| `Raw+TabularMLP [outliers]` | torchregress | 0.9973 ± 0.0029 | 5.9978 ± 0.1824 | 6.0232 ± 0.1542 | 0.6215 ± 0.0158 | 0.9763 ± 0.0255 | 11.9441 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9510 ± 0.0096 | 1.7742 ± 0.0638 | 1.9304 ± 0.0969 † | 0.3939 ± 0.0132 | 0.8918 ± 0.0290 | 1.8096 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9480 ± 0.0062 | 2.6635 ± 0.0317 | 3.1006 ± 0.1113 | 0.4958 ± 0.0157 | 0.7726 ± 0.0262 | 2.1389 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9400 ± 0.0123 | 1.9268 ± 0.0500 | 2.1532 ± 0.0199 | 0.4284 ± 0.0063 | 0.8958 ± 0.0180 | 1.6903 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9440 ± 0.0115 | 2.5250 ± 0.1774 | 3.0412 ± 0.1436 | 0.6215 ± 0.0158 | 0.6952 ± 0.0482 | 11.9441 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9447 ± 0.0101 | 1.2062 ± 0.1057 | **1.4538 ± 0.1361** † | 0.3939 ± 0.0132 | 0.8959 ± 0.0341 | 1.8096 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9407 ± 0.0046 | 3.0073 ± 0.0803 | 3.4034 ± 0.1155 | 0.4958 ± 0.0157 | 0.7639 ± 0.0319 | 2.1389 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9403 ± 0.0119 | 1.7915 ± 0.0304 | 2.0372 ± 0.0368 | 0.4284 ± 0.0063 | 0.8814 ± 0.0049 | 1.6903 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9427 ± 0.0121 | 2.4200 ± 0.0872 | 2.9687 ± 0.0979 | 0.6215 ± 0.0158 | 0.6392 ± 0.0370 | 11.9441 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9473 ± 0.0108 | 1.4375 ± 0.0581 | 1.9002 ± 0.0794 | 0.3939 ± 0.0132 | 0.8785 ± 0.0133 | 1.8096 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9420 ± 0.0113 | 1.9215 ± 0.2280 | 2.4514 ± 0.1275 † | 0.4958 ± 0.0157 | 0.7673 ± 0.0463 | 2.1389 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9483 ± 0.0068 | 1.5186 ± 0.0320 | 1.9393 ± 0.0209 | 0.4147 ± 0.0081 | 0.8965 ± 0.0192 | 7.9646 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9397 ± 0.0087 | 1.4986 ± 0.0605 | 2.0264 ± 0.0202 | 0.4284 ± 0.0063 | 0.8313 ± 0.0141 | 1.6903 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9450 ± 0.0115 | 2.3462 ± 0.1398 | 2.9132 ± 0.0785 | 0.6215 ± 0.0158 | 0.7068 ± 0.0356 | 11.9441 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9470 ± 0.0113 | 1.4679 ± 0.0968 | 1.7806 ± 0.0784 | 0.3939 ± 0.0132 | 0.8538 ± 0.1045 | 1.8096 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9490 ± 0.0078 | 2.2107 ± 0.1160 | 2.7039 ± 0.1231 | 0.4958 ± 0.0157 | 0.8008 ± 0.0425 | 2.1389 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9383 ± 0.0031 | 1.7307 ± 0.0420 | 2.0781 ± 0.0806 | 0.4284 ± 0.0063 | 0.8418 ± 0.0425 | 1.6903 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9427 ± 0.0121 | 2.4200 ± 0.0872 | 2.9687 ± 0.0979 | 0.6215 ± 0.0158 | 0.6392 ± 0.0370 | 11.9441 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9487 ± 0.0075 | 1.2281 ± 0.0714 | 1.4700 ± 0.1185 † | **0.3931 ± 0.0136** | 0.9091 ± 0.0203 | 1.8096 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9420 ± 0.0044 | 2.9681 ± 0.1574 | 3.3802 ± 0.1362 | 0.4969 ± 0.0152 | 0.7445 ± 0.0099 | 2.1389 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9397 ± 0.0107 | 1.7906 ± 0.0414 | 2.0525 ± 0.0281 | 0.4307 ± 0.0032 | 0.8760 ± 0.0167 | 1.6903 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0087 | 2.3238 ± 0.1077 | 2.7794 ± 0.0474 | 0.6200 ± 0.0095 | 0.7141 ± 0.0516 | 11.9441 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9473 ± 0.0090 | 1.5748 ± 0.1045 | 2.0595 ± 0.0987 | 0.3937 ± 0.0134 | 0.7792 ± 0.0315 | 1.8096 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9370 ± 0.0066 | 1.9390 ± 0.0362 | 2.4610 ± 0.0455 | 0.4965 ± 0.0154 | 0.7214 ± 0.0145 | 2.1389 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9420 ± 0.0095 | 1.6259 ± 0.0886 | 2.1216 ± 0.0721 | 0.4137 ± 0.0069 | 0.7708 ± 0.0584 | 7.9646 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9430 ± 0.0026 | 1.6495 ± 0.0242 | 2.1982 ± 0.0380 | 0.4291 ± 0.0047 | 0.7511 ± 0.0332 | 1.6903 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9457 ± 0.0181 | 2.3866 ± 0.1281 | 2.8396 ± 0.0344 | 0.6200 ± 0.0099 | 0.7299 ± 0.0743 | 11.9441 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9457 ± 0.0025 | 1.5501 ± 0.0693 | 2.0805 ± 0.0795 | 0.3939 ± 0.0132 | 0.7532 ± 0.0185 | 1.8096 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9450 ± 0.0069 | 1.9152 ± 0.0366 | 2.5344 ± 0.0664 | 0.4958 ± 0.0157 | 0.6685 ± 0.0351 | 2.1389 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9430 ± 0.0096 | 1.6274 ± 0.0866 | 2.1136 ± 0.0742 | 0.4147 ± 0.0081 | 0.7643 ± 0.0507 | 7.9646 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9393 ± 0.0051 | 1.6261 ± 0.0450 | 2.2295 ± 0.0640 | 0.4284 ± 0.0063 | 0.7123 ± 0.0428 | 1.6903 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9413 ± 0.0146 | 2.4353 ± 0.1630 | 3.0177 ± 0.1245 | 0.6215 ± 0.0158 | 0.6320 ± 0.0721 | 11.9441 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9733 ± 0.0025 | 1.8636 ± 0.0655 | 1.9876 ± 0.1001 † | 0.3939 ± 0.0132 | 0.9477 ± 0.0129 | 1.8651 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.9163 ± 0.0055 | 2.4762 ± 0.0194 | 3.0395 ± 0.1047 | 0.4958 ± 0.0157 | 0.7154 ± 0.0185 | 2.1375 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9487 ± 0.0159 | 1.9699 ± 0.0706 | 2.1746 ± 0.0265 | 0.4284 ± 0.0063 | 0.9078 ± 0.0072 | 1.7119 |
+| `Raw+TabularMLP [outliers]` | torchregress | 0.9973 ± 0.0029 | 5.9978 ± 0.1824 | 6.0232 ± 0.1542 | 0.6215 ± 0.0158 | 0.9763 ± 0.0255 | 12.0175 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9510 ± 0.0096 | 1.7742 ± 0.0638 | 1.9304 ± 0.0969 † | 0.3939 ± 0.0132 | 0.8918 ± 0.0290 | 1.8651 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9480 ± 0.0062 | 2.6635 ± 0.0317 | 3.1006 ± 0.1113 | 0.4958 ± 0.0157 | 0.7726 ± 0.0262 | 2.1375 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9400 ± 0.0123 | 1.9268 ± 0.0500 | 2.1532 ± 0.0199 | 0.4284 ± 0.0063 | 0.8958 ± 0.0180 | 1.7119 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9440 ± 0.0115 | 2.5250 ± 0.1774 | 3.0412 ± 0.1436 | 0.6215 ± 0.0158 | 0.6952 ± 0.0482 | 12.0175 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9447 ± 0.0101 | 1.2062 ± 0.1057 | **1.4538 ± 0.1361** † | 0.3939 ± 0.0132 | 0.8959 ± 0.0341 | 1.8651 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9407 ± 0.0046 | 3.0073 ± 0.0803 | 3.4034 ± 0.1155 | 0.4958 ± 0.0157 | 0.7639 ± 0.0319 | 2.1375 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9403 ± 0.0119 | 1.7915 ± 0.0304 | 2.0372 ± 0.0368 | 0.4284 ± 0.0063 | 0.8814 ± 0.0049 | 1.7119 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9427 ± 0.0121 | 2.4200 ± 0.0872 | 2.9687 ± 0.0979 | 0.6215 ± 0.0158 | 0.6392 ± 0.0370 | 12.0175 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9473 ± 0.0108 | 1.4375 ± 0.0581 | 1.9002 ± 0.0794 | 0.3939 ± 0.0132 | 0.8785 ± 0.0133 | 1.8651 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9420 ± 0.0113 | 1.9215 ± 0.2280 | 2.4514 ± 0.1275 † | 0.4958 ± 0.0157 | 0.7673 ± 0.0463 | 2.1375 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9483 ± 0.0068 | 1.5186 ± 0.0320 | 1.9393 ± 0.0209 | 0.4147 ± 0.0081 | 0.8965 ± 0.0192 | 8.0989 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9397 ± 0.0087 | 1.4986 ± 0.0605 | 2.0264 ± 0.0202 | 0.4284 ± 0.0063 | 0.8313 ± 0.0141 | 1.7119 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9450 ± 0.0115 | 2.3462 ± 0.1398 | 2.9132 ± 0.0785 | 0.6215 ± 0.0158 | 0.7068 ± 0.0356 | 12.0175 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9470 ± 0.0113 | 1.4679 ± 0.0968 | 1.7806 ± 0.0784 | 0.3939 ± 0.0132 | 0.8538 ± 0.1045 | 1.8651 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9490 ± 0.0078 | 2.2107 ± 0.1160 | 2.7039 ± 0.1231 | 0.4958 ± 0.0157 | 0.8008 ± 0.0425 | 2.1375 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9383 ± 0.0031 | 1.7307 ± 0.0420 | 2.0781 ± 0.0806 | 0.4284 ± 0.0063 | 0.8418 ± 0.0425 | 1.7119 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9427 ± 0.0121 | 2.4200 ± 0.0872 | 2.9687 ± 0.0979 | 0.6215 ± 0.0158 | 0.6392 ± 0.0370 | 12.0175 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9487 ± 0.0075 | 1.2281 ± 0.0714 | 1.4700 ± 0.1185 † | **0.3931 ± 0.0136** | 0.9091 ± 0.0203 | 1.8651 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9420 ± 0.0044 | 2.9681 ± 0.1574 | 3.3802 ± 0.1362 | 0.4969 ± 0.0152 | 0.7445 ± 0.0099 | 2.1375 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9397 ± 0.0107 | 1.7906 ± 0.0414 | 2.0525 ± 0.0281 | 0.4307 ± 0.0032 | 0.8760 ± 0.0167 | 1.7119 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0087 | 2.3238 ± 0.1077 | 2.7794 ± 0.0474 | 0.6200 ± 0.0095 | 0.7141 ± 0.0516 | 12.0175 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9473 ± 0.0090 | 1.5748 ± 0.1045 | 2.0595 ± 0.0987 | 0.3937 ± 0.0134 | 0.7792 ± 0.0315 | 1.8651 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9370 ± 0.0066 | 1.9390 ± 0.0362 | 2.4610 ± 0.0455 | 0.4965 ± 0.0154 | 0.7214 ± 0.0145 | 2.1375 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9420 ± 0.0095 | 1.6259 ± 0.0886 | 2.1216 ± 0.0721 | 0.4137 ± 0.0069 | 0.7708 ± 0.0584 | 8.0989 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9430 ± 0.0026 | 1.6495 ± 0.0242 | 2.1982 ± 0.0380 | 0.4291 ± 0.0047 | 0.7511 ± 0.0332 | 1.7119 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9457 ± 0.0181 | 2.3866 ± 0.1281 | 2.8396 ± 0.0344 | 0.6200 ± 0.0099 | 0.7299 ± 0.0743 | 12.0175 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9457 ± 0.0025 | 1.5501 ± 0.0693 | 2.0805 ± 0.0795 | 0.3939 ± 0.0132 | 0.7532 ± 0.0185 | 1.8651 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9450 ± 0.0069 | 1.9152 ± 0.0366 | 2.5344 ± 0.0664 | 0.4958 ± 0.0157 | 0.6685 ± 0.0351 | 2.1375 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9430 ± 0.0096 | 1.6274 ± 0.0866 | 2.1136 ± 0.0742 | 0.4147 ± 0.0081 | 0.7643 ± 0.0507 | 8.0989 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9393 ± 0.0051 | 1.6261 ± 0.0450 | 2.2295 ± 0.0640 | 0.4284 ± 0.0063 | 0.7123 ± 0.0428 | 1.7119 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9413 ± 0.0146 | 2.4353 ± 0.1630 | 3.0177 ± 0.1245 | 0.6215 ± 0.0158 | 0.6320 ± 0.0721 | 12.0175 |
 
 ##### fm_uq_scenarios / california_housing@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.9060 ± 0.0118 | 0.9839 ± 0.0380 | **1.3136 ± 0.0370** | **0.3878 ± 0.0247** | 0.8573 ± 0.0070 | 1.7863 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.8507 ± 0.0107 | 2.0472 ± 0.8638 | 2.5011 ± 0.6317 † | 0.4756 ± 0.0087 | 0.5683 ± 0.0440 | 1.8032 |
-| `Raw+TabICL [shift]` | tabicl | 0.8927 ± 0.0076 | 1.0920 ± 0.0239 | 1.4896 ± 0.0472 | 0.4215 ± 0.0152 | 0.8409 ± 0.0186 | 1.6777 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.9260 ± 0.0053 | 1.4858 ± 0.0088 | 1.9775 ± 0.0521 | 0.4919 ± 0.0030 | 0.8417 ± 0.0144 | 26.5717 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9050 ± 0.0257 | 0.9901 ± 0.0573 | 1.3173 ± 0.0313 | **0.3878 ± 0.0247** | 0.8506 ± 0.0355 | 1.7863 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.8987 ± 0.0121 | 2.0835 ± 0.8452 | 2.4963 ± 0.6354 † | 0.4756 ± 0.0087 | 0.7002 ± 0.0553 | 1.8032 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.8967 ± 0.0125 | 1.0971 ± 0.0213 | 1.4898 ± 0.0481 | 0.4215 ± 0.0152 | 0.8351 ± 0.0171 | 1.6777 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8943 ± 0.0083 | 1.3654 ± 0.0314 | 1.9649 ± 0.0553 | 0.4919 ± 0.0030 | 0.8257 ± 0.0153 | 26.5717 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9023 ± 0.0290 | 0.9876 ± 0.0918 | 1.3229 ± 0.0290 | **0.3878 ± 0.0247** | 0.8473 ± 0.0407 | 1.7863 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.8897 ± 0.0197 | 2.8571 ± 0.5545 | 3.0407 ± 0.4253 † | 0.4756 ± 0.0087 | 0.6180 ± 0.0239 | 1.8032 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.8960 ± 0.0090 | 1.1037 ± 0.0462 | 1.4905 ± 0.0493 | 0.4215 ± 0.0152 | 0.8390 ± 0.0108 | 1.6777 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8923 ± 0.0125 | 1.3190 ± 0.0540 | 1.9638 ± 0.0550 | 0.4919 ± 0.0030 | 0.7972 ± 0.0232 | 26.5717 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8757 ± 0.0208 | 0.9490 ± 0.0352 | 1.8369 ± 0.1085 † | **0.3878 ± 0.0247** | 0.8084 ± 0.0250 | 1.7863 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.8763 ± 0.0116 | 1.2754 ± 0.0610 | 2.1799 ± 0.0724 | 0.4756 ± 0.0087 | 0.8007 ± 0.0304 | 1.8032 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8727 ± 0.0142 | 0.9915 ± 0.0436 | 1.8261 ± 0.1237 † | 0.3901 ± 0.0308 | 0.7957 ± 0.0326 | 8.0697 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8733 ± 0.0140 | 1.0558 ± 0.0416 | 2.0095 ± 0.0744 | 0.4215 ± 0.0152 | 0.8077 ± 0.0280 | 1.6777 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.8847 ± 0.0110 | 1.3294 ± 0.0376 | 2.1558 ± 0.0200 | 0.4919 ± 0.0030 | 0.8055 ± 0.0331 | 26.5717 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9013 ± 0.0207 | 0.9929 ± 0.0668 | 1.4748 ± 0.0442 | **0.3878 ± 0.0247** | 0.8193 ± 0.0398 | 1.7863 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.8873 ± 0.0112 | 1.2794 ± 0.0883 | 2.1658 ± 0.1480 † | 0.4756 ± 0.0087 | 0.7154 ± 0.0907 | 1.8032 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.9067 ± 0.0015 | 1.0970 ± 0.0249 | 1.6569 ± 0.0313 | 0.4215 ± 0.0152 | 0.8225 ± 0.0076 | 1.6777 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8923 ± 0.0125 | 1.3190 ± 0.0540 | 1.9638 ± 0.0550 | 0.4919 ± 0.0030 | 0.7972 ± 0.0232 | 26.5717 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.9040 ± 0.0298 | 0.9857 ± 0.0772 | 1.3220 ± 0.0258 | 0.3882 ± 0.0251 | 0.8604 ± 0.0216 | 1.7863 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8940 ± 0.0154 | 2.2461 ± 0.4671 | 2.5499 ± 0.3376 † | 0.4766 ± 0.0078 | 0.5463 ± 0.0708 | 1.8032 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8977 ± 0.0121 | 1.1018 ± 0.0380 | 1.4927 ± 0.0472 | 0.4213 ± 0.0157 | 0.8481 ± 0.0253 | 1.6777 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8953 ± 0.0181 | 1.3554 ± 0.0775 | 1.9471 ± 0.0525 | 0.5000 ± 0.0047 | 0.8359 ± 0.0365 | 26.5717 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8803 ± 0.0227 | 0.9831 ± 0.0663 | 1.8988 ± 0.1421 † | 0.3879 ± 0.0247 | 0.7036 ± 0.0279 | 1.7863 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.8943 ± 0.0050 | 1.3616 ± 0.0255 | 2.2601 ± 0.0784 | 0.4764 ± 0.0086 | 0.7220 ± 0.0094 | 1.8032 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8813 ± 0.0166 | 1.0248 ± 0.0669 | 1.9209 ± 0.1744 † | 0.3901 ± 0.0296 | 0.7369 ± 0.0645 | 8.0697 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8790 ± 0.0215 | 1.0818 ± 0.0561 | 2.0747 ± 0.1015 | 0.4216 ± 0.0152 | 0.7245 ± 0.0704 | 1.6777 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.8940 ± 0.0137 | 1.4408 ± 0.0766 | 2.3248 ± 0.0337 | 0.4945 ± 0.0028 | 0.7090 ± 0.0285 | 26.5717 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.8797 ± 0.0112 | 0.9744 ± 0.0514 | 1.9244 ± 0.1365 † | **0.3878 ± 0.0247** | 0.7062 ± 0.0330 | 1.7863 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.8813 ± 0.0059 | 1.2963 ± 0.0133 | 2.3217 ± 0.0552 | 0.4756 ± 0.0087 | 0.6650 ± 0.0174 | 1.8032 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.8787 ± 0.0107 | 1.0190 ± 0.0383 | 1.9255 ± 0.1753 † | 0.3901 ± 0.0308 | 0.7215 ± 0.0519 | 8.0697 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.8817 ± 0.0199 | 1.0771 ± 0.0661 | 2.0888 ± 0.0918 | 0.4215 ± 0.0152 | 0.7234 ± 0.0551 | 1.6777 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0095 | 1.3861 ± 0.0452 | 2.3384 ± 0.0285 | 0.4919 ± 0.0030 | 0.6907 ± 0.0258 | 26.5717 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9030 ± 0.0271 | 1.0172 ± 0.0607 | 1.3309 ± 0.0298 | **0.3878 ± 0.0247** | 0.8448 ± 0.0362 | 1.7863 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9060 ± 0.0145 | 2.1260 ± 0.8423 | 2.5107 ± 0.6270 † | 0.4756 ± 0.0087 | 0.7272 ± 0.0334 | 1.8032 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8983 ± 0.0160 | 1.1287 ± 0.0333 | 1.5134 ± 0.0485 | 0.4215 ± 0.0152 | 0.8425 ± 0.0205 | 1.6777 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.8927 ± 0.0161 | 1.4113 ± 0.0633 | 1.9884 ± 0.0512 | 0.4919 ± 0.0030 | 0.8128 ± 0.0185 | 26.5717 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8943 ± 0.0180 | 1.0557 ± 0.0540 | 1.9243 ± 0.1302 † | **0.3878 ± 0.0247** | 0.7189 ± 0.0509 | 1.7863 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.8887 ± 0.0085 | 1.3718 ± 0.0511 | 2.3311 ± 0.0642 | 0.4756 ± 0.0087 | 0.6701 ± 0.0158 | 1.8032 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.8870 ± 0.0226 | 1.0572 ± 0.0813 | 1.8713 ± 0.1158 † | 0.3901 ± 0.0308 | 0.7212 ± 0.0748 | 8.0697 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8937 ± 0.0273 | 1.1776 ± 0.1262 | 2.0993 ± 0.0815 | 0.4215 ± 0.0152 | 0.7336 ± 0.0726 | 1.6777 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.8887 ± 0.0086 | 1.4233 ± 0.0654 | 2.3614 ± 0.0454 | 0.4919 ± 0.0030 | 0.6775 ± 0.0349 | 26.5717 |
+| `Raw+KumoTabular [shift]` | sdm | 0.9060 ± 0.0118 | 0.9839 ± 0.0380 | **1.3136 ± 0.0370** | **0.3878 ± 0.0247** | 0.8573 ± 0.0070 | 1.9216 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.8507 ± 0.0107 | 2.0472 ± 0.8638 | 2.5011 ± 0.6317 † | 0.4756 ± 0.0087 | 0.5683 ± 0.0440 | 1.7996 |
+| `Raw+TabICL [shift]` | tabicl | 0.8927 ± 0.0076 | 1.0920 ± 0.0239 | 1.4896 ± 0.0472 | 0.4215 ± 0.0152 | 0.8409 ± 0.0186 | 1.7076 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.9260 ± 0.0053 | 1.4858 ± 0.0088 | 1.9775 ± 0.0521 | 0.4919 ± 0.0030 | 0.8417 ± 0.0144 | 26.9263 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9050 ± 0.0257 | 0.9901 ± 0.0573 | 1.3173 ± 0.0313 | **0.3878 ± 0.0247** | 0.8506 ± 0.0355 | 1.9216 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.8987 ± 0.0121 | 2.0835 ± 0.8452 | 2.4963 ± 0.6354 † | 0.4756 ± 0.0087 | 0.7002 ± 0.0553 | 1.7996 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.8967 ± 0.0125 | 1.0971 ± 0.0213 | 1.4898 ± 0.0481 | 0.4215 ± 0.0152 | 0.8351 ± 0.0171 | 1.7076 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8943 ± 0.0083 | 1.3654 ± 0.0314 | 1.9649 ± 0.0553 | 0.4919 ± 0.0030 | 0.8257 ± 0.0153 | 26.9263 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9023 ± 0.0290 | 0.9876 ± 0.0918 | 1.3229 ± 0.0290 | **0.3878 ± 0.0247** | 0.8473 ± 0.0407 | 1.9216 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.8897 ± 0.0197 | 2.8571 ± 0.5545 | 3.0407 ± 0.4253 † | 0.4756 ± 0.0087 | 0.6180 ± 0.0239 | 1.7996 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.8960 ± 0.0090 | 1.1037 ± 0.0462 | 1.4905 ± 0.0493 | 0.4215 ± 0.0152 | 0.8390 ± 0.0108 | 1.7076 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8923 ± 0.0125 | 1.3190 ± 0.0540 | 1.9638 ± 0.0550 | 0.4919 ± 0.0030 | 0.7972 ± 0.0232 | 26.9263 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8757 ± 0.0208 | 0.9490 ± 0.0352 | 1.8369 ± 0.1085 † | **0.3878 ± 0.0247** | 0.8084 ± 0.0250 | 1.9216 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.8763 ± 0.0116 | 1.2754 ± 0.0610 | 2.1799 ± 0.0724 | 0.4756 ± 0.0087 | 0.8007 ± 0.0304 | 1.7996 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8727 ± 0.0142 | 0.9915 ± 0.0436 | 1.8261 ± 0.1237 † | 0.3901 ± 0.0308 | 0.7957 ± 0.0326 | 8.1003 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8733 ± 0.0140 | 1.0558 ± 0.0416 | 2.0095 ± 0.0744 | 0.4215 ± 0.0152 | 0.8077 ± 0.0280 | 1.7076 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.8847 ± 0.0110 | 1.3294 ± 0.0376 | 2.1558 ± 0.0200 | 0.4919 ± 0.0030 | 0.8055 ± 0.0331 | 26.9263 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9013 ± 0.0207 | 0.9929 ± 0.0668 | 1.4748 ± 0.0442 | **0.3878 ± 0.0247** | 0.8193 ± 0.0398 | 1.9216 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.8873 ± 0.0112 | 1.2794 ± 0.0883 | 2.1658 ± 0.1480 † | 0.4756 ± 0.0087 | 0.7154 ± 0.0907 | 1.7996 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.9067 ± 0.0015 | 1.0970 ± 0.0249 | 1.6569 ± 0.0313 | 0.4215 ± 0.0152 | 0.8225 ± 0.0076 | 1.7076 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8923 ± 0.0125 | 1.3190 ± 0.0540 | 1.9638 ± 0.0550 | 0.4919 ± 0.0030 | 0.7972 ± 0.0232 | 26.9263 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.9040 ± 0.0298 | 0.9857 ± 0.0772 | 1.3220 ± 0.0258 | 0.3882 ± 0.0251 | 0.8604 ± 0.0216 | 1.9216 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8940 ± 0.0154 | 2.2461 ± 0.4671 | 2.5499 ± 0.3376 † | 0.4766 ± 0.0078 | 0.5463 ± 0.0708 | 1.7996 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8977 ± 0.0121 | 1.1018 ± 0.0380 | 1.4927 ± 0.0472 | 0.4213 ± 0.0157 | 0.8481 ± 0.0253 | 1.7076 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8953 ± 0.0181 | 1.3554 ± 0.0775 | 1.9471 ± 0.0525 | 0.5000 ± 0.0047 | 0.8359 ± 0.0365 | 26.9263 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8803 ± 0.0227 | 0.9831 ± 0.0663 | 1.8988 ± 0.1421 † | 0.3879 ± 0.0247 | 0.7036 ± 0.0279 | 1.9216 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.8943 ± 0.0050 | 1.3616 ± 0.0255 | 2.2601 ± 0.0784 | 0.4764 ± 0.0086 | 0.7220 ± 0.0094 | 1.7996 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8813 ± 0.0166 | 1.0248 ± 0.0669 | 1.9209 ± 0.1744 † | 0.3901 ± 0.0296 | 0.7369 ± 0.0645 | 8.1003 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8790 ± 0.0215 | 1.0818 ± 0.0561 | 2.0747 ± 0.1015 | 0.4216 ± 0.0152 | 0.7245 ± 0.0704 | 1.7076 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.8940 ± 0.0137 | 1.4408 ± 0.0766 | 2.3248 ± 0.0337 | 0.4945 ± 0.0028 | 0.7090 ± 0.0285 | 26.9263 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.8797 ± 0.0112 | 0.9744 ± 0.0514 | 1.9244 ± 0.1365 † | **0.3878 ± 0.0247** | 0.7062 ± 0.0330 | 1.9216 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.8813 ± 0.0059 | 1.2963 ± 0.0133 | 2.3217 ± 0.0552 | 0.4756 ± 0.0087 | 0.6650 ± 0.0174 | 1.7996 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.8787 ± 0.0107 | 1.0190 ± 0.0383 | 1.9255 ± 0.1753 † | 0.3901 ± 0.0308 | 0.7215 ± 0.0519 | 8.1003 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.8817 ± 0.0199 | 1.0771 ± 0.0661 | 2.0888 ± 0.0918 | 0.4215 ± 0.0152 | 0.7234 ± 0.0551 | 1.7076 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0095 | 1.3861 ± 0.0452 | 2.3384 ± 0.0285 | 0.4919 ± 0.0030 | 0.6907 ± 0.0258 | 26.9263 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9030 ± 0.0271 | 1.0172 ± 0.0607 | 1.3309 ± 0.0298 | **0.3878 ± 0.0247** | 0.8448 ± 0.0362 | 1.9216 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9060 ± 0.0145 | 2.1260 ± 0.8423 | 2.5107 ± 0.6270 † | 0.4756 ± 0.0087 | 0.7272 ± 0.0334 | 1.7996 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8983 ± 0.0160 | 1.1287 ± 0.0333 | 1.5134 ± 0.0485 | 0.4215 ± 0.0152 | 0.8425 ± 0.0205 | 1.7076 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.8927 ± 0.0161 | 1.4113 ± 0.0633 | 1.9884 ± 0.0512 | 0.4919 ± 0.0030 | 0.8128 ± 0.0185 | 26.9263 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8943 ± 0.0180 | 1.0557 ± 0.0540 | 1.9243 ± 0.1302 † | **0.3878 ± 0.0247** | 0.7189 ± 0.0509 | 1.9216 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.8887 ± 0.0085 | 1.3718 ± 0.0511 | 2.3311 ± 0.0642 | 0.4756 ± 0.0087 | 0.6701 ± 0.0158 | 1.7996 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.8870 ± 0.0226 | 1.0572 ± 0.0813 | 1.8713 ± 0.1158 † | 0.3901 ± 0.0308 | 0.7212 ± 0.0748 | 8.1003 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8937 ± 0.0273 | 1.1776 ± 0.1262 | 2.0993 ± 0.0815 | 0.4215 ± 0.0152 | 0.7336 ± 0.0726 | 1.7076 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.8887 ± 0.0086 | 1.4233 ± 0.0654 | 2.3614 ± 0.0454 | 0.4919 ± 0.0030 | 0.6775 ± 0.0349 | 26.9263 |
 
 ##### fm_uq_scenarios / diabetes
 
@@ -1162,330 +1072,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.9091 ± 0.0601 | 2.2248 ± 0.0576 | 2.6394 ± 0.4831 † | 0.7399 ± 0.1107 | 0.7044 ± 0.1553 | 0.9858 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.6136 ± 0.0521 | 1.4321 ± 0.0809 | 4.1336 ± 0.5521 † | 0.7930 ± 0.1110 | 0.1032 ± 0.0901 | 0.5270 |
-| `Raw+TabICL [clean]` | tabicl | 0.9015 ± 0.0722 | 2.2285 ± 0.0422 | **2.6316 ± 0.5079** † | 0.7359 ± 0.1111 | 0.6627 ± 0.0894 | 0.8439 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.8674 ± 0.0980 | 2.2339 ± 0.2849 | 3.1516 ± 0.7939 † | 0.7327 ± 0.1213 | 0.6540 ± 0.1029 | 2.3964 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9167 ± 0.0572 | 2.3130 ± 0.1741 | 2.6744 ± 0.4039 † | 0.7399 ± 0.1107 | 0.7127 ± 0.1691 | 0.9858 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.9205 ± 0.0410 | 2.4437 ± 0.1316 | 2.8607 ± 0.3084 † | 0.7930 ± 0.1110 | 0.7090 ± 0.1629 | 0.5270 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.9129 ± 0.0694 | 2.3738 ± 0.2605 | 2.7137 ± 0.3958 † | 0.7359 ± 0.1111 | 0.7127 ± 0.1691 | 0.8439 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4727 ± 0.1189 | 3.0223 ± 0.5146 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.3964 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9091 ± 0.0601 | 2.2713 ± 0.2006 | 2.6372 ± 0.3971 † | 0.7399 ± 0.1107 | 0.7127 ± 0.1691 | 0.9858 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.9394 ± 0.0237 | 3.0200 ± 0.3299 | 3.2214 ± 0.1917 † | 0.7930 ± 0.1110 | 0.5985 ± 0.1332 | 0.5270 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.9129 ± 0.0694 | 2.3436 ± 0.2125 | 2.6893 ± 0.3901 † | 0.7359 ± 0.1111 | 0.7127 ± 0.1691 | 0.8439 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4901 ± 0.1255 | 3.0232 ± 0.4723 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.3964 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0347 | 2.6095 ± 0.2663 | 3.0820 ± 0.4533 † | 0.7399 ± 0.1107 | 0.6765 ± 0.0883 | 0.9858 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8750 ± 0.0710 | 2.5582 ± 0.2413 | 3.3609 ± 0.4517 † | 0.7930 ± 0.1110 | 0.4973 ± 0.1546 | 0.5270 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.9053 ± 0.0806 | 2.5105 ± 0.2673 | 2.9720 ± 0.5112 † | **0.7232 ± 0.1136** | 0.6981 ± 0.2067 | 3.7653 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8977 ± 0.0197 | 2.5421 ± 0.2097 | 3.0734 ± 0.3654 † | 0.7359 ± 0.1111 | 0.6976 ± 0.0721 | 0.8439 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8902 ± 0.0911 | 2.4628 ± 0.2184 | 3.0172 ± 0.6233 † | 0.7327 ± 0.1213 | 0.6724 ± 0.2260 | 2.3964 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0473 | 2.4344 ± 0.2997 | 2.9415 ± 0.3602 † | 0.7399 ± 0.1107 | 0.7061 ± 0.1394 | 0.9858 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8636 ± 0.0341 | 2.4812 ± 0.1791 | 3.3710 ± 0.3717 † | 0.7930 ± 0.1110 | 0.6033 ± 0.0854 | 0.5270 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.9129 ± 0.0666 | 2.4587 ± 0.2914 | 2.9309 ± 0.3728 † | 0.7359 ± 0.1111 | 0.7476 ± 0.1434 | 0.8439 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4901 ± 0.1255 | 3.0232 ± 0.4723 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.3964 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0694 | 2.2590 ± 0.1902 | 2.7164 ± 0.5173 † | 0.7448 ± 0.0931 | 0.6567 ± 0.2234 | 0.9858 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.9167 ± 0.0365 | 2.8038 ± 0.1528 | 3.0611 ± 0.0643 | 0.7955 ± 0.0827 | 0.5317 ± 0.1222 | 0.5270 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8939 ± 0.0459 | 2.2519 ± 0.2141 | 2.7913 ± 0.5630 † | 0.7479 ± 0.0871 | 0.6151 ± 0.1668 | 0.8439 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8826 ± 0.0953 | 2.3245 ± 0.1598 | 2.9919 ± 0.6660 † | 0.7519 ± 0.1032 | 0.6540 ± 0.1029 | 2.3964 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8939 ± 0.0572 | 2.3912 ± 0.2967 | 2.9994 ± 0.5488 † | 0.7435 ± 0.0920 | 0.6712 ± 0.0911 | 0.9858 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8826 ± 0.0739 | 2.4545 ± 0.1980 | 3.2757 ± 0.6524 † | 0.8055 ± 0.0884 | 0.6873 ± 0.1641 | 0.5270 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9015 ± 0.0572 | 2.3719 ± 0.1660 | 2.9259 ± 0.5834 † | 0.7370 ± 0.0987 | 0.6905 ± 0.1031 | 3.7653 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8864 ± 0.0495 | 2.2705 ± 0.2285 | 3.0305 ± 0.6559 † | 0.7409 ± 0.0911 | 0.6905 ± 0.1031 | 0.8439 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8902 ± 0.0757 | 2.3973 ± 0.1383 | 3.0138 ± 0.6657 † | 0.7503 ± 0.1019 | 0.6540 ± 0.1029 | 2.3964 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.9205 ± 0.0633 | 2.6070 ± 0.3000 | 3.0841 ± 0.3997 † | 0.7399 ± 0.1107 | 0.7284 ± 0.1778 | 0.9858 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.8750 ± 0.0795 | 2.5520 ± 0.1655 | 3.3679 ± 0.4976 † | 0.7930 ± 0.1110 | 0.5486 ± 0.1622 | 0.5270 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.8977 ± 0.0930 | 2.4704 ± 0.2003 | 2.9687 ± 0.5277 † | **0.7232 ± 0.1136** | 0.7237 ± 0.1958 | 3.7653 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.9280 ± 0.0646 | 2.6689 ± 0.3521 | 3.0761 ± 0.3659 † | 0.7359 ± 0.1111 | 0.7809 ± 0.1978 | 0.8439 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0966 | 2.4409 ± 0.0979 | 3.0464 ± 0.6524 † | 0.7327 ± 0.1213 | 0.6848 ± 0.2399 | 2.3964 |
+| `Raw+KumoTabular [clean]` | sdm | 0.9091 ± 0.0601 | 2.2248 ± 0.0576 | 2.6394 ± 0.4831 † | 0.7399 ± 0.1107 | 0.7044 ± 0.1553 | 0.8876 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.6136 ± 0.0521 | 1.4321 ± 0.0809 | 4.1336 ± 0.5521 † | 0.7930 ± 0.1110 | 0.1032 ± 0.0901 | 0.5443 |
+| `Raw+TabICL [clean]` | tabicl | 0.9015 ± 0.0722 | 2.2285 ± 0.0422 | **2.6316 ± 0.5079** † | 0.7359 ± 0.1111 | 0.6627 ± 0.0894 | 0.7955 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.8674 ± 0.0980 | 2.2339 ± 0.2849 | 3.1516 ± 0.7939 † | 0.7327 ± 0.1213 | 0.6540 ± 0.1029 | 2.4057 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9167 ± 0.0572 | 2.3130 ± 0.1741 | 2.6744 ± 0.4039 † | 0.7399 ± 0.1107 | 0.7127 ± 0.1691 | 0.8876 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.9205 ± 0.0410 | 2.4437 ± 0.1316 | 2.8607 ± 0.3084 † | 0.7930 ± 0.1110 | 0.7090 ± 0.1629 | 0.5443 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.9129 ± 0.0694 | 2.3738 ± 0.2605 | 2.7137 ± 0.3958 † | 0.7359 ± 0.1111 | 0.7127 ± 0.1691 | 0.7955 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4727 ± 0.1189 | 3.0223 ± 0.5146 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.4057 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9091 ± 0.0601 | 2.2713 ± 0.2006 | 2.6372 ± 0.3971 † | 0.7399 ± 0.1107 | 0.7127 ± 0.1691 | 0.8876 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.9394 ± 0.0237 | 3.0200 ± 0.3299 | 3.2214 ± 0.1917 † | 0.7930 ± 0.1110 | 0.5985 ± 0.1332 | 0.5443 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.9129 ± 0.0694 | 2.3436 ± 0.2125 | 2.6893 ± 0.3901 † | 0.7359 ± 0.1111 | 0.7127 ± 0.1691 | 0.7955 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4901 ± 0.1255 | 3.0232 ± 0.4723 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.4057 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0347 | 2.6095 ± 0.2663 | 3.0820 ± 0.4533 † | 0.7399 ± 0.1107 | 0.6765 ± 0.0883 | 0.8876 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8750 ± 0.0710 | 2.5582 ± 0.2413 | 3.3609 ± 0.4517 † | 0.7930 ± 0.1110 | 0.4973 ± 0.1546 | 0.5443 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.9053 ± 0.0806 | 2.5105 ± 0.2673 | 2.9720 ± 0.5112 † | **0.7232 ± 0.1136** | 0.6981 ± 0.2067 | 3.7255 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8977 ± 0.0197 | 2.5421 ± 0.2097 | 3.0734 ± 0.3654 † | 0.7359 ± 0.1111 | 0.6976 ± 0.0721 | 0.7955 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8902 ± 0.0911 | 2.4628 ± 0.2184 | 3.0172 ± 0.6233 † | 0.7327 ± 0.1213 | 0.6724 ± 0.2260 | 2.4057 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0473 | 2.4344 ± 0.2997 | 2.9415 ± 0.3602 † | 0.7399 ± 0.1107 | 0.7061 ± 0.1394 | 0.8876 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8636 ± 0.0341 | 2.4812 ± 0.1791 | 3.3710 ± 0.3717 † | 0.7930 ± 0.1110 | 0.6033 ± 0.0854 | 0.5443 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.9129 ± 0.0666 | 2.4587 ± 0.2914 | 2.9309 ± 0.3728 † | 0.7359 ± 0.1111 | 0.7476 ± 0.1434 | 0.7955 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0853 | 2.4901 ± 0.1255 | 3.0232 ± 0.4723 † | 0.7327 ± 0.1213 | 0.6929 ± 0.1622 | 2.4057 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9015 ± 0.0694 | 2.2590 ± 0.1902 | 2.7164 ± 0.5173 † | 0.7448 ± 0.0931 | 0.6567 ± 0.2234 | 0.8876 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.9167 ± 0.0365 | 2.8038 ± 0.1528 | 3.0611 ± 0.0643 | 0.7955 ± 0.0827 | 0.5317 ± 0.1222 | 0.5443 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8939 ± 0.0459 | 2.2519 ± 0.2141 | 2.7913 ± 0.5630 † | 0.7479 ± 0.0871 | 0.6151 ± 0.1668 | 0.7955 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8826 ± 0.0953 | 2.3245 ± 0.1598 | 2.9919 ± 0.6660 † | 0.7519 ± 0.1032 | 0.6540 ± 0.1029 | 2.4057 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8939 ± 0.0572 | 2.3912 ± 0.2967 | 2.9994 ± 0.5488 † | 0.7435 ± 0.0920 | 0.6712 ± 0.0911 | 0.8876 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8826 ± 0.0739 | 2.4545 ± 0.1980 | 3.2757 ± 0.6524 † | 0.8055 ± 0.0884 | 0.6873 ± 0.1641 | 0.5443 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9015 ± 0.0572 | 2.3719 ± 0.1660 | 2.9259 ± 0.5834 † | 0.7370 ± 0.0987 | 0.6905 ± 0.1031 | 3.7255 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8864 ± 0.0495 | 2.2705 ± 0.2285 | 3.0305 ± 0.6559 † | 0.7409 ± 0.0911 | 0.6905 ± 0.1031 | 0.7955 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8902 ± 0.0757 | 2.3973 ± 0.1383 | 3.0138 ± 0.6657 † | 0.7503 ± 0.1019 | 0.6540 ± 0.1029 | 2.4057 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.9205 ± 0.0633 | 2.6070 ± 0.3000 | 3.0841 ± 0.3997 † | 0.7399 ± 0.1107 | 0.7284 ± 0.1778 | 0.8876 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.8750 ± 0.0795 | 2.5520 ± 0.1655 | 3.3679 ± 0.4976 † | 0.7930 ± 0.1110 | 0.5486 ± 0.1622 | 0.5443 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.8977 ± 0.0930 | 2.4704 ± 0.2003 | 2.9687 ± 0.5277 † | **0.7232 ± 0.1136** | 0.7237 ± 0.1958 | 3.7255 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.9280 ± 0.0646 | 2.6689 ± 0.3521 | 3.0761 ± 0.3659 † | 0.7359 ± 0.1111 | 0.7809 ± 0.1978 | 0.7955 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.9053 ± 0.0966 | 2.4409 ± 0.0979 | 3.0464 ± 0.6524 † | 0.7327 ± 0.1213 | 0.6848 ± 0.2399 | 2.4057 |
 
 ##### fm_uq_scenarios / diabetes@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9508 ± 0.0131 | 1.8833 ± 0.0950 | **2.0646 ± 0.0547** | 0.5652 ± 0.0083 | 0.6389 ± 0.0241 | 0.6479 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7462 ± 0.0430 | 1.3432 ± 0.1594 | 2.3867 ± 0.0991 | 0.5469 ± 0.0111 | 0.3256 ± 0.1969 | 0.6009 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9015 ± 0.0066 | 1.7847 ± 0.1162 | 2.1914 ± 0.0917 | 0.5742 ± 0.0095 | 0.6167 ± 0.0144 | 0.7851 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9318 ± 0.0114 | 2.3127 ± 0.1299 | 2.6032 ± 0.0940 | 0.5645 ± 0.0249 | 0.6083 ± 0.0144 | 2.0368 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9242 ± 0.0537 | 1.8231 ± 0.2617 | 2.0803 ± 0.0567 | 0.5652 ± 0.0083 | 0.6389 ± 0.0241 | 0.6479 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9848 ± 0.0131 | 2.4329 ± 0.1328 | 2.4683 ± 0.1050 | 0.5469 ± 0.0111 | 0.8333 ± 0.1443 | 0.6009 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9053 ± 0.0666 | 1.8172 ± 0.2156 | 2.2568 ± 0.1185 † | 0.5742 ± 0.0095 | 0.6389 ± 0.0241 | 0.7851 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.9432 ± 0.0227 | 2.3758 ± 0.0971 | 2.6307 ± 0.0695 | 0.5645 ± 0.0249 | 0.6722 ± 0.0752 | 2.0368 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9280 ± 0.0473 | 1.7819 ± 0.3135 | 2.1043 ± 0.0741 | 0.5652 ± 0.0083 | 0.5972 ± 0.0867 | 0.6479 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.9356 ± 0.0347 | 2.7814 ± 0.2107 | 2.9045 ± 0.1527 † | 0.5469 ± 0.0111 | 0.7855 ± 0.1072 | 0.6009 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9091 ± 0.0410 | 1.7689 ± 0.1650 | 2.2256 ± 0.1456 † | 0.5742 ± 0.0095 | 0.6389 ± 0.0241 | 0.7851 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9394 ± 0.0237 | 2.3692 ± 0.1063 | 2.6268 ± 0.0725 | 0.5645 ± 0.0249 | 0.6500 ± 0.0866 | 2.0368 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.9583 ± 0.0237 | 2.7718 ± 0.2950 | 2.8914 ± 0.1700 † | 0.5652 ± 0.0083 | 0.6111 ± 0.2295 | 0.6479 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9848 ± 0.0262 | 3.0499 ± 0.4931 | 3.1238 ± 0.3699 † | 0.5469 ± 0.0111 | 0.8750 ± 0.2165 | 0.6009 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.9545 ± 0.0301 | 2.5355 ± 0.4460 | 2.7489 ± 0.2199 † | 0.5482 ± 0.0106 | 0.6111 ± 0.2295 | 3.8783 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9621 ± 0.0174 | 2.6562 ± 0.3524 | 2.8588 ± 0.1905 † | 0.5742 ± 0.0095 | 0.6389 ± 0.1273 | 0.7851 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9583 ± 0.0237 | 2.4457 ± 0.3024 | 2.6770 ± 0.1550 † | 0.5645 ± 0.0249 | 0.6722 ± 0.0752 | 2.0368 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9053 ± 0.0262 | 1.9297 ± 0.1656 | 2.5183 ± 0.0642 | 0.5652 ± 0.0083 | 0.4583 ± 0.0722 | 0.6479 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9508 ± 0.0066 | 2.3532 ± 0.0975 | 2.6485 ± 0.1534 † | 0.5469 ± 0.0111 | 0.6250 ± 0.1250 | 0.6009 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.8864 ± 0.0227 | 1.8862 ± 0.1436 | 2.7808 ± 0.1083 | 0.5742 ± 0.0095 | 0.5083 ± 0.1127 | 0.7851 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9394 ± 0.0237 | 2.3692 ± 0.1063 | 2.6268 ± 0.0725 | 0.5645 ± 0.0249 | 0.6500 ± 0.0866 | 2.0368 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9280 ± 0.0656 | 1.8172 ± 0.3156 | 2.0893 ± 0.0323 | 0.5409 ± 0.0410 | 0.6944 ± 0.1735 | 0.6479 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.9015 ± 0.0328 | 2.8443 ± 0.2037 | 3.0529 ± 0.1954 † | 0.5536 ± 0.0208 | 0.6682 ± 0.0989 | 0.6009 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.8902 ± 0.0328 | 1.7409 ± 0.1615 | 2.1858 ± 0.1417 † | 0.5502 ± 0.0431 | 0.6389 ± 0.0241 | 0.7851 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9697 ± 0.0174 | 2.2463 ± 0.2253 | 2.3780 ± 0.1780 † | 0.5419 ± 0.0387 | 0.7361 ± 0.1049 | 2.0368 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.9621 ± 0.0286 | 2.3348 ± 0.3622 | 2.4413 ± 0.2556 † | 0.5464 ± 0.0391 | 0.6111 ± 0.2295 | 0.6479 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.9886 ± 0.0197 | 2.5406 ± 0.2878 | 2.5904 ± 0.2188 † | 0.5609 ± 0.0331 | 0.9333 ± 0.1155 | 0.6009 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9735 ± 0.0174 | 2.3810 ± 0.3459 | 2.4958 ± 0.2271 † | **0.5380 ± 0.0199** | 0.7778 ± 0.1339 | 3.8783 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9621 ± 0.0174 | 2.2553 ± 0.2768 | 2.4190 ± 0.1703 † | 0.5491 ± 0.0524 | 0.6806 ± 0.0636 | 0.7851 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9811 ± 0.0066 | 2.3236 ± 0.1683 | 2.4272 ± 0.1815 † | 0.5416 ± 0.0378 | 0.7778 ± 0.0481 | 2.0368 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.9508 ± 0.0174 | 2.5709 ± 0.1408 | 2.7562 ± 0.0479 | 0.5652 ± 0.0083 | 0.5000 ± 0.1250 | 0.6479 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9545 ± 0.0114 | 2.5543 ± 0.0908 | 2.7031 ± 0.0458 | 0.5469 ± 0.0111 | 0.5833 ± 0.1443 | 0.6009 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9508 ± 0.0262 | 2.5219 ± 0.3920 | 2.7323 ± 0.1916 † | 0.5482 ± 0.0106 | 0.5556 ± 0.1577 | 3.8783 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9583 ± 0.0131 | 2.4793 ± 0.1624 | 2.7373 ± 0.0525 | 0.5742 ± 0.0095 | 0.5972 ± 0.0867 | 0.7851 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9697 ± 0.0066 | 2.5691 ± 0.0616 | 2.7240 ± 0.0734 | 0.5645 ± 0.0249 | 0.6806 ± 0.0636 | 2.0368 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9508 ± 0.0131 | 1.8833 ± 0.0950 | **2.0646 ± 0.0547** | 0.5652 ± 0.0083 | 0.6389 ± 0.0241 | 0.7138 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7462 ± 0.0430 | 1.3432 ± 0.1594 | 2.3867 ± 0.0991 | 0.5469 ± 0.0111 | 0.3256 ± 0.1969 | 0.6023 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9015 ± 0.0066 | 1.7847 ± 0.1162 | 2.1914 ± 0.0917 | 0.5742 ± 0.0095 | 0.6167 ± 0.0144 | 0.8244 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9318 ± 0.0114 | 2.3127 ± 0.1299 | 2.6032 ± 0.0940 | 0.5645 ± 0.0249 | 0.6083 ± 0.0144 | 2.0603 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9242 ± 0.0537 | 1.8231 ± 0.2617 | 2.0803 ± 0.0567 | 0.5652 ± 0.0083 | 0.6389 ± 0.0241 | 0.7138 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9848 ± 0.0131 | 2.4329 ± 0.1328 | 2.4683 ± 0.1050 | 0.5469 ± 0.0111 | 0.8333 ± 0.1443 | 0.6023 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9053 ± 0.0666 | 1.8172 ± 0.2156 | 2.2568 ± 0.1185 † | 0.5742 ± 0.0095 | 0.6389 ± 0.0241 | 0.8244 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.9432 ± 0.0227 | 2.3758 ± 0.0971 | 2.6307 ± 0.0695 | 0.5645 ± 0.0249 | 0.6722 ± 0.0752 | 2.0603 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9280 ± 0.0473 | 1.7819 ± 0.3135 | 2.1043 ± 0.0741 | 0.5652 ± 0.0083 | 0.5972 ± 0.0867 | 0.7138 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.9356 ± 0.0347 | 2.7814 ± 0.2107 | 2.9045 ± 0.1527 † | 0.5469 ± 0.0111 | 0.7855 ± 0.1072 | 0.6023 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9091 ± 0.0410 | 1.7689 ± 0.1650 | 2.2256 ± 0.1456 † | 0.5742 ± 0.0095 | 0.6389 ± 0.0241 | 0.8244 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9394 ± 0.0237 | 2.3692 ± 0.1063 | 2.6268 ± 0.0725 | 0.5645 ± 0.0249 | 0.6500 ± 0.0866 | 2.0603 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.9583 ± 0.0237 | 2.7718 ± 0.2950 | 2.8914 ± 0.1700 † | 0.5652 ± 0.0083 | 0.6111 ± 0.2295 | 0.7138 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9848 ± 0.0262 | 3.0499 ± 0.4931 | 3.1238 ± 0.3699 † | 0.5469 ± 0.0111 | 0.8750 ± 0.2165 | 0.6023 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.9545 ± 0.0301 | 2.5355 ± 0.4460 | 2.7489 ± 0.2199 † | 0.5482 ± 0.0106 | 0.6111 ± 0.2295 | 3.8912 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9621 ± 0.0174 | 2.6562 ± 0.3524 | 2.8588 ± 0.1905 † | 0.5742 ± 0.0095 | 0.6389 ± 0.1273 | 0.8244 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9583 ± 0.0237 | 2.4457 ± 0.3024 | 2.6770 ± 0.1550 † | 0.5645 ± 0.0249 | 0.6722 ± 0.0752 | 2.0603 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9053 ± 0.0262 | 1.9297 ± 0.1656 | 2.5183 ± 0.0642 | 0.5652 ± 0.0083 | 0.4583 ± 0.0722 | 0.7138 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9508 ± 0.0066 | 2.3532 ± 0.0975 | 2.6485 ± 0.1534 † | 0.5469 ± 0.0111 | 0.6250 ± 0.1250 | 0.6023 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.8864 ± 0.0227 | 1.8862 ± 0.1436 | 2.7808 ± 0.1083 | 0.5742 ± 0.0095 | 0.5083 ± 0.1127 | 0.8244 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9394 ± 0.0237 | 2.3692 ± 0.1063 | 2.6268 ± 0.0725 | 0.5645 ± 0.0249 | 0.6500 ± 0.0866 | 2.0603 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9280 ± 0.0656 | 1.8172 ± 0.3156 | 2.0893 ± 0.0323 | 0.5409 ± 0.0410 | 0.6944 ± 0.1735 | 0.7138 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.9015 ± 0.0328 | 2.8443 ± 0.2037 | 3.0529 ± 0.1954 † | 0.5536 ± 0.0208 | 0.6682 ± 0.0989 | 0.6023 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.8902 ± 0.0328 | 1.7409 ± 0.1615 | 2.1858 ± 0.1417 † | 0.5502 ± 0.0431 | 0.6389 ± 0.0241 | 0.8244 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9697 ± 0.0174 | 2.2463 ± 0.2253 | 2.3780 ± 0.1780 † | 0.5419 ± 0.0387 | 0.7361 ± 0.1049 | 2.0603 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.9621 ± 0.0286 | 2.3348 ± 0.3622 | 2.4413 ± 0.2556 † | 0.5464 ± 0.0391 | 0.6111 ± 0.2295 | 0.7138 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.9886 ± 0.0197 | 2.5406 ± 0.2878 | 2.5904 ± 0.2188 † | 0.5609 ± 0.0331 | 0.9333 ± 0.1155 | 0.6023 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9735 ± 0.0174 | 2.3810 ± 0.3459 | 2.4958 ± 0.2271 † | **0.5380 ± 0.0199** | 0.7778 ± 0.1339 | 3.8912 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9621 ± 0.0174 | 2.2553 ± 0.2768 | 2.4190 ± 0.1703 † | 0.5491 ± 0.0524 | 0.6806 ± 0.0636 | 0.8244 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9811 ± 0.0066 | 2.3236 ± 0.1683 | 2.4272 ± 0.1815 † | 0.5416 ± 0.0378 | 0.7778 ± 0.0481 | 2.0603 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.9508 ± 0.0174 | 2.5709 ± 0.1408 | 2.7562 ± 0.0479 | 0.5652 ± 0.0083 | 0.5000 ± 0.1250 | 0.7138 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9545 ± 0.0114 | 2.5543 ± 0.0908 | 2.7031 ± 0.0458 | 0.5469 ± 0.0111 | 0.5833 ± 0.1443 | 0.6023 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9508 ± 0.0262 | 2.5219 ± 0.3920 | 2.7323 ± 0.1916 † | 0.5482 ± 0.0106 | 0.5556 ± 0.1577 | 3.8912 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9583 ± 0.0131 | 2.4793 ± 0.1624 | 2.7373 ± 0.0525 | 0.5742 ± 0.0095 | 0.5972 ± 0.0867 | 0.8244 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9697 ± 0.0066 | 2.5691 ± 0.0616 | 2.7240 ± 0.0734 | 0.5645 ± 0.0249 | 0.6806 ± 0.0636 | 2.0603 |
 
 ##### fm_uq_scenarios / diabetes@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9053 ± 0.0656 | 2.1392 ± 0.0566 | 2.8142 ± 0.7307 † | 0.7389 ± 0.1261 | 0.6429 ± 0.2034 | 0.6493 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.6288 ± 0.0685 | 1.2388 ± 0.0133 | 4.3406 ± 1.0344 † | 0.7845 ± 0.1052 | 0.1032 ± 0.0901 | 0.5906 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.9129 ± 0.0525 | 2.1361 ± 0.0099 | **2.7623 ± 0.7476** † | 0.7386 ± 0.1201 | 0.6627 ± 0.0894 | 0.7979 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9280 ± 0.0561 | 2.3185 ± 0.1207 | 3.1952 ± 0.7094 † | 0.7479 ± 0.1132 | 0.6540 ± 0.1029 | 2.0537 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9242 ± 0.0626 | 2.3055 ± 0.2914 | 2.8781 ± 0.5966 † | 0.7389 ± 0.1261 | 0.7238 ± 0.1876 | 0.6493 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9242 ± 0.0430 | 2.2812 ± 0.0308 | 3.2915 ± 0.7431 † | 0.7845 ± 0.1052 | 0.5101 ± 0.1518 | 0.5906 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0572 | 2.2474 ± 0.1524 | 2.7838 ± 0.6830 † | 0.7386 ± 0.1201 | 0.7183 ± 0.1783 | 0.7979 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9280 ± 0.0583 | 2.3166 ± 0.2325 | 3.2077 ± 0.6103 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0537 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.9205 ± 0.0521 | 2.3356 ± 0.3418 | 2.8761 ± 0.5773 † | 0.7389 ± 0.1261 | 0.7183 ± 0.1783 | 0.6493 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9394 ± 0.0328 | 3.1155 ± 0.6601 | 3.7711 ± 0.3191 † | 0.7845 ± 0.1052 | 0.6263 ± 0.1808 | 0.5906 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0512 | 2.3278 ± 0.3007 | 2.8430 ± 0.6104 † | 0.7386 ± 0.1201 | 0.7183 ± 0.1783 | 0.7979 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9318 ± 0.0601 | 2.3484 ± 0.2988 | 3.2552 ± 0.5541 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0537 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9394 ± 0.0430 | 2.5166 ± 0.5575 | 3.4245 ± 0.5760 † | 0.7389 ± 0.1261 | 0.7003 ± 0.1742 | 0.6493 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9167 ± 0.0561 | 2.3555 ± 0.3825 | 3.5926 ± 0.4994 † | 0.7845 ± 0.1052 | 0.5404 ± 0.1117 | 0.5906 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9356 ± 0.0237 | 2.2615 ± 0.2064 | 3.1486 ± 0.5537 † | **0.7212 ± 0.1246** | 0.6677 ± 0.1853 | 3.9073 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0473 | 2.4586 ± 0.6306 | 3.4773 ± 0.5624 † | 0.7386 ± 0.1201 | 0.7003 ± 0.1742 | 0.7979 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9205 ± 0.0455 | 2.1745 ± 0.2703 | 3.3592 ± 0.5432 † | 0.7479 ± 0.1132 | 0.6448 ± 0.2126 | 2.0537 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.9318 ± 0.0568 | 2.3693 ± 0.4157 | 3.1772 ± 0.6152 † | 0.7389 ± 0.1261 | 0.6848 ± 0.2399 | 0.6493 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9015 ± 0.0459 | 2.7805 ± 0.5548 | 3.7875 ± 0.6665 † | 0.7845 ± 0.1052 | 0.6374 ± 0.1999 | 0.5906 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0512 | 2.3248 ± 0.3694 | 3.0978 ± 0.6234 † | 0.7386 ± 0.1201 | 0.6700 ± 0.2172 | 0.7979 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9318 ± 0.0601 | 2.3484 ± 0.2988 | 3.2552 ± 0.5541 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0537 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9015 ± 0.0685 | 2.2831 ± 0.4170 | 2.9585 ± 0.5992 † | 0.7466 ± 0.1030 | 0.6429 ± 0.2034 | 0.6493 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9280 ± 0.0286 | 2.7762 ± 0.4282 | 3.5391 ± 0.4004 † | 0.7796 ± 0.0909 | 0.5707 ± 0.0862 | 0.5906 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.9053 ± 0.0694 | 2.1654 ± 0.2807 | 2.8736 ± 0.7240 † | 0.7487 ± 0.1019 | 0.6151 ± 0.1668 | 0.7979 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8977 ± 0.0819 | 2.1837 ± 0.3669 | 3.2001 ± 0.6273 † | 0.7616 ± 0.0968 | 0.5873 ± 0.2160 | 2.0537 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9280 ± 0.0459 | 2.4018 ± 0.1641 | 3.4891 ± 0.5430 † | 0.7426 ± 0.1073 | 0.6448 ± 0.2126 | 0.6493 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9205 ± 0.0601 | 2.4826 ± 0.3550 | 3.6822 ± 0.5269 † | 0.7904 ± 0.0924 | 0.6145 ± 0.2387 | 0.5906 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9205 ± 0.0495 | 2.3814 ± 0.1823 | 3.5272 ± 0.5594 † | 0.7273 ± 0.1147 | 0.6460 ± 0.1944 | 3.9073 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.9015 ± 0.0430 | 2.2634 ± 0.2133 | 3.4572 ± 0.6176 † | 0.7444 ± 0.1001 | 0.6374 ± 0.1999 | 0.7979 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8864 ± 0.0301 | 2.2027 ± 0.2025 | 3.5410 ± 0.6394 † | 0.7508 ± 0.1061 | 0.5985 ± 0.1332 | 2.0537 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9242 ± 0.0646 | 2.5028 ± 0.5979 | 3.6963 ± 0.5033 † | 0.7389 ± 0.1261 | 0.5471 ± 0.2111 | 0.6493 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9205 ± 0.0601 | 2.4575 ± 0.3366 | 3.8548 ± 0.5734 † | 0.7845 ± 0.1052 | 0.4428 ± 0.1499 | 0.5906 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9129 ± 0.0722 | 2.3248 ± 0.2827 | 3.5504 ± 0.6024 † | **0.7212 ± 0.1246** | 0.5471 ± 0.2111 | 3.9073 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.9205 ± 0.0710 | 2.4476 ± 0.4619 | 3.6679 ± 0.5017 † | 0.7386 ± 0.1201 | 0.5168 ± 0.2529 | 0.7979 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9205 ± 0.0902 | 2.3629 ± 0.4880 | 3.7114 ± 0.5330 † | 0.7479 ± 0.1132 | 0.5842 ± 0.2726 | 2.0537 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9053 ± 0.0656 | 2.1392 ± 0.0566 | 2.8142 ± 0.7307 † | 0.7389 ± 0.1261 | 0.6429 ± 0.2034 | 0.7036 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.6288 ± 0.0685 | 1.2388 ± 0.0133 | 4.3406 ± 1.0344 † | 0.7845 ± 0.1052 | 0.1032 ± 0.0901 | 0.6365 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.9129 ± 0.0525 | 2.1361 ± 0.0099 | **2.7623 ± 0.7476** † | 0.7386 ± 0.1201 | 0.6627 ± 0.0894 | 0.8298 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9280 ± 0.0561 | 2.3185 ± 0.1207 | 3.1952 ± 0.7094 † | 0.7479 ± 0.1132 | 0.6540 ± 0.1029 | 2.0976 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9242 ± 0.0626 | 2.3055 ± 0.2914 | 2.8781 ± 0.5966 † | 0.7389 ± 0.1261 | 0.7238 ± 0.1876 | 0.7036 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9242 ± 0.0430 | 2.2812 ± 0.0308 | 3.2915 ± 0.7431 † | 0.7845 ± 0.1052 | 0.5101 ± 0.1518 | 0.6365 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0572 | 2.2474 ± 0.1524 | 2.7838 ± 0.6830 † | 0.7386 ± 0.1201 | 0.7183 ± 0.1783 | 0.8298 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9280 ± 0.0583 | 2.3166 ± 0.2325 | 3.2077 ± 0.6103 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0976 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.9205 ± 0.0521 | 2.3356 ± 0.3418 | 2.8761 ± 0.5773 † | 0.7389 ± 0.1261 | 0.7183 ± 0.1783 | 0.7036 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9394 ± 0.0328 | 3.1155 ± 0.6601 | 3.7711 ± 0.3191 † | 0.7845 ± 0.1052 | 0.6263 ± 0.1808 | 0.6365 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0512 | 2.3278 ± 0.3007 | 2.8430 ± 0.6104 † | 0.7386 ± 0.1201 | 0.7183 ± 0.1783 | 0.8298 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9318 ± 0.0601 | 2.3484 ± 0.2988 | 3.2552 ± 0.5541 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0976 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9394 ± 0.0430 | 2.5166 ± 0.5575 | 3.4245 ± 0.5760 † | 0.7389 ± 0.1261 | 0.7003 ± 0.1742 | 0.7036 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9167 ± 0.0561 | 2.3555 ± 0.3825 | 3.5926 ± 0.4994 † | 0.7845 ± 0.1052 | 0.5404 ± 0.1117 | 0.6365 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9356 ± 0.0237 | 2.2615 ± 0.2064 | 3.1486 ± 0.5537 † | **0.7212 ± 0.1246** | 0.6677 ± 0.1853 | 3.7954 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0473 | 2.4586 ± 0.6306 | 3.4773 ± 0.5624 † | 0.7386 ± 0.1201 | 0.7003 ± 0.1742 | 0.8298 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9205 ± 0.0455 | 2.1745 ± 0.2703 | 3.3592 ± 0.5432 † | 0.7479 ± 0.1132 | 0.6448 ± 0.2126 | 2.0976 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.9318 ± 0.0568 | 2.3693 ± 0.4157 | 3.1772 ± 0.6152 † | 0.7389 ± 0.1261 | 0.6848 ± 0.2399 | 0.7036 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9015 ± 0.0459 | 2.7805 ± 0.5548 | 3.7875 ± 0.6665 † | 0.7845 ± 0.1052 | 0.6374 ± 0.1999 | 0.6365 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9356 ± 0.0512 | 2.3248 ± 0.3694 | 3.0978 ± 0.6234 † | 0.7386 ± 0.1201 | 0.6700 ± 0.2172 | 0.8298 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9318 ± 0.0601 | 2.3484 ± 0.2988 | 3.2552 ± 0.5541 † | 0.7479 ± 0.1132 | 0.6540 ± 0.2286 | 2.0976 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9015 ± 0.0685 | 2.2831 ± 0.4170 | 2.9585 ± 0.5992 † | 0.7466 ± 0.1030 | 0.6429 ± 0.2034 | 0.7036 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9280 ± 0.0286 | 2.7762 ± 0.4282 | 3.5391 ± 0.4004 † | 0.7796 ± 0.0909 | 0.5707 ± 0.0862 | 0.6365 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.9053 ± 0.0694 | 2.1654 ± 0.2807 | 2.8736 ± 0.7240 † | 0.7487 ± 0.1019 | 0.6151 ± 0.1668 | 0.8298 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8977 ± 0.0819 | 2.1837 ± 0.3669 | 3.2001 ± 0.6273 † | 0.7616 ± 0.0968 | 0.5873 ± 0.2160 | 2.0976 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9280 ± 0.0459 | 2.4018 ± 0.1641 | 3.4891 ± 0.5430 † | 0.7426 ± 0.1073 | 0.6448 ± 0.2126 | 0.7036 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9205 ± 0.0601 | 2.4826 ± 0.3550 | 3.6822 ± 0.5269 † | 0.7904 ± 0.0924 | 0.6145 ± 0.2387 | 0.6365 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9205 ± 0.0495 | 2.3814 ± 0.1823 | 3.5272 ± 0.5594 † | 0.7273 ± 0.1147 | 0.6460 ± 0.1944 | 3.7954 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.9015 ± 0.0430 | 2.2634 ± 0.2133 | 3.4572 ± 0.6176 † | 0.7444 ± 0.1001 | 0.6374 ± 0.1999 | 0.8298 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8864 ± 0.0301 | 2.2027 ± 0.2025 | 3.5410 ± 0.6394 † | 0.7508 ± 0.1061 | 0.5985 ± 0.1332 | 2.0976 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9242 ± 0.0646 | 2.5028 ± 0.5979 | 3.6963 ± 0.5033 † | 0.7389 ± 0.1261 | 0.5471 ± 0.2111 | 0.7036 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9205 ± 0.0601 | 2.4575 ± 0.3366 | 3.8548 ± 0.5734 † | 0.7845 ± 0.1052 | 0.4428 ± 0.1499 | 0.6365 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9129 ± 0.0722 | 2.3248 ± 0.2827 | 3.5504 ± 0.6024 † | **0.7212 ± 0.1246** | 0.5471 ± 0.2111 | 3.7954 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.9205 ± 0.0710 | 2.4476 ± 0.4619 | 3.6679 ± 0.5017 † | 0.7386 ± 0.1201 | 0.5168 ± 0.2529 | 0.8298 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9205 ± 0.0902 | 2.3629 ± 0.4880 | 3.7114 ± 0.5330 † | 0.7479 ± 0.1132 | 0.5842 ± 0.2726 | 2.0976 |
 
 ##### fm_uq_scenarios / diabetes@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.7803 ± 0.0473 | 1.9286 ± 0.0101 | 3.3752 ± 0.5886 † | 0.8345 ± 0.0804 | 0.4348 ± 0.1130 | 0.6233 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.4242 ± 0.0572 | 1.1664 ± 0.0312 | 6.6988 ± 0.7617 † | 0.8958 ± 0.0666 | 0.0545 ± 0.0640 | 0.5578 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.7689 ± 0.0583 | 1.9191 ± 0.0118 | 3.4192 ± 0.6348 † | 0.8359 ± 0.0788 | 0.4277 ± 0.0389 | 0.7615 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.7500 ± 0.0521 | 1.9707 ± 0.0779 | 3.8025 ± 0.4446 † | 0.8492 ± 0.0691 | 0.3859 ± 0.0822 | 1.7918 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.7992 ± 0.0473 | 2.0489 ± 0.2096 | 3.2452 ± 0.4257 † | 0.8345 ± 0.0804 | 0.4708 ± 0.1460 | 0.6233 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7841 ± 0.0455 | 2.1534 ± 0.2918 | 3.9182 ± 0.6334 † | 0.8958 ± 0.0666 | 0.4307 ± 0.1479 | 0.5578 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.7917 ± 0.0430 | 2.0310 ± 0.1931 | 3.2595 ± 0.4783 † | 0.8359 ± 0.0788 | 0.4435 ± 0.1582 | 0.7615 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.7992 ± 0.0262 | 2.1813 ± 0.2880 | 3.5385 ± 0.2761 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.7918 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8182 ± 0.0691 | 2.0878 ± 0.2252 | 3.1520 ± 0.4501 † | 0.8345 ± 0.0804 | 0.4989 ± 0.1940 | 0.6233 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0601 | 2.1845 ± 0.0871 | 4.2330 ± 0.8220 † | 0.8958 ± 0.0666 | 0.3089 ± 0.0663 | 0.5578 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.7917 ± 0.0430 | 2.0093 ± 0.1840 | 3.2092 ± 0.4429 † | 0.8359 ± 0.0788 | 0.4459 ± 0.1648 | 0.7615 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8030 ± 0.0237 | 2.2100 ± 0.3172 | 3.4878 ± 0.2370 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.7918 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.7652 ± 0.0473 | 2.0968 ± 0.3330 | 3.6828 ± 0.4194 † | 0.8345 ± 0.0804 | 0.3971 ± 0.1180 | 0.6233 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.0925 ± 0.3127 | 4.3314 ± 0.4910 † | 0.8958 ± 0.0666 | 0.4058 ± 0.1632 | 0.5578 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.0904 ± 0.2233 | 3.6075 ± 0.6626 † | **0.8214 ± 0.0823** | 0.4500 ± 0.1373 | 3.7655 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.7576 ± 0.0626 | 2.0956 ± 0.2738 | 3.7349 ± 0.6303 † | 0.8359 ± 0.0788 | 0.3826 ± 0.1431 | 0.7615 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.7689 ± 0.0430 | 2.0537 ± 0.2976 | 3.8589 ± 0.3942 † | 0.8492 ± 0.0691 | 0.3802 ± 0.1461 | 1.7918 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.7955 ± 0.0710 | 2.1468 ± 0.4002 | 3.4254 ± 0.4472 † | 0.8345 ± 0.0804 | 0.5028 ± 0.2117 | 0.6233 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0227 | 2.2389 ± 0.1780 | 4.4696 ± 0.6820 † | 0.8958 ± 0.0666 | 0.4348 ± 0.1130 | 0.5578 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.1516 ± 0.4246 | 3.4164 ± 0.4434 † | 0.8359 ± 0.0788 | 0.4883 ± 0.2366 | 0.7615 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8030 ± 0.0237 | 2.2100 ± 0.3172 | 3.4878 ± 0.2370 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.7918 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.7992 ± 0.0757 | 2.0136 ± 0.2011 | 3.1380 ± 0.5164 † | 0.8865 ± 0.0325 | 0.4433 ± 0.2161 | 0.6233 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.1854 ± 0.1583 | 4.3648 ± 0.7457 † | 0.9567 ± 0.0250 | 0.2985 ± 0.0748 | 0.5578 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0787 | 1.9563 ± 0.1742 | **3.1351 ± 0.5496** † | 0.8971 ± 0.0402 | 0.4545 ± 0.2750 | 0.7615 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8068 ± 0.0633 | 2.0051 ± 0.1569 | 3.2163 ± 0.3859 † | 0.9135 ± 0.0620 | 0.4177 ± 0.1718 | 1.7918 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8220 ± 0.0656 | 2.0536 ± 0.2688 | 3.1354 ± 0.5480 † | 0.8886 ± 0.0295 | 0.5535 ± 0.1946 | 0.6233 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7879 ± 0.0774 | 2.1112 ± 0.2685 | 3.8888 ± 0.6631 † | 0.9733 ± 0.0341 | 0.4604 ± 0.1405 | 0.5578 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.7879 ± 0.0583 | 1.9663 ± 0.2071 | 3.1785 ± 0.6469 † | 0.8814 ± 0.0418 | 0.4877 ± 0.1342 | 3.7655 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0888 | 1.9639 ± 0.2649 | 3.1978 ± 0.5793 † | 0.8907 ± 0.0385 | 0.5245 ± 0.2334 | 0.7615 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7765 ± 0.0666 | 1.9797 ± 0.2348 | 3.4554 ± 0.3440 † | 0.9105 ± 0.0577 | 0.4058 ± 0.1632 | 1.7918 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7652 ± 0.0473 | 2.0968 ± 0.3330 | 3.6828 ± 0.4194 † | 0.8345 ± 0.0804 | 0.3971 ± 0.1180 | 0.6233 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.0925 ± 0.3127 | 4.3314 ± 0.4910 † | 0.8958 ± 0.0666 | 0.4058 ± 0.1632 | 0.5578 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.0904 ± 0.2233 | 3.6075 ± 0.6626 † | **0.8214 ± 0.0823** | 0.4500 ± 0.1373 | 3.7655 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.7576 ± 0.0626 | 2.0956 ± 0.2738 | 3.7349 ± 0.6303 † | 0.8359 ± 0.0788 | 0.3826 ± 0.1431 | 0.7615 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7689 ± 0.0430 | 2.0537 ± 0.2976 | 3.8589 ± 0.3942 † | 0.8492 ± 0.0691 | 0.3802 ± 0.1461 | 1.7918 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.7803 ± 0.0473 | 1.9286 ± 0.0101 | 3.3752 ± 0.5886 † | 0.8345 ± 0.0804 | 0.4348 ± 0.1130 | 0.7039 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.4242 ± 0.0572 | 1.1664 ± 0.0312 | 6.6988 ± 0.7617 † | 0.8958 ± 0.0666 | 0.0545 ± 0.0640 | 0.5622 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.7689 ± 0.0583 | 1.9191 ± 0.0118 | 3.4192 ± 0.6348 † | 0.8359 ± 0.0788 | 0.4277 ± 0.0389 | 0.7859 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.7500 ± 0.0521 | 1.9707 ± 0.0779 | 3.8025 ± 0.4446 † | 0.8492 ± 0.0691 | 0.3859 ± 0.0822 | 1.9358 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.7992 ± 0.0473 | 2.0489 ± 0.2096 | 3.2452 ± 0.4257 † | 0.8345 ± 0.0804 | 0.4708 ± 0.1460 | 0.7039 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7841 ± 0.0455 | 2.1534 ± 0.2918 | 3.9182 ± 0.6334 † | 0.8958 ± 0.0666 | 0.4307 ± 0.1479 | 0.5622 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.7917 ± 0.0430 | 2.0310 ± 0.1931 | 3.2595 ± 0.4783 † | 0.8359 ± 0.0788 | 0.4435 ± 0.1582 | 0.7859 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.7992 ± 0.0262 | 2.1813 ± 0.2880 | 3.5385 ± 0.2761 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.9358 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8182 ± 0.0691 | 2.0878 ± 0.2252 | 3.1520 ± 0.4501 † | 0.8345 ± 0.0804 | 0.4989 ± 0.1940 | 0.7039 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0601 | 2.1845 ± 0.0871 | 4.2330 ± 0.8220 † | 0.8958 ± 0.0666 | 0.3089 ± 0.0663 | 0.5622 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.7917 ± 0.0430 | 2.0093 ± 0.1840 | 3.2092 ± 0.4429 † | 0.8359 ± 0.0788 | 0.4459 ± 0.1648 | 0.7859 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8030 ± 0.0237 | 2.2100 ± 0.3172 | 3.4878 ± 0.2370 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.9358 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.7652 ± 0.0473 | 2.0968 ± 0.3330 | 3.6828 ± 0.4194 † | 0.8345 ± 0.0804 | 0.3971 ± 0.1180 | 0.7039 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.0925 ± 0.3127 | 4.3314 ± 0.4910 † | 0.8958 ± 0.0666 | 0.4058 ± 0.1632 | 0.5622 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.0904 ± 0.2233 | 3.6075 ± 0.6626 † | **0.8214 ± 0.0823** | 0.4500 ± 0.1373 | 3.8427 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.7576 ± 0.0626 | 2.0956 ± 0.2738 | 3.7349 ± 0.6303 † | 0.8359 ± 0.0788 | 0.3826 ± 0.1431 | 0.7859 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.7689 ± 0.0430 | 2.0537 ± 0.2976 | 3.8589 ± 0.3942 † | 0.8492 ± 0.0691 | 0.3802 ± 0.1461 | 1.9358 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.7955 ± 0.0710 | 2.1468 ± 0.4002 | 3.4254 ± 0.4472 † | 0.8345 ± 0.0804 | 0.5028 ± 0.2117 | 0.7039 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0227 | 2.2389 ± 0.1780 | 4.4696 ± 0.6820 † | 0.8958 ± 0.0666 | 0.4348 ± 0.1130 | 0.5622 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.1516 ± 0.4246 | 3.4164 ± 0.4434 † | 0.8359 ± 0.0788 | 0.4883 ± 0.2366 | 0.7859 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8030 ± 0.0237 | 2.2100 ± 0.3172 | 3.4878 ± 0.2370 † | 0.8492 ± 0.0691 | 0.4556 ± 0.1347 | 1.9358 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.7992 ± 0.0757 | 2.0136 ± 0.2011 | 3.1380 ± 0.5164 † | 0.8865 ± 0.0325 | 0.4433 ± 0.2161 | 0.7039 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.1854 ± 0.1583 | 4.3648 ± 0.7457 † | 0.9567 ± 0.0250 | 0.2985 ± 0.0748 | 0.5622 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0787 | 1.9563 ± 0.1742 | **3.1351 ± 0.5496** † | 0.8971 ± 0.0402 | 0.4545 ± 0.2750 | 0.7859 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8068 ± 0.0633 | 2.0051 ± 0.1569 | 3.2163 ± 0.3859 † | 0.9135 ± 0.0620 | 0.4177 ± 0.1718 | 1.9358 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8220 ± 0.0656 | 2.0536 ± 0.2688 | 3.1354 ± 0.5480 † | 0.8886 ± 0.0295 | 0.5535 ± 0.1946 | 0.7039 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7879 ± 0.0774 | 2.1112 ± 0.2685 | 3.8888 ± 0.6631 † | 0.9733 ± 0.0341 | 0.4604 ± 0.1405 | 0.5622 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.7879 ± 0.0583 | 1.9663 ± 0.2071 | 3.1785 ± 0.6469 † | 0.8814 ± 0.0418 | 0.4877 ± 0.1342 | 3.8427 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.7955 ± 0.0888 | 1.9639 ± 0.2649 | 3.1978 ± 0.5793 † | 0.8907 ± 0.0385 | 0.5245 ± 0.2334 | 0.7859 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7765 ± 0.0666 | 1.9797 ± 0.2348 | 3.4554 ± 0.3440 † | 0.9105 ± 0.0577 | 0.4058 ± 0.1632 | 1.9358 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7652 ± 0.0473 | 2.0968 ± 0.3330 | 3.6828 ± 0.4194 † | 0.8345 ± 0.0804 | 0.3971 ± 0.1180 | 0.7039 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7614 ± 0.0691 | 2.0925 ± 0.3127 | 4.3314 ± 0.4910 † | 0.8958 ± 0.0666 | 0.4058 ± 0.1632 | 0.5622 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.7955 ± 0.0795 | 2.0904 ± 0.2233 | 3.6075 ± 0.6626 † | **0.8214 ± 0.0823** | 0.4500 ± 0.1373 | 3.8427 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.7576 ± 0.0626 | 2.0956 ± 0.2738 | 3.7349 ± 0.6303 † | 0.8359 ± 0.0788 | 0.3826 ± 0.1431 | 0.7859 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7689 ± 0.0430 | 2.0537 ± 0.2976 | 3.8589 ± 0.3942 † | 0.8492 ± 0.0691 | 0.3802 ± 0.1461 | 1.9358 |
 
 ##### fm_uq_scenarios / diabetes@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.8826 ± 0.0757 | 2.3185 ± 0.0092 | 2.8232 ± 0.6530 † | 0.7863 ± 0.1523 | 0.6540 ± 0.1029 | 0.6434 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.6326 ± 0.0838 | 1.5277 ± 0.0077 | 4.2395 ± 1.0429 † | 0.7977 ± 0.1152 | 0.0278 ± 0.0481 | 0.7714 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.9015 ± 0.0722 | 2.3482 ± 0.0556 | **2.7786 ± 0.5253** † | 0.7836 ± 0.1471 | 0.6540 ± 0.1029 | 0.7902 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.8788 ± 0.0572 | 2.4226 ± 0.2006 | 3.0749 ± 0.5407 † | **0.7574 ± 0.1346** | 0.5960 ± 0.1225 | 1.8367 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9318 ± 0.0888 | 2.5199 ± 0.0119 | 2.8321 ± 0.4985 † | 0.7863 ± 0.1523 | 0.7707 ± 0.2014 | 0.6434 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9356 ± 0.0537 | 2.7122 ± 0.1181 | 3.0145 ± 0.3419 † | 0.7977 ± 0.1152 | 0.6957 ± 0.1667 | 0.7714 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.9318 ± 0.0710 | 2.5633 ± 0.0542 | 2.8554 ± 0.4009 † | 0.7836 ± 0.1471 | 0.7714 ± 0.1422 | 0.7902 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9205 ± 0.0495 | 2.6717 ± 0.0319 | 3.0933 ± 0.4805 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.8367 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0774 | 2.5330 ± 0.1128 | 2.8329 ± 0.4411 † | 0.7863 ± 0.1523 | 0.6818 ± 0.1445 | 0.6434 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9280 ± 0.0365 | 3.0465 ± 0.3917 | 3.2871 ± 0.2468 † | 0.7977 ± 0.1152 | 0.5985 ± 0.1332 | 0.7714 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.9318 ± 0.0633 | 2.5708 ± 0.1420 | 2.8642 ± 0.3624 † | 0.7836 ± 0.1471 | 0.7659 ± 0.1327 | 0.7902 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0473 | 2.6547 ± 0.0223 | 3.0928 ± 0.4814 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.8367 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0860 | 2.9203 ± 0.1086 | 3.4160 ± 0.5980 † | 0.7863 ± 0.1523 | 0.7042 ± 0.2244 | 0.6434 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9091 ± 0.0455 | 2.8008 ± 0.2110 | 3.2683 ± 0.4553 † | 0.7977 ± 0.1152 | 0.6159 ± 0.1616 | 0.7714 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9242 ± 0.0731 | 2.7063 ± 0.1145 | 3.1328 ± 0.5524 † | 0.7608 ± 0.1353 | 0.6968 ± 0.2154 | 3.8822 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.9356 ± 0.0459 | 2.9558 ± 0.1212 | 3.2946 ± 0.4797 † | 0.7836 ± 0.1471 | 0.7951 ± 0.0839 | 0.7902 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0666 | 2.7008 ± 0.0258 | 3.1184 ± 0.5294 † | **0.7574 ± 0.1346** | 0.6237 ± 0.1523 | 1.8367 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0583 | 2.7550 ± 0.2281 | 3.2770 ± 0.5943 † | 0.7863 ± 0.1523 | 0.7951 ± 0.0839 | 0.6434 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.9129 ± 0.0685 | 2.9322 ± 0.1247 | 3.3613 ± 0.4545 † | 0.7977 ± 0.1152 | 0.6861 ± 0.1513 | 0.7714 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9015 ± 0.0525 | 2.6648 ± 0.1221 | 3.2140 ± 0.6193 † | 0.7836 ± 0.1471 | 0.7581 ± 0.0270 | 0.7902 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0473 | 2.6547 ± 0.0223 | 3.0928 ± 0.4814 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.8367 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9053 ± 0.0666 | 2.4851 ± 0.1069 | 2.8811 ± 0.4743 † | 0.7865 ± 0.1463 | 0.6627 ± 0.0894 | 0.6434 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8977 ± 0.0691 | 2.9014 ± 0.3424 | 3.2100 ± 0.1400 | 0.8082 ± 0.1082 | 0.3889 ± 0.3469 | 0.7714 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.9129 ± 0.0626 | 2.4859 ± 0.1068 | 2.8877 ± 0.4372 † | 0.7919 ± 0.1333 | 0.6627 ± 0.0894 | 0.7902 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8977 ± 0.0710 | 2.5524 ± 0.1113 | 3.0075 ± 0.4751 † | 0.7661 ± 0.1238 | 0.6540 ± 0.1029 | 1.8367 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9242 ± 0.0572 | 2.7440 ± 0.1864 | 3.1893 ± 0.6488 † | 0.7876 ± 0.1460 | 0.7488 ± 0.0210 | 0.6434 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9242 ± 0.0583 | 2.7620 ± 0.2236 | 3.2000 ± 0.4630 † | 0.8002 ± 0.1105 | 0.6957 ± 0.1667 | 0.7714 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9280 ± 0.0583 | 2.6475 ± 0.1539 | 3.0631 ± 0.5367 † | 0.7713 ± 0.1339 | 0.7659 ± 0.0611 | 3.8822 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.9242 ± 0.0572 | 2.7145 ± 0.1118 | 3.1808 ± 0.6301 † | 0.7930 ± 0.1331 | 0.7488 ± 0.0210 | 0.7902 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0694 | 2.6522 ± 0.0653 | 3.0795 ± 0.4187 † | 0.7650 ± 0.1233 | 0.6540 ± 0.1029 | 1.8367 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9091 ± 0.0991 | 2.7806 ± 0.1115 | 3.3838 ± 0.6994 † | 0.7863 ± 0.1523 | 0.7042 ± 0.2244 | 0.6434 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9242 ± 0.0430 | 2.8959 ± 0.0297 | 3.2750 ± 0.4131 † | 0.7977 ± 0.1152 | 0.6929 ± 0.1622 | 0.7714 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.9053 ± 0.0806 | 2.6782 ± 0.1058 | 3.1471 ± 0.5722 † | 0.7608 ± 0.1353 | 0.7042 ± 0.2244 | 3.8822 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.9280 ± 0.0583 | 2.9018 ± 0.1137 | 3.3054 ± 0.5100 † | 0.7836 ± 0.1471 | 0.7951 ± 0.0839 | 0.7902 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.9129 ± 0.0722 | 2.6880 ± 0.0727 | 3.1608 ± 0.5089 † | **0.7574 ± 0.1346** | 0.6237 ± 0.1523 | 1.8367 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.8826 ± 0.0757 | 2.3185 ± 0.0092 | 2.8232 ± 0.6530 † | 0.7863 ± 0.1523 | 0.6540 ± 0.1029 | 0.7193 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.6326 ± 0.0838 | 1.5277 ± 0.0077 | 4.2395 ± 1.0429 † | 0.7977 ± 0.1152 | 0.0278 ± 0.0481 | 0.7243 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.9015 ± 0.0722 | 2.3482 ± 0.0556 | **2.7786 ± 0.5253** † | 0.7836 ± 0.1471 | 0.6540 ± 0.1029 | 0.8301 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.8788 ± 0.0572 | 2.4226 ± 0.2006 | 3.0749 ± 0.5407 † | **0.7574 ± 0.1346** | 0.5960 ± 0.1225 | 1.9288 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9318 ± 0.0888 | 2.5199 ± 0.0119 | 2.8321 ± 0.4985 † | 0.7863 ± 0.1523 | 0.7707 ± 0.2014 | 0.7193 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9356 ± 0.0537 | 2.7122 ± 0.1181 | 3.0145 ± 0.3419 † | 0.7977 ± 0.1152 | 0.6957 ± 0.1667 | 0.7243 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.9318 ± 0.0710 | 2.5633 ± 0.0542 | 2.8554 ± 0.4009 † | 0.7836 ± 0.1471 | 0.7714 ± 0.1422 | 0.8301 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9205 ± 0.0495 | 2.6717 ± 0.0319 | 3.0933 ± 0.4805 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.9288 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0774 | 2.5330 ± 0.1128 | 2.8329 ± 0.4411 † | 0.7863 ± 0.1523 | 0.6818 ± 0.1445 | 0.7193 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9280 ± 0.0365 | 3.0465 ± 0.3917 | 3.2871 ± 0.2468 † | 0.7977 ± 0.1152 | 0.5985 ± 0.1332 | 0.7243 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.9318 ± 0.0633 | 2.5708 ± 0.1420 | 2.8642 ± 0.3624 † | 0.7836 ± 0.1471 | 0.7659 ± 0.1327 | 0.8301 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0473 | 2.6547 ± 0.0223 | 3.0928 ± 0.4814 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.9288 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0860 | 2.9203 ± 0.1086 | 3.4160 ± 0.5980 † | 0.7863 ± 0.1523 | 0.7042 ± 0.2244 | 0.7193 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9091 ± 0.0455 | 2.8008 ± 0.2110 | 3.2683 ± 0.4553 † | 0.7977 ± 0.1152 | 0.6159 ± 0.1616 | 0.7243 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9242 ± 0.0731 | 2.7063 ± 0.1145 | 3.1328 ± 0.5524 † | 0.7608 ± 0.1353 | 0.6968 ± 0.2154 | 3.9236 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.9356 ± 0.0459 | 2.9558 ± 0.1212 | 3.2946 ± 0.4797 † | 0.7836 ± 0.1471 | 0.7951 ± 0.0839 | 0.8301 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0666 | 2.7008 ± 0.0258 | 3.1184 ± 0.5294 † | **0.7574 ± 0.1346** | 0.6237 ± 0.1523 | 1.9288 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9167 ± 0.0583 | 2.7550 ± 0.2281 | 3.2770 ± 0.5943 † | 0.7863 ± 0.1523 | 0.7951 ± 0.0839 | 0.7193 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.9129 ± 0.0685 | 2.9322 ± 0.1247 | 3.3613 ± 0.4545 † | 0.7977 ± 0.1152 | 0.6861 ± 0.1513 | 0.7243 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9015 ± 0.0525 | 2.6648 ± 0.1221 | 3.2140 ± 0.6193 † | 0.7836 ± 0.1471 | 0.7581 ± 0.0270 | 0.8301 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0473 | 2.6547 ± 0.0223 | 3.0928 ± 0.4814 † | **0.7574 ± 0.1346** | 0.6540 ± 0.1029 | 1.9288 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9053 ± 0.0666 | 2.4851 ± 0.1069 | 2.8811 ± 0.4743 † | 0.7865 ± 0.1463 | 0.6627 ± 0.0894 | 0.7193 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8977 ± 0.0691 | 2.9014 ± 0.3424 | 3.2100 ± 0.1400 | 0.8082 ± 0.1082 | 0.3889 ± 0.3469 | 0.7243 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.9129 ± 0.0626 | 2.4859 ± 0.1068 | 2.8877 ± 0.4372 † | 0.7919 ± 0.1333 | 0.6627 ± 0.0894 | 0.8301 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8977 ± 0.0710 | 2.5524 ± 0.1113 | 3.0075 ± 0.4751 † | 0.7661 ± 0.1238 | 0.6540 ± 0.1029 | 1.9288 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9242 ± 0.0572 | 2.7440 ± 0.1864 | 3.1893 ± 0.6488 † | 0.7876 ± 0.1460 | 0.7488 ± 0.0210 | 0.7193 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9242 ± 0.0583 | 2.7620 ± 0.2236 | 3.2000 ± 0.4630 † | 0.8002 ± 0.1105 | 0.6957 ± 0.1667 | 0.7243 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9280 ± 0.0583 | 2.6475 ± 0.1539 | 3.0631 ± 0.5367 † | 0.7713 ± 0.1339 | 0.7659 ± 0.0611 | 3.9236 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.9242 ± 0.0572 | 2.7145 ± 0.1118 | 3.1808 ± 0.6301 † | 0.7930 ± 0.1331 | 0.7488 ± 0.0210 | 0.8301 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9167 ± 0.0694 | 2.6522 ± 0.0653 | 3.0795 ± 0.4187 † | 0.7650 ± 0.1233 | 0.6540 ± 0.1029 | 1.9288 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9091 ± 0.0991 | 2.7806 ± 0.1115 | 3.3838 ± 0.6994 † | 0.7863 ± 0.1523 | 0.7042 ± 0.2244 | 0.7193 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9242 ± 0.0430 | 2.8959 ± 0.0297 | 3.2750 ± 0.4131 † | 0.7977 ± 0.1152 | 0.6929 ± 0.1622 | 0.7243 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.9053 ± 0.0806 | 2.6782 ± 0.1058 | 3.1471 ± 0.5722 † | 0.7608 ± 0.1353 | 0.7042 ± 0.2244 | 3.9236 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.9280 ± 0.0583 | 2.9018 ± 0.1137 | 3.3054 ± 0.5100 † | 0.7836 ± 0.1471 | 0.7951 ± 0.0839 | 0.8301 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.9129 ± 0.0722 | 2.6880 ± 0.0727 | 3.1608 ± 0.5089 † | **0.7574 ± 0.1346** | 0.6237 ± 0.1523 | 1.9288 |
 
 ##### fm_uq_scenarios / diabetes@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 0.9318 ± 0.0455 | 2.4826 ± 0.0160 | 2.7910 ± 0.3723 † | 0.7665 ± 0.0721 | 0.6197 ± 0.2300 | 0.6323 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.6288 ± 0.0430 | 1.5045 ± 0.0398 | 3.9399 ± 0.3701 † | 0.7833 ± 0.1316 | 0.1465 ± 0.1375 | 0.6002 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.9091 ± 0.0301 | 2.3870 ± 0.0186 | **2.7494 ± 0.3755** † | 0.7710 ± 0.0521 | 0.6151 ± 0.1668 | 0.7878 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.8712 ± 0.0966 | 2.2775 ± 0.2549 | 3.0496 ± 0.6165 † | **0.7390 ± 0.0996** | 0.6151 ± 0.1668 | 1.9799 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9356 ± 0.0459 | 2.5708 ± 0.2194 | 2.8558 ± 0.3316 † | 0.7665 ± 0.0721 | 0.7196 ± 0.1667 | 0.6323 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9091 ± 0.0227 | 2.5161 ± 0.1247 | 2.8912 ± 0.2048 † | 0.7833 ± 0.1316 | 0.6720 ± 0.1033 | 0.6002 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9242 ± 0.0561 | 2.5324 ± 0.2960 | 2.8424 ± 0.3454 † | 0.7710 ± 0.0521 | 0.6243 ± 0.2377 | 0.7878 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.9205 ± 0.0495 | 2.5163 ± 0.1321 | 2.9509 ± 0.3977 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9799 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9394 ± 0.0537 | 2.5549 ± 0.2996 | 2.8344 ± 0.3334 † | 0.7665 ± 0.0721 | 0.7566 ± 0.2252 | 0.6323 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.9470 ± 0.0399 | 3.0385 ± 0.3367 | 3.2584 ± 0.1517 | 0.7833 ± 0.1316 | 0.7103 ± 0.2084 | 0.6002 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9280 ± 0.0537 | 2.5237 ± 0.2711 | 2.8249 ± 0.3464 † | 0.7710 ± 0.0521 | 0.6614 ± 0.2302 | 0.7878 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.9129 ± 0.0525 | 2.5424 ± 0.1478 | 2.9722 ± 0.3899 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9799 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.9091 ± 0.0227 | 2.6095 ± 0.2566 | 3.1775 ± 0.3100 † | 0.7665 ± 0.0721 | 0.7281 ± 0.0444 | 0.6323 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.8939 ± 0.0694 | 2.5505 ± 0.2275 | 3.2012 ± 0.7511 † | 0.7833 ± 0.1316 | 0.5724 ± 0.2654 | 0.6002 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.8939 ± 0.0694 | 2.5127 ± 0.2563 | 3.1196 ± 0.4874 † | 0.7661 ± 0.0790 | 0.6653 ± 0.2244 | 3.8520 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.8750 ± 0.0114 | 2.5544 ± 0.2105 | 3.1498 ± 0.2593 † | 0.7710 ± 0.0521 | 0.5808 ± 0.0310 | 0.7878 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8977 ± 0.0455 | 2.4788 ± 0.1993 | 3.0003 ± 0.3571 † | **0.7390 ± 0.0996** | 0.6567 ± 0.2234 | 1.9799 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.9356 ± 0.0347 | 2.7224 ± 0.3903 | 3.1092 ± 0.4606 † | 0.7665 ± 0.0721 | 0.7887 ± 0.0875 | 0.6323 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.8902 ± 0.0459 | 2.6115 ± 0.2379 | 3.3452 ± 0.4371 † | 0.7833 ± 0.1316 | 0.6236 ± 0.1714 | 0.6002 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9053 ± 0.0430 | 2.6394 ± 0.3705 | 3.1018 ± 0.2658 † | 0.7710 ± 0.0521 | 0.6549 ± 0.1087 | 0.7878 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.9129 ± 0.0525 | 2.5424 ± 0.1478 | 2.9722 ± 0.3899 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9799 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9091 ± 0.0521 | 2.5634 ± 0.3054 | 2.9202 ± 0.4379 † | 0.7736 ± 0.0666 | 0.5780 ± 0.1619 | 0.6323 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.9242 ± 0.0262 | 2.8250 ± 0.1785 | 3.1083 ± 0.0588 | 0.7839 ± 0.1112 | 0.5873 ± 0.2160 | 0.6002 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8826 ± 0.0328 | 2.4556 ± 0.2999 | 2.9386 ± 0.5056 † | 0.7870 ± 0.0403 | 0.5503 ± 0.1191 | 0.7878 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8826 ± 0.0694 | 2.3729 ± 0.1702 | 2.9755 ± 0.6058 † | 0.7547 ± 0.0837 | 0.6151 ± 0.1668 | 1.9799 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.8788 ± 0.0572 | 2.3912 ± 0.2967 | 3.2328 ± 0.2727 † | 0.7692 ± 0.0601 | 0.6257 ± 0.1080 | 0.6323 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.9053 ± 0.0757 | 2.4545 ± 0.1980 | 3.2193 ± 0.8613 † | 0.7929 ± 0.1156 | 0.6508 ± 0.2147 | 0.6002 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.8902 ± 0.0512 | 2.3719 ± 0.1660 | 3.1349 ± 0.4828 † | 0.7770 ± 0.0689 | 0.5780 ± 0.1619 | 3.8520 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.8712 ± 0.0459 | 2.2705 ± 0.2285 | 3.1573 ± 0.4893 † | 0.7790 ± 0.0410 | 0.5364 ± 0.0996 | 0.7878 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.9015 ± 0.0459 | 2.3973 ± 0.1383 | 2.9986 ± 0.4944 † | 0.7536 ± 0.0828 | 0.6151 ± 0.1668 | 1.9799 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.9167 ± 0.0430 | 2.6070 ± 0.3000 | 3.1182 ± 0.2782 † | 0.7665 ± 0.0721 | 0.7652 ± 0.1077 | 0.6323 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.8939 ± 0.0860 | 2.5520 ± 0.1655 | 3.2111 ± 0.7062 † | 0.7833 ± 0.1316 | 0.6094 ± 0.3120 | 0.6002 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.8902 ± 0.0757 | 2.4704 ± 0.2003 | 3.0850 ± 0.5169 † | 0.7661 ± 0.0790 | 0.6567 ± 0.2234 | 3.8520 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.9129 ± 0.0666 | 2.6689 ± 0.3521 | 3.1033 ± 0.2389 † | 0.7710 ± 0.0521 | 0.7090 ± 0.1629 | 0.7878 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.9015 ± 0.0626 | 2.4409 ± 0.0979 | 2.9515 ± 0.4491 † | **0.7390 ± 0.0996** | 0.6567 ± 0.2234 | 1.9799 |
+| `Raw+KumoTabular [noise_test]` | sdm | 0.9318 ± 0.0455 | 2.4826 ± 0.0160 | 2.7910 ± 0.3723 † | 0.7665 ± 0.0721 | 0.6197 ± 0.2300 | 0.7464 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.6288 ± 0.0430 | 1.5045 ± 0.0398 | 3.9399 ± 0.3701 † | 0.7833 ± 0.1316 | 0.1465 ± 0.1375 | 0.5900 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.9091 ± 0.0301 | 2.3870 ± 0.0186 | **2.7494 ± 0.3755** † | 0.7710 ± 0.0521 | 0.6151 ± 0.1668 | 0.8189 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.8712 ± 0.0966 | 2.2775 ± 0.2549 | 3.0496 ± 0.6165 † | **0.7390 ± 0.0996** | 0.6151 ± 0.1668 | 1.9957 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9356 ± 0.0459 | 2.5708 ± 0.2194 | 2.8558 ± 0.3316 † | 0.7665 ± 0.0721 | 0.7196 ± 0.1667 | 0.7464 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9091 ± 0.0227 | 2.5161 ± 0.1247 | 2.8912 ± 0.2048 † | 0.7833 ± 0.1316 | 0.6720 ± 0.1033 | 0.5900 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9242 ± 0.0561 | 2.5324 ± 0.2960 | 2.8424 ± 0.3454 † | 0.7710 ± 0.0521 | 0.6243 ± 0.2377 | 0.8189 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.9205 ± 0.0495 | 2.5163 ± 0.1321 | 2.9509 ± 0.3977 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9957 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9394 ± 0.0537 | 2.5549 ± 0.2996 | 2.8344 ± 0.3334 † | 0.7665 ± 0.0721 | 0.7566 ± 0.2252 | 0.7464 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.9470 ± 0.0399 | 3.0385 ± 0.3367 | 3.2584 ± 0.1517 | 0.7833 ± 0.1316 | 0.7103 ± 0.2084 | 0.5900 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9280 ± 0.0537 | 2.5237 ± 0.2711 | 2.8249 ± 0.3464 † | 0.7710 ± 0.0521 | 0.6614 ± 0.2302 | 0.8189 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.9129 ± 0.0525 | 2.5424 ± 0.1478 | 2.9722 ± 0.3899 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9957 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.9091 ± 0.0227 | 2.6095 ± 0.2566 | 3.1775 ± 0.3100 † | 0.7665 ± 0.0721 | 0.7281 ± 0.0444 | 0.7464 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.8939 ± 0.0694 | 2.5505 ± 0.2275 | 3.2012 ± 0.7511 † | 0.7833 ± 0.1316 | 0.5724 ± 0.2654 | 0.5900 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.8939 ± 0.0694 | 2.5127 ± 0.2563 | 3.1196 ± 0.4874 † | 0.7661 ± 0.0790 | 0.6653 ± 0.2244 | 3.9030 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.8750 ± 0.0114 | 2.5544 ± 0.2105 | 3.1498 ± 0.2593 † | 0.7710 ± 0.0521 | 0.5808 ± 0.0310 | 0.8189 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8977 ± 0.0455 | 2.4788 ± 0.1993 | 3.0003 ± 0.3571 † | **0.7390 ± 0.0996** | 0.6567 ± 0.2234 | 1.9957 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.9356 ± 0.0347 | 2.7224 ± 0.3903 | 3.1092 ± 0.4606 † | 0.7665 ± 0.0721 | 0.7887 ± 0.0875 | 0.7464 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.8902 ± 0.0459 | 2.6115 ± 0.2379 | 3.3452 ± 0.4371 † | 0.7833 ± 0.1316 | 0.6236 ± 0.1714 | 0.5900 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9053 ± 0.0430 | 2.6394 ± 0.3705 | 3.1018 ± 0.2658 † | 0.7710 ± 0.0521 | 0.6549 ± 0.1087 | 0.8189 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.9129 ± 0.0525 | 2.5424 ± 0.1478 | 2.9722 ± 0.3899 † | **0.7390 ± 0.0996** | 0.6243 ± 0.1784 | 1.9957 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9091 ± 0.0521 | 2.5634 ± 0.3054 | 2.9202 ± 0.4379 † | 0.7736 ± 0.0666 | 0.5780 ± 0.1619 | 0.7464 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.9242 ± 0.0262 | 2.8250 ± 0.1785 | 3.1083 ± 0.0588 | 0.7839 ± 0.1112 | 0.5873 ± 0.2160 | 0.5900 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8826 ± 0.0328 | 2.4556 ± 0.2999 | 2.9386 ± 0.5056 † | 0.7870 ± 0.0403 | 0.5503 ± 0.1191 | 0.8189 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8826 ± 0.0694 | 2.3729 ± 0.1702 | 2.9755 ± 0.6058 † | 0.7547 ± 0.0837 | 0.6151 ± 0.1668 | 1.9957 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.8788 ± 0.0572 | 2.3912 ± 0.2967 | 3.2328 ± 0.2727 † | 0.7692 ± 0.0601 | 0.6257 ± 0.1080 | 0.7464 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.9053 ± 0.0757 | 2.4545 ± 0.1980 | 3.2193 ± 0.8613 † | 0.7929 ± 0.1156 | 0.6508 ± 0.2147 | 0.5900 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.8902 ± 0.0512 | 2.3719 ± 0.1660 | 3.1349 ± 0.4828 † | 0.7770 ± 0.0689 | 0.5780 ± 0.1619 | 3.9030 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.8712 ± 0.0459 | 2.2705 ± 0.2285 | 3.1573 ± 0.4893 † | 0.7790 ± 0.0410 | 0.5364 ± 0.0996 | 0.8189 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.9015 ± 0.0459 | 2.3973 ± 0.1383 | 2.9986 ± 0.4944 † | 0.7536 ± 0.0828 | 0.6151 ± 0.1668 | 1.9957 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.9167 ± 0.0430 | 2.6070 ± 0.3000 | 3.1182 ± 0.2782 † | 0.7665 ± 0.0721 | 0.7652 ± 0.1077 | 0.7464 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.8939 ± 0.0860 | 2.5520 ± 0.1655 | 3.2111 ± 0.7062 † | 0.7833 ± 0.1316 | 0.6094 ± 0.3120 | 0.5900 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.8902 ± 0.0757 | 2.4704 ± 0.2003 | 3.0850 ± 0.5169 † | 0.7661 ± 0.0790 | 0.6567 ± 0.2234 | 3.9030 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.9129 ± 0.0666 | 2.6689 ± 0.3521 | 3.1033 ± 0.2389 † | 0.7710 ± 0.0521 | 0.7090 ± 0.1629 | 0.8189 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.9015 ± 0.0626 | 2.4409 ± 0.0979 | 2.9515 ± 0.4491 † | **0.7390 ± 0.0996** | 0.6567 ± 0.2234 | 1.9957 |
 
 ##### fm_uq_scenarios / diabetes@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9583 ± 0.0459 | 3.4442 ± 0.5266 | 3.5776 ± 0.6277 † | 0.7378 ± 0.1108 | 0.8714 ± 0.1450 | 0.5858 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.7879 ± 0.0399 | 2.9707 ± 0.5479 | 4.4338 ± 1.0614 † | 0.7834 ± 0.1119 | 0.4396 ± 0.0896 | 0.5489 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9621 ± 0.0473 | 4.0664 ± 0.1855 | 4.2292 ± 0.4135 † | 0.7541 ± 0.1193 | 0.8714 ± 0.1450 | 0.7636 |
-| `Raw+TabularMLP [outliers]` | torchregress | 1.0000 ± 0.0000 | 5.6761 ± 0.3262 | 5.6761 ± 0.3262 † | 0.7404 ± 0.0840 | 1.0000 ± 0.0000 | 1.8731 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9470 ± 0.0399 | 3.3429 ± 0.7272 | 3.5054 ± 0.7840 † | 0.7378 ± 0.1108 | 0.8056 ± 0.1140 | 0.5858 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9583 ± 0.0525 | 4.1905 ± 0.3580 | 4.4362 ± 0.6885 † | 0.7834 ± 0.1119 | 0.8010 ± 0.1511 | 0.5489 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9394 ± 0.0347 | 3.7446 ± 0.5155 | 4.0561 ± 0.6003 † | 0.7541 ± 0.1193 | 0.7689 ± 0.1141 | 0.7636 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9394 ± 0.0399 | 3.6148 ± 0.2718 | 3.9831 ± 0.6388 † | 0.7404 ± 0.0840 | 0.7182 ± 0.2289 | 1.8731 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9545 ± 0.0410 | 3.4048 ± 0.9387 | 3.5649 ± 0.9438 † | 0.7378 ± 0.1108 | 0.8270 ± 0.1097 | 0.5858 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9621 ± 0.0459 | 5.2442 ± 0.6495 | 5.5060 ± 0.7521 † | 0.7834 ± 0.1119 | 0.7816 ± 0.1275 | 0.5489 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9470 ± 0.0430 | 3.6055 ± 0.6410 | 3.8322 ± 0.7739 † | 0.7541 ± 0.1193 | 0.8159 ± 0.0941 | 0.7636 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9470 ± 0.0525 | 3.1342 ± 0.1453 | 3.5077 ± 0.3862 † | 0.7404 ± 0.0840 | 0.7256 ± 0.2364 | 1.8731 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9697 ± 0.0286 | 5.0570 ± 3.1105 | 5.1724 ± 3.1359 † | 0.7378 ± 0.1108 | 0.8415 ± 0.2010 | 0.5858 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9621 ± 0.0365 | 5.0670 ± 3.1869 | 5.3365 ± 3.1289 † | 0.7834 ± 0.1119 | 0.8415 ± 0.2010 | 0.5489 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9470 ± 0.0286 | 4.8498 ± 3.1881 | 5.1137 ± 3.1523 † | **0.7363 ± 0.1129** | 0.7489 ± 0.1835 | 3.8529 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9659 ± 0.0301 | 4.9509 ± 3.0791 | 5.1471 ± 3.1290 † | 0.7541 ± 0.1193 | 0.8162 ± 0.1929 | 0.7636 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9432 ± 0.0410 | 5.0466 ± 3.6169 | 5.3128 ± 3.5595 † | 0.7404 ± 0.0840 | 0.7569 ± 0.1894 | 1.8731 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9394 ± 0.0237 | 3.6437 ± 0.8662 | 3.8562 ± 0.8274 † | 0.7378 ± 0.1108 | 0.7621 ± 0.0922 | 0.5858 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9053 ± 0.0430 | 4.3911 ± 0.7681 | 5.1529 ± 1.0535 † | 0.7834 ± 0.1119 | 0.6839 ± 0.1011 | 0.5489 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9356 ± 0.0459 | 3.9758 ± 0.8454 | 4.3135 ± 0.8149 † | 0.7541 ± 0.1193 | 0.7988 ± 0.0901 | 0.7636 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9470 ± 0.0525 | 3.1342 ± 0.1453 | 3.5077 ± 0.3862 † | 0.7404 ± 0.0840 | 0.7256 ± 0.2364 | 1.8731 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9318 ± 0.0301 | 3.1599 ± 0.4255 | 3.4578 ± 0.5821 † | 0.7466 ± 0.0866 | 0.7358 ± 0.1504 | 0.5858 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9432 ± 0.0394 | 4.7290 ± 0.5710 | 5.0336 ± 0.8869 † | 0.7995 ± 0.0898 | 0.7460 ± 0.1512 | 0.5489 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9394 ± 0.0286 | 3.4777 ± 0.4888 | 3.7701 ± 0.6814 † | 0.7764 ± 0.0971 | 0.7945 ± 0.0954 | 0.7636 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9356 ± 0.0525 | 3.0152 ± 0.0283 | 3.4097 ± 0.4255 † | 0.7665 ± 0.0735 | 0.6626 ± 0.2061 | 1.8731 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9508 ± 0.0473 | 2.9217 ± 0.0798 | 3.1903 ± 0.3007 † | 0.7448 ± 0.0878 | 0.8194 ± 0.1879 | 0.5858 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9280 ± 0.0459 | 2.8408 ± 0.1185 | 3.3915 ± 0.3814 † | 0.8059 ± 0.0738 | 0.7543 ± 0.1627 | 0.5489 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9280 ± 0.0537 | 2.8678 ± 0.2657 | 3.3802 ± 0.3963 † | 0.7527 ± 0.0887 | 0.7289 ± 0.2358 | 3.8529 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9394 ± 0.0694 | 3.0136 ± 0.1454 | 3.3557 ± 0.3577 † | 0.7656 ± 0.0959 | 0.8016 ± 0.2160 | 0.7636 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9508 ± 0.0561 | 2.8160 ± 0.2572 | 3.1701 ± 0.1672 † | 0.7645 ± 0.0748 | 0.7090 ± 0.1629 | 1.8731 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9545 ± 0.0410 | 3.0092 ± 0.1796 | 3.2294 ± 0.2366 † | 0.7378 ± 0.1108 | 0.8616 ± 0.0626 | 0.5858 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9242 ± 0.0473 | 2.8553 ± 0.2832 | 3.3618 ± 0.3533 † | 0.7834 ± 0.1119 | 0.7284 ± 0.1778 | 0.5489 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9205 ± 0.0745 | 2.8616 ± 0.3448 | 3.2543 ± 0.3497 † | **0.7363 ± 0.1129** | 0.7289 ± 0.2358 | 3.8529 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9508 ± 0.0512 | 3.1323 ± 0.3288 | 3.3738 ± 0.3299 † | 0.7541 ± 0.1193 | 0.8492 ± 0.1435 | 0.7636 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9432 ± 0.0691 | 2.7686 ± 0.2343 | **3.1051 ± 0.2064** † | 0.7404 ± 0.0840 | 0.6700 ± 0.2172 | 1.8731 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9583 ± 0.0459 | 3.4442 ± 0.5266 | 3.5776 ± 0.6277 † | 0.7378 ± 0.1108 | 0.8714 ± 0.1450 | 0.6546 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.7879 ± 0.0399 | 2.9707 ± 0.5479 | 4.4338 ± 1.0614 † | 0.7834 ± 0.1119 | 0.4396 ± 0.0896 | 0.5485 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9621 ± 0.0473 | 4.0664 ± 0.1855 | 4.2292 ± 0.4135 † | 0.7541 ± 0.1193 | 0.8714 ± 0.1450 | 0.8031 |
+| `Raw+TabularMLP [outliers]` | torchregress | 1.0000 ± 0.0000 | 5.6761 ± 0.3262 | 5.6761 ± 0.3262 † | 0.7404 ± 0.0840 | 1.0000 ± 0.0000 | 1.8905 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9470 ± 0.0399 | 3.3429 ± 0.7272 | 3.5054 ± 0.7840 † | 0.7378 ± 0.1108 | 0.8056 ± 0.1140 | 0.6546 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9583 ± 0.0525 | 4.1905 ± 0.3580 | 4.4362 ± 0.6885 † | 0.7834 ± 0.1119 | 0.8010 ± 0.1511 | 0.5485 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9394 ± 0.0347 | 3.7446 ± 0.5155 | 4.0561 ± 0.6003 † | 0.7541 ± 0.1193 | 0.7689 ± 0.1141 | 0.8031 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9394 ± 0.0399 | 3.6148 ± 0.2718 | 3.9831 ± 0.6388 † | 0.7404 ± 0.0840 | 0.7182 ± 0.2289 | 1.8905 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9545 ± 0.0410 | 3.4048 ± 0.9387 | 3.5649 ± 0.9438 † | 0.7378 ± 0.1108 | 0.8270 ± 0.1097 | 0.6546 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9621 ± 0.0459 | 5.2442 ± 0.6495 | 5.5060 ± 0.7521 † | 0.7834 ± 0.1119 | 0.7816 ± 0.1275 | 0.5485 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9470 ± 0.0430 | 3.6055 ± 0.6410 | 3.8322 ± 0.7739 † | 0.7541 ± 0.1193 | 0.8159 ± 0.0941 | 0.8031 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9470 ± 0.0525 | 3.1342 ± 0.1453 | 3.5077 ± 0.3862 † | 0.7404 ± 0.0840 | 0.7256 ± 0.2364 | 1.8905 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9697 ± 0.0286 | 5.0570 ± 3.1105 | 5.1724 ± 3.1359 † | 0.7378 ± 0.1108 | 0.8415 ± 0.2010 | 0.6546 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9621 ± 0.0365 | 5.0670 ± 3.1869 | 5.3365 ± 3.1289 † | 0.7834 ± 0.1119 | 0.8415 ± 0.2010 | 0.5485 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9470 ± 0.0286 | 4.8498 ± 3.1881 | 5.1137 ± 3.1523 † | **0.7363 ± 0.1129** | 0.7489 ± 0.1835 | 3.8965 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9659 ± 0.0301 | 4.9509 ± 3.0791 | 5.1471 ± 3.1290 † | 0.7541 ± 0.1193 | 0.8162 ± 0.1929 | 0.8031 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9432 ± 0.0410 | 5.0466 ± 3.6169 | 5.3128 ± 3.5595 † | 0.7404 ± 0.0840 | 0.7569 ± 0.1894 | 1.8905 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9394 ± 0.0237 | 3.6437 ± 0.8662 | 3.8562 ± 0.8274 † | 0.7378 ± 0.1108 | 0.7621 ± 0.0922 | 0.6546 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9053 ± 0.0430 | 4.3911 ± 0.7681 | 5.1529 ± 1.0535 † | 0.7834 ± 0.1119 | 0.6839 ± 0.1011 | 0.5485 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9356 ± 0.0459 | 3.9758 ± 0.8454 | 4.3135 ± 0.8149 † | 0.7541 ± 0.1193 | 0.7988 ± 0.0901 | 0.8031 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9470 ± 0.0525 | 3.1342 ± 0.1453 | 3.5077 ± 0.3862 † | 0.7404 ± 0.0840 | 0.7256 ± 0.2364 | 1.8905 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9318 ± 0.0301 | 3.1599 ± 0.4255 | 3.4578 ± 0.5821 † | 0.7466 ± 0.0866 | 0.7358 ± 0.1504 | 0.6546 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9432 ± 0.0394 | 4.7290 ± 0.5710 | 5.0336 ± 0.8869 † | 0.7995 ± 0.0898 | 0.7460 ± 0.1512 | 0.5485 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9394 ± 0.0286 | 3.4777 ± 0.4888 | 3.7701 ± 0.6814 † | 0.7764 ± 0.0971 | 0.7945 ± 0.0954 | 0.8031 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9356 ± 0.0525 | 3.0152 ± 0.0283 | 3.4097 ± 0.4255 † | 0.7665 ± 0.0735 | 0.6626 ± 0.2061 | 1.8905 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9508 ± 0.0473 | 2.9217 ± 0.0798 | 3.1903 ± 0.3007 † | 0.7448 ± 0.0878 | 0.8194 ± 0.1879 | 0.6546 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9280 ± 0.0459 | 2.8408 ± 0.1185 | 3.3915 ± 0.3814 † | 0.8059 ± 0.0738 | 0.7543 ± 0.1627 | 0.5485 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9280 ± 0.0537 | 2.8678 ± 0.2657 | 3.3802 ± 0.3963 † | 0.7527 ± 0.0887 | 0.7289 ± 0.2358 | 3.8965 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9394 ± 0.0694 | 3.0136 ± 0.1454 | 3.3557 ± 0.3577 † | 0.7656 ± 0.0959 | 0.8016 ± 0.2160 | 0.8031 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9508 ± 0.0561 | 2.8160 ± 0.2572 | 3.1701 ± 0.1672 † | 0.7645 ± 0.0748 | 0.7090 ± 0.1629 | 1.8905 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9545 ± 0.0410 | 3.0092 ± 0.1796 | 3.2294 ± 0.2366 † | 0.7378 ± 0.1108 | 0.8616 ± 0.0626 | 0.6546 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9242 ± 0.0473 | 2.8553 ± 0.2832 | 3.3618 ± 0.3533 † | 0.7834 ± 0.1119 | 0.7284 ± 0.1778 | 0.5485 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9205 ± 0.0745 | 2.8616 ± 0.3448 | 3.2543 ± 0.3497 † | **0.7363 ± 0.1129** | 0.7289 ± 0.2358 | 3.8965 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9508 ± 0.0512 | 3.1323 ± 0.3288 | 3.3738 ± 0.3299 † | 0.7541 ± 0.1193 | 0.8492 ± 0.1435 | 0.8031 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9432 ± 0.0691 | 2.7686 ± 0.2343 | **3.1051 ± 0.2064** † | 0.7404 ± 0.0840 | 0.6700 ± 0.2172 | 1.8905 |
 
 ##### fm_uq_scenarios / diabetes@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.8788 ± 0.0131 | 2.0350 ± 0.1610 | **2.4583 ± 0.0743** | 0.6449 ± 0.0079 | 0.6939 ± 0.0471 | 0.5760 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.6402 ± 0.1317 | 1.3706 ± 0.1489 | 3.5072 ± 0.4895 † | 0.6981 ± 0.0368 | 0.1714 ± 0.1891 | 0.6398 |
-| `Raw+TabICL [shift]` | tabicl | 0.8864 ± 0.0114 | 2.0075 ± 0.0915 | 2.4977 ± 0.1076 | **0.6344 ± 0.0109** | 0.7205 ± 0.0065 | 0.7594 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0262 | 2.3258 ± 0.1955 | 2.7360 ± 0.0557 | 0.6531 ± 0.0500 | 0.7937 ± 0.0687 | 1.7980 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9318 ± 0.0410 | 2.2413 ± 0.1819 | 2.5199 ± 0.0506 | 0.6449 ± 0.0079 | 0.7872 ± 0.1152 | 0.5760 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.9432 ± 0.0114 | 2.4415 ± 0.1367 | 2.6748 ± 0.0393 | 0.6981 ± 0.0368 | 0.8114 ± 0.1033 | 0.6398 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.9205 ± 0.0455 | 2.1791 ± 0.2172 | 2.5514 ± 0.0711 | **0.6344 ± 0.0109** | 0.7739 ± 0.0922 | 0.7594 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4708 ± 0.2921 | 2.8040 ± 0.1176 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.7980 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9242 ± 0.0328 | 2.2405 ± 0.2161 | 2.5327 ± 0.1097 | 0.6449 ± 0.0079 | 0.7472 ± 0.0462 | 0.5760 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.9167 ± 0.0262 | 2.9342 ± 0.1657 | 3.1752 ± 0.1213 | 0.6981 ± 0.0368 | 0.6983 ± 0.0888 | 0.6398 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.9205 ± 0.0394 | 2.1500 ± 0.1544 | 2.5332 ± 0.0767 | **0.6344 ± 0.0109** | 0.7472 ± 0.0462 | 0.7594 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4670 ± 0.2890 | 2.8001 ± 0.1035 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.7980 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9242 ± 0.0919 | 2.5421 ± 0.5460 | 3.1025 ± 0.1514 | 0.6449 ± 0.0079 | 0.8287 ± 0.2228 | 0.5760 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9318 ± 0.0227 | 2.5291 ± 0.2592 | 3.0032 ± 0.1326 | 0.6981 ± 0.0368 | 0.7349 ± 0.1426 | 0.6398 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9205 ± 0.0495 | 2.4247 ± 0.4162 | 2.9189 ± 0.1313 | 0.6413 ± 0.0227 | 0.7971 ± 0.1957 | 3.8408 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9394 ± 0.0473 | 2.5996 ± 0.4908 | 3.0433 ± 0.1434 | **0.6344 ± 0.0109** | 0.7971 ± 0.1957 | 0.7594 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9167 ± 0.0328 | 2.4406 ± 0.3555 | 2.8531 ± 0.1691 † | 0.6531 ± 0.0500 | 0.7638 ± 0.1771 | 1.7980 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9053 ± 0.0656 | 2.2423 ± 0.3826 | 2.8242 ± 0.2196 † | 0.6449 ± 0.0079 | 0.7349 ± 0.1426 | 0.5760 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9470 ± 0.0365 | 2.7370 ± 0.3185 | 3.0465 ± 0.1083 | 0.6981 ± 0.0368 | 0.8381 ± 0.1466 | 0.6398 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.9280 ± 0.0583 | 2.3590 ± 0.4183 | 2.8559 ± 0.1497 † | **0.6344 ± 0.0109** | 0.7429 ± 0.1512 | 0.7594 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4670 ± 0.2890 | 2.8001 ± 0.1035 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.7980 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8523 ± 0.0710 | 1.9339 ± 0.4605 | 2.8710 ± 0.6495 † | 0.6707 ± 0.0430 | 0.6729 ± 0.0880 | 0.5760 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8902 ± 0.0066 | 2.5890 ± 0.2675 | 2.9546 ± 0.1508 † | 0.7045 ± 0.0095 | 0.6502 ± 0.0584 | 0.6398 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8712 ± 0.0694 | 1.9430 ± 0.4036 | 2.8564 ± 0.5045 † | 0.6582 ± 0.0346 | 0.6862 ± 0.1008 | 0.7594 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9091 ± 0.0301 | 2.3835 ± 0.1823 | 2.8768 ± 0.1585 † | 0.6705 ± 0.0147 | 0.7029 ± 0.2409 | 1.7980 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.9205 ± 0.0787 | 2.6252 ± 0.2386 | 3.1865 ± 0.3462 † | 0.6741 ± 0.0479 | 0.8027 ± 0.2003 | 0.5760 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9280 ± 0.0066 | 2.6358 ± 0.2572 | 3.1130 ± 0.2317 † | 0.7329 ± 0.0390 | 0.7238 ± 0.1320 | 0.6398 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9205 ± 0.0301 | 2.5103 ± 0.1383 | 2.9940 ± 0.2275 † | 0.6608 ± 0.0229 | 0.7838 ± 0.1842 | 3.8408 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9280 ± 0.0473 | 2.6383 ± 0.2192 | 3.1386 ± 0.2892 † | 0.6612 ± 0.0368 | 0.7505 ± 0.1601 | 0.7594 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0347 | 2.6238 ± 0.1354 | 3.0347 ± 0.1691 † | 0.6755 ± 0.0083 | 0.7638 ± 0.1771 | 1.7980 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.9583 ± 0.0131 | 2.7144 ± 0.1903 | 2.9785 ± 0.0507 | 0.6449 ± 0.0079 | 0.8160 ± 0.2129 | 0.5760 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.9394 ± 0.0237 | 2.6426 ± 0.2171 | 2.9984 ± 0.1408 | 0.6981 ± 0.0368 | 0.7638 ± 0.1771 | 0.6398 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.9470 ± 0.0131 | 2.5341 ± 0.1655 | 2.8531 ± 0.0732 | 0.6413 ± 0.0227 | 0.8225 ± 0.1033 | 3.8408 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.9508 ± 0.0174 | 2.6242 ± 0.3894 | 2.9311 ± 0.1357 | **0.6344 ± 0.0109** | 0.7971 ± 0.1957 | 0.7594 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.9470 ± 0.0131 | 2.5142 ± 0.2867 | 2.8426 ± 0.1584 † | 0.6531 ± 0.0500 | 0.8225 ± 0.1033 | 1.7980 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9318 ± 0.0495 | 2.3271 ± 0.1570 | 2.6126 ± 0.0417 | 0.6449 ± 0.0079 | 0.7720 ± 0.1292 | 0.5760 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9242 ± 0.0237 | 2.4216 ± 0.2307 | 2.7446 ± 0.0872 | 0.6981 ± 0.0368 | 0.8114 ± 0.1033 | 0.6398 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.9356 ± 0.0537 | 2.2904 ± 0.2353 | 2.6814 ± 0.0365 | **0.6344 ± 0.0109** | 0.7872 ± 0.1152 | 0.7594 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0365 | 2.5091 ± 0.2734 | 2.9036 ± 0.1865 † | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.7980 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9280 ± 0.0174 | 2.5347 ± 0.1222 | 3.0514 ± 0.1368 | 0.6449 ± 0.0079 | 0.7460 ± 0.1512 | 0.5760 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9205 ± 0.0114 | 2.6264 ± 0.2331 | 3.1063 ± 0.2456 † | 0.6981 ± 0.0368 | 0.7349 ± 0.1426 | 0.6398 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9318 ± 0.0227 | 2.4742 ± 0.1624 | 2.9776 ± 0.1507 † | 0.6413 ± 0.0227 | 0.7638 ± 0.1771 | 3.8408 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9280 ± 0.0174 | 2.5654 ± 0.2043 | 3.0320 ± 0.1655 † | **0.6344 ± 0.0109** | 0.7460 ± 0.1512 | 0.7594 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9242 ± 0.0430 | 2.5196 ± 0.3110 | 3.0069 ± 0.1398 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.7980 |
+| `Raw+KumoTabular [shift]` | sdm | 0.8788 ± 0.0131 | 2.0350 ± 0.1610 | **2.4583 ± 0.0743** | 0.6449 ± 0.0079 | 0.6939 ± 0.0471 | 0.6357 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.6402 ± 0.1317 | 1.3706 ± 0.1489 | 3.5072 ± 0.4895 † | 0.6981 ± 0.0368 | 0.1714 ± 0.1891 | 0.6013 |
+| `Raw+TabICL [shift]` | tabicl | 0.8864 ± 0.0114 | 2.0075 ± 0.0915 | 2.4977 ± 0.1076 | **0.6344 ± 0.0109** | 0.7205 ± 0.0065 | 0.8003 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0262 | 2.3258 ± 0.1955 | 2.7360 ± 0.0557 | 0.6531 ± 0.0500 | 0.7937 ± 0.0687 | 1.8105 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9318 ± 0.0410 | 2.2413 ± 0.1819 | 2.5199 ± 0.0506 | 0.6449 ± 0.0079 | 0.7872 ± 0.1152 | 0.6357 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.9432 ± 0.0114 | 2.4415 ± 0.1367 | 2.6748 ± 0.0393 | 0.6981 ± 0.0368 | 0.8114 ± 0.1033 | 0.6013 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.9205 ± 0.0455 | 2.1791 ± 0.2172 | 2.5514 ± 0.0711 | **0.6344 ± 0.0109** | 0.7739 ± 0.0922 | 0.8003 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4708 ± 0.2921 | 2.8040 ± 0.1176 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.8105 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9242 ± 0.0328 | 2.2405 ± 0.2161 | 2.5327 ± 0.1097 | 0.6449 ± 0.0079 | 0.7472 ± 0.0462 | 0.6357 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.9167 ± 0.0262 | 2.9342 ± 0.1657 | 3.1752 ± 0.1213 | 0.6981 ± 0.0368 | 0.6983 ± 0.0888 | 0.6013 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.9205 ± 0.0394 | 2.1500 ± 0.1544 | 2.5332 ± 0.0767 | **0.6344 ± 0.0109** | 0.7472 ± 0.0462 | 0.8003 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4670 ± 0.2890 | 2.8001 ± 0.1035 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.8105 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9242 ± 0.0919 | 2.5421 ± 0.5460 | 3.1025 ± 0.1514 | 0.6449 ± 0.0079 | 0.8287 ± 0.2228 | 0.6357 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9318 ± 0.0227 | 2.5291 ± 0.2592 | 3.0032 ± 0.1326 | 0.6981 ± 0.0368 | 0.7349 ± 0.1426 | 0.6013 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9205 ± 0.0495 | 2.4247 ± 0.4162 | 2.9189 ± 0.1313 | 0.6413 ± 0.0227 | 0.7971 ± 0.1957 | 3.8727 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9394 ± 0.0473 | 2.5996 ± 0.4908 | 3.0433 ± 0.1434 | **0.6344 ± 0.0109** | 0.7971 ± 0.1957 | 0.8003 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9167 ± 0.0328 | 2.4406 ± 0.3555 | 2.8531 ± 0.1691 † | 0.6531 ± 0.0500 | 0.7638 ± 0.1771 | 1.8105 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9053 ± 0.0656 | 2.2423 ± 0.3826 | 2.8242 ± 0.2196 † | 0.6449 ± 0.0079 | 0.7349 ± 0.1426 | 0.6357 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9470 ± 0.0365 | 2.7370 ± 0.3185 | 3.0465 ± 0.1083 | 0.6981 ± 0.0368 | 0.8381 ± 0.1466 | 0.6013 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.9280 ± 0.0583 | 2.3590 ± 0.4183 | 2.8559 ± 0.1497 † | **0.6344 ± 0.0109** | 0.7429 ± 0.1512 | 0.8003 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9356 ± 0.0237 | 2.4670 ± 0.2890 | 2.8001 ± 0.1035 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.8105 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8523 ± 0.0710 | 1.9339 ± 0.4605 | 2.8710 ± 0.6495 † | 0.6707 ± 0.0430 | 0.6729 ± 0.0880 | 0.6357 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8902 ± 0.0066 | 2.5890 ± 0.2675 | 2.9546 ± 0.1508 † | 0.7045 ± 0.0095 | 0.6502 ± 0.0584 | 0.6013 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8712 ± 0.0694 | 1.9430 ± 0.4036 | 2.8564 ± 0.5045 † | 0.6582 ± 0.0346 | 0.6862 ± 0.1008 | 0.8003 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9091 ± 0.0301 | 2.3835 ± 0.1823 | 2.8768 ± 0.1585 † | 0.6705 ± 0.0147 | 0.7029 ± 0.2409 | 1.8105 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.9205 ± 0.0787 | 2.6252 ± 0.2386 | 3.1865 ± 0.3462 † | 0.6741 ± 0.0479 | 0.8027 ± 0.2003 | 0.6357 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9280 ± 0.0066 | 2.6358 ± 0.2572 | 3.1130 ± 0.2317 † | 0.7329 ± 0.0390 | 0.7238 ± 0.1320 | 0.6013 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9205 ± 0.0301 | 2.5103 ± 0.1383 | 2.9940 ± 0.2275 † | 0.6608 ± 0.0229 | 0.7838 ± 0.1842 | 3.8727 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9280 ± 0.0473 | 2.6383 ± 0.2192 | 3.1386 ± 0.2892 † | 0.6612 ± 0.0368 | 0.7505 ± 0.1601 | 0.8003 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0347 | 2.6238 ± 0.1354 | 3.0347 ± 0.1691 † | 0.6755 ± 0.0083 | 0.7638 ± 0.1771 | 1.8105 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.9583 ± 0.0131 | 2.7144 ± 0.1903 | 2.9785 ± 0.0507 | 0.6449 ± 0.0079 | 0.8160 ± 0.2129 | 0.6357 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.9394 ± 0.0237 | 2.6426 ± 0.2171 | 2.9984 ± 0.1408 | 0.6981 ± 0.0368 | 0.7638 ± 0.1771 | 0.6013 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.9470 ± 0.0131 | 2.5341 ± 0.1655 | 2.8531 ± 0.0732 | 0.6413 ± 0.0227 | 0.8225 ± 0.1033 | 3.8727 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.9508 ± 0.0174 | 2.6242 ± 0.3894 | 2.9311 ± 0.1357 | **0.6344 ± 0.0109** | 0.7971 ± 0.1957 | 0.8003 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.9470 ± 0.0131 | 2.5142 ± 0.2867 | 2.8426 ± 0.1584 † | 0.6531 ± 0.0500 | 0.8225 ± 0.1033 | 1.8105 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9318 ± 0.0495 | 2.3271 ± 0.1570 | 2.6126 ± 0.0417 | 0.6449 ± 0.0079 | 0.7720 ± 0.1292 | 0.6357 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9242 ± 0.0237 | 2.4216 ± 0.2307 | 2.7446 ± 0.0872 | 0.6981 ± 0.0368 | 0.8114 ± 0.1033 | 0.6013 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.9356 ± 0.0537 | 2.2904 ± 0.2353 | 2.6814 ± 0.0365 | **0.6344 ± 0.0109** | 0.7872 ± 0.1152 | 0.8003 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9280 ± 0.0365 | 2.5091 ± 0.2734 | 2.9036 ± 0.1865 † | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.8105 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9280 ± 0.0174 | 2.5347 ± 0.1222 | 3.0514 ± 0.1368 | 0.6449 ± 0.0079 | 0.7460 ± 0.1512 | 0.6357 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9205 ± 0.0114 | 2.6264 ± 0.2331 | 3.1063 ± 0.2456 † | 0.6981 ± 0.0368 | 0.7349 ± 0.1426 | 0.6013 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9318 ± 0.0227 | 2.4742 ± 0.1624 | 2.9776 ± 0.1507 † | 0.6413 ± 0.0227 | 0.7638 ± 0.1771 | 3.8727 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9280 ± 0.0174 | 2.5654 ± 0.2043 | 3.0320 ± 0.1655 † | **0.6344 ± 0.0109** | 0.7460 ± 0.1512 | 0.8003 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9242 ± 0.0430 | 2.5196 ± 0.3110 | 3.0069 ± 0.1398 | 0.6531 ± 0.0500 | 0.8114 ± 0.1033 | 1.8105 |
 
 ##### fm_uq_scenarios / house_sales
 
@@ -1495,330 +1405,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.8908 ± 0.0137 | 0.6609 ± 0.0202 | 0.9648 ± 0.0938 † | 0.2888 ± 0.0428 | 0.8054 ± 0.0227 | 2.9847 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.8119 ± 0.0222 | 0.7374 ± 0.0176 | 1.4665 ± 0.0999 † | 0.3754 ± 0.0241 | 0.6336 ± 0.0275 | 2.9414 |
-| `Raw+TabICL [clean]` | tabicl | 0.8836 ± 0.0229 | 0.7400 ± 0.0259 | 1.0372 ± 0.0937 † | 0.3270 ± 0.0526 | 0.8026 ± 0.0172 | 2.7676 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.8967 ± 0.0231 | 0.8003 ± 0.0279 | 1.1345 ± 0.0978 † | 0.3331 ± 0.0257 | 0.8099 ± 0.0401 | 31.4837 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8956 ± 0.0104 | 0.6609 ± 0.0379 | 0.9642 ± 0.0931 † | 0.2888 ± 0.0428 | 0.8102 ± 0.0102 | 2.9847 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.8911 ± 0.0083 | 0.8784 ± 0.0644 | 1.4030 ± 0.0806 † | 0.3754 ± 0.0241 | 0.7031 ± 0.0209 | 2.9414 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.8867 ± 0.0235 | 0.7526 ± 0.0468 | 1.0356 ± 0.0898 † | 0.3270 ± 0.0526 | 0.8032 ± 0.0255 | 2.7676 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8839 ± 0.0164 | 0.7782 ± 0.0531 | 1.1349 ± 0.0959 † | 0.3331 ± 0.0257 | 0.7955 ± 0.0187 | 31.4837 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8969 ± 0.0115 | 0.6648 ± 0.0476 | **0.9641 ± 0.0928** † | 0.2888 ± 0.0428 | 0.8102 ± 0.0102 | 2.9847 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.8956 ± 0.0055 | 1.0610 ± 0.0875 | 1.5066 ± 0.1091 † | 0.3754 ± 0.0241 | 0.7217 ± 0.0059 | 2.9414 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.8878 ± 0.0234 | 0.7578 ± 0.0604 | 1.0346 ± 0.0919 † | 0.3270 ± 0.0526 | 0.8058 ± 0.0235 | 2.7676 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8847 ± 0.0151 | 0.7746 ± 0.0613 | 1.1352 ± 0.0966 † | 0.3331 ± 0.0257 | 0.8091 ± 0.0269 | 31.4837 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8936 ± 0.0025 | 0.7401 ± 0.0319 | 1.1777 ± 0.1314 † | 0.2888 ± 0.0428 | 0.8124 ± 0.0112 | 2.9847 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8933 ± 0.0090 | 0.9032 ± 0.0795 | 1.4560 ± 0.1064 † | 0.3754 ± 0.0241 | 0.7838 ± 0.0080 | 2.9414 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8975 ± 0.0093 | 0.7486 ± 0.0378 | 1.1724 ± 0.1327 † | 0.2889 ± 0.0415 | 0.8204 ± 0.0341 | 9.6403 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8919 ± 0.0117 | 0.8020 ± 0.0421 | 1.3180 ± 0.1680 † | 0.3270 ± 0.0526 | 0.7794 ± 0.0295 | 2.7676 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0156 | 0.8392 ± 0.0415 | 1.3240 ± 0.0871 † | 0.3331 ± 0.0257 | 0.7854 ± 0.0098 | 31.4837 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8956 ± 0.0064 | 0.6672 ± 0.0456 | 0.9787 ± 0.0988 † | 0.2888 ± 0.0428 | 0.7950 ± 0.0099 | 2.9847 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8906 ± 0.0200 | 0.8188 ± 0.0607 | 1.1887 ± 0.0467 | 0.3754 ± 0.0241 | 0.7870 ± 0.0397 | 2.9414 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.8958 ± 0.0095 | 0.7726 ± 0.0641 | 1.0542 ± 0.0935 † | 0.3270 ± 0.0526 | 0.8025 ± 0.0031 | 2.7676 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8847 ± 0.0151 | 0.7746 ± 0.0613 | 1.1352 ± 0.0966 † | 0.3331 ± 0.0257 | 0.8091 ± 0.0269 | 31.4837 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8958 ± 0.0098 | 0.6620 ± 0.0438 | 0.9642 ± 0.0923 † | 0.2890 ± 0.0442 | 0.8179 ± 0.0055 | 2.9847 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8933 ± 0.0022 | 1.0414 ± 0.0893 | 1.5086 ± 0.1098 † | 0.3738 ± 0.0245 | 0.7227 ± 0.0139 | 2.9414 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8906 ± 0.0207 | 0.7583 ± 0.0610 | 1.0341 ± 0.0890 † | 0.3279 ± 0.0551 | 0.8206 ± 0.0116 | 2.7676 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8858 ± 0.0169 | 0.7751 ± 0.0558 | 1.1353 ± 0.0992 † | 0.3344 ± 0.0256 | 0.8057 ± 0.0291 | 31.4837 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.9003 ± 0.0186 | 0.7211 ± 0.0557 | 1.3658 ± 0.1553 † | **0.2887 ± 0.0432** | 0.5487 ± 0.0266 | 2.9847 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8983 ± 0.0131 | 0.8700 ± 0.0852 | 1.7256 ± 0.1250 † | 0.3752 ± 0.0241 | 0.5220 ± 0.0125 | 2.9414 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9033 ± 0.0195 | 0.7328 ± 0.0591 | 1.3780 ± 0.1764 † | 0.2890 ± 0.0417 | 0.5754 ± 0.0440 | 9.6403 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9014 ± 0.0192 | 0.7853 ± 0.0258 | 1.5556 ± 0.2375 † | 0.3269 ± 0.0529 | 0.5379 ± 0.0442 | 2.7676 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8939 ± 0.0208 | 0.8222 ± 0.0695 | 1.6044 ± 0.1377 † | 0.3332 ± 0.0257 | 0.5428 ± 0.0240 | 31.4837 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.8964 ± 0.0138 | 0.6952 ± 0.0384 | 1.3674 ± 0.1486 † | 0.2888 ± 0.0428 | 0.5241 ± 0.0097 | 2.9847 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.8933 ± 0.0090 | 0.8203 ± 0.0672 | 1.7434 ± 0.1089 † | 0.3754 ± 0.0241 | 0.4579 ± 0.0090 | 2.9414 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.9050 ± 0.0154 | 0.7298 ± 0.0530 | 1.3733 ± 0.1730 † | 0.2889 ± 0.0415 | 0.5664 ± 0.0358 | 9.6403 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.9036 ± 0.0109 | 0.7806 ± 0.0163 | 1.5508 ± 0.2253 † | 0.3270 ± 0.0526 | 0.5224 ± 0.0176 | 2.7676 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.8889 ± 0.0220 | 0.7864 ± 0.0386 | 1.6022 ± 0.1300 † | 0.3331 ± 0.0257 | 0.5251 ± 0.0290 | 31.4837 |
+| `Raw+KumoTabular [clean]` | sdm | 0.8908 ± 0.0137 | 0.6609 ± 0.0202 | 0.9648 ± 0.0938 † | 0.2888 ± 0.0428 | 0.8054 ± 0.0227 | 3.5574 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.8119 ± 0.0222 | 0.7374 ± 0.0176 | 1.4665 ± 0.0999 † | 0.3754 ± 0.0241 | 0.6336 ± 0.0275 | 3.1943 |
+| `Raw+TabICL [clean]` | tabicl | 0.8836 ± 0.0229 | 0.7400 ± 0.0259 | 1.0372 ± 0.0937 † | 0.3270 ± 0.0526 | 0.8026 ± 0.0172 | 2.8237 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.8967 ± 0.0231 | 0.8003 ± 0.0279 | 1.1345 ± 0.0978 † | 0.3331 ± 0.0257 | 0.8099 ± 0.0401 | 31.7708 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8956 ± 0.0104 | 0.6609 ± 0.0379 | 0.9642 ± 0.0931 † | 0.2888 ± 0.0428 | 0.8102 ± 0.0102 | 3.5574 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.8911 ± 0.0083 | 0.8784 ± 0.0644 | 1.4030 ± 0.0806 † | 0.3754 ± 0.0241 | 0.7031 ± 0.0209 | 3.1943 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.8867 ± 0.0235 | 0.7526 ± 0.0468 | 1.0356 ± 0.0898 † | 0.3270 ± 0.0526 | 0.8032 ± 0.0255 | 2.8237 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8839 ± 0.0164 | 0.7782 ± 0.0531 | 1.1349 ± 0.0959 † | 0.3331 ± 0.0257 | 0.7955 ± 0.0187 | 31.7708 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8969 ± 0.0115 | 0.6648 ± 0.0476 | **0.9641 ± 0.0928** † | 0.2888 ± 0.0428 | 0.8102 ± 0.0102 | 3.5574 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.8956 ± 0.0055 | 1.0610 ± 0.0875 | 1.5066 ± 0.1091 † | 0.3754 ± 0.0241 | 0.7217 ± 0.0059 | 3.1943 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.8878 ± 0.0234 | 0.7578 ± 0.0604 | 1.0346 ± 0.0919 † | 0.3270 ± 0.0526 | 0.8058 ± 0.0235 | 2.8237 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8847 ± 0.0151 | 0.7746 ± 0.0613 | 1.1352 ± 0.0966 † | 0.3331 ± 0.0257 | 0.8091 ± 0.0269 | 31.7708 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8936 ± 0.0025 | 0.7401 ± 0.0319 | 1.1777 ± 0.1314 † | 0.2888 ± 0.0428 | 0.8124 ± 0.0112 | 3.5574 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8933 ± 0.0090 | 0.9032 ± 0.0795 | 1.4560 ± 0.1064 † | 0.3754 ± 0.0241 | 0.7838 ± 0.0080 | 3.1943 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8975 ± 0.0093 | 0.7486 ± 0.0378 | 1.1724 ± 0.1327 † | 0.2889 ± 0.0415 | 0.8204 ± 0.0341 | 11.7696 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8919 ± 0.0117 | 0.8020 ± 0.0421 | 1.3180 ± 0.1680 † | 0.3270 ± 0.0526 | 0.7794 ± 0.0295 | 2.8237 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0156 | 0.8392 ± 0.0415 | 1.3240 ± 0.0871 † | 0.3331 ± 0.0257 | 0.7854 ± 0.0098 | 31.7708 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8956 ± 0.0064 | 0.6672 ± 0.0456 | 0.9787 ± 0.0988 † | 0.2888 ± 0.0428 | 0.7950 ± 0.0099 | 3.5574 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8906 ± 0.0200 | 0.8188 ± 0.0607 | 1.1887 ± 0.0467 | 0.3754 ± 0.0241 | 0.7870 ± 0.0397 | 3.1943 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.8958 ± 0.0095 | 0.7726 ± 0.0641 | 1.0542 ± 0.0935 † | 0.3270 ± 0.0526 | 0.8025 ± 0.0031 | 2.8237 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8847 ± 0.0151 | 0.7746 ± 0.0613 | 1.1352 ± 0.0966 † | 0.3331 ± 0.0257 | 0.8091 ± 0.0269 | 31.7708 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8958 ± 0.0098 | 0.6620 ± 0.0438 | 0.9642 ± 0.0923 † | 0.2890 ± 0.0442 | 0.8179 ± 0.0055 | 3.5574 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8933 ± 0.0022 | 1.0414 ± 0.0893 | 1.5086 ± 0.1098 † | 0.3738 ± 0.0245 | 0.7227 ± 0.0139 | 3.1943 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8906 ± 0.0207 | 0.7583 ± 0.0610 | 1.0341 ± 0.0890 † | 0.3279 ± 0.0551 | 0.8206 ± 0.0116 | 2.8237 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8858 ± 0.0169 | 0.7751 ± 0.0558 | 1.1353 ± 0.0992 † | 0.3344 ± 0.0256 | 0.8057 ± 0.0291 | 31.7708 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.9003 ± 0.0186 | 0.7211 ± 0.0557 | 1.3658 ± 0.1553 † | **0.2887 ± 0.0432** | 0.5487 ± 0.0266 | 3.5574 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8983 ± 0.0131 | 0.8700 ± 0.0852 | 1.7256 ± 0.1250 † | 0.3752 ± 0.0241 | 0.5220 ± 0.0125 | 3.1943 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9033 ± 0.0195 | 0.7328 ± 0.0591 | 1.3780 ± 0.1764 † | 0.2890 ± 0.0417 | 0.5754 ± 0.0440 | 11.7696 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9014 ± 0.0192 | 0.7853 ± 0.0258 | 1.5556 ± 0.2375 † | 0.3269 ± 0.0529 | 0.5379 ± 0.0442 | 2.8237 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8939 ± 0.0208 | 0.8222 ± 0.0695 | 1.6044 ± 0.1377 † | 0.3332 ± 0.0257 | 0.5428 ± 0.0240 | 31.7708 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.8964 ± 0.0138 | 0.6952 ± 0.0384 | 1.3674 ± 0.1486 † | 0.2888 ± 0.0428 | 0.5241 ± 0.0097 | 3.5574 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.8933 ± 0.0090 | 0.8203 ± 0.0672 | 1.7434 ± 0.1089 † | 0.3754 ± 0.0241 | 0.4579 ± 0.0090 | 3.1943 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.9050 ± 0.0154 | 0.7298 ± 0.0530 | 1.3733 ± 0.1730 † | 0.2889 ± 0.0415 | 0.5664 ± 0.0358 | 11.7696 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.9036 ± 0.0109 | 0.7806 ± 0.0163 | 1.5508 ± 0.2253 † | 0.3270 ± 0.0526 | 0.5224 ± 0.0176 | 2.8237 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.8889 ± 0.0220 | 0.7864 ± 0.0386 | 1.6022 ± 0.1300 † | 0.3331 ± 0.0257 | 0.5251 ± 0.0290 | 31.7708 |
 
 ##### fm_uq_scenarios / house_sales@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9036 ± 0.0204 | 1.2256 ± 1.1258 | 1.4940 ± 1.1771 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.5757 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7931 ± 0.0575 | 0.8981 ± 0.4379 | 3.1731 ± 3.6601 † | 0.5997 ± 0.6695 | 0.2361 ± 0.2055 | 2.8177 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9217 ± 0.0131 | 1.1449 ± 0.7643 | 2.0007 ± 1.9299 † | 0.4467 ± 0.4274 | 0.3851 ± 0.2299 | 2.5935 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.8808 ± 0.0591 | 0.9940 ± 0.4942 | 1.9402 ± 1.7989 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.2115 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9133 ± 0.0183 | 1.2436 ± 1.1241 | 1.4957 ± 1.1793 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.5757 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8422 ± 0.0815 | 1.0076 ± 0.4324 | 3.0874 ± 3.5882 † | 0.5997 ± 0.6695 | 0.3220 ± 0.2096 | 2.8177 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9283 ± 0.0140 | 1.1649 ± 0.7631 | 2.0058 ± 1.9271 † | 0.4467 ± 0.4274 | 0.4407 ± 0.1604 | 2.5935 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0578 | 0.9898 ± 0.4936 | 1.9410 ± 1.8024 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.2115 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9147 ± 0.0192 | 1.2955 ± 1.1973 | 1.5300 ± 1.2360 † | **0.3949 ± 0.3456** | 0.4710 ± 0.1465 | 2.5757 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8444 ± 0.0429 | 1.1621 ± 0.5918 | 3.0432 ± 3.3509 † | 0.5997 ± 0.6695 | 0.4192 ± 0.2963 | 2.8177 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9300 ± 0.0139 | 1.2016 ± 0.7900 | 2.0305 ± 1.9464 † | 0.4467 ± 0.4274 | 0.3851 ± 0.2299 | 2.5935 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0600 | 0.9840 ± 0.4801 | 1.9456 ± 1.8103 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.2115 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8114 ± 0.0010 | 0.5782 ± 0.2634 | 1.8411 ± 1.5273 † | **0.3949 ± 0.3456** | 0.4144 ± 0.2944 | 2.5757 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.7664 ± 0.0728 | 0.6545 ± 0.2997 | 3.4946 ± 4.2553 † | 0.5997 ± 0.6695 | 0.2803 ± 0.2062 | 2.8177 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8031 ± 0.0124 | 0.5792 ± 0.2641 | 1.9302 ± 1.6815 † | 0.4204 ± 0.3868 | 0.4495 ± 0.2463 | 9.6370 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.7631 ± 0.0512 | 0.5692 ± 0.2337 | 2.2610 ± 2.2247 † | 0.4467 ± 0.4274 | 0.3220 ± 0.2096 | 2.5935 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.7703 ± 0.0400 | 0.6281 ± 0.2779 | 2.4806 ± 2.5336 † | 0.4895 ± 0.4815 | 0.2812 ± 0.3006 | 31.2115 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9114 ± 0.0180 | 1.2461 ± 1.1194 | 1.5193 ± 1.1965 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.5757 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8708 ± 0.0760 | 0.9729 ± 0.4777 | 2.7588 ± 3.1599 † | 0.5997 ± 0.6695 | 0.4504 ± 0.2475 | 2.8177 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9269 ± 0.0049 | 1.1592 ± 0.7572 | 1.7364 ± 1.4389 † | 0.4467 ± 0.4274 | 0.3548 ± 0.2399 | 2.5935 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0600 | 0.9840 ± 0.4801 | 1.9456 ± 1.8103 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.2115 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9133 ± 0.0145 | 1.2146 ± 1.0489 | **1.4715 ± 1.1381** † | 0.3956 ± 0.3466 | 0.4710 ± 0.1465 | 2.5757 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8386 ± 0.0558 | 1.1551 ± 0.5954 | 3.1316 ± 3.5195 † | 0.6051 ± 0.6803 | 0.4125 ± 0.2880 | 2.8177 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9244 ± 0.0220 | 1.1673 ± 0.7384 | 2.0283 ± 1.9446 † | 0.4467 ± 0.4290 | 0.4407 ± 0.1604 | 2.5935 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8714 ± 0.0748 | 0.9750 ± 0.4704 | 2.0080 ± 1.9341 † | 0.4966 ± 0.4948 | 0.3990 ± 0.0888 | 31.2115 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.8525 ± 0.1573 | 0.6834 ± 0.1228 | 2.0873 ± 1.9467 † | 0.3949 ± 0.3457 | 0.3771 ± 0.2486 | 2.5757 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.8297 ± 0.2055 | 0.8170 ± 0.1521 | 3.9148 ± 4.9138 † | 0.6004 ± 0.6713 | 0.2942 ± 0.1773 | 2.8177 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.8444 ± 0.1807 | 0.6979 ± 0.1364 | 2.1999 ± 2.1144 † | 0.4200 ± 0.3870 | 0.3966 ± 0.1861 | 9.6370 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.8400 ± 0.1935 | 0.7235 ± 0.1570 | 2.5616 ± 2.7023 † | 0.4463 ± 0.4277 | 0.3506 ± 0.2258 | 2.5935 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.8283 ± 0.2107 | 0.8000 ± 0.1647 | 2.8520 ± 3.1118 † | 0.4903 ± 0.4838 | 0.2144 ± 0.1852 | 31.2115 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8481 ± 0.1587 | 0.6723 ± 0.1228 | 2.0790 ± 1.9277 † | **0.3949 ± 0.3456** | 0.3332 ± 0.2243 | 2.5757 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8294 ± 0.2067 | 0.7898 ± 0.1393 | 3.9168 ± 4.9479 † | 0.5997 ± 0.6695 | 0.2516 ± 0.1615 | 2.8177 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.8406 ± 0.1845 | 0.6934 ± 0.1394 | 2.2154 ± 2.1362 † | 0.4204 ± 0.3868 | 0.3957 ± 0.1853 | 9.6370 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.8375 ± 0.1971 | 0.7193 ± 0.1476 | 2.5686 ± 2.7061 † | 0.4467 ± 0.4274 | 0.3484 ± 0.2242 | 2.5935 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.8331 ± 0.2047 | 0.7922 ± 0.1647 | 2.8280 ± 3.0724 † | 0.4895 ± 0.4815 | 0.2171 ± 0.1899 | 31.2115 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9036 ± 0.0204 | 1.2256 ± 1.1258 | 1.4940 ± 1.1771 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.7556 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7931 ± 0.0575 | 0.8981 ± 0.4379 | 3.1731 ± 3.6601 † | 0.5997 ± 0.6695 | 0.2361 ± 0.2055 | 2.8194 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9217 ± 0.0131 | 1.1449 ± 0.7643 | 2.0007 ± 1.9299 † | 0.4467 ± 0.4274 | 0.3851 ± 0.2299 | 2.6310 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.8808 ± 0.0591 | 0.9940 ± 0.4942 | 1.9402 ± 1.7989 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.8423 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9133 ± 0.0183 | 1.2436 ± 1.1241 | 1.4957 ± 1.1793 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.7556 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8422 ± 0.0815 | 1.0076 ± 0.4324 | 3.0874 ± 3.5882 † | 0.5997 ± 0.6695 | 0.3220 ± 0.2096 | 2.8194 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9283 ± 0.0140 | 1.1649 ± 0.7631 | 2.0058 ± 1.9271 † | 0.4467 ± 0.4274 | 0.4407 ± 0.1604 | 2.6310 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0578 | 0.9898 ± 0.4936 | 1.9410 ± 1.8024 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.8423 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9147 ± 0.0192 | 1.2955 ± 1.1973 | 1.5300 ± 1.2360 † | **0.3949 ± 0.3456** | 0.4710 ± 0.1465 | 2.7556 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8444 ± 0.0429 | 1.1621 ± 0.5918 | 3.0432 ± 3.3509 † | 0.5997 ± 0.6695 | 0.4192 ± 0.2963 | 2.8194 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9300 ± 0.0139 | 1.2016 ± 0.7900 | 2.0305 ± 1.9464 † | 0.4467 ± 0.4274 | 0.3851 ± 0.2299 | 2.6310 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0600 | 0.9840 ± 0.4801 | 1.9456 ± 1.8103 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.8423 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8114 ± 0.0010 | 0.5782 ± 0.2634 | 1.8411 ± 1.5273 † | **0.3949 ± 0.3456** | 0.4144 ± 0.2944 | 2.7556 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.7664 ± 0.0728 | 0.6545 ± 0.2997 | 3.4946 ± 4.2553 † | 0.5997 ± 0.6695 | 0.2803 ± 0.2062 | 2.8194 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8031 ± 0.0124 | 0.5792 ± 0.2641 | 1.9302 ± 1.6815 † | 0.4204 ± 0.3868 | 0.4495 ± 0.2463 | 9.6681 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.7631 ± 0.0512 | 0.5692 ± 0.2337 | 2.2610 ± 2.2247 † | 0.4467 ± 0.4274 | 0.3220 ± 0.2096 | 2.6310 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.7703 ± 0.0400 | 0.6281 ± 0.2779 | 2.4806 ± 2.5336 † | 0.4895 ± 0.4815 | 0.2812 ± 0.3006 | 31.8423 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9114 ± 0.0180 | 1.2461 ± 1.1194 | 1.5193 ± 1.1965 † | **0.3949 ± 0.3456** | 0.4407 ± 0.1604 | 2.7556 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8708 ± 0.0760 | 0.9729 ± 0.4777 | 2.7588 ± 3.1599 † | 0.5997 ± 0.6695 | 0.4504 ± 0.2475 | 2.8194 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9269 ± 0.0049 | 1.1592 ± 0.7572 | 1.7364 ± 1.4389 † | 0.4467 ± 0.4274 | 0.3548 ± 0.2399 | 2.6310 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8767 ± 0.0600 | 0.9840 ± 0.4801 | 1.9456 ± 1.8103 † | 0.4895 ± 0.4815 | 0.3687 ± 0.1177 | 31.8423 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9133 ± 0.0145 | 1.2146 ± 1.0489 | **1.4715 ± 1.1381** † | 0.3956 ± 0.3466 | 0.4710 ± 0.1465 | 2.7556 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8386 ± 0.0558 | 1.1551 ± 0.5954 | 3.1316 ± 3.5195 † | 0.6051 ± 0.6803 | 0.4125 ± 0.2880 | 2.8194 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9244 ± 0.0220 | 1.1673 ± 0.7384 | 2.0283 ± 1.9446 † | 0.4467 ± 0.4290 | 0.4407 ± 0.1604 | 2.6310 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8714 ± 0.0748 | 0.9750 ± 0.4704 | 2.0080 ± 1.9341 † | 0.4966 ± 0.4948 | 0.3990 ± 0.0888 | 31.8423 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.8525 ± 0.1573 | 0.6834 ± 0.1228 | 2.0873 ± 1.9467 † | 0.3949 ± 0.3457 | 0.3771 ± 0.2486 | 2.7556 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.8297 ± 0.2055 | 0.8170 ± 0.1521 | 3.9148 ± 4.9138 † | 0.6004 ± 0.6713 | 0.2942 ± 0.1773 | 2.8194 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.8444 ± 0.1807 | 0.6979 ± 0.1364 | 2.1999 ± 2.1144 † | 0.4200 ± 0.3870 | 0.3966 ± 0.1861 | 9.6681 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.8400 ± 0.1935 | 0.7235 ± 0.1570 | 2.5616 ± 2.7023 † | 0.4463 ± 0.4277 | 0.3506 ± 0.2258 | 2.6310 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.8283 ± 0.2107 | 0.8000 ± 0.1647 | 2.8520 ± 3.1118 † | 0.4903 ± 0.4838 | 0.2144 ± 0.1852 | 31.8423 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8481 ± 0.1587 | 0.6723 ± 0.1228 | 2.0790 ± 1.9277 † | **0.3949 ± 0.3456** | 0.3332 ± 0.2243 | 2.7556 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8294 ± 0.2067 | 0.7898 ± 0.1393 | 3.9168 ± 4.9479 † | 0.5997 ± 0.6695 | 0.2516 ± 0.1615 | 2.8194 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.8406 ± 0.1845 | 0.6934 ± 0.1394 | 2.2154 ± 2.1362 † | 0.4204 ± 0.3868 | 0.3957 ± 0.1853 | 9.6681 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.8375 ± 0.1971 | 0.7193 ± 0.1476 | 2.5686 ± 2.7061 † | 0.4467 ± 0.4274 | 0.3484 ± 0.2242 | 2.6310 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.8331 ± 0.2047 | 0.7922 ± 0.1647 | 2.8280 ± 3.0724 † | 0.4895 ± 0.4815 | 0.2171 ± 0.1899 | 31.8423 |
 
 ##### fm_uq_scenarios / house_sales@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9989 ± 0.0019 | 0.0050 ± 0.0037 | 0.0050 ± 0.0037 † | 8.857e-04 ± 8.294e-04 | 0.9954 ± 0.0080 | 2.5747 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.6017 ± 0.3262 | 0.0745 ± 0.0419 | 0.0745 ± 0.0419 † | 6.023e-04 ± 1.042e-03 | 0.0740 ± 0.0844 | 2.4948 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.9950 ± 0.0043 | 0.0021 ± 0.0007 | 0.0025 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.9869 ± 0.0073 | 2.6148 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9997 ± 0.0005 | 0.0505 ± 0.0420 | 0.0507 ± 0.0418 † | 0.0023 ± 0.0023 | 0.9969 ± 0.0054 | 29.6983 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9025 ± 0.0075 | 0.0038 ± 0.0036 | 0.0041 ± 0.0036 † | 8.857e-04 ± 8.294e-04 | 0.7475 ± 0.1111 | 2.5747 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8958 ± 0.0042 | 0.0745 ± 0.0419 | 0.0745 ± 0.0419 † | 6.023e-04 ± 1.042e-03 | 0.5399 ± 0.1000 | 2.4948 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8981 ± 0.0112 | 0.0014 ± 0.0008 | 0.0020 ± 0.0007 † | 8.396e-04 ± 9.035e-04 | 0.8496 ± 0.0110 | 2.6148 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9142 ± 0.0046 | 0.0138 ± 0.0187 | 0.0157 ± 0.0200 † | 0.0023 ± 0.0023 | 0.8111 ± 0.0062 | 29.6983 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8992 ± 0.0115 | 0.0012 ± 0.0004 | 0.0017 ± 0.0005 † | 8.857e-04 ± 8.294e-04 | 0.7354 ± 0.0814 | 2.5747 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9019 ± 0.0185 | 0.1724 ± 0.0885 | 0.1724 ± 0.0885 † | 6.023e-04 ± 1.042e-03 | 0.5797 ± 0.2152 | 2.4948 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8936 ± 0.0246 | 9.441e-04 ± 2.474e-04 | 0.0016 ± 0.0005 † | 8.396e-04 ± 9.035e-04 | 0.8268 ± 0.0568 | 2.6148 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9019 ± 0.0035 | 0.0049 ± 0.0075 | 0.0064 ± 0.0089 † | 0.0023 ± 0.0023 | 0.7887 ± 0.0371 | 29.6983 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9083 ± 0.0088 | 8.704e-04 ± 1.871e-04 | 0.0014 ± 0.0006 † | 8.857e-04 ± 8.294e-04 | 0.8503 ± 0.0297 | 2.5747 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8925 ± 0.0113 | 9.782e-09 ± 6.092e-09 | **3.485e-04 ± 6.022e-04** † | 6.023e-04 ± 1.042e-03 | 0.6203 ± 0.1921 | 2.4948 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9044 ± 0.0100 | 0.0174 ± 0.0041 | 0.2098 ± 0.2480 † | 0.2996 ± 0.3866 | 0.7717 ± 0.0527 | 9.6964 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8944 ± 0.0205 | 6.943e-04 ± 1.203e-04 | 0.0012 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.7989 ± 0.0539 | 2.6148 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0044 | 0.0041 ± 0.0063 | 0.0049 ± 0.0067 † | 0.0023 ± 0.0023 | 0.8262 ± 0.0232 | 29.6983 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8986 ± 0.0137 | 0.0022 ± 0.0012 | 0.0024 ± 0.0013 † | 8.857e-04 ± 8.294e-04 | 0.7332 ± 0.0837 | 2.5747 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8897 ± 0.0189 | 9.656e-05 ± 7.373e-05 | 4.198e-04 ± 5.480e-04 † | 6.023e-04 ± 1.042e-03 | 0.3584 ± 0.1898 | 2.4948 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8942 ± 0.0232 | 0.0012 ± 0.0006 | 0.0018 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.8252 ± 0.0508 | 2.6148 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9019 ± 0.0035 | 0.0049 ± 0.0075 | 0.0064 ± 0.0089 † | 0.0023 ± 0.0023 | 0.7887 ± 0.0371 | 29.6983 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9094 ± 0.0067 | 6.472e-04 ± 2.081e-04 | 0.0012 ± 0.0002 † | 8.294e-04 ± 7.760e-04 | 0.7918 ± 0.0375 | 2.5747 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9033 ± 0.0017 | 0.1086 ± 0.0703 | 0.1086 ± 0.0703 † | 0.4854 ± 0.8391 | 0.5905 ± 0.0218 | 2.4948 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8925 ± 0.0230 | 9.442e-04 ± 2.542e-04 | 0.0016 ± 0.0006 † | 8.382e-04 ± 9.048e-04 | 0.8160 ± 0.0633 | 2.6148 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0079 | 0.0050 ± 0.0080 | 0.0063 ± 0.0091 † | 0.0021 ± 0.0020 | 0.7820 ± 0.0318 | 29.6983 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9103 ± 0.0043 | 6.093e-04 ± 1.791e-04 | 0.0012 ± 0.0003 † | 7.722e-04 ± 8.729e-04 | 0.8275 ± 0.0396 | 2.5747 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.8889 ± 0.0128 | 2.706e-09 ± 2.021e-09 | 3.485e-04 ± 6.022e-04 † | **6.023e-04 ± 1.042e-03** | 0.3807 ± 0.2175 | 2.4948 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9056 ± 0.0081 | 0.0209 ± 0.0035 | 0.2196 ± 0.2491 † | 0.2996 ± 0.3866 | 0.6316 ± 0.0513 | 9.6964 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8928 ± 0.0237 | 9.530e-04 ± 2.414e-04 | 0.0017 ± 0.0006 † | 8.385e-04 ± 9.045e-04 | 0.7548 ± 0.0339 | 2.6148 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9067 ± 0.0066 | 0.0055 ± 0.0087 | 0.0069 ± 0.0100 † | 0.0022 ± 0.0022 | 0.7821 ± 0.0086 | 29.6983 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9042 ± 0.0058 | 0.0011 ± 0.0003 | 0.0018 ± 0.0005 † | 8.857e-04 ± 8.294e-04 | 0.7650 ± 0.0491 | 2.5747 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8953 ± 0.0173 | 1.548e-09 ± 6.290e-10 | 3.485e-04 ± 6.022e-04 † | 6.023e-04 ± 1.042e-03 | 0.2450 ± 0.1365 | 2.4948 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9083 ± 0.0123 | 0.0222 ± 0.0059 | 0.2208 ± 0.2485 † | 0.2996 ± 0.3866 | 0.6926 ± 0.1105 | 9.6964 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8878 ± 0.0279 | 9.420e-04 ± 2.419e-04 | 0.0017 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.7406 ± 0.0417 | 2.6148 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9042 ± 0.0043 | 0.0057 ± 0.0088 | 0.0074 ± 0.0106 † | 0.0023 ± 0.0023 | 0.7660 ± 0.0851 | 29.6983 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9989 ± 0.0019 | 0.0050 ± 0.0037 | 0.0050 ± 0.0037 † | 8.857e-04 ± 8.294e-04 | 0.9954 ± 0.0080 | 2.6748 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.6017 ± 0.3262 | 0.0745 ± 0.0419 | 0.0745 ± 0.0419 † | 6.023e-04 ± 1.042e-03 | 0.0740 ± 0.0844 | 2.5075 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.9950 ± 0.0043 | 0.0021 ± 0.0007 | 0.0025 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.9869 ± 0.0073 | 2.6604 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9997 ± 0.0005 | 0.0505 ± 0.0420 | 0.0507 ± 0.0418 † | 0.0023 ± 0.0023 | 0.9969 ± 0.0054 | 30.3922 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9025 ± 0.0075 | 0.0038 ± 0.0036 | 0.0041 ± 0.0036 † | 8.857e-04 ± 8.294e-04 | 0.7475 ± 0.1111 | 2.6748 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8958 ± 0.0042 | 0.0745 ± 0.0419 | 0.0745 ± 0.0419 † | 6.023e-04 ± 1.042e-03 | 0.5399 ± 0.1000 | 2.5075 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8981 ± 0.0112 | 0.0014 ± 0.0008 | 0.0020 ± 0.0007 † | 8.396e-04 ± 9.035e-04 | 0.8496 ± 0.0110 | 2.6604 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9142 ± 0.0046 | 0.0138 ± 0.0187 | 0.0157 ± 0.0200 † | 0.0023 ± 0.0023 | 0.8111 ± 0.0062 | 30.3922 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8992 ± 0.0115 | 0.0012 ± 0.0004 | 0.0017 ± 0.0005 † | 8.857e-04 ± 8.294e-04 | 0.7354 ± 0.0814 | 2.6748 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9019 ± 0.0185 | 0.1724 ± 0.0885 | 0.1724 ± 0.0885 † | 6.023e-04 ± 1.042e-03 | 0.5797 ± 0.2152 | 2.5075 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8936 ± 0.0246 | 9.441e-04 ± 2.474e-04 | 0.0016 ± 0.0005 † | 8.396e-04 ± 9.035e-04 | 0.8268 ± 0.0568 | 2.6604 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9019 ± 0.0035 | 0.0049 ± 0.0075 | 0.0064 ± 0.0089 † | 0.0023 ± 0.0023 | 0.7887 ± 0.0371 | 30.3922 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9083 ± 0.0088 | 8.704e-04 ± 1.871e-04 | 0.0014 ± 0.0006 † | 8.857e-04 ± 8.294e-04 | 0.8503 ± 0.0297 | 2.6748 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8925 ± 0.0113 | 9.782e-09 ± 6.092e-09 | **3.485e-04 ± 6.022e-04** † | 6.023e-04 ± 1.042e-03 | 0.6203 ± 0.1921 | 2.5075 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9044 ± 0.0100 | 0.0174 ± 0.0041 | 0.2098 ± 0.2480 † | 0.2996 ± 0.3866 | 0.7717 ± 0.0527 | 9.6622 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8944 ± 0.0205 | 6.943e-04 ± 1.203e-04 | 0.0012 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.7989 ± 0.0539 | 2.6604 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0044 | 0.0041 ± 0.0063 | 0.0049 ± 0.0067 † | 0.0023 ± 0.0023 | 0.8262 ± 0.0232 | 30.3922 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8986 ± 0.0137 | 0.0022 ± 0.0012 | 0.0024 ± 0.0013 † | 8.857e-04 ± 8.294e-04 | 0.7332 ± 0.0837 | 2.6748 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8897 ± 0.0189 | 9.656e-05 ± 7.373e-05 | 4.198e-04 ± 5.480e-04 † | 6.023e-04 ± 1.042e-03 | 0.3584 ± 0.1898 | 2.5075 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8942 ± 0.0232 | 0.0012 ± 0.0006 | 0.0018 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.8252 ± 0.0508 | 2.6604 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9019 ± 0.0035 | 0.0049 ± 0.0075 | 0.0064 ± 0.0089 † | 0.0023 ± 0.0023 | 0.7887 ± 0.0371 | 30.3922 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9094 ± 0.0067 | 6.472e-04 ± 2.081e-04 | 0.0012 ± 0.0002 † | 8.294e-04 ± 7.760e-04 | 0.7918 ± 0.0375 | 2.6748 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9033 ± 0.0017 | 0.1086 ± 0.0703 | 0.1086 ± 0.0703 † | 0.4854 ± 0.8391 | 0.5905 ± 0.0218 | 2.5075 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8925 ± 0.0230 | 9.442e-04 ± 2.542e-04 | 0.0016 ± 0.0006 † | 8.382e-04 ± 9.048e-04 | 0.8160 ± 0.0633 | 2.6604 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0079 | 0.0050 ± 0.0080 | 0.0063 ± 0.0091 † | 0.0021 ± 0.0020 | 0.7820 ± 0.0318 | 30.3922 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9103 ± 0.0043 | 6.093e-04 ± 1.791e-04 | 0.0012 ± 0.0003 † | 7.722e-04 ± 8.729e-04 | 0.8275 ± 0.0396 | 2.6748 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.8889 ± 0.0128 | 2.706e-09 ± 2.021e-09 | 3.485e-04 ± 6.022e-04 † | **6.023e-04 ± 1.042e-03** | 0.3807 ± 0.2175 | 2.5075 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9056 ± 0.0081 | 0.0209 ± 0.0035 | 0.2196 ± 0.2491 † | 0.2996 ± 0.3866 | 0.6316 ± 0.0513 | 9.6622 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8928 ± 0.0237 | 9.530e-04 ± 2.414e-04 | 0.0017 ± 0.0006 † | 8.385e-04 ± 9.045e-04 | 0.7548 ± 0.0339 | 2.6604 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9067 ± 0.0066 | 0.0055 ± 0.0087 | 0.0069 ± 0.0100 † | 0.0022 ± 0.0022 | 0.7821 ± 0.0086 | 30.3922 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9042 ± 0.0058 | 0.0011 ± 0.0003 | 0.0018 ± 0.0005 † | 8.857e-04 ± 8.294e-04 | 0.7650 ± 0.0491 | 2.6748 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8953 ± 0.0173 | 1.548e-09 ± 6.290e-10 | 3.485e-04 ± 6.022e-04 † | 6.023e-04 ± 1.042e-03 | 0.2450 ± 0.1365 | 2.5075 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9083 ± 0.0123 | 0.0222 ± 0.0059 | 0.2208 ± 0.2485 † | 0.2996 ± 0.3866 | 0.6926 ± 0.1105 | 9.6622 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8878 ± 0.0279 | 9.420e-04 ± 2.419e-04 | 0.0017 ± 0.0006 † | 8.396e-04 ± 9.035e-04 | 0.7406 ± 0.0417 | 2.6604 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9042 ± 0.0043 | 0.0057 ± 0.0088 | 0.0074 ± 0.0106 † | 0.0023 ± 0.0023 | 0.7660 ± 0.0851 | 30.3922 |
 
 ##### fm_uq_scenarios / house_sales@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.8642 ± 0.0180 | 0.7494 ± 0.0102 | 1.1541 ± 0.0890 † | 0.3651 ± 0.0355 | 0.7813 ± 0.0292 | 2.1491 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.7281 ± 0.0076 | 0.7127 ± 0.0218 | 2.4031 ± 0.2441 † | 0.6146 ± 0.0712 | 0.4362 ± 0.0421 | 2.6096 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.8653 ± 0.0075 | 0.8247 ± 0.0378 | 1.3323 ± 0.0795 † | 0.4449 ± 0.0158 | 0.7795 ± 0.0238 | 2.2689 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.8678 ± 0.0230 | 1.5262 ± 0.5893 | 2.1013 ± 0.6068 † | 0.5226 ± 0.0137 | 0.7392 ± 0.0474 | 21.8889 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8725 ± 0.0145 | 0.7580 ± 0.0358 | 1.1510 ± 0.0805 † | 0.3651 ± 0.0355 | 0.7833 ± 0.0174 | 2.1491 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.8214 ± 0.0171 | 0.8556 ± 0.0368 | 2.2320 ± 0.2314 † | 0.6146 ± 0.0712 | 0.5304 ± 0.0524 | 2.6096 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8800 ± 0.0116 | 0.8517 ± 0.0211 | 1.3250 ± 0.0766 † | 0.4449 ± 0.0158 | 0.7980 ± 0.0038 | 2.2689 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8589 ± 0.0161 | 1.5081 ± 0.6029 | 2.1062 ± 0.6040 † | 0.5226 ± 0.0137 | 0.7275 ± 0.0321 | 21.8889 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8711 ± 0.0137 | 0.7620 ± 0.0575 | **1.1486 ± 0.0803** † | 0.3651 ± 0.0355 | 0.7854 ± 0.0095 | 2.1491 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.8297 ± 0.0156 | 1.0400 ± 0.0601 | 2.2882 ± 0.2032 † | 0.6146 ± 0.0712 | 0.5508 ± 0.0356 | 2.6096 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8817 ± 0.0117 | 0.8695 ± 0.0199 | 1.3258 ± 0.0749 † | 0.4449 ± 0.0158 | 0.8029 ± 0.0054 | 2.2689 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8567 ± 0.0145 | 1.4777 ± 0.6182 | 2.0989 ± 0.6020 † | 0.5226 ± 0.0137 | 0.7264 ± 0.0338 | 21.8889 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8333 ± 0.0100 | 0.5757 ± 0.0247 | 1.6717 ± 0.0911 † | 0.3651 ± 0.0355 | 0.6074 ± 0.0357 | 2.1491 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8156 ± 0.0211 | 0.6720 ± 0.0539 | 2.7838 ± 0.5179 † | 0.6146 ± 0.0712 | 0.5244 ± 0.0651 | 2.6096 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8461 ± 0.0242 | 0.5857 ± 0.0202 | 1.6180 ± 0.1974 † | 0.3637 ± 0.0448 | 0.6594 ± 0.0374 | 8.6570 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8342 ± 0.0067 | 0.6290 ± 0.0032 | 2.0200 ± 0.0955 | 0.4449 ± 0.0158 | 0.6150 ± 0.0042 | 2.2689 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8325 ± 0.0189 | 0.6606 ± 0.0261 | 2.2438 ± 0.1746 † | 0.5226 ± 0.0137 | 0.6158 ± 0.0219 | 21.8889 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8678 ± 0.0188 | 0.7719 ± 0.0531 | 1.1872 ± 0.0790 † | 0.3651 ± 0.0355 | 0.7670 ± 0.0184 | 2.1491 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8286 ± 0.0113 | 0.8110 ± 0.0320 | 2.1094 ± 0.2062 † | 0.6146 ± 0.0712 | 0.6050 ± 0.0328 | 2.6096 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8708 ± 0.0154 | 0.8728 ± 0.0301 | 1.3522 ± 0.0241 | 0.4449 ± 0.0158 | 0.7725 ± 0.0131 | 2.2689 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8567 ± 0.0145 | 1.4777 ± 0.6182 | 2.0989 ± 0.6020 † | 0.5226 ± 0.0137 | 0.7264 ± 0.0338 | 21.8889 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8694 ± 0.0145 | 0.7616 ± 0.0539 | 1.1558 ± 0.0740 † | 0.3645 ± 0.0370 | 0.7810 ± 0.0135 | 2.1491 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.8253 ± 0.0248 | 1.0322 ± 0.0770 | 2.3108 ± 0.2283 † | 0.6061 ± 0.0716 | 0.5380 ± 0.0483 | 2.6096 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8722 ± 0.0157 | 0.8481 ± 0.0418 | 1.3418 ± 0.0733 † | 0.4464 ± 0.0208 | 0.7811 ± 0.0263 | 2.2689 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8539 ± 0.0151 | 1.4800 ± 0.6196 | 2.1153 ± 0.5822 † | 0.5768 ± 0.0863 | 0.7133 ± 0.0487 | 21.8889 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.7989 ± 0.0112 | 0.5202 ± 0.0180 | 1.8794 ± 0.1279 † | 0.3650 ± 0.0357 | 0.4698 ± 0.0061 | 2.1491 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7808 ± 0.0101 | 0.5971 ± 0.0212 | 3.0686 ± 0.4366 † | 0.6139 ± 0.0712 | 0.3747 ± 0.0050 | 2.6096 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8167 ± 0.0188 | 0.5297 ± 0.0014 | 1.8129 ± 0.2172 † | **0.3633 ± 0.0451** | 0.5117 ± 0.0428 | 8.6570 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8072 ± 0.0084 | 0.5676 ± 0.0143 | 2.2651 ± 0.0850 | 0.4450 ± 0.0168 | 0.4710 ± 0.0210 | 2.2689 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8017 ± 0.0175 | 0.5933 ± 0.0227 | 2.5215 ± 0.1541 † | 0.5239 ± 0.0135 | 0.4597 ± 0.0110 | 21.8889 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7972 ± 0.0104 | 0.5191 ± 0.0139 | 1.8887 ± 0.1326 † | 0.3651 ± 0.0355 | 0.4617 ± 0.0097 | 2.1491 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7811 ± 0.0096 | 0.5969 ± 0.0181 | 3.1255 ± 0.4324 † | 0.6146 ± 0.0712 | 0.3601 ± 0.0100 | 2.6096 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.8131 ± 0.0143 | 0.5263 ± 0.0085 | 1.8134 ± 0.2250 † | 0.3637 ± 0.0448 | 0.5027 ± 0.0342 | 8.6570 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.7997 ± 0.0119 | 0.5568 ± 0.0200 | 2.2896 ± 0.0963 | 0.4449 ± 0.0158 | 0.4525 ± 0.0172 | 2.2689 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8011 ± 0.0159 | 0.5934 ± 0.0234 | 2.5250 ± 0.1418 † | 0.5226 ± 0.0137 | 0.4563 ± 0.0031 | 21.8889 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.8642 ± 0.0180 | 0.7494 ± 0.0102 | 1.1541 ± 0.0890 † | 0.3651 ± 0.0355 | 0.7813 ± 0.0292 | 2.2482 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.7281 ± 0.0076 | 0.7127 ± 0.0218 | 2.4031 ± 0.2441 † | 0.6146 ± 0.0712 | 0.4362 ± 0.0421 | 2.6810 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.8653 ± 0.0075 | 0.8247 ± 0.0378 | 1.3323 ± 0.0795 † | 0.4449 ± 0.0158 | 0.7795 ± 0.0238 | 2.3219 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.8678 ± 0.0230 | 1.5262 ± 0.5893 | 2.1013 ± 0.6068 † | 0.5226 ± 0.0137 | 0.7392 ± 0.0474 | 22.0918 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8725 ± 0.0145 | 0.7580 ± 0.0358 | 1.1510 ± 0.0805 † | 0.3651 ± 0.0355 | 0.7833 ± 0.0174 | 2.2482 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.8214 ± 0.0171 | 0.8556 ± 0.0368 | 2.2320 ± 0.2314 † | 0.6146 ± 0.0712 | 0.5304 ± 0.0524 | 2.6810 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8800 ± 0.0116 | 0.8517 ± 0.0211 | 1.3250 ± 0.0766 † | 0.4449 ± 0.0158 | 0.7980 ± 0.0038 | 2.3219 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8589 ± 0.0161 | 1.5081 ± 0.6029 | 2.1062 ± 0.6040 † | 0.5226 ± 0.0137 | 0.7275 ± 0.0321 | 22.0918 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8711 ± 0.0137 | 0.7620 ± 0.0575 | **1.1486 ± 0.0803** † | 0.3651 ± 0.0355 | 0.7854 ± 0.0095 | 2.2482 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.8297 ± 0.0156 | 1.0400 ± 0.0601 | 2.2882 ± 0.2032 † | 0.6146 ± 0.0712 | 0.5508 ± 0.0356 | 2.6810 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8817 ± 0.0117 | 0.8695 ± 0.0199 | 1.3258 ± 0.0749 † | 0.4449 ± 0.0158 | 0.8029 ± 0.0054 | 2.3219 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8567 ± 0.0145 | 1.4777 ± 0.6182 | 2.0989 ± 0.6020 † | 0.5226 ± 0.0137 | 0.7264 ± 0.0338 | 22.0918 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8333 ± 0.0100 | 0.5757 ± 0.0247 | 1.6717 ± 0.0911 † | 0.3651 ± 0.0355 | 0.6074 ± 0.0357 | 2.2482 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8156 ± 0.0211 | 0.6720 ± 0.0539 | 2.7838 ± 0.5179 † | 0.6146 ± 0.0712 | 0.5244 ± 0.0651 | 2.6810 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8461 ± 0.0242 | 0.5857 ± 0.0202 | 1.6180 ± 0.1974 † | 0.3637 ± 0.0448 | 0.6594 ± 0.0374 | 8.5754 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8342 ± 0.0067 | 0.6290 ± 0.0032 | 2.0200 ± 0.0955 | 0.4449 ± 0.0158 | 0.6150 ± 0.0042 | 2.3219 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8325 ± 0.0189 | 0.6606 ± 0.0261 | 2.2438 ± 0.1746 † | 0.5226 ± 0.0137 | 0.6158 ± 0.0219 | 22.0918 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8678 ± 0.0188 | 0.7719 ± 0.0531 | 1.1872 ± 0.0790 † | 0.3651 ± 0.0355 | 0.7670 ± 0.0184 | 2.2482 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8286 ± 0.0113 | 0.8110 ± 0.0320 | 2.1094 ± 0.2062 † | 0.6146 ± 0.0712 | 0.6050 ± 0.0328 | 2.6810 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8708 ± 0.0154 | 0.8728 ± 0.0301 | 1.3522 ± 0.0241 | 0.4449 ± 0.0158 | 0.7725 ± 0.0131 | 2.3219 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8567 ± 0.0145 | 1.4777 ± 0.6182 | 2.0989 ± 0.6020 † | 0.5226 ± 0.0137 | 0.7264 ± 0.0338 | 22.0918 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8694 ± 0.0145 | 0.7616 ± 0.0539 | 1.1558 ± 0.0740 † | 0.3645 ± 0.0370 | 0.7810 ± 0.0135 | 2.2482 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.8253 ± 0.0248 | 1.0322 ± 0.0770 | 2.3108 ± 0.2283 † | 0.6061 ± 0.0716 | 0.5380 ± 0.0483 | 2.6810 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8722 ± 0.0157 | 0.8481 ± 0.0418 | 1.3418 ± 0.0733 † | 0.4464 ± 0.0208 | 0.7811 ± 0.0263 | 2.3219 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8539 ± 0.0151 | 1.4800 ± 0.6196 | 2.1153 ± 0.5822 † | 0.5768 ± 0.0863 | 0.7133 ± 0.0487 | 22.0918 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.7989 ± 0.0112 | 0.5202 ± 0.0180 | 1.8794 ± 0.1279 † | 0.3650 ± 0.0357 | 0.4698 ± 0.0061 | 2.2482 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7808 ± 0.0101 | 0.5971 ± 0.0212 | 3.0686 ± 0.4366 † | 0.6139 ± 0.0712 | 0.3747 ± 0.0050 | 2.6810 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8167 ± 0.0188 | 0.5297 ± 0.0014 | 1.8129 ± 0.2172 † | **0.3633 ± 0.0451** | 0.5117 ± 0.0428 | 8.5754 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8072 ± 0.0084 | 0.5676 ± 0.0143 | 2.2651 ± 0.0850 | 0.4450 ± 0.0168 | 0.4710 ± 0.0210 | 2.3219 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8017 ± 0.0175 | 0.5933 ± 0.0227 | 2.5215 ± 0.1541 † | 0.5239 ± 0.0135 | 0.4597 ± 0.0110 | 22.0918 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7972 ± 0.0104 | 0.5191 ± 0.0139 | 1.8887 ± 0.1326 † | 0.3651 ± 0.0355 | 0.4617 ± 0.0097 | 2.2482 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7811 ± 0.0096 | 0.5969 ± 0.0181 | 3.1255 ± 0.4324 † | 0.6146 ± 0.0712 | 0.3601 ± 0.0100 | 2.6810 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.8131 ± 0.0143 | 0.5263 ± 0.0085 | 1.8134 ± 0.2250 † | 0.3637 ± 0.0448 | 0.5027 ± 0.0342 | 8.5754 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.7997 ± 0.0119 | 0.5568 ± 0.0200 | 2.2896 ± 0.0963 | 0.4449 ± 0.0158 | 0.4525 ± 0.0172 | 2.3219 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8011 ± 0.0159 | 0.5934 ± 0.0234 | 2.5250 ± 0.1418 † | 0.5226 ± 0.0137 | 0.4563 ± 0.0031 | 22.0918 |
 
 ##### fm_uq_scenarios / house_sales@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.8878 ± 0.0132 | 1.1841 ± 0.0380 | 1.6364 ± 0.0980 † | 0.4660 ± 0.0536 | 0.7568 ± 0.0370 | 2.5621 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.8083 ± 0.0126 | 1.0711 ± 0.0227 | 2.1359 ± 0.1228 † | 0.5343 ± 0.0258 | 0.5044 ± 0.0432 | 4.5227 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.8925 ± 0.0082 | 1.2386 ± 0.0422 | 1.6805 ± 0.0764 | 0.4800 ± 0.0538 | 0.7674 ± 0.0218 | 2.5898 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.9103 ± 0.0050 | 1.4290 ± 0.1062 | 1.9111 ± 0.1545 † | 0.5063 ± 0.0431 | 0.7884 ± 0.0399 | 18.8751 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8931 ± 0.0063 | 1.1965 ± 0.0529 | **1.6343 ± 0.0985** † | 0.4660 ± 0.0536 | 0.7680 ± 0.0554 | 2.5621 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9028 ± 0.0041 | 1.2974 ± 0.0559 | 2.0485 ± 0.1245 † | 0.5343 ± 0.0258 | 0.6313 ± 0.0377 | 4.5227 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8947 ± 0.0057 | 1.2378 ± 0.0678 | 1.6802 ± 0.0754 | 0.4800 ± 0.0538 | 0.7796 ± 0.0131 | 2.5898 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8914 ± 0.0088 | 1.3501 ± 0.1574 | 1.9108 ± 0.1551 † | 0.5063 ± 0.0431 | 0.7750 ± 0.0506 | 18.8751 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8922 ± 0.0061 | 1.1991 ± 0.0594 | 1.6391 ± 0.1016 † | 0.4660 ± 0.0536 | 0.7611 ± 0.0394 | 2.5621 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9017 ± 0.0142 | 1.5064 ± 0.1074 | 2.1274 ± 0.1066 † | 0.5343 ± 0.0258 | 0.6114 ± 0.0684 | 4.5227 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8933 ± 0.0055 | 1.2406 ± 0.0810 | 1.6826 ± 0.0760 | 0.4800 ± 0.0538 | 0.7747 ± 0.0023 | 2.5898 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8908 ± 0.0109 | 1.3190 ± 0.1711 | 1.9041 ± 0.1517 † | 0.5063 ± 0.0431 | 0.7711 ± 0.0539 | 18.8751 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9000 ± 0.0142 | 1.2762 ± 0.1062 | 1.9558 ± 0.2051 † | 0.4660 ± 0.0536 | 0.7600 ± 0.0573 | 2.5621 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.8931 ± 0.0082 | 1.3785 ± 0.0549 | 2.1825 ± 0.1481 † | 0.5343 ± 0.0258 | 0.7298 ± 0.0199 | 4.5227 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9019 ± 0.0093 | 1.2827 ± 0.0560 | 1.8798 ± 0.1774 † | **0.4607 ± 0.0440** | 0.7582 ± 0.0464 | 9.6900 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8953 ± 0.0073 | 1.3163 ± 0.0749 | 2.0139 ± 0.2105 † | 0.4800 ± 0.0538 | 0.7440 ± 0.0313 | 2.5898 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8983 ± 0.0029 | 1.3348 ± 0.0332 | 2.0275 ± 0.1698 † | 0.5063 ± 0.0431 | 0.7666 ± 0.0167 | 18.8751 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8875 ± 0.0109 | 1.1673 ± 0.0892 | 1.7479 ± 0.1436 † | 0.4660 ± 0.0536 | 0.7579 ± 0.0333 | 2.5621 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8933 ± 0.0067 | 1.2551 ± 0.0826 | 1.9532 ± 0.1116 † | 0.5343 ± 0.0258 | 0.7000 ± 0.0145 | 4.5227 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8908 ± 0.0079 | 1.2108 ± 0.0882 | 1.7882 ± 0.1209 † | 0.4800 ± 0.0538 | 0.7571 ± 0.0355 | 2.5898 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8908 ± 0.0109 | 1.3190 ± 0.1711 | 1.9041 ± 0.1517 † | 0.5063 ± 0.0431 | 0.7711 ± 0.0539 | 18.8751 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8953 ± 0.0034 | 1.1944 ± 0.0599 | 1.6396 ± 0.1040 † | 0.4668 ± 0.0551 | 0.7842 ± 0.0211 | 2.5621 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.9011 ± 0.0107 | 1.4771 ± 0.1055 | 2.1231 ± 0.1116 † | 0.5334 ± 0.0245 | 0.6214 ± 0.0570 | 4.5227 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8942 ± 0.0052 | 1.2418 ± 0.0663 | 1.6806 ± 0.0754 | 0.4776 ± 0.0529 | 0.7722 ± 0.0037 | 2.5898 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8922 ± 0.0113 | 1.3625 ± 0.1629 | 1.8612 ± 0.1583 † | 0.5190 ± 0.0427 | 0.7560 ± 0.0588 | 18.8751 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8972 ± 0.0035 | 1.2997 ± 0.0904 | 2.1917 ± 0.2195 † | 0.4663 ± 0.0541 | 0.5390 ± 0.0049 | 2.5621 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9000 ± 0.0068 | 1.4073 ± 0.1125 | 2.3843 ± 0.1748 † | 0.5342 ± 0.0254 | 0.5321 ± 0.0592 | 4.5227 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9008 ± 0.0022 | 1.3253 ± 0.0990 | 2.2141 ± 0.2040 † | 0.4613 ± 0.0444 | 0.5341 ± 0.0262 | 9.6900 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8997 ± 0.0059 | 1.3207 ± 0.0754 | 2.2396 ± 0.2314 † | 0.4789 ± 0.0536 | 0.5359 ± 0.0050 | 2.5898 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8939 ± 0.0055 | 1.3643 ± 0.1132 | 2.3467 ± 0.2324 † | 0.5073 ± 0.0434 | 0.5186 ± 0.0131 | 18.8751 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9022 ± 0.0049 | 1.2598 ± 0.0735 | 2.2188 ± 0.2215 † | 0.4660 ± 0.0536 | 0.5189 ± 0.0039 | 2.5621 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8981 ± 0.0104 | 1.3056 ± 0.0495 | 2.4548 ± 0.1732 † | 0.5343 ± 0.0258 | 0.4614 ± 0.0705 | 4.5227 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.8981 ± 0.0021 | 1.2940 ± 0.0711 | 2.2080 ± 0.2054 † | **0.4607 ± 0.0440** | 0.5199 ± 0.0276 | 9.6900 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.9061 ± 0.0038 | 1.3190 ± 0.0798 | 2.2768 ± 0.2321 † | 0.4800 ± 0.0538 | 0.5096 ± 0.0123 | 2.5898 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8933 ± 0.0052 | 1.3186 ± 0.0907 | 2.3495 ± 0.2310 † | 0.5063 ± 0.0431 | 0.4721 ± 0.0129 | 18.8751 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.8878 ± 0.0132 | 1.1841 ± 0.0380 | 1.6364 ± 0.0980 † | 0.4660 ± 0.0536 | 0.7568 ± 0.0370 | 2.6752 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.8083 ± 0.0126 | 1.0711 ± 0.0227 | 2.1359 ± 0.1228 † | 0.5343 ± 0.0258 | 0.5044 ± 0.0432 | 4.5353 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.8925 ± 0.0082 | 1.2386 ± 0.0422 | 1.6805 ± 0.0764 | 0.4800 ± 0.0538 | 0.7674 ± 0.0218 | 2.5882 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.9103 ± 0.0050 | 1.4290 ± 0.1062 | 1.9111 ± 0.1545 † | 0.5063 ± 0.0431 | 0.7884 ± 0.0399 | 19.1024 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8931 ± 0.0063 | 1.1965 ± 0.0529 | **1.6343 ± 0.0985** † | 0.4660 ± 0.0536 | 0.7680 ± 0.0554 | 2.6752 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9028 ± 0.0041 | 1.2974 ± 0.0559 | 2.0485 ± 0.1245 † | 0.5343 ± 0.0258 | 0.6313 ± 0.0377 | 4.5353 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8947 ± 0.0057 | 1.2378 ± 0.0678 | 1.6802 ± 0.0754 | 0.4800 ± 0.0538 | 0.7796 ± 0.0131 | 2.5882 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8914 ± 0.0088 | 1.3501 ± 0.1574 | 1.9108 ± 0.1551 † | 0.5063 ± 0.0431 | 0.7750 ± 0.0506 | 19.1024 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8922 ± 0.0061 | 1.1991 ± 0.0594 | 1.6391 ± 0.1016 † | 0.4660 ± 0.0536 | 0.7611 ± 0.0394 | 2.6752 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9017 ± 0.0142 | 1.5064 ± 0.1074 | 2.1274 ± 0.1066 † | 0.5343 ± 0.0258 | 0.6114 ± 0.0684 | 4.5353 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8933 ± 0.0055 | 1.2406 ± 0.0810 | 1.6826 ± 0.0760 | 0.4800 ± 0.0538 | 0.7747 ± 0.0023 | 2.5882 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8908 ± 0.0109 | 1.3190 ± 0.1711 | 1.9041 ± 0.1517 † | 0.5063 ± 0.0431 | 0.7711 ± 0.0539 | 19.1024 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9000 ± 0.0142 | 1.2762 ± 0.1062 | 1.9558 ± 0.2051 † | 0.4660 ± 0.0536 | 0.7600 ± 0.0573 | 2.6752 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.8931 ± 0.0082 | 1.3785 ± 0.0549 | 2.1825 ± 0.1481 † | 0.5343 ± 0.0258 | 0.7298 ± 0.0199 | 4.5353 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9019 ± 0.0093 | 1.2827 ± 0.0560 | 1.8798 ± 0.1774 † | **0.4607 ± 0.0440** | 0.7582 ± 0.0464 | 9.8020 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8953 ± 0.0073 | 1.3163 ± 0.0749 | 2.0139 ± 0.2105 † | 0.4800 ± 0.0538 | 0.7440 ± 0.0313 | 2.5882 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8983 ± 0.0029 | 1.3348 ± 0.0332 | 2.0275 ± 0.1698 † | 0.5063 ± 0.0431 | 0.7666 ± 0.0167 | 19.1024 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8875 ± 0.0109 | 1.1673 ± 0.0892 | 1.7479 ± 0.1436 † | 0.4660 ± 0.0536 | 0.7579 ± 0.0333 | 2.6752 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8933 ± 0.0067 | 1.2551 ± 0.0826 | 1.9532 ± 0.1116 † | 0.5343 ± 0.0258 | 0.7000 ± 0.0145 | 4.5353 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8908 ± 0.0079 | 1.2108 ± 0.0882 | 1.7882 ± 0.1209 † | 0.4800 ± 0.0538 | 0.7571 ± 0.0355 | 2.5882 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8908 ± 0.0109 | 1.3190 ± 0.1711 | 1.9041 ± 0.1517 † | 0.5063 ± 0.0431 | 0.7711 ± 0.0539 | 19.1024 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8953 ± 0.0034 | 1.1944 ± 0.0599 | 1.6396 ± 0.1040 † | 0.4668 ± 0.0551 | 0.7842 ± 0.0211 | 2.6752 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.9011 ± 0.0107 | 1.4771 ± 0.1055 | 2.1231 ± 0.1116 † | 0.5334 ± 0.0245 | 0.6214 ± 0.0570 | 4.5353 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8942 ± 0.0052 | 1.2418 ± 0.0663 | 1.6806 ± 0.0754 | 0.4776 ± 0.0529 | 0.7722 ± 0.0037 | 2.5882 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8922 ± 0.0113 | 1.3625 ± 0.1629 | 1.8612 ± 0.1583 † | 0.5190 ± 0.0427 | 0.7560 ± 0.0588 | 19.1024 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8972 ± 0.0035 | 1.2997 ± 0.0904 | 2.1917 ± 0.2195 † | 0.4663 ± 0.0541 | 0.5390 ± 0.0049 | 2.6752 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9000 ± 0.0068 | 1.4073 ± 0.1125 | 2.3843 ± 0.1748 † | 0.5342 ± 0.0254 | 0.5321 ± 0.0592 | 4.5353 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9008 ± 0.0022 | 1.3253 ± 0.0990 | 2.2141 ± 0.2040 † | 0.4613 ± 0.0444 | 0.5341 ± 0.0262 | 9.8020 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8997 ± 0.0059 | 1.3207 ± 0.0754 | 2.2396 ± 0.2314 † | 0.4789 ± 0.0536 | 0.5359 ± 0.0050 | 2.5882 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8939 ± 0.0055 | 1.3643 ± 0.1132 | 2.3467 ± 0.2324 † | 0.5073 ± 0.0434 | 0.5186 ± 0.0131 | 19.1024 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9022 ± 0.0049 | 1.2598 ± 0.0735 | 2.2188 ± 0.2215 † | 0.4660 ± 0.0536 | 0.5189 ± 0.0039 | 2.6752 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8981 ± 0.0104 | 1.3056 ± 0.0495 | 2.4548 ± 0.1732 † | 0.5343 ± 0.0258 | 0.4614 ± 0.0705 | 4.5353 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.8981 ± 0.0021 | 1.2940 ± 0.0711 | 2.2080 ± 0.2054 † | **0.4607 ± 0.0440** | 0.5199 ± 0.0276 | 9.8020 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.9061 ± 0.0038 | 1.3190 ± 0.0798 | 2.2768 ± 0.2321 † | 0.4800 ± 0.0538 | 0.5096 ± 0.0123 | 2.5882 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8933 ± 0.0052 | 1.3186 ± 0.0907 | 2.3495 ± 0.2310 † | 0.5063 ± 0.0431 | 0.4721 ± 0.0129 | 19.1024 |
 
 ##### fm_uq_scenarios / house_sales@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 0.9994 ± 0.0005 | 14.5251 ± 3.4295 | 14.5275 ± 3.4305 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.5717 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.7506 ± 0.0113 | 1.2751 ± 0.0302 | 2.4643 ± 0.1305 † | 0.7554 ± 0.0232 | 0.5410 ± 0.0273 | 2.8532 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.9936 ± 0.0017 | 9.1284 ± 0.2450 | 9.1635 ± 0.2480 | 1.2666 ± 0.1439 | 0.9826 ± 0.0016 | 2.5809 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.6817 ± 0.0198 | 0.8886 ± 0.0491 | 2.8139 ± 0.4091 † | 0.5598 ± 0.0631 | 0.5823 ± 0.0479 | 31.6715 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9994 ± 0.0005 | 14.5251 ± 3.4298 | 14.5274 ± 3.4309 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.5717 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.8267 ± 0.0229 | 1.4162 ± 0.0779 | 2.3119 ± 0.1380 † | 0.7554 ± 0.0232 | 0.6799 ± 0.0608 | 2.8532 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9936 ± 0.0017 | 9.1410 ± 0.2677 | 9.1755 ± 0.2690 | 1.2666 ± 0.1439 | 0.9826 ± 0.0016 | 2.5809 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6669 ± 0.0305 | 0.8665 ± 0.0614 | 2.8652 ± 0.4266 † | 0.5598 ± 0.0631 | 0.5792 ± 0.0493 | 31.6715 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9994 ± 0.0005 | 14.6400 ± 3.6513 | 14.6415 ± 3.6531 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.5717 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8594 ± 0.0091 | 1.6135 ± 0.0621 | 2.2840 ± 0.1772 † | 0.7554 ± 0.0232 | 0.6297 ± 0.0283 | 2.8532 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9922 ± 0.0048 | 9.4580 ± 1.0032 | 9.4929 ± 0.9877 † | 1.2666 ± 0.1439 | 0.9803 ± 0.0051 | 2.5809 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6686 ± 0.0283 | 0.8595 ± 0.0689 | 2.8658 ± 0.4227 † | 0.5598 ± 0.0631 | 0.5667 ± 0.0599 | 31.6715 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.5942 ± 0.0454 | 0.7599 ± 0.0319 | 3.4145 ± 0.3989 † | 0.6021 ± 0.0550 | 0.4356 ± 0.0866 | 2.5717 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.5797 ± 0.0248 | 1.1680 ± 0.1040 | 3.7974 ± 0.3697 † | 0.7554 ± 0.0232 | 0.3457 ± 0.0371 | 2.8532 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.3036 ± 0.0190 | 1.1624 ± 0.0599 | 7.4763 ± 0.5149 † | 0.9974 ± 0.0074 | 0.0139 ± 0.0180 | 9.7178 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.3906 ± 0.0461 | 1.1535 ± 0.0426 | 8.6765 ± 1.6127 † | 1.2666 ± 0.1439 | 0.2154 ± 0.0078 | 2.5809 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.6675 ± 0.0160 | 0.8387 ± 0.0394 | 2.9449 ± 0.3932 † | 0.5598 ± 0.0631 | 0.5771 ± 0.0686 | 31.6715 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 14.6189 ± 3.3109 | 14.6189 ± 3.3109 † | 0.6021 ± 0.0550 | 1.0000 ± 0.0000 | 2.5717 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7064 ± 0.0459 | 1.4155 ± 0.0954 | 2.8775 ± 0.2335 † | 0.7554 ± 0.0232 | 0.5982 ± 0.0572 | 2.8532 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9967 ± 0.0017 | 9.5239 ± 0.6180 | 9.5827 ± 0.6149 † | 1.2666 ± 0.1439 | 0.9737 ± 0.0104 | 2.5809 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6686 ± 0.0283 | 0.8595 ± 0.0689 | 2.8658 ± 0.4227 † | 0.5598 ± 0.0631 | 0.5667 ± 0.0599 | 31.6715 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9997 ± 0.0005 | 14.3466 ± 3.4295 | 14.3477 ± 3.4314 † | 0.6191 ± 0.0314 | 0.9970 ± 0.0052 | 2.5717 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8653 ± 0.0077 | 1.5887 ± 0.0754 | **2.2747 ± 0.1723** † | 0.7595 ± 0.0238 | 0.6424 ± 0.0295 | 2.8532 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9947 ± 0.0021 | 9.2434 ± 0.9391 | 9.2648 ± 0.9329 † | 1.3275 ± 0.2268 | 0.9849 ± 0.0056 | 2.5809 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6703 ± 0.0249 | 0.8602 ± 0.0647 | 2.8677 ± 0.4274 † | **0.5594 ± 0.0630** | 0.5701 ± 0.0564 | 31.6715 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.6208 ± 0.0834 | 0.7211 ± 0.0557 | 3.8897 ± 0.6163 † | 0.6019 ± 0.0547 | 0.2376 ± 0.0437 | 2.5717 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.4961 ± 0.0272 | 0.8700 ± 0.0852 | 6.2500 ± 0.2183 | 0.7561 ± 0.0235 | 0.2994 ± 0.0303 | 2.8532 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.2081 ± 0.0140 | 0.7328 ± 0.0591 | 10.6795 ± 0.3953 | 1.0003 ± 0.0034 | 0.1059 ± 0.0157 | 9.7178 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.3325 ± 0.0404 | 0.7853 ± 0.0258 | 12.1730 ± 2.2545 † | 1.2689 ± 0.1465 | 0.1440 ± 0.0293 | 2.5809 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.7011 ± 0.0392 | 0.8222 ± 0.0695 | 3.2851 ± 0.4971 † | 0.5601 ± 0.0635 | 0.3157 ± 0.0586 | 31.6715 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.6133 ± 0.0753 | 0.6952 ± 0.0384 | 3.9168 ± 0.5517 † | 0.6021 ± 0.0550 | 0.2238 ± 0.0242 | 2.5717 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.5194 ± 0.0361 | 0.8203 ± 0.0672 | 5.7937 ± 0.2158 | 0.7554 ± 0.0232 | 0.2622 ± 0.0125 | 2.8532 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.2178 ± 0.0148 | 0.7298 ± 0.0530 | 10.4595 ± 0.5563 † | 0.9974 ± 0.0074 | 0.1213 ± 0.0389 | 9.7178 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.3589 ± 0.0131 | 0.7806 ± 0.0163 | 11.6745 ± 1.8123 † | 1.2666 ± 0.1439 | 0.1384 ± 0.0375 | 2.5809 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.6917 ± 0.0317 | 0.7864 ± 0.0386 | 3.3121 ± 0.4446 † | 0.5598 ± 0.0631 | 0.2907 ± 0.0154 | 31.6715 |
+| `Raw+KumoTabular [noise_test]` | sdm | 0.9994 ± 0.0005 | 14.5251 ± 3.4295 | 14.5275 ± 3.4305 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.6541 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.7506 ± 0.0113 | 1.2751 ± 0.0302 | 2.4643 ± 0.1305 † | 0.7554 ± 0.0232 | 0.5410 ± 0.0273 | 2.8658 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.9936 ± 0.0017 | 9.1284 ± 0.2450 | 9.1635 ± 0.2480 | 1.2666 ± 0.1439 | 0.9826 ± 0.0016 | 2.6177 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.6817 ± 0.0198 | 0.8886 ± 0.0491 | 2.8139 ± 0.4091 † | 0.5598 ± 0.0631 | 0.5823 ± 0.0479 | 32.3301 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9994 ± 0.0005 | 14.5251 ± 3.4298 | 14.5274 ± 3.4309 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.6541 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.8267 ± 0.0229 | 1.4162 ± 0.0779 | 2.3119 ± 0.1380 † | 0.7554 ± 0.0232 | 0.6799 ± 0.0608 | 2.8658 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9936 ± 0.0017 | 9.1410 ± 0.2677 | 9.1755 ± 0.2690 | 1.2666 ± 0.1439 | 0.9826 ± 0.0016 | 2.6177 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6669 ± 0.0305 | 0.8665 ± 0.0614 | 2.8652 ± 0.4266 † | 0.5598 ± 0.0631 | 0.5792 ± 0.0493 | 32.3301 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9994 ± 0.0005 | 14.6400 ± 3.6513 | 14.6415 ± 3.6531 † | 0.6021 ± 0.0550 | 0.9946 ± 0.0048 | 2.6541 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8594 ± 0.0091 | 1.6135 ± 0.0621 | 2.2840 ± 0.1772 † | 0.7554 ± 0.0232 | 0.6297 ± 0.0283 | 2.8658 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9922 ± 0.0048 | 9.4580 ± 1.0032 | 9.4929 ± 0.9877 † | 1.2666 ± 0.1439 | 0.9803 ± 0.0051 | 2.6177 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6686 ± 0.0283 | 0.8595 ± 0.0689 | 2.8658 ± 0.4227 † | 0.5598 ± 0.0631 | 0.5667 ± 0.0599 | 32.3301 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.5942 ± 0.0454 | 0.7599 ± 0.0319 | 3.4145 ± 0.3989 † | 0.6021 ± 0.0550 | 0.4356 ± 0.0866 | 2.6541 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.5797 ± 0.0248 | 1.1680 ± 0.1040 | 3.7974 ± 0.3697 † | 0.7554 ± 0.0232 | 0.3457 ± 0.0371 | 2.8658 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.3036 ± 0.0190 | 1.1624 ± 0.0599 | 7.4763 ± 0.5149 † | 0.9974 ± 0.0074 | 0.0139 ± 0.0180 | 9.7196 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.3906 ± 0.0461 | 1.1535 ± 0.0426 | 8.6765 ± 1.6127 † | 1.2666 ± 0.1439 | 0.2154 ± 0.0078 | 2.6177 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.6675 ± 0.0160 | 0.8387 ± 0.0394 | 2.9449 ± 0.3932 † | 0.5598 ± 0.0631 | 0.5771 ± 0.0686 | 32.3301 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 14.6189 ± 3.3109 | 14.6189 ± 3.3109 † | 0.6021 ± 0.0550 | 1.0000 ± 0.0000 | 2.6541 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7064 ± 0.0459 | 1.4155 ± 0.0954 | 2.8775 ± 0.2335 † | 0.7554 ± 0.0232 | 0.5982 ± 0.0572 | 2.8658 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9967 ± 0.0017 | 9.5239 ± 0.6180 | 9.5827 ± 0.6149 † | 1.2666 ± 0.1439 | 0.9737 ± 0.0104 | 2.6177 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6686 ± 0.0283 | 0.8595 ± 0.0689 | 2.8658 ± 0.4227 † | 0.5598 ± 0.0631 | 0.5667 ± 0.0599 | 32.3301 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9997 ± 0.0005 | 14.3466 ± 3.4295 | 14.3477 ± 3.4314 † | 0.6191 ± 0.0314 | 0.9970 ± 0.0052 | 2.6541 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8653 ± 0.0077 | 1.5887 ± 0.0754 | **2.2747 ± 0.1723** † | 0.7595 ± 0.0238 | 0.6424 ± 0.0295 | 2.8658 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9947 ± 0.0021 | 9.2434 ± 0.9391 | 9.2648 ± 0.9329 † | 1.3275 ± 0.2268 | 0.9849 ± 0.0056 | 2.6177 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6703 ± 0.0249 | 0.8602 ± 0.0647 | 2.8677 ± 0.4274 † | **0.5594 ± 0.0630** | 0.5701 ± 0.0564 | 32.3301 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.6208 ± 0.0834 | 0.7211 ± 0.0557 | 3.8897 ± 0.6163 † | 0.6019 ± 0.0547 | 0.2376 ± 0.0437 | 2.6541 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.4961 ± 0.0272 | 0.8700 ± 0.0852 | 6.2500 ± 0.2183 | 0.7561 ± 0.0235 | 0.2994 ± 0.0303 | 2.8658 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.2081 ± 0.0140 | 0.7328 ± 0.0591 | 10.6795 ± 0.3953 | 1.0003 ± 0.0034 | 0.1059 ± 0.0157 | 9.7196 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.3325 ± 0.0404 | 0.7853 ± 0.0258 | 12.1730 ± 2.2545 † | 1.2689 ± 0.1465 | 0.1440 ± 0.0293 | 2.6177 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.7011 ± 0.0392 | 0.8222 ± 0.0695 | 3.2851 ± 0.4971 † | 0.5601 ± 0.0635 | 0.3157 ± 0.0586 | 32.3301 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.6133 ± 0.0753 | 0.6952 ± 0.0384 | 3.9168 ± 0.5517 † | 0.6021 ± 0.0550 | 0.2238 ± 0.0242 | 2.6541 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.5194 ± 0.0361 | 0.8203 ± 0.0672 | 5.7937 ± 0.2158 | 0.7554 ± 0.0232 | 0.2622 ± 0.0125 | 2.8658 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.2178 ± 0.0148 | 0.7298 ± 0.0530 | 10.4595 ± 0.5563 † | 0.9974 ± 0.0074 | 0.1213 ± 0.0389 | 9.7196 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.3589 ± 0.0131 | 0.7806 ± 0.0163 | 11.6745 ± 1.8123 † | 1.2666 ± 0.1439 | 0.1384 ± 0.0375 | 2.6177 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.6917 ± 0.0317 | 0.7864 ± 0.0386 | 3.3121 ± 0.4446 † | 0.5598 ± 0.0631 | 0.2907 ± 0.0154 | 32.3301 |
 
 ##### fm_uq_scenarios / house_sales@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9775 ± 0.0052 | 1.5644 ± 0.2138 | 1.6730 ± 0.1324 † | 0.2981 ± 0.0470 | 0.9107 ± 0.0443 | 2.5633 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.9353 ± 0.0113 | 2.0394 ± 0.0692 | 2.3743 ± 0.0676 | 0.3843 ± 0.0342 | 0.7907 ± 0.0375 | 2.8247 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9558 ± 0.0154 | 1.3922 ± 0.0190 | 1.5451 ± 0.0935 † | 0.3374 ± 0.0553 | 0.8937 ± 0.0263 | 2.5967 |
-| `Raw+TabularMLP [outliers]` | torchregress | 0.9997 ± 0.0005 | 6.1547 ± 0.1274 | 6.1617 ± 0.1348 | 0.5019 ± 0.0360 | 0.9969 ± 0.0054 | 13.7094 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9397 ± 0.0050 | 1.3756 ± 0.2476 | 1.5512 ± 0.1562 † | 0.2981 ± 0.0470 | 0.8374 ± 0.0633 | 2.5633 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9456 ± 0.0029 | 2.0782 ± 0.0383 | 2.3888 ± 0.0497 | 0.3843 ± 0.0342 | 0.8048 ± 0.0522 | 2.8247 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9467 ± 0.0147 | 1.3623 ± 0.0412 | 1.5284 ± 0.1103 † | 0.3374 ± 0.0553 | 0.8881 ± 0.0248 | 2.5967 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9494 ± 0.0027 | 1.7856 ± 0.0787 | 2.1319 ± 0.1258 † | 0.5019 ± 0.0360 | 0.8065 ± 0.0233 | 13.7094 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9458 ± 0.0022 | 0.8601 ± 0.1261 | 1.0568 ± 0.1432 † | 0.2981 ± 0.0470 | 0.8616 ± 0.0398 | 2.5633 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9408 ± 0.0051 | 2.1237 ± 0.0866 | 2.4368 ± 0.0401 | 0.3843 ± 0.0342 | 0.8048 ± 0.0522 | 2.8247 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9431 ± 0.0084 | 1.2580 ± 0.1439 | 1.4376 ± 0.1941 † | 0.3374 ± 0.0553 | 0.8796 ± 0.0158 | 2.5967 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9531 ± 0.0041 | 1.5466 ± 0.0930 | 2.1623 ± 0.0597 | 0.5019 ± 0.0360 | 0.7180 ± 0.0307 | 13.7094 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9475 ± 0.0051 | 0.9940 ± 0.0981 | 1.2807 ± 0.1646 † | 0.2981 ± 0.0470 | 0.8613 ± 0.0267 | 2.5633 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9422 ± 0.0043 | 1.2651 ± 0.1597 | 1.5951 ± 0.1827 † | 0.3843 ± 0.0342 | 0.8438 ± 0.0369 | 2.8247 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9450 ± 0.0052 | 1.0937 ± 0.0397 | 1.3379 ± 0.1252 † | 0.3108 ± 0.0400 | 0.8698 ± 0.0366 | 9.6952 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9375 ± 0.0065 | 1.0802 ± 0.0770 | 1.3889 ± 0.1494 † | 0.3374 ± 0.0553 | 0.8577 ± 0.0240 | 2.5967 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9439 ± 0.0076 | 1.6161 ± 0.1006 | 2.0398 ± 0.1808 † | 0.5019 ± 0.0360 | 0.8234 ± 0.0479 | 13.7094 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9478 ± 0.0041 | 0.9694 ± 0.1047 | 1.2120 ± 0.0933 † | 0.2981 ± 0.0470 | 0.8269 ± 0.0296 | 2.5633 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9456 ± 0.0038 | 1.4169 ± 0.0613 | 1.7407 ± 0.0385 | 0.3843 ± 0.0342 | 0.7909 ± 0.0395 | 2.8247 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9475 ± 0.0063 | 1.2848 ± 0.0767 | 1.4765 ± 0.1524 † | 0.3374 ± 0.0553 | 0.8814 ± 0.0164 | 2.5967 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9531 ± 0.0041 | 1.5466 ± 0.0930 | 2.1623 ± 0.0597 | 0.5019 ± 0.0360 | 0.7180 ± 0.0307 | 13.7094 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9456 ± 0.0027 | 0.8535 ± 0.0887 | **1.0506 ± 0.1242** † | **0.2975 ± 0.0473** | 0.8726 ± 0.0295 | 2.5633 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9400 ± 0.0063 | 2.2229 ± 0.1981 | 2.5018 ± 0.1618 † | 0.3838 ± 0.0333 | 0.8167 ± 0.0289 | 2.8247 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9472 ± 0.0149 | 1.2807 ± 0.1634 | 1.4507 ± 0.2097 † | 0.3374 ± 0.0555 | 0.8904 ± 0.0075 | 2.5967 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9536 ± 0.0089 | 1.7371 ± 0.2233 | 2.2148 ± 0.1691 † | 0.5002 ± 0.0373 | 0.7683 ± 0.0491 | 13.7094 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9508 ± 0.0080 | 1.1085 ± 0.1167 | 1.5405 ± 0.1834 † | 0.2978 ± 0.0471 | 0.6951 ± 0.0246 | 2.5633 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9428 ± 0.0079 | 1.4253 ± 0.3128 | 1.9481 ± 0.3294 † | 0.3843 ± 0.0341 | 0.7052 ± 0.0388 | 2.8247 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9567 ± 0.0144 | 1.2556 ± 0.1484 | 1.6512 ± 0.1919 † | 0.3061 ± 0.0435 | 0.7475 ± 0.0483 | 9.6952 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9506 ± 0.0120 | 1.2530 ± 0.1338 | 1.7486 ± 0.2466 † | 0.3375 ± 0.0554 | 0.6878 ± 0.0576 | 2.5967 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9522 ± 0.0113 | 1.9001 ± 0.3199 | 2.4985 ± 0.3385 † | 0.4982 ± 0.0335 | 0.7506 ± 0.0455 | 13.7094 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0104 | 1.0656 ± 0.1135 | 1.5127 ± 0.1418 † | 0.2981 ± 0.0470 | 0.6694 ± 0.0459 | 2.5633 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9506 ± 0.0038 | 1.2808 ± 0.1444 | 1.8813 ± 0.1942 † | 0.3843 ± 0.0342 | 0.6376 ± 0.0530 | 2.8247 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9525 ± 0.0148 | 1.1532 ± 0.0837 | 1.5774 ± 0.1233 † | 0.3108 ± 0.0400 | 0.7079 ± 0.0433 | 9.6952 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9472 ± 0.0068 | 1.1577 ± 0.0525 | 1.6802 ± 0.1904 † | 0.3374 ± 0.0553 | 0.6500 ± 0.0464 | 2.5967 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9544 ± 0.0046 | 1.7200 ± 0.1387 | 2.4075 ± 0.1423 † | 0.5019 ± 0.0360 | 0.6899 ± 0.0359 | 13.7094 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9775 ± 0.0052 | 1.5644 ± 0.2138 | 1.6730 ± 0.1324 † | 0.2981 ± 0.0470 | 0.9107 ± 0.0443 | 2.6671 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.9353 ± 0.0113 | 2.0394 ± 0.0692 | 2.3743 ± 0.0676 | 0.3843 ± 0.0342 | 0.7907 ± 0.0375 | 2.9435 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9558 ± 0.0154 | 1.3922 ± 0.0190 | 1.5451 ± 0.0935 † | 0.3374 ± 0.0553 | 0.8937 ± 0.0263 | 2.6314 |
+| `Raw+TabularMLP [outliers]` | torchregress | 0.9997 ± 0.0005 | 6.1547 ± 0.1274 | 6.1617 ± 0.1348 | 0.5019 ± 0.0360 | 0.9969 ± 0.0054 | 13.8596 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9397 ± 0.0050 | 1.3756 ± 0.2476 | 1.5512 ± 0.1562 † | 0.2981 ± 0.0470 | 0.8374 ± 0.0633 | 2.6671 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9456 ± 0.0029 | 2.0782 ± 0.0383 | 2.3888 ± 0.0497 | 0.3843 ± 0.0342 | 0.8048 ± 0.0522 | 2.9435 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9467 ± 0.0147 | 1.3623 ± 0.0412 | 1.5284 ± 0.1103 † | 0.3374 ± 0.0553 | 0.8881 ± 0.0248 | 2.6314 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9494 ± 0.0027 | 1.7856 ± 0.0787 | 2.1319 ± 0.1258 † | 0.5019 ± 0.0360 | 0.8065 ± 0.0233 | 13.8596 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9458 ± 0.0022 | 0.8601 ± 0.1261 | 1.0568 ± 0.1432 † | 0.2981 ± 0.0470 | 0.8616 ± 0.0398 | 2.6671 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9408 ± 0.0051 | 2.1237 ± 0.0866 | 2.4368 ± 0.0401 | 0.3843 ± 0.0342 | 0.8048 ± 0.0522 | 2.9435 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9431 ± 0.0084 | 1.2580 ± 0.1439 | 1.4376 ± 0.1941 † | 0.3374 ± 0.0553 | 0.8796 ± 0.0158 | 2.6314 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9531 ± 0.0041 | 1.5466 ± 0.0930 | 2.1623 ± 0.0597 | 0.5019 ± 0.0360 | 0.7180 ± 0.0307 | 13.8596 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9475 ± 0.0051 | 0.9940 ± 0.0981 | 1.2807 ± 0.1646 † | 0.2981 ± 0.0470 | 0.8613 ± 0.0267 | 2.6671 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9422 ± 0.0043 | 1.2651 ± 0.1597 | 1.5951 ± 0.1827 † | 0.3843 ± 0.0342 | 0.8438 ± 0.0369 | 2.9435 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9450 ± 0.0052 | 1.0937 ± 0.0397 | 1.3379 ± 0.1252 † | 0.3108 ± 0.0400 | 0.8698 ± 0.0366 | 9.6917 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9375 ± 0.0065 | 1.0802 ± 0.0770 | 1.3889 ± 0.1494 † | 0.3374 ± 0.0553 | 0.8577 ± 0.0240 | 2.6314 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9439 ± 0.0076 | 1.6161 ± 0.1006 | 2.0398 ± 0.1808 † | 0.5019 ± 0.0360 | 0.8234 ± 0.0479 | 13.8596 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9478 ± 0.0041 | 0.9694 ± 0.1047 | 1.2120 ± 0.0933 † | 0.2981 ± 0.0470 | 0.8269 ± 0.0296 | 2.6671 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9456 ± 0.0038 | 1.4169 ± 0.0613 | 1.7407 ± 0.0385 | 0.3843 ± 0.0342 | 0.7909 ± 0.0395 | 2.9435 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9475 ± 0.0063 | 1.2848 ± 0.0767 | 1.4765 ± 0.1524 † | 0.3374 ± 0.0553 | 0.8814 ± 0.0164 | 2.6314 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9531 ± 0.0041 | 1.5466 ± 0.0930 | 2.1623 ± 0.0597 | 0.5019 ± 0.0360 | 0.7180 ± 0.0307 | 13.8596 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9456 ± 0.0027 | 0.8535 ± 0.0887 | **1.0506 ± 0.1242** † | **0.2975 ± 0.0473** | 0.8726 ± 0.0295 | 2.6671 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9400 ± 0.0063 | 2.2229 ± 0.1981 | 2.5018 ± 0.1618 † | 0.3838 ± 0.0333 | 0.8167 ± 0.0289 | 2.9435 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9472 ± 0.0149 | 1.2807 ± 0.1634 | 1.4507 ± 0.2097 † | 0.3374 ± 0.0555 | 0.8904 ± 0.0075 | 2.6314 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9536 ± 0.0089 | 1.7371 ± 0.2233 | 2.2148 ± 0.1691 † | 0.5002 ± 0.0373 | 0.7683 ± 0.0491 | 13.8596 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9508 ± 0.0080 | 1.1085 ± 0.1167 | 1.5405 ± 0.1834 † | 0.2978 ± 0.0471 | 0.6951 ± 0.0246 | 2.6671 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9428 ± 0.0079 | 1.4253 ± 0.3128 | 1.9481 ± 0.3294 † | 0.3843 ± 0.0341 | 0.7052 ± 0.0388 | 2.9435 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9567 ± 0.0144 | 1.2556 ± 0.1484 | 1.6512 ± 0.1919 † | 0.3061 ± 0.0435 | 0.7475 ± 0.0483 | 9.6917 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9506 ± 0.0120 | 1.2530 ± 0.1338 | 1.7486 ± 0.2466 † | 0.3375 ± 0.0554 | 0.6878 ± 0.0576 | 2.6314 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9522 ± 0.0113 | 1.9001 ± 0.3199 | 2.4985 ± 0.3385 † | 0.4982 ± 0.0335 | 0.7506 ± 0.0455 | 13.8596 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0104 | 1.0656 ± 0.1135 | 1.5127 ± 0.1418 † | 0.2981 ± 0.0470 | 0.6694 ± 0.0459 | 2.6671 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9506 ± 0.0038 | 1.2808 ± 0.1444 | 1.8813 ± 0.1942 † | 0.3843 ± 0.0342 | 0.6376 ± 0.0530 | 2.9435 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9525 ± 0.0148 | 1.1532 ± 0.0837 | 1.5774 ± 0.1233 † | 0.3108 ± 0.0400 | 0.7079 ± 0.0433 | 9.6917 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9472 ± 0.0068 | 1.1577 ± 0.0525 | 1.6802 ± 0.1904 † | 0.3374 ± 0.0553 | 0.6500 ± 0.0464 | 2.6314 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9544 ± 0.0046 | 1.7200 ± 0.1387 | 2.4075 ± 0.1423 † | 0.5019 ± 0.0360 | 0.6899 ± 0.0359 | 13.8596 |
 
 ##### fm_uq_scenarios / house_sales@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.8900 ± 0.0113 | 0.7485 ± 0.3553 | **1.0500 ± 0.4527** † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.5745 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.8053 ± 0.0184 | 0.7452 ± 0.2755 | 2.0192 ± 1.5488 † | 0.4906 ± 0.4265 | 0.5022 ± 0.1495 | 2.8585 |
-| `Raw+TabICL [shift]` | tabicl | 0.8794 ± 0.0111 | 0.7335 ± 0.2864 | 1.4333 ± 1.0118 † | 0.4099 ± 0.3206 | 0.7572 ± 0.0502 | 2.5956 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.8972 ± 0.0213 | 0.7970 ± 0.2224 | 1.4046 ± 0.8855 † | 0.4347 ± 0.3470 | 0.7481 ± 0.0396 | 30.8016 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8900 ± 0.0169 | 0.7505 ± 0.3676 | 1.0510 ± 0.4524 † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.5745 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.8772 ± 0.0261 | 0.8816 ± 0.2650 | 1.9478 ± 1.5281 † | 0.4906 ± 0.4265 | 0.5474 ± 0.1546 | 2.8585 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.8928 ± 0.0099 | 0.7539 ± 0.2837 | 1.4304 ± 1.0129 † | 0.4099 ± 0.3206 | 0.7645 ± 0.0425 | 2.5956 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8914 ± 0.0121 | 0.7779 ± 0.2428 | 1.4033 ± 0.8854 † | 0.4347 ± 0.3470 | 0.7408 ± 0.0380 | 30.8016 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8892 ± 0.0186 | 0.7562 ± 0.3817 | 1.0543 ± 0.4571 † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.5745 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.8783 ± 0.0068 | 1.0096 ± 0.3116 | 2.0101 ± 1.4547 † | 0.4906 ± 0.4265 | 0.5810 ± 0.1311 | 2.8585 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.8908 ± 0.0142 | 0.7627 ± 0.2927 | 1.4347 ± 1.0188 † | 0.4099 ± 0.3206 | 0.7913 ± 0.0194 | 2.5956 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8906 ± 0.0114 | 0.7774 ± 0.2492 | 1.4010 ± 0.8810 † | 0.4347 ± 0.3470 | 0.7285 ± 0.0572 | 30.8016 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8825 ± 0.0156 | 0.6377 ± 0.1413 | 1.4455 ± 0.9449 † | 0.3621 ± 0.2593 | 0.7296 ± 0.0570 | 2.5745 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.8767 ± 0.0082 | 0.8082 ± 0.2784 | 1.9729 ± 1.6187 † | 0.4906 ± 0.4265 | 0.7160 ± 0.0913 | 2.8585 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8761 ± 0.0113 | 0.6558 ± 0.1581 | 1.4952 ± 1.0096 † | 0.3659 ± 0.2610 | 0.7379 ± 0.0704 | 9.7494 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8747 ± 0.0188 | 0.7092 ± 0.2151 | 1.6519 ± 1.1845 † | 0.4099 ± 0.3206 | 0.7430 ± 0.0669 | 2.5956 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.8747 ± 0.0099 | 0.7669 ± 0.2067 | 1.7125 ± 1.2579 † | 0.4347 ± 0.3470 | 0.7675 ± 0.0302 | 30.8016 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.8878 ± 0.0157 | 0.7489 ± 0.3686 | 1.0712 ± 0.4645 † | 0.3621 ± 0.2593 | 0.7400 ± 0.0478 | 2.5745 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.8942 ± 0.0118 | 0.8249 ± 0.3084 | 1.6068 ± 1.1527 † | 0.4906 ± 0.4265 | 0.7167 ± 0.0576 | 2.8585 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.8908 ± 0.0130 | 0.7537 ± 0.2689 | 1.3915 ± 0.9240 † | 0.4099 ± 0.3206 | 0.7725 ± 0.0281 | 2.5956 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8906 ± 0.0114 | 0.7774 ± 0.2492 | 1.4010 ± 0.8810 † | 0.4347 ± 0.3470 | 0.7285 ± 0.0572 | 30.8016 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8892 ± 0.0175 | 0.7527 ± 0.3738 | 1.0535 ± 0.4547 † | **0.3616 ± 0.2584** | 0.7807 ± 0.0415 | 2.5745 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8792 ± 0.0082 | 0.9926 ± 0.3369 | 2.0070 ± 1.4864 † | 0.4955 ± 0.4339 | 0.5723 ± 0.1741 | 2.8585 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8925 ± 0.0120 | 0.7644 ± 0.2921 | 1.4345 ± 1.0189 † | 0.4099 ± 0.3209 | 0.7913 ± 0.0194 | 2.5956 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8911 ± 0.0163 | 0.7749 ± 0.2405 | 1.4051 ± 0.8874 † | 0.4367 ± 0.3486 | 0.7285 ± 0.0572 | 30.8016 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8911 ± 0.0799 | 0.6879 ± 0.0792 | 1.6489 ± 1.0952 † | 0.3621 ± 0.2592 | 0.4345 ± 0.1170 | 2.5745 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.8825 ± 0.0960 | 0.8424 ± 0.1083 | 2.2988 ± 1.9274 † | 0.4911 ± 0.4272 | 0.4127 ± 0.1222 | 2.8585 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8883 ± 0.0834 | 0.7141 ± 0.1042 | 1.7255 ± 1.1987 † | 0.3661 ± 0.2613 | 0.4559 ± 0.1120 | 9.7494 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8892 ± 0.0919 | 0.7701 ± 0.1398 | 1.9424 ± 1.4620 † | 0.4099 ± 0.3206 | 0.4621 ± 0.1642 | 2.5956 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.8922 ± 0.0858 | 0.8106 ± 0.1150 | 1.9956 ± 1.4880 † | 0.4350 ± 0.3471 | 0.5608 ± 0.0453 | 30.8016 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.8886 ± 0.0806 | 0.6753 ± 0.0780 | 1.6569 ± 1.1117 † | 0.3621 ± 0.2593 | 0.4011 ± 0.1413 | 2.5745 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.8825 ± 0.1004 | 0.8102 ± 0.0962 | 2.3291 ± 1.9873 † | 0.4906 ± 0.4265 | 0.3626 ± 0.1026 | 2.8585 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.8867 ± 0.0852 | 0.6988 ± 0.1032 | 1.7264 ± 1.2103 † | 0.3659 ± 0.2610 | 0.4551 ± 0.1109 | 9.7494 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.8842 ± 0.0889 | 0.7416 ± 0.0946 | 1.9310 ± 1.4675 † | 0.4099 ± 0.3206 | 0.4103 ± 0.2123 | 2.5956 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0865 | 0.8110 ± 0.1210 | 2.0054 ± 1.5035 † | 0.4347 ± 0.3470 | 0.5460 ± 0.0648 | 30.8016 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8906 ± 0.0126 | 0.7498 ± 0.3328 | 1.0509 ± 0.4561 † | 0.3621 ± 0.2593 | 0.7661 ± 0.0219 | 2.5745 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.8842 ± 0.0068 | 0.9107 ± 0.3269 | 1.8937 ± 1.4345 † | 0.4906 ± 0.4265 | 0.5564 ± 0.1680 | 2.8585 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8981 ± 0.0169 | 0.7714 ± 0.2713 | 1.4203 ± 0.9941 † | 0.4099 ± 0.3206 | 0.7790 ± 0.0365 | 2.5956 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.8836 ± 0.0262 | 0.7653 ± 0.2145 | 1.4023 ± 0.8841 † | 0.4347 ± 0.3470 | 0.7239 ± 0.0182 | 30.8016 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8894 ± 0.0284 | 0.6773 ± 0.1605 | 1.5578 ± 0.9788 † | 0.3621 ± 0.2593 | 0.3787 ± 0.2631 | 2.5745 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9025 ± 0.0088 | 0.9053 ± 0.3844 | 2.0964 ± 1.6574 † | 0.4906 ± 0.4265 | 0.4136 ± 0.2699 | 2.8585 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.8839 ± 0.0218 | 0.7102 ± 0.1966 | 1.6135 ± 1.0586 † | 0.3659 ± 0.2610 | 0.4190 ± 0.2584 | 9.7494 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8867 ± 0.0254 | 0.7770 ± 0.2467 | 1.7873 ± 1.2679 † | 0.4099 ± 0.3206 | 0.3932 ± 0.2752 | 2.5956 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0279 | 0.8170 ± 0.2263 | 1.8672 ± 1.3295 † | 0.4347 ± 0.3470 | 0.5108 ± 0.1482 | 30.8016 |
+| `Raw+KumoTabular [shift]` | sdm | 0.8900 ± 0.0113 | 0.7485 ± 0.3553 | **1.0500 ± 0.4527** † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.6502 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.8053 ± 0.0184 | 0.7452 ± 0.2755 | 2.0192 ± 1.5488 † | 0.4906 ± 0.4265 | 0.5022 ± 0.1495 | 2.8654 |
+| `Raw+TabICL [shift]` | tabicl | 0.8794 ± 0.0111 | 0.7335 ± 0.2864 | 1.4333 ± 1.0118 † | 0.4099 ± 0.3206 | 0.7572 ± 0.0502 | 2.6511 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.8972 ± 0.0213 | 0.7970 ± 0.2224 | 1.4046 ± 0.8855 † | 0.4347 ± 0.3470 | 0.7481 ± 0.0396 | 31.3509 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8900 ± 0.0169 | 0.7505 ± 0.3676 | 1.0510 ± 0.4524 † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.6502 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.8772 ± 0.0261 | 0.8816 ± 0.2650 | 1.9478 ± 1.5281 † | 0.4906 ± 0.4265 | 0.5474 ± 0.1546 | 2.8654 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.8928 ± 0.0099 | 0.7539 ± 0.2837 | 1.4304 ± 1.0129 † | 0.4099 ± 0.3206 | 0.7645 ± 0.0425 | 2.6511 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8914 ± 0.0121 | 0.7779 ± 0.2428 | 1.4033 ± 0.8854 † | 0.4347 ± 0.3470 | 0.7408 ± 0.0380 | 31.3509 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8892 ± 0.0186 | 0.7562 ± 0.3817 | 1.0543 ± 0.4571 † | 0.3621 ± 0.2593 | 0.7807 ± 0.0415 | 2.6502 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.8783 ± 0.0068 | 1.0096 ± 0.3116 | 2.0101 ± 1.4547 † | 0.4906 ± 0.4265 | 0.5810 ± 0.1311 | 2.8654 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.8908 ± 0.0142 | 0.7627 ± 0.2927 | 1.4347 ± 1.0188 † | 0.4099 ± 0.3206 | 0.7913 ± 0.0194 | 2.6511 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8906 ± 0.0114 | 0.7774 ± 0.2492 | 1.4010 ± 0.8810 † | 0.4347 ± 0.3470 | 0.7285 ± 0.0572 | 31.3509 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8825 ± 0.0156 | 0.6377 ± 0.1413 | 1.4455 ± 0.9449 † | 0.3621 ± 0.2593 | 0.7296 ± 0.0570 | 2.6502 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.8767 ± 0.0082 | 0.8082 ± 0.2784 | 1.9729 ± 1.6187 † | 0.4906 ± 0.4265 | 0.7160 ± 0.0913 | 2.8654 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8761 ± 0.0113 | 0.6558 ± 0.1581 | 1.4952 ± 1.0096 † | 0.3659 ± 0.2610 | 0.7379 ± 0.0704 | 9.7113 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8747 ± 0.0188 | 0.7092 ± 0.2151 | 1.6519 ± 1.1845 † | 0.4099 ± 0.3206 | 0.7430 ± 0.0669 | 2.6511 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.8747 ± 0.0099 | 0.7669 ± 0.2067 | 1.7125 ± 1.2579 † | 0.4347 ± 0.3470 | 0.7675 ± 0.0302 | 31.3509 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.8878 ± 0.0157 | 0.7489 ± 0.3686 | 1.0712 ± 0.4645 † | 0.3621 ± 0.2593 | 0.7400 ± 0.0478 | 2.6502 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.8942 ± 0.0118 | 0.8249 ± 0.3084 | 1.6068 ± 1.1527 † | 0.4906 ± 0.4265 | 0.7167 ± 0.0576 | 2.8654 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.8908 ± 0.0130 | 0.7537 ± 0.2689 | 1.3915 ± 0.9240 † | 0.4099 ± 0.3206 | 0.7725 ± 0.0281 | 2.6511 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8906 ± 0.0114 | 0.7774 ± 0.2492 | 1.4010 ± 0.8810 † | 0.4347 ± 0.3470 | 0.7285 ± 0.0572 | 31.3509 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8892 ± 0.0175 | 0.7527 ± 0.3738 | 1.0535 ± 0.4547 † | **0.3616 ± 0.2584** | 0.7807 ± 0.0415 | 2.6502 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8792 ± 0.0082 | 0.9926 ± 0.3369 | 2.0070 ± 1.4864 † | 0.4955 ± 0.4339 | 0.5723 ± 0.1741 | 2.8654 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8925 ± 0.0120 | 0.7644 ± 0.2921 | 1.4345 ± 1.0189 † | 0.4099 ± 0.3209 | 0.7913 ± 0.0194 | 2.6511 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8911 ± 0.0163 | 0.7749 ± 0.2405 | 1.4051 ± 0.8874 † | 0.4367 ± 0.3486 | 0.7285 ± 0.0572 | 31.3509 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8911 ± 0.0799 | 0.6879 ± 0.0792 | 1.6489 ± 1.0952 † | 0.3621 ± 0.2592 | 0.4345 ± 0.1170 | 2.6502 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.8825 ± 0.0960 | 0.8424 ± 0.1083 | 2.2988 ± 1.9274 † | 0.4911 ± 0.4272 | 0.4127 ± 0.1222 | 2.8654 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8883 ± 0.0834 | 0.7141 ± 0.1042 | 1.7255 ± 1.1987 † | 0.3661 ± 0.2613 | 0.4559 ± 0.1120 | 9.7113 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8892 ± 0.0919 | 0.7701 ± 0.1398 | 1.9424 ± 1.4620 † | 0.4099 ± 0.3206 | 0.4621 ± 0.1642 | 2.6511 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.8922 ± 0.0858 | 0.8106 ± 0.1150 | 1.9956 ± 1.4880 † | 0.4350 ± 0.3471 | 0.5608 ± 0.0453 | 31.3509 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.8886 ± 0.0806 | 0.6753 ± 0.0780 | 1.6569 ± 1.1117 † | 0.3621 ± 0.2593 | 0.4011 ± 0.1413 | 2.6502 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.8825 ± 0.1004 | 0.8102 ± 0.0962 | 2.3291 ± 1.9873 † | 0.4906 ± 0.4265 | 0.3626 ± 0.1026 | 2.8654 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.8867 ± 0.0852 | 0.6988 ± 0.1032 | 1.7264 ± 1.2103 † | 0.3659 ± 0.2610 | 0.4551 ± 0.1109 | 9.7113 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.8842 ± 0.0889 | 0.7416 ± 0.0946 | 1.9310 ± 1.4675 † | 0.4099 ± 0.3206 | 0.4103 ± 0.2123 | 2.6511 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0865 | 0.8110 ± 0.1210 | 2.0054 ± 1.5035 † | 0.4347 ± 0.3470 | 0.5460 ± 0.0648 | 31.3509 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8906 ± 0.0126 | 0.7498 ± 0.3328 | 1.0509 ± 0.4561 † | 0.3621 ± 0.2593 | 0.7661 ± 0.0219 | 2.6502 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.8842 ± 0.0068 | 0.9107 ± 0.3269 | 1.8937 ± 1.4345 † | 0.4906 ± 0.4265 | 0.5564 ± 0.1680 | 2.8654 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8981 ± 0.0169 | 0.7714 ± 0.2713 | 1.4203 ± 0.9941 † | 0.4099 ± 0.3206 | 0.7790 ± 0.0365 | 2.6511 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.8836 ± 0.0262 | 0.7653 ± 0.2145 | 1.4023 ± 0.8841 † | 0.4347 ± 0.3470 | 0.7239 ± 0.0182 | 31.3509 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8894 ± 0.0284 | 0.6773 ± 0.1605 | 1.5578 ± 0.9788 † | 0.3621 ± 0.2593 | 0.3787 ± 0.2631 | 2.6502 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9025 ± 0.0088 | 0.9053 ± 0.3844 | 2.0964 ± 1.6574 † | 0.4906 ± 0.4265 | 0.4136 ± 0.2699 | 2.8654 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.8839 ± 0.0218 | 0.7102 ± 0.1966 | 1.6135 ± 1.0586 † | 0.3659 ± 0.2610 | 0.4190 ± 0.2584 | 9.7113 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8867 ± 0.0254 | 0.7770 ± 0.2467 | 1.7873 ± 1.2679 † | 0.4099 ± 0.3206 | 0.3932 ± 0.2752 | 2.6511 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.8903 ± 0.0279 | 0.8170 ± 0.2263 | 1.8672 ± 1.3295 † | 0.4347 ± 0.3470 | 0.5108 ± 0.1482 | 31.3509 |
 
 ##### fm_uq_scenarios / insurance_claims
 
@@ -1828,330 +1738,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.9494 ± 0.0089 | 1.6870 ± 0.4410 | 4.2407 ± 0.4956 † | 1.0616 ± 0.0911 | 0.0131 ± 0.0226 | 3.9166 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.3192 ± 0.5528 | 1.5805 ± 0.2552 | 4.2736 ± 0.5068 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4354 |
-| `Raw+TabICL [clean]` | tabicl | 0.9453 ± 0.0092 | 1.0126 ± 0.4167 | 4.3781 ± 0.5178 † | 1.0570 ± 0.0986 | 0.0314 ± 0.0415 | 4.5000 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.9489 ± 0.0080 | 3.2366 ± 0.2061 | 6.0182 ± 0.3791 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8858 ± 0.0022 | 1.6842 ± 0.4414 | **4.2395 ± 0.4956** † | 1.0616 ± 0.0911 | 0.0131 ± 0.0226 | 3.9166 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.9489 ± 0.0080 | 1.5805 ± 0.2552 | 4.2736 ± 0.5068 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4354 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.8936 ± 0.0081 | 1.0110 ± 0.4164 | 4.3776 ± 0.5180 † | 1.0570 ± 0.0986 | 0.0314 ± 0.0415 | 4.5000 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8878 ± 0.0106 | 0.7180 ± 0.2284 | 4.8196 ± 0.5525 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8886 ± 0.0184 | 0.0096 ± 0.0146 | 4.6528 ± 0.7657 † | 1.0616 ± 0.0911 | 0.0065 ± 0.0113 | 3.9166 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.3444 ± 0.4892 | 7.5397 ± 9.0932 | 8.8903 ± 7.6687 † | 1.0780 ± 0.0762 | 0.0062 ± 0.0085 | 1.4354 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.9019 ± 0.0106 | 0.0803 ± 0.0068 | 4.6325 ± 0.7355 † | 1.0570 ± 0.0986 | 0.0065 ± 0.0113 | 4.5000 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8928 ± 0.0047 | 0.4739 ± 0.0687 | 4.6786 ± 0.6550 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8892 ± 0.0102 | 0.0012 ± 0.0004 | 4.6920 ± 0.6986 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9166 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.9492 ± 0.0085 | 0.0886 ± 0.0769 | 4.7160 ± 0.7368 † | 1.0780 ± 0.0762 | 0.0065 ± 0.0113 | 1.4354 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8953 ± 0.0063 | 0.5823 ± 0.0675 | 4.7288 ± 0.5423 † | 1.0351 ± 0.0800 | 0.0000 ± 0.0000 | 11.0489 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.9033 ± 0.0145 | 0.0038 ± 0.0010 | 4.6671 ± 0.7411 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5000 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8975 ± 0.0177 | 0.4701 ± 0.0714 | 4.6729 ± 0.6561 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8886 ± 0.0077 | 0.0024 ± 0.0005 | 4.6924 ± 0.6985 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9166 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.9022 ± 0.0226 | 6.676e-08 ± 4.172e-08 | 4.9059 ± 0.4474 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4354 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.8919 ± 0.0076 | 0.0187 ± 0.0107 | 4.6701 ± 0.7431 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5000 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8928 ± 0.0047 | 0.4739 ± 0.0687 | 4.6786 ± 0.6550 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8961 ± 0.0042 | 1.1627 ± 0.9868 | 4.4298 ± 0.5631 † | 1.0601 ± 0.0937 | 0.0065 ± 0.0113 | 3.9166 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.2856 ± 0.4802 | 1.9605 ± 0.4136 | 4.8156 ± 0.0371 | 1.1370 ± 0.0390 | 0.0048 ± 0.0082 | 1.4354 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.9022 ± 0.0092 | 0.5568 ± 0.5287 | 4.4164 ± 0.5415 † | 1.0564 ± 0.0998 | 0.0065 ± 0.0113 | 4.5000 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8933 ± 0.0058 | 1.4984 ± 1.2354 | 4.5215 ± 0.5729 † | 1.0589 ± 0.0954 | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8950 ± 0.0030 | 1.5698 ± 1.3597 | 4.5247 ± 0.5472 † | 1.0616 ± 0.0910 | 0.0000 ± 0.0000 | 3.9166 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.6231 ± 0.5397 | 1.5685 ± 1.3601 | 4.7387 ± 0.3191 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4354 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9014 ± 0.0017 | 1.7485 ± 1.2219 | 4.8224 ± 0.4269 † | 1.0543 ± 0.0871 | 0.0000 ± 0.0000 | 11.0489 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9008 ± 0.0014 | 1.5714 ± 1.3585 | 4.5016 ± 0.5909 † | 1.0571 ± 0.0986 | 0.0000 ± 0.0000 | 4.5000 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.9028 ± 0.0043 | 1.6516 ± 1.2784 | 4.5613 ± 0.5366 † | 1.0582 ± 0.0956 | 0.0000 ± 0.0000 | 14.0010 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.8908 ± 0.0152 | 0.0014 ± 0.0004 | 4.6925 ± 0.6987 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9166 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.9386 ± 0.0112 | 8.821e-09 ± 4.277e-09 | 4.9059 ± 0.4474 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4354 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.9000 ± 0.0025 | 0.7265 ± 0.0511 | 4.9722 ± 0.4846 † | 1.0351 ± 0.0800 | 0.0000 ± 0.0000 | 11.0489 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.9039 ± 0.0046 | 0.0045 ± 0.0006 | 4.6687 ± 0.7414 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5000 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.9011 ± 0.0019 | 0.5340 ± 0.1106 | 4.7216 ± 0.6156 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.0010 |
+| `Raw+KumoTabular [clean]` | sdm | 0.9494 ± 0.0089 | 1.6870 ± 0.4410 | 4.2407 ± 0.4956 † | 1.0616 ± 0.0911 | 0.0131 ± 0.0226 | 3.9084 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.3192 ± 0.5528 | 1.5805 ± 0.2552 | 4.2736 ± 0.5068 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4285 |
+| `Raw+TabICL [clean]` | tabicl | 0.9453 ± 0.0092 | 1.0126 ± 0.4167 | 4.3781 ± 0.5178 † | 1.0570 ± 0.0986 | 0.0314 ± 0.0415 | 4.5652 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.9489 ± 0.0080 | 3.2366 ± 0.2061 | 6.0182 ± 0.3791 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8858 ± 0.0022 | 1.6842 ± 0.4414 | **4.2395 ± 0.4956** † | 1.0616 ± 0.0911 | 0.0131 ± 0.0226 | 3.9084 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.9489 ± 0.0080 | 1.5805 ± 0.2552 | 4.2736 ± 0.5068 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4285 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.8936 ± 0.0081 | 1.0110 ± 0.4164 | 4.3776 ± 0.5180 † | 1.0570 ± 0.0986 | 0.0314 ± 0.0415 | 4.5652 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8878 ± 0.0106 | 0.7180 ± 0.2284 | 4.8196 ± 0.5525 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8886 ± 0.0184 | 0.0096 ± 0.0146 | 4.6528 ± 0.7657 † | 1.0616 ± 0.0911 | 0.0065 ± 0.0113 | 3.9084 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.3444 ± 0.4892 | 7.5397 ± 9.0932 | 8.8903 ± 7.6687 † | 1.0780 ± 0.0762 | 0.0062 ± 0.0085 | 1.4285 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.9019 ± 0.0106 | 0.0803 ± 0.0068 | 4.6325 ± 0.7355 † | 1.0570 ± 0.0986 | 0.0065 ± 0.0113 | 4.5652 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8928 ± 0.0047 | 0.4739 ± 0.0687 | 4.6786 ± 0.6550 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8892 ± 0.0102 | 0.0012 ± 0.0004 | 4.6920 ± 0.6986 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9084 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.9492 ± 0.0085 | 0.0886 ± 0.0769 | 4.7160 ± 0.7368 † | 1.0780 ± 0.0762 | 0.0065 ± 0.0113 | 1.4285 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8953 ± 0.0063 | 0.5823 ± 0.0675 | 4.7288 ± 0.5423 † | 1.0351 ± 0.0800 | 0.0000 ± 0.0000 | 11.1590 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.9003 ± 0.0198 | 0.0038 ± 0.0010 | 4.6671 ± 0.7411 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5652 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8975 ± 0.0177 | 0.4701 ± 0.0714 | 4.6729 ± 0.6561 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8886 ± 0.0077 | 0.0024 ± 0.0005 | 4.6924 ± 0.6985 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9084 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.9022 ± 0.0226 | 6.676e-08 ± 4.172e-08 | 4.9059 ± 0.4474 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4285 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.8919 ± 0.0076 | 0.0187 ± 0.0107 | 4.6701 ± 0.7431 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5652 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8928 ± 0.0047 | 0.4739 ± 0.0687 | 4.6786 ± 0.6550 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8961 ± 0.0042 | 1.1627 ± 0.9868 | 4.4298 ± 0.5631 † | 1.0601 ± 0.0937 | 0.0065 ± 0.0113 | 3.9084 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.2856 ± 0.4802 | 1.9605 ± 0.4136 | 4.8156 ± 0.0371 | 1.1370 ± 0.0390 | 0.0048 ± 0.0082 | 1.4285 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.9022 ± 0.0092 | 0.5568 ± 0.5287 | 4.4164 ± 0.5415 † | 1.0564 ± 0.0998 | 0.0065 ± 0.0113 | 4.5652 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8933 ± 0.0058 | 1.4984 ± 1.2354 | 4.5215 ± 0.5729 † | 1.0589 ± 0.0954 | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8950 ± 0.0030 | 1.5698 ± 1.3597 | 4.5247 ± 0.5472 † | 1.0616 ± 0.0910 | 0.0000 ± 0.0000 | 3.9084 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.6231 ± 0.5397 | 1.5685 ± 1.3601 | 4.7387 ± 0.3191 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4285 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9014 ± 0.0017 | 1.7485 ± 1.2219 | 4.8224 ± 0.4269 † | 1.0543 ± 0.0871 | 0.0000 ± 0.0000 | 11.1590 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.9008 ± 0.0014 | 1.5714 ± 1.3585 | 4.5016 ± 0.5909 † | 1.0571 ± 0.0986 | 0.0000 ± 0.0000 | 4.5652 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.9028 ± 0.0043 | 1.6516 ± 1.2784 | 4.5613 ± 0.5366 † | 1.0582 ± 0.0956 | 0.0000 ± 0.0000 | 14.1884 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.8908 ± 0.0152 | 0.0014 ± 0.0004 | 4.6925 ± 0.6987 † | 1.0616 ± 0.0911 | 0.0000 ± 0.0000 | 3.9084 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.9386 ± 0.0112 | 8.821e-09 ± 4.277e-09 | 4.9059 ± 0.4474 † | 1.0780 ± 0.0762 | 0.0000 ± 0.0000 | 1.4285 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.9000 ± 0.0025 | 0.7265 ± 0.0511 | 4.9722 ± 0.4846 † | 1.0351 ± 0.0800 | 0.0000 ± 0.0000 | 11.1590 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.9039 ± 0.0046 | 0.0045 ± 0.0006 | 4.6687 ± 0.7414 † | 1.0570 ± 0.0986 | 0.0000 ± 0.0000 | 4.5652 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.9011 ± 0.0019 | 0.5340 ± 0.1106 | 4.7216 ± 0.6156 † | **1.0342 ± 0.0886** | 0.0000 ± 0.0000 | 14.1884 |
 
 ##### fm_uq_scenarios / insurance_claims@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9536 ± 0.0049 | 2.0428 ± 0.7328 | 4.0753 ± 0.1041 | 0.9583 ± 0.0196 | 0.0192 ± 0.0333 | 3.4438 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.3175 ± 0.5492 | 1.7350 ± 0.7761 | 4.0662 ± 0.3606 † | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.4623 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9469 ± 0.0121 | 1.0408 ± 0.3743 | 4.0083 ± 0.1427 | 0.9580 ± 0.0197 | 0.0303 ± 0.0290 | 4.2985 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9528 ± 0.0035 | 3.3121 ± 0.1322 | 5.6480 ± 0.0765 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.8928 ± 0.0488 | 2.0394 ± 0.7328 | 4.0737 ± 0.1039 | 0.9583 ± 0.0196 | 0.0192 ± 0.0333 | 3.4438 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9531 ± 0.0039 | 1.7350 ± 0.7761 | 4.0662 ± 0.3606 † | 0.9582 ± 0.0197 | 0.0064 ± 0.0111 | 1.4623 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9119 ± 0.0278 | 1.0391 ± 0.3741 | **4.0078 ± 0.1427** | 0.9580 ± 0.0197 | 0.0303 ± 0.0290 | 4.2985 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8444 ± 0.1351 | 0.7116 ± 0.1278 | 4.3596 ± 0.2194 † | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9328 ± 0.0188 | 0.0033 ± 0.0031 | 4.1128 ± 0.2106 † | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.3525 ± 0.5020 | 12.2626 ± 10.5311 | 13.6082 ± 8.2049 † | 0.9582 ± 0.0197 | 0.0114 ± 0.0198 | 1.4623 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9008 ± 0.0246 | 0.0762 ± 0.0316 | 4.0585 ± 0.2645 † | 0.9580 ± 0.0197 | 0.0064 ± 0.0111 | 4.2985 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9325 ± 0.0109 | 0.5345 ± 0.0176 | 4.1897 ± 0.2005 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8964 ± 0.0268 | 0.0015 ± 0.0010 | 4.1201 ± 0.1973 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9547 ± 0.0034 | 0.0715 ± 0.0786 | 4.0347 ± 0.2051 † | 0.9582 ± 0.0197 | 0.0412 ± 0.0095 | 1.4623 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8950 ± 0.0055 | 0.6958 ± 0.3349 | 4.2202 ± 0.0421 | **0.9344 ± 0.0174** | 0.0000 ± 0.0000 | 11.0125 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9014 ± 0.0087 | 0.0034 ± 0.0001 | 4.1201 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.2985 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9094 ± 0.0059 | 0.4906 ± 0.0200 | 4.1665 ± 0.1843 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9053 ± 0.0744 | 0.0164 ± 0.0233 | 4.1282 ± 0.1853 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9417 ± 0.0052 | 6.244e-08 ± 7.080e-08 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.4623 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.8869 ± 0.0725 | 0.0136 ± 0.0055 | 4.1250 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.2985 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9325 ± 0.0109 | 0.5345 ± 0.0176 | 4.1897 ± 0.2005 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9111 ± 0.0348 | 0.4356 ± 0.7247 | 4.0390 ± 0.2438 † | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.3164 ± 0.5201 | 1.0597 ± 0.9949 | 4.2962 ± 0.4099 † | 1.0124 ± 0.1126 | 0.0000 ± 0.0000 | 1.4623 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9028 ± 0.0270 | 0.3365 ± 0.5069 | 4.0552 ± 0.2361 † | 0.9581 ± 0.0197 | 0.0000 ± 0.0000 | 4.2985 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9275 ± 0.0075 | 0.7476 ± 1.1061 | 4.1551 ± 0.2230 † | 0.9619 ± 0.0248 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.8875 ± 0.0038 | 0.7625 ± 1.3179 | 4.1196 ± 0.1981 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.6319 ± 0.5473 | 0.7612 ± 1.3184 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.4623 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9258 ± 0.0036 | 1.0577 ± 1.1943 | 4.3695 ± 0.1767 | 0.9515 ± 0.0264 | 0.0000 ± 0.0000 | 11.0125 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9192 ± 0.0142 | 0.7650 ± 1.3167 | 4.1216 ± 0.1988 | 0.9581 ± 0.0198 | 0.0000 ± 0.0000 | 4.2985 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9275 ± 0.0051 | 0.9107 ± 1.2803 | 4.2180 ± 0.2664 † | 0.9641 ± 0.0295 | 0.0000 ± 0.0000 | 13.9207 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8353 ± 0.1670 | 0.0020 ± 0.0005 | 4.1211 ± 0.1965 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4438 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9492 ± 0.0043 | 8.821e-09 ± 4.277e-09 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.4623 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9222 ± 0.0084 | 0.8241 ± 0.0025 | 4.3892 ± 0.1494 | **0.9344 ± 0.0174** | 0.0000 ± 0.0000 | 11.0125 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9169 ± 0.0140 | 0.0054 ± 0.0004 | 4.1216 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.2985 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9281 ± 0.0118 | 0.6252 ± 0.0911 | 4.2416 ± 0.2334 † | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 13.9207 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9536 ± 0.0049 | 2.0428 ± 0.7328 | 4.0753 ± 0.1041 | 0.9583 ± 0.0196 | 0.0192 ± 0.0333 | 3.4999 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.3175 ± 0.5492 | 1.7350 ± 0.7761 | 4.0662 ± 0.3606 † | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.3505 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9469 ± 0.0121 | 1.0408 ± 0.3743 | 4.0083 ± 0.1427 | 0.9580 ± 0.0197 | 0.0303 ± 0.0290 | 4.3667 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9528 ± 0.0035 | 3.3121 ± 0.1322 | 5.6480 ± 0.0765 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.8928 ± 0.0488 | 2.0394 ± 0.7328 | 4.0737 ± 0.1039 | 0.9583 ± 0.0196 | 0.0192 ± 0.0333 | 3.4999 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9531 ± 0.0039 | 1.7350 ± 0.7761 | 4.0662 ± 0.3606 † | 0.9582 ± 0.0197 | 0.0064 ± 0.0111 | 1.3505 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9119 ± 0.0278 | 1.0391 ± 0.3741 | **4.0078 ± 0.1427** | 0.9580 ± 0.0197 | 0.0303 ± 0.0290 | 4.3667 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8444 ± 0.1351 | 0.7116 ± 0.1278 | 4.3596 ± 0.2194 † | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9328 ± 0.0188 | 0.0033 ± 0.0031 | 4.1128 ± 0.2106 † | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.3525 ± 0.5020 | 12.2626 ± 10.5311 | 13.6082 ± 8.2049 † | 0.9582 ± 0.0197 | 0.0114 ± 0.0198 | 1.3505 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9008 ± 0.0246 | 0.0762 ± 0.0316 | 4.0585 ± 0.2645 † | 0.9580 ± 0.0197 | 0.0064 ± 0.0111 | 4.3667 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9325 ± 0.0109 | 0.5345 ± 0.0176 | 4.1897 ± 0.2005 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.8964 ± 0.0268 | 0.0015 ± 0.0010 | 4.1201 ± 0.1973 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9547 ± 0.0034 | 0.0715 ± 0.0786 | 4.0347 ± 0.2051 † | 0.9582 ± 0.0197 | 0.0412 ± 0.0095 | 1.3505 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8950 ± 0.0055 | 0.6958 ± 0.3349 | 4.2202 ± 0.0421 | **0.9344 ± 0.0174** | 0.0000 ± 0.0000 | 10.9736 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9025 ± 0.0101 | 0.0034 ± 0.0001 | 4.1201 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.3667 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9094 ± 0.0059 | 0.4906 ± 0.0200 | 4.1665 ± 0.1843 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9053 ± 0.0744 | 0.0164 ± 0.0233 | 4.1282 ± 0.1853 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9417 ± 0.0052 | 6.244e-08 ± 7.080e-08 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.3505 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.8869 ± 0.0725 | 0.0136 ± 0.0055 | 4.1250 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.3667 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9325 ± 0.0109 | 0.5345 ± 0.0176 | 4.1897 ± 0.2005 | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9111 ± 0.0348 | 0.4356 ± 0.7247 | 4.0390 ± 0.2438 † | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.3164 ± 0.5201 | 1.0597 ± 0.9949 | 4.2962 ± 0.4099 † | 1.0124 ± 0.1126 | 0.0000 ± 0.0000 | 1.3505 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9028 ± 0.0270 | 0.3365 ± 0.5069 | 4.0552 ± 0.2361 † | 0.9581 ± 0.0197 | 0.0000 ± 0.0000 | 4.3667 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9275 ± 0.0075 | 0.7476 ± 1.1061 | 4.1551 ± 0.2230 † | 0.9619 ± 0.0248 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.8875 ± 0.0038 | 0.7625 ± 1.3179 | 4.1196 ± 0.1981 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.6319 ± 0.5473 | 0.7612 ± 1.3184 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.3505 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9258 ± 0.0036 | 1.0577 ± 1.1943 | 4.3695 ± 0.1767 | 0.9515 ± 0.0264 | 0.0000 ± 0.0000 | 10.9736 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9192 ± 0.0142 | 0.7650 ± 1.3167 | 4.1216 ± 0.1988 | 0.9581 ± 0.0198 | 0.0000 ± 0.0000 | 4.3667 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9275 ± 0.0051 | 0.9107 ± 1.2803 | 4.2180 ± 0.2664 † | 0.9641 ± 0.0295 | 0.0000 ± 0.0000 | 14.1042 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.8353 ± 0.1670 | 0.0020 ± 0.0005 | 4.1211 ± 0.1965 | 0.9583 ± 0.0196 | 0.0000 ± 0.0000 | 3.4999 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9492 ± 0.0043 | 8.821e-09 ± 4.277e-09 | 4.1677 ± 0.1140 | 0.9582 ± 0.0197 | 0.0000 ± 0.0000 | 1.3505 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9222 ± 0.0084 | 0.8241 ± 0.0025 | 4.3892 ± 0.1494 | **0.9344 ± 0.0174** | 0.0000 ± 0.0000 | 10.9736 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9169 ± 0.0140 | 0.0054 ± 0.0004 | 4.1216 ± 0.1988 | 0.9580 ± 0.0197 | 0.0000 ± 0.0000 | 4.3667 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9281 ± 0.0118 | 0.6252 ± 0.0911 | 4.2416 ± 0.2334 † | 0.9375 ± 0.0212 | 0.0000 ± 0.0000 | 14.1042 |
 
 ##### fm_uq_scenarios / insurance_claims@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9628 ± 0.0302 | 0.0062 ± 0.0029 | 1.0941 ± 0.9465 † | 0.8312 ± 0.7203 | 0.3238 ± 0.5347 | 3.4169 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.3183 ± 0.5485 | 0.0593 ± 0.0702 | 1.1439 ± 0.9756 † | 0.8312 ± 0.7203 | 0.0065 ± 0.0113 | 1.3459 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.9625 ± 0.0291 | 0.0127 ± 0.0111 | 1.0878 ± 0.9432 † | 0.8312 ± 0.7203 | 0.3291 ± 0.5302 | 4.2940 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9964 ± 0.0010 | 1387.7 ± 1719.5 | 1388.7 ± 1720.0 † | **0.8306 ± 0.7199** | 0.9301 ± 0.0104 | 24.8138 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8878 ± 0.0034 | 0.0041 ± 0.0025 | 1.0930 ± 0.9467 † | 0.8312 ± 0.7203 | 0.1931 ± 0.3083 | 3.4169 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9472 ± 0.0010 | 0.0593 ± 0.0702 | 1.1439 ± 0.9756 † | 0.8312 ± 0.7203 | 0.0404 ± 0.0393 | 1.3459 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8861 ± 0.0038 | 0.0105 ± 0.0098 | **1.0869 ± 0.9429** † | 0.8312 ± 0.7203 | 0.1996 ± 0.3196 | 4.2940 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.8981 ± 0.0131 | 1386.4 ± 1718.4 | 1387.4 ± 1718.9 † | **0.8306 ± 0.7199** | 0.5634 ± 0.4262 | 24.8138 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8889 ± 0.0164 | 9.756e-04 ± 1.146e-04 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.2092 ± 0.3623 | 3.4169 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.3372 ± 0.4881 | 19.6404 ± 32.8902 | 20.2106 ± 32.4247 † | 0.8312 ± 0.7203 | 0.0080 ± 0.0101 | 1.3459 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8972 ± 0.0124 | 0.0014 ± 0.0006 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.1699 ± 0.2943 | 4.2940 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9003 ± 0.0134 | 36.6482 ± 56.5343 | 37.7263 ± 56.9537 † | **0.8306 ± 0.7199** | 0.6171 ± 0.4796 | 24.8138 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9022 ± 0.0077 | 7.359e-04 ± 1.159e-04 | 1.0949 ± 0.9490 † | 0.8312 ± 0.7203 | 0.1503 ± 0.2604 | 3.4169 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9486 ± 0.0087 | 1.779e-06 ± 3.077e-06 | 1.0945 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0065 ± 0.0113 | 1.3459 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.8936 ± 0.0099 | 0.0933 ± 0.0414 | 1.1973 ± 0.9426 † | 0.8413 ± 0.6994 | 0.7146 ± 0.1535 | 10.9671 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8986 ± 0.0104 | 0.0013 ± 0.0009 | 1.0955 ± 0.9494 † | 0.8312 ± 0.7203 | 0.0784 ± 0.1358 | 4.2940 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.8903 ± 0.0150 | 0.0306 ± 0.0368 | 1.1217 ± 0.9705 † | **0.8306 ± 0.7199** | 0.5617 ± 0.3220 | 24.8138 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8850 ± 0.0146 | 0.0015 ± 0.0006 | 1.0952 ± 0.9489 † | 0.8312 ± 0.7203 | 0.2288 ± 0.3962 | 3.4169 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9067 ± 0.0188 | 2.828e-07 ± 1.877e-07 | 1.0946 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3459 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8956 ± 0.0086 | 0.0021 ± 0.0016 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.1699 ± 0.2943 | 4.2940 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9003 ± 0.0134 | 36.6482 ± 56.5343 | 37.7263 ± 56.9537 † | **0.8306 ± 0.7199** | 0.6171 ± 0.4796 | 24.8138 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8792 ± 0.0110 | 0.0074 ± 0.0069 | 1.0927 ± 0.9469 † | 0.8312 ± 0.7203 | 0.2453 ± 0.3482 | 3.4169 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.2903 ± 0.4970 | 0.0653 ± 0.0520 | 1.1513 ± 0.9928 † | 0.8458 ± 0.6953 | 0.0077 ± 0.0104 | 1.3459 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8947 ± 0.0104 | 0.0119 ± 0.0133 | 1.0880 ± 0.9439 † | 0.8311 ± 0.7202 | 0.2496 ± 0.3958 | 4.2940 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9069 ± 0.0135 | 21.6494 ± 31.1558 | 22.7319 ± 31.6274 † | 277.0 ± 416.3 | 0.3315 ± 0.2626 | 24.8138 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.8847 ± 0.0065 | 0.0122 ± 0.0100 | 1.0934 ± 0.9476 † | 0.8312 ± 0.7203 | 0.2288 ± 0.3962 | 3.4169 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9447 ± 0.0027 | 0.0116 ± 0.0102 | 1.0932 ± 0.9482 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3459 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9025 ± 0.0115 | 0.1021 ± 0.0530 | 1.2372 ± 0.9666 † | 0.8400 ± 0.7033 | 0.5701 ± 0.2850 | 10.9671 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8906 ± 0.0111 | 0.0123 ± 0.0103 | 1.0941 ± 0.9482 † | 0.8312 ± 0.7203 | 0.2353 ± 0.4075 | 4.2940 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9053 ± 0.0132 | 0.0286 ± 0.0364 | 1.1292 ± 0.9766 † | 0.8311 ± 0.7203 | 0.3109 ± 0.2866 | 24.8138 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.8931 ± 0.0106 | 0.0011 ± 0.0002 | 1.0952 ± 0.9489 † | 0.8312 ± 0.7203 | 0.2353 ± 0.4075 | 3.4169 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9447 ± 0.0027 | 1.720e-09 ± 1.389e-09 | 1.0946 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3459 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9053 ± 0.0055 | 0.1572 ± 0.0806 | 1.3113 ± 0.9928 † | 0.8413 ± 0.6994 | 0.8701 ± 0.0392 | 10.9671 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8889 ± 0.0122 | 0.0015 ± 0.0006 | 1.0958 ± 0.9494 † | 0.8312 ± 0.7203 | 0.1830 ± 0.3170 | 4.2940 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0227 | 0.0445 ± 0.0613 | 1.1420 ± 0.9852 † | **0.8306 ± 0.7199** | 0.6010 ± 0.5072 | 24.8138 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9628 ± 0.0302 | 0.0062 ± 0.0029 | 1.0941 ± 0.9465 † | 0.8312 ± 0.7203 | 0.3238 ± 0.5347 | 3.5246 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.3183 ± 0.5485 | 0.0593 ± 0.0702 | 1.1439 ± 0.9756 † | 0.8312 ± 0.7203 | 0.0065 ± 0.0113 | 1.3370 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.9625 ± 0.0291 | 0.0127 ± 0.0111 | 1.0878 ± 0.9432 † | 0.8312 ± 0.7203 | 0.3291 ± 0.5302 | 4.3791 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9964 ± 0.0010 | 1387.7 ± 1719.5 | 1388.7 ± 1720.0 † | **0.8306 ± 0.7199** | 0.9301 ± 0.0104 | 25.4277 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8878 ± 0.0034 | 0.0041 ± 0.0025 | 1.0930 ± 0.9467 † | 0.8312 ± 0.7203 | 0.1931 ± 0.3083 | 3.5246 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9472 ± 0.0010 | 0.0593 ± 0.0702 | 1.1439 ± 0.9756 † | 0.8312 ± 0.7203 | 0.0404 ± 0.0393 | 1.3370 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.8861 ± 0.0038 | 0.0105 ± 0.0098 | **1.0869 ± 0.9429** † | 0.8312 ± 0.7203 | 0.1996 ± 0.3196 | 4.3791 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.8981 ± 0.0131 | 1386.4 ± 1718.4 | 1387.4 ± 1718.9 † | **0.8306 ± 0.7199** | 0.5634 ± 0.4262 | 25.4277 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8889 ± 0.0164 | 9.756e-04 ± 1.146e-04 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.2092 ± 0.3623 | 3.5246 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.3372 ± 0.4881 | 19.6404 ± 32.8902 | 20.2106 ± 32.4247 † | 0.8312 ± 0.7203 | 0.0080 ± 0.0101 | 1.3370 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.8972 ± 0.0124 | 0.0014 ± 0.0006 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.1699 ± 0.2943 | 4.3791 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9003 ± 0.0134 | 36.6482 ± 56.5343 | 37.7263 ± 56.9537 † | **0.8306 ± 0.7199** | 0.6171 ± 0.4796 | 25.4277 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9022 ± 0.0077 | 7.359e-04 ± 1.159e-04 | 1.0949 ± 0.9490 † | 0.8312 ± 0.7203 | 0.1503 ± 0.2604 | 3.5246 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9486 ± 0.0087 | 1.779e-06 ± 3.077e-06 | 1.0945 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0065 ± 0.0113 | 1.3370 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.8936 ± 0.0099 | 0.0933 ± 0.0414 | 1.1973 ± 0.9426 † | 0.8413 ± 0.6994 | 0.7146 ± 0.1535 | 10.9449 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8975 ± 0.0106 | 0.0013 ± 0.0009 | 1.0955 ± 0.9494 † | 0.8312 ± 0.7203 | 0.0784 ± 0.1358 | 4.3791 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.8903 ± 0.0150 | 0.0306 ± 0.0368 | 1.1217 ± 0.9705 † | **0.8306 ± 0.7199** | 0.5617 ± 0.3220 | 25.4277 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8850 ± 0.0146 | 0.0015 ± 0.0006 | 1.0952 ± 0.9489 † | 0.8312 ± 0.7203 | 0.2288 ± 0.3962 | 3.5246 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9067 ± 0.0188 | 2.828e-07 ± 1.877e-07 | 1.0946 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3370 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.8956 ± 0.0086 | 0.0021 ± 0.0016 | 1.0951 ± 0.9488 † | 0.8312 ± 0.7203 | 0.1699 ± 0.2943 | 4.3791 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9003 ± 0.0134 | 36.6482 ± 56.5343 | 37.7263 ± 56.9537 † | **0.8306 ± 0.7199** | 0.6171 ± 0.4796 | 25.4277 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8792 ± 0.0110 | 0.0074 ± 0.0069 | 1.0927 ± 0.9469 † | 0.8312 ± 0.7203 | 0.2453 ± 0.3482 | 3.5246 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.2903 ± 0.4970 | 0.0653 ± 0.0520 | 1.1513 ± 0.9928 † | 0.8458 ± 0.6953 | 0.0077 ± 0.0104 | 1.3370 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8947 ± 0.0104 | 0.0119 ± 0.0133 | 1.0880 ± 0.9439 † | 0.8311 ± 0.7202 | 0.2496 ± 0.3958 | 4.3791 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9069 ± 0.0135 | 21.6494 ± 31.1558 | 22.7319 ± 31.6274 † | 277.0 ± 416.3 | 0.3315 ± 0.2626 | 25.4277 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.8847 ± 0.0065 | 0.0122 ± 0.0100 | 1.0934 ± 0.9476 † | 0.8312 ± 0.7203 | 0.2288 ± 0.3962 | 3.5246 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9447 ± 0.0027 | 0.0116 ± 0.0102 | 1.0932 ± 0.9482 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3370 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9025 ± 0.0115 | 0.1021 ± 0.0530 | 1.2372 ± 0.9666 † | 0.8400 ± 0.7033 | 0.5701 ± 0.2850 | 10.9449 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8906 ± 0.0111 | 0.0123 ± 0.0103 | 1.0941 ± 0.9482 † | 0.8312 ± 0.7203 | 0.2353 ± 0.4075 | 4.3791 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9053 ± 0.0132 | 0.0286 ± 0.0364 | 1.1292 ± 0.9766 † | 0.8311 ± 0.7203 | 0.3109 ± 0.2866 | 25.4277 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.8931 ± 0.0106 | 0.0011 ± 0.0002 | 1.0952 ± 0.9489 † | 0.8312 ± 0.7203 | 0.2353 ± 0.4075 | 3.5246 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9447 ± 0.0027 | 1.720e-09 ± 1.389e-09 | 1.0946 ± 0.9492 † | 0.8312 ± 0.7203 | 0.0000 ± 0.0000 | 1.3370 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9053 ± 0.0055 | 0.1572 ± 0.0806 | 1.3113 ± 0.9928 † | 0.8413 ± 0.6994 | 0.8701 ± 0.0392 | 10.9449 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8889 ± 0.0122 | 0.0015 ± 0.0006 | 1.0958 ± 0.9494 † | 0.8312 ± 0.7203 | 0.1830 ± 0.3170 | 4.3791 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9008 ± 0.0227 | 0.0445 ± 0.0613 | 1.1420 ± 0.9852 † | **0.8306 ± 0.7199** | 0.6010 ± 0.5072 | 25.4277 |
 
 ##### fm_uq_scenarios / insurance_claims@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.9489 ± 0.0080 | 9.366e-04 ± 2.995e-04 | 4.6675 ± 0.7397 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.0056 ± 0.0096 | 0.0474 ± 0.0150 | 4.6479 ± 0.7654 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.9467 ± 0.0093 | 0.0341 ± 0.0230 | 4.6101 ± 0.7476 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.9489 ± 0.0080 | 1.0117 ± 0.2212 | 5.1393 ± 0.5304 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8550 ± 0.0217 | 4.038e-04 ± 1.294e-04 | 4.6673 ± 0.7398 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 0.0474 ± 0.0150 | 4.6479 ± 0.7654 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8806 ± 0.0054 | 0.0337 ± 0.0230 | **4.6100 ± 0.7477** † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8581 ± 0.0246 | 0.1177 ± 0.0805 | 4.6940 ± 0.7512 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8681 ± 0.0125 | 3.200e-04 ± 1.353e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.3314 ± 0.4780 | 9.3761 ± 7.9918 | 10.6137 ± 5.8519 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8683 ± 0.0150 | 0.0074 ± 0.0065 | 4.6522 ± 0.7578 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0169 | 0.0456 ± 0.0046 | 4.6703 ± 0.7347 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8617 ± 0.0281 | 2.784e-04 ± 1.426e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 8.821e-09 ± 4.277e-09 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8625 ± 0.0030 | 0.0540 ± 0.0180 | 4.6817 ± 0.7095 † | **1.0543 ± 0.0954** | 0.0000 ± 0.0000 | 10.6096 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8783 ± 0.0051 | 5.348e-04 ± 1.394e-04 | 4.6880 ± 0.7123 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8494 ± 0.0042 | 0.0419 ± 0.0061 | 4.6675 ± 0.7332 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8658 ± 0.0194 | 3.554e-04 ± 1.529e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 4.453e-04 ± 3.400e-04 | 4.6674 ± 0.7400 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8656 ± 0.0158 | 0.0155 ± 0.0094 | 4.6644 ± 0.7319 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0169 | 0.0456 ± 0.0046 | 4.6703 ± 0.7347 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8719 ± 0.0091 | 1.769e-04 ± 7.104e-06 | 4.6672 ± 0.7397 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.3136 ± 0.5432 | 0.0450 ± 0.0780 | 4.9883 ± 0.2029 | 1.1241 ± 0.0198 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8664 ± 0.0089 | 0.0082 ± 0.0061 | 4.6507 ± 0.7528 † | 1.0610 ± 0.0922 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8522 ± 0.0196 | 0.0090 ± 0.0067 | 4.6724 ± 0.7424 † | 1.0591 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8731 ± 0.0073 | 1.716e-04 ± 1.166e-05 | 4.6672 ± 0.7397 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.6297 ± 0.5454 | -9.252e-18 ± 1.602e-17 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8536 ± 0.0125 | 0.0523 ± 0.0403 | 4.7197 ± 0.6804 † | 1.0579 ± 0.0973 | 0.0000 ± 0.0000 | 10.6096 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8586 ± 0.0138 | 4.643e-04 ± 1.395e-04 | 4.6883 ± 0.7121 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8500 ± 0.0126 | 0.0096 ± 0.0097 | 4.6730 ± 0.7430 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 12.9306 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.8667 ± 0.0123 | 3.556e-04 ± 1.583e-04 | 4.6675 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.3071 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 8.821e-09 ± 4.277e-09 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2556 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.8653 ± 0.0198 | 0.0894 ± 0.0455 | 4.7217 ± 0.6685 † | **1.0543 ± 0.0954** | 0.0000 ± 0.0000 | 10.6096 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.8597 ± 0.0121 | 4.464e-04 ± 1.016e-04 | 4.6883 ± 0.7121 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.1779 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8486 ± 0.0178 | 0.0469 ± 0.0013 | 4.6716 ± 0.7360 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 12.9306 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.9489 ± 0.0080 | 9.366e-04 ± 2.995e-04 | 4.6675 ± 0.7397 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.0056 ± 0.0096 | 0.0474 ± 0.0150 | 4.6479 ± 0.7654 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.9467 ± 0.0093 | 0.0341 ± 0.0230 | 4.6101 ± 0.7476 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.9489 ± 0.0080 | 1.0117 ± 0.2212 | 5.1393 ± 0.5304 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8550 ± 0.0217 | 4.038e-04 ± 1.294e-04 | 4.6673 ± 0.7398 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 0.0474 ± 0.0150 | 4.6479 ± 0.7654 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8806 ± 0.0054 | 0.0337 ± 0.0230 | **4.6100 ± 0.7477** † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8581 ± 0.0246 | 0.1177 ± 0.0805 | 4.6940 ± 0.7512 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8681 ± 0.0125 | 3.200e-04 ± 1.353e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.3314 ± 0.4780 | 9.3761 ± 7.9918 | 10.6137 ± 5.8519 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8681 ± 0.0154 | 0.0074 ± 0.0065 | 4.6522 ± 0.7578 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0169 | 0.0456 ± 0.0046 | 4.6703 ± 0.7347 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8617 ± 0.0281 | 2.784e-04 ± 1.426e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 8.821e-09 ± 4.277e-09 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8625 ± 0.0030 | 0.0540 ± 0.0180 | 4.6817 ± 0.7095 † | **1.0543 ± 0.0954** | 0.0000 ± 0.0000 | 10.6864 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8786 ± 0.0055 | 5.343e-04 ± 1.396e-04 | 4.6880 ± 0.7123 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8494 ± 0.0042 | 0.0419 ± 0.0061 | 4.6675 ± 0.7332 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8658 ± 0.0194 | 3.554e-04 ± 1.529e-04 | 4.6674 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 4.453e-04 ± 3.400e-04 | 4.6674 ± 0.7400 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8656 ± 0.0158 | 0.0155 ± 0.0094 | 4.6644 ± 0.7319 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8503 ± 0.0169 | 0.0456 ± 0.0046 | 4.6703 ± 0.7347 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8719 ± 0.0091 | 1.769e-04 ± 7.104e-06 | 4.6672 ± 0.7397 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.3136 ± 0.5432 | 0.0450 ± 0.0780 | 4.9883 ± 0.2029 | 1.1241 ± 0.0198 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8664 ± 0.0089 | 0.0082 ± 0.0061 | 4.6507 ± 0.7528 † | 1.0610 ± 0.0922 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8522 ± 0.0196 | 0.0090 ± 0.0067 | 4.6724 ± 0.7424 † | 1.0591 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8731 ± 0.0073 | 1.716e-04 ± 1.166e-05 | 4.6672 ± 0.7397 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.6297 ± 0.5454 | -9.252e-18 ± 1.602e-17 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8536 ± 0.0125 | 0.0523 ± 0.0403 | 4.7197 ± 0.6804 † | 1.0579 ± 0.0973 | 0.0000 ± 0.0000 | 10.6864 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8586 ± 0.0138 | 4.643e-04 ± 1.395e-04 | 4.6883 ± 0.7121 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8500 ± 0.0126 | 0.0096 ± 0.0097 | 4.6730 ± 0.7430 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 13.1280 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.8667 ± 0.0123 | 3.556e-04 ± 1.583e-04 | 4.6675 ± 0.7399 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4290 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.9489 ± 0.0080 | 8.821e-09 ± 4.277e-09 | 4.6671 ± 0.7398 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 1.2533 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.8653 ± 0.0198 | 0.0894 ± 0.0455 | 4.7217 ± 0.6685 † | **1.0543 ± 0.0954** | 0.0000 ± 0.0000 | 10.6864 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.8594 ± 0.0118 | 4.464e-04 ± 1.016e-04 | 4.6883 ± 0.7121 † | 1.0591 ± 0.0954 | 0.0000 ± 0.0000 | 4.2514 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8486 ± 0.0178 | 0.0469 ± 0.0013 | 4.6716 ± 0.7360 † | 1.0548 ± 0.0955 | 0.0000 ± 0.0000 | 13.1280 |
 
 ##### fm_uq_scenarios / insurance_claims@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.9497 ± 0.0094 | 1.6750 ± 0.3735 | 4.6033 ± 0.3948 † | 1.0590 ± 0.0955 | 0.0196 ± 0.0340 | 3.4428 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.3192 ± 0.5528 | 1.9260 ± 1.1345 | 4.6575 ± 0.3503 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.9139 ± 0.0092 | 1.4443 ± 0.5731 | 4.4997 ± 0.3567 † | 1.0633 ± 0.0879 | 0.0357 ± 0.0397 | 4.3449 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.9489 ± 0.0080 | 3.2320 ± 0.2477 | 6.0378 ± 0.3546 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9019 ± 0.0111 | 1.6718 ± 0.3740 | 4.6019 ± 0.3948 † | 1.0590 ± 0.0955 | 0.0196 ± 0.0340 | 3.4428 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9489 ± 0.0080 | 1.9260 ± 1.1345 | 4.6575 ± 0.3503 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8919 ± 0.0025 | 1.4438 ± 0.5731 | 4.4997 ± 0.3567 † | 1.0633 ± 0.0879 | 0.0357 ± 0.0397 | 4.3449 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9033 ± 0.0042 | 0.6057 ± 0.2418 | 4.7681 ± 0.5438 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9036 ± 0.0021 | 0.0060 ± 0.0085 | 4.6492 ± 0.7717 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4428 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.3578 ± 0.4602 | 7.5917 ± 9.3088 | 8.9946 ± 7.8374 † | 1.1018 ± 0.0803 | 0.0280 ± 0.0332 | 7.4287 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8906 ± 0.0043 | 0.6228 ± 0.3926 | 4.5420 ± 0.5628 † | 1.0633 ± 0.0879 | 0.0065 ± 0.0113 | 4.3449 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 0.4760 ± 0.0841 | 4.6884 ± 0.6528 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9064 ± 0.0077 | 9.094e-04 ± 2.519e-04 | 4.6700 ± 0.7360 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4428 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9483 ± 0.0088 | 0.1477 ± 0.0452 | 4.8148 ± 0.7222 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8917 ± 0.0008 | 1.0922 ± 0.9082 | 4.8818 ± 0.6065 † | 1.0395 ± 0.0759 | 0.0106 ± 0.0183 | 11.0238 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.9000 ± 0.0073 | 0.0037 ± 0.0005 | 4.7200 ± 0.6520 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.3449 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8925 ± 0.0079 | 0.4569 ± 0.0840 | 4.6751 ± 0.6500 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9006 ± 0.0051 | 0.0016 ± 0.0007 | 4.6704 ± 0.7356 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4428 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8992 ± 0.0073 | 2.620e-08 ± 1.000e-08 | 5.1831 ± 0.6091 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8958 ± 0.0113 | 0.0093 ± 0.0029 | 4.7216 ± 0.6526 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.3449 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 0.4760 ± 0.0841 | 4.6884 ± 0.6528 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9006 ± 0.0182 | 1.4835 ± 1.2681 | 4.4787 ± 0.6155 † | 1.0590 ± 0.0955 | 0.0065 ± 0.0113 | 3.4428 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.3308 ± 0.5064 | 2.0133 ± 0.9503 | 5.4888 ± 1.1248 † | 1.1414 ± 0.0477 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8925 ± 0.0073 | 0.9875 ± 0.8239 | **4.4346 ± 0.5612** † | 1.0589 ± 0.0957 | 0.0065 ± 0.0113 | 4.3449 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 1.5686 ± 1.2698 | 4.5289 ± 0.5722 † | 1.0588 ± 0.0951 | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8975 ± 0.0153 | 1.5695 ± 1.3598 | 4.5026 ± 0.5848 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.4428 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.6189 ± 0.5360 | 1.5685 ± 1.3601 | 5.0159 ± 0.4735 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0065 | 1.7295 ± 1.2817 | 4.7682 ± 0.3223 † | 1.0594 ± 0.0859 | 0.0000 ± 0.0000 | 11.0238 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8900 ± 0.0036 | 1.5721 ± 1.3586 | 4.5539 ± 0.5002 † | 1.0634 ± 0.0879 | 0.0000 ± 0.0000 | 4.3449 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8950 ± 0.0036 | 1.6482 ± 1.2774 | 4.5530 ± 0.5450 † | 1.0588 ± 0.0949 | 0.0000 ± 0.0000 | 13.1078 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9089 ± 0.0072 | 0.0012 ± 0.0001 | 4.6703 ± 0.7360 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.4428 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9347 ± 0.0112 | 8.821e-09 ± 4.277e-09 | 5.1831 ± 0.6091 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4287 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0055 | 0.6611 ± 0.1116 | 4.9278 ± 0.3994 † | 1.0395 ± 0.0759 | 0.0000 ± 0.0000 | 11.0238 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.8869 ± 0.0059 | 0.0051 ± 0.0003 | 4.7212 ± 0.6518 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.3449 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0052 | 0.5103 ± 0.1149 | 4.7126 ± 0.6276 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.1078 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.9497 ± 0.0094 | 1.6750 ± 0.3735 | 4.6033 ± 0.3948 † | 1.0590 ± 0.0955 | 0.0196 ± 0.0340 | 3.5614 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.3192 ± 0.5528 | 1.9260 ± 1.1345 | 4.6575 ± 0.3503 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.9139 ± 0.0092 | 1.4443 ± 0.5731 | 4.4997 ± 0.3567 † | 1.0633 ± 0.0879 | 0.0357 ± 0.0397 | 4.4088 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.9489 ± 0.0080 | 3.2320 ± 0.2477 | 6.0378 ± 0.3546 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9019 ± 0.0111 | 1.6718 ± 0.3740 | 4.6019 ± 0.3948 † | 1.0590 ± 0.0955 | 0.0196 ± 0.0340 | 3.5614 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9489 ± 0.0080 | 1.9260 ± 1.1345 | 4.6575 ± 0.3503 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8917 ± 0.0030 | 1.4438 ± 0.5731 | 4.4997 ± 0.3567 † | 1.0633 ± 0.0879 | 0.0357 ± 0.0397 | 4.4088 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9033 ± 0.0042 | 0.6057 ± 0.2418 | 4.7681 ± 0.5438 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9036 ± 0.0021 | 0.0060 ± 0.0085 | 4.6492 ± 0.7717 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.5614 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.3578 ± 0.4602 | 7.5917 ± 9.3088 | 8.9946 ± 7.8374 † | 1.1018 ± 0.0803 | 0.0280 ± 0.0332 | 7.4380 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8906 ± 0.0043 | 0.6228 ± 0.3926 | 4.5420 ± 0.5628 † | 1.0633 ± 0.0879 | 0.0065 ± 0.0113 | 4.4088 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 0.4760 ± 0.0841 | 4.6884 ± 0.6528 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9064 ± 0.0077 | 9.094e-04 ± 2.519e-04 | 4.6700 ± 0.7360 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.5614 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9483 ± 0.0088 | 0.1477 ± 0.0452 | 4.8148 ± 0.7222 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8917 ± 0.0008 | 1.0922 ± 0.9082 | 4.8818 ± 0.6065 † | 1.0395 ± 0.0759 | 0.0106 ± 0.0183 | 10.9719 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8983 ± 0.0088 | 0.0037 ± 0.0005 | 4.7200 ± 0.6520 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.4088 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8925 ± 0.0079 | 0.4569 ± 0.0840 | 4.6751 ± 0.6500 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9006 ± 0.0051 | 0.0016 ± 0.0007 | 4.6704 ± 0.7356 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.5614 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8992 ± 0.0073 | 2.620e-08 ± 1.000e-08 | 5.1831 ± 0.6091 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8958 ± 0.0113 | 0.0093 ± 0.0029 | 4.7216 ± 0.6526 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.4088 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 0.4760 ± 0.0841 | 4.6884 ± 0.6528 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9006 ± 0.0182 | 1.4835 ± 1.2681 | 4.4787 ± 0.6155 † | 1.0590 ± 0.0955 | 0.0065 ± 0.0113 | 3.5614 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.3308 ± 0.5064 | 2.0133 ± 0.9503 | 5.4888 ± 1.1248 † | 1.1414 ± 0.0477 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8925 ± 0.0073 | 0.9875 ± 0.8239 | **4.4346 ± 0.5612** † | 1.0589 ± 0.0957 | 0.0065 ± 0.0113 | 4.4088 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8961 ± 0.0113 | 1.5686 ± 1.2698 | 4.5289 ± 0.5722 † | 1.0588 ± 0.0951 | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8975 ± 0.0153 | 1.5695 ± 1.3598 | 4.5026 ± 0.5848 † | 1.0590 ± 0.0954 | 0.0000 ± 0.0000 | 3.5614 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.6189 ± 0.5360 | 1.5685 ± 1.3601 | 5.0159 ± 0.4735 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0065 | 1.7295 ± 1.2817 | 4.7682 ± 0.3223 † | 1.0594 ± 0.0859 | 0.0000 ± 0.0000 | 10.9719 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8900 ± 0.0036 | 1.5721 ± 1.3586 | 4.5539 ± 0.5002 † | 1.0634 ± 0.0879 | 0.0000 ± 0.0000 | 4.4088 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8950 ± 0.0036 | 1.6482 ± 1.2774 | 4.5530 ± 0.5450 † | 1.0588 ± 0.0949 | 0.0000 ± 0.0000 | 13.3549 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9089 ± 0.0072 | 0.0012 ± 0.0001 | 4.6703 ± 0.7360 † | 1.0590 ± 0.0955 | 0.0000 ± 0.0000 | 3.5614 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9347 ± 0.0112 | 8.821e-09 ± 4.277e-09 | 5.1831 ± 0.6091 † | 1.1018 ± 0.0803 | 0.0000 ± 0.0000 | 7.4380 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.8947 ± 0.0055 | 0.6611 ± 0.1116 | 4.9278 ± 0.3994 † | 1.0395 ± 0.0759 | 0.0000 ± 0.0000 | 10.9719 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.8864 ± 0.0067 | 0.0051 ± 0.0003 | 4.7212 ± 0.6518 † | 1.0633 ± 0.0879 | 0.0000 ± 0.0000 | 4.4088 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0052 | 0.5103 ± 0.1149 | 4.7126 ± 0.6276 † | **1.0348 ± 0.0885** | 0.0000 ± 0.0000 | 13.3549 |
 
 ##### fm_uq_scenarios / insurance_claims@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 1.0000 ± 0.0000 | 19.9212 ± 4.8752 | 19.9212 ± 4.8752 † | 1.2053 ± 0.1680 | 1.0000 ± 0.0000 | 3.4634 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.3106 ± 0.5357 | 1.6521 ± 0.8964 | 4.6309 ± 0.4576 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3592 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.9994 ± 0.0010 | 9.9557 ± 0.2723 | 9.9604 ± 0.2649 | 1.1951 ± 0.0486 | 0.9894 ± 0.0183 | 4.3102 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.9489 ± 0.0080 | 3.2176 ± 0.1588 | 6.0107 ± 0.4035 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 19.9183 ± 4.8757 | 19.9183 ± 4.8757 † | 1.2053 ± 0.1680 | 1.0000 ± 0.0000 | 3.4634 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9403 ± 0.0098 | 1.6521 ± 0.8964 | 4.6309 ± 0.4576 † | 1.0812 ± 0.0701 | 0.0143 ± 0.0247 | 1.3592 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 9.9540 ± 0.2722 | 9.9587 ± 0.2648 | 1.1951 ± 0.0486 | 0.9894 ± 0.0183 | 4.3102 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.8914 ± 0.0240 | 0.6991 ± 0.1800 | 4.8111 ± 0.5738 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.8572 ± 0.1513 | 4.5285 ± 5.9940 | 7.2889 ± 3.9589 † | 1.2053 ± 0.1680 | 0.2228 ± 0.3859 | 3.4634 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.3214 ± 0.4018 | 7.5546 ± 8.0327 | 8.8762 ± 6.4577 † | 1.0812 ± 0.0701 | 0.0276 ± 0.0447 | 1.3592 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.7586 ± 0.4116 | 6.9769 ± 1.0045 | 7.3226 ± 0.6208 † | 1.1951 ± 0.0486 | 0.7059 ± 0.3914 | 4.3102 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.8969 ± 0.0229 | 0.4708 ± 0.0614 | 4.6784 ± 0.6563 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.0017 ± 0.0029 | 9.145e-04 ± 6.268e-04 | 7.3326 ± 3.1245 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.4634 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.9503 ± 0.0092 | 0.1217 ± 0.1203 | 4.6910 ± 0.7568 † | 1.0812 ± 0.0701 | 0.0302 ± 0.0294 | 1.3592 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 8.333e-04 ± 1.443e-03 | 1.3244 ± 0.3420 | 16.6730 ± 7.6864 † | 1.5324 ± 0.2454 | 0.0000 ± 0.0000 | 18.4081 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.0110 ± 0.0055 | 18.8780 ± 0.6342 | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3102 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8983 ± 0.0116 | 0.4622 ± 0.0545 | 4.6685 ± 0.6644 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.0633 ± 0.0674 | 0.0286 ± 0.0074 | 7.0914 ± 3.0944 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.4634 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7036 ± 0.1527 | 6.309e-08 ± 3.007e-08 | 4.9380 ± 0.4218 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3592 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.2268 ± 0.1663 | 16.9358 ± 1.7394 † | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3102 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.8969 ± 0.0229 | 0.4708 ± 0.0614 | 4.6784 ± 0.6563 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.5781 ± 0.4797 | 8.6183 ± 1.8870 | 8.9649 ± 1.8760 † | 1.0755 ± 0.0543 | 0.5408 ± 0.4892 | 3.4634 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.2683 ± 0.4475 | 1.5436 ± 0.7191 | 5.4078 ± 0.5237 † | 1.2420 ± 0.1268 | 0.0012 ± 0.0020 | 1.3592 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8667 ± 0.2259 | 7.2769 ± 1.9367 | 7.4508 ± 1.6993 † | 1.1357 ± 0.0507 | 0.8285 ± 0.2051 | 4.3102 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8956 ± 0.0267 | 1.5019 ± 1.2404 | **4.5247 ± 0.5746** † | 1.0590 ± 0.0949 | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.0017 ± 0.0029 | 1.5698 ± 1.3597 | 7.1675 ± 3.2670 † | 1.2052 ± 0.1681 | 0.0000 ± 0.0000 | 3.4634 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.6208 ± 0.5377 | 1.5685 ± 1.3601 | 4.7708 ± 0.3023 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3592 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.0017 ± 0.0029 | 1.7485 ± 1.2219 | 21.8048 ± 5.9842 † | 1.4026 ± 0.2448 | 0.0000 ± 0.0000 | 18.4081 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 1.5714 ± 1.3585 | 18.7711 ± 0.4741 | 1.1950 ± 0.0486 | 0.0000 ± 0.0000 | 4.3102 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.8972 ± 0.0104 | 1.6516 ± 1.2784 | 4.5622 ± 0.5346 † | 1.0586 ± 0.0945 | 0.0000 ± 0.0000 | 13.6000 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.0014 ± 0.0024 | 0.0014 ± 0.0004 | 7.3281 ± 3.1304 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.4634 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.9358 ± 0.0092 | 8.821e-09 ± 4.277e-09 | 4.9380 ± 0.4218 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3592 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.7265 ± 0.0511 | 22.0537 ± 5.9504 † | 1.5324 ± 0.2454 | 0.0000 ± 0.0000 | 18.4081 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.0045 ± 0.0006 | 18.9366 ± 0.6025 | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3102 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.8975 ± 0.0120 | 0.5340 ± 0.1106 | 4.7223 ± 0.6141 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.6000 |
+| `Raw+KumoTabular [noise_test]` | sdm | 1.0000 ± 0.0000 | 19.9212 ± 4.8752 | 19.9212 ± 4.8752 † | 1.2053 ± 0.1680 | 1.0000 ± 0.0000 | 3.5404 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.3106 ± 0.5357 | 1.6521 ± 0.8964 | 4.6309 ± 0.4576 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3561 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.9994 ± 0.0010 | 9.9557 ± 0.2723 | 9.9604 ± 0.2649 | 1.1951 ± 0.0486 | 0.9894 ± 0.0183 | 4.3805 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.9489 ± 0.0080 | 3.2176 ± 0.1588 | 6.0107 ± 0.4035 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 19.9183 ± 4.8757 | 19.9183 ± 4.8757 † | 1.2053 ± 0.1680 | 1.0000 ± 0.0000 | 3.5404 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9403 ± 0.0098 | 1.6521 ± 0.8964 | 4.6309 ± 0.4576 † | 1.0812 ± 0.0701 | 0.0143 ± 0.0247 | 1.3561 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 9.9540 ± 0.2722 | 9.9587 ± 0.2648 | 1.1951 ± 0.0486 | 0.9894 ± 0.0183 | 4.3805 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.8914 ± 0.0240 | 0.6991 ± 0.1800 | 4.8111 ± 0.5738 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.8572 ± 0.1513 | 4.5285 ± 5.9940 | 7.2889 ± 3.9589 † | 1.2053 ± 0.1680 | 0.2228 ± 0.3859 | 3.5404 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.3214 ± 0.4018 | 7.5546 ± 8.0327 | 8.8762 ± 6.4577 † | 1.0812 ± 0.0701 | 0.0276 ± 0.0447 | 1.3561 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.7586 ± 0.4116 | 6.9769 ± 1.0045 | 7.3226 ± 0.6208 † | 1.1951 ± 0.0486 | 0.7059 ± 0.3914 | 4.3805 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.8969 ± 0.0229 | 0.4708 ± 0.0614 | 4.6784 ± 0.6563 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.0017 ± 0.0029 | 9.145e-04 ± 6.268e-04 | 7.3326 ± 3.1245 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.5404 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.9503 ± 0.0092 | 0.1217 ± 0.1203 | 4.6910 ± 0.7568 † | 1.0812 ± 0.0701 | 0.0302 ± 0.0294 | 1.3561 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 8.333e-04 ± 1.443e-03 | 1.3244 ± 0.3420 | 16.6730 ± 7.6864 † | 1.5324 ± 0.2454 | 0.0000 ± 0.0000 | 18.3768 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.0110 ± 0.0054 | 18.8782 ± 0.6340 | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3805 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8983 ± 0.0116 | 0.4622 ± 0.0545 | 4.6685 ± 0.6644 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.0633 ± 0.0674 | 0.0286 ± 0.0074 | 7.0914 ± 3.0944 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.5404 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7036 ± 0.1527 | 6.309e-08 ± 3.007e-08 | 4.9380 ± 0.4218 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3561 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.2268 ± 0.1663 | 16.9358 ± 1.7393 † | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3805 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.8969 ± 0.0229 | 0.4708 ± 0.0614 | 4.6784 ± 0.6563 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.5781 ± 0.4797 | 8.6183 ± 1.8870 | 8.9649 ± 1.8760 † | 1.0755 ± 0.0543 | 0.5408 ± 0.4892 | 3.5404 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.2683 ± 0.4475 | 1.5436 ± 0.7191 | 5.4078 ± 0.5237 † | 1.2420 ± 0.1268 | 0.0012 ± 0.0020 | 1.3561 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.8667 ± 0.2259 | 7.2769 ± 1.9367 | 7.4508 ± 1.6993 † | 1.1357 ± 0.0507 | 0.8285 ± 0.2051 | 4.3805 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8956 ± 0.0267 | 1.5019 ± 1.2404 | **4.5247 ± 0.5746** † | 1.0590 ± 0.0949 | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.0017 ± 0.0029 | 1.5698 ± 1.3597 | 7.1675 ± 3.2670 † | 1.2052 ± 0.1681 | 0.0000 ± 0.0000 | 3.5404 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.6208 ± 0.5377 | 1.5685 ± 1.3601 | 4.7708 ± 0.3023 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3561 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.0017 ± 0.0029 | 1.7485 ± 1.2219 | 21.8048 ± 5.9842 † | 1.4026 ± 0.2448 | 0.0000 ± 0.0000 | 18.3768 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 1.5714 ± 1.3585 | 18.7711 ± 0.4741 | 1.1950 ± 0.0486 | 0.0000 ± 0.0000 | 4.3805 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.8972 ± 0.0104 | 1.6516 ± 1.2784 | 4.5622 ± 0.5346 † | 1.0586 ± 0.0945 | 0.0000 ± 0.0000 | 13.9512 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.0014 ± 0.0024 | 0.0014 ± 0.0004 | 7.3281 ± 3.1304 † | 1.2053 ± 0.1680 | 0.0000 ± 0.0000 | 3.5404 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.9358 ± 0.0092 | 8.821e-09 ± 4.277e-09 | 4.9380 ± 0.4218 † | 1.0812 ± 0.0701 | 0.0000 ± 0.0000 | 1.3561 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.7265 ± 0.0511 | 22.0537 ± 5.9504 † | 1.5324 ± 0.2454 | 0.0000 ± 0.0000 | 18.3768 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.0000 ± 0.0000 | 0.0045 ± 0.0006 | 18.9366 ± 0.6025 | 1.1951 ± 0.0486 | 0.0000 ± 0.0000 | 4.3805 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.8975 ± 0.0120 | 0.5340 ± 0.1106 | 4.7223 ± 0.6141 † | **1.0339 ± 0.0892** | 0.0000 ± 0.0000 | 13.9512 |
 
 ##### fm_uq_scenarios / insurance_claims@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9767 ± 0.0161 | 4.1166 ± 0.2993 | 4.6963 ± 0.1527 | 1.0590 ± 0.0957 | 0.5315 ± 0.3103 | 3.4440 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.7769 ± 0.3030 | 3.2156 ± 0.1698 | 4.8097 ± 0.3436 † | 1.0918 ± 0.0662 | 0.1426 ± 0.0960 | 1.4713 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9672 ± 0.0104 | 3.6012 ± 0.4677 | 5.2009 ± 0.3159 † | 1.0563 ± 0.0977 | 0.3689 ± 0.1299 | 4.3249 |
-| `Raw+TabularMLP [outliers]` | torchregress | 0.9506 ± 0.0083 | 6.6737 ± 0.3947 | 7.7006 ± 0.1422 | 1.0373 ± 0.0887 | 0.0339 ± 0.0304 | 14.4452 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0068 | 4.0697 ± 0.3129 | 4.6639 ± 0.1526 | 1.0590 ± 0.0957 | 0.4948 ± 0.3284 | 3.4440 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9522 ± 0.0142 | 3.2156 ± 0.1698 | 4.8097 ± 0.3436 † | 1.0918 ± 0.0662 | 0.1426 ± 0.0960 | 1.4713 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9442 ± 0.0072 | 3.5750 ± 0.4595 | 5.1838 ± 0.3209 † | 1.0563 ± 0.0977 | 0.3623 ± 0.1193 | 4.3249 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9442 ± 0.0033 | 3.0061 ± 3.1272 | 5.7613 ± 1.6988 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.4452 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9464 ± 0.0059 | 1.4012 ± 2.1685 | **4.4032 ± 0.6441** † | 1.0590 ± 0.0957 | 0.0303 ± 0.0369 | 3.4440 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9389 ± 0.0118 | 2.8500 ± 1.9498 | 4.7810 ± 0.8307 † | 1.0918 ± 0.0662 | 0.2344 ± 0.3420 | 1.4713 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9461 ± 0.0027 | 1.0204 ± 0.4723 | 4.4775 ± 0.6841 † | 1.0563 ± 0.0977 | 0.0422 ± 0.0279 | 4.3249 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0022 | 2.7176 ± 3.3689 | 5.6158 ± 1.8122 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.4452 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9428 ± 0.0046 | 3.9436 ± 1.9321 | 6.6180 ± 1.4653 † | 1.0590 ± 0.0957 | 0.0598 ± 0.0033 | 3.4440 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9481 ± 0.0067 | 2.8119 ± 4.7090 | 5.8510 ± 2.4357 † | 1.0918 ± 0.0662 | 0.0000 ± 0.0000 | 1.4713 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9436 ± 0.0047 | 3.9964 ± 1.0747 | 6.5170 ± 1.3313 † | **1.0365 ± 0.0883** | 0.0924 ± 0.0519 | 10.9988 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9475 ± 0.0073 | 3.5632 ± 0.6984 | 6.0281 ± 0.5030 † | 1.0563 ± 0.0977 | 0.0967 ± 0.0326 | 4.3249 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0129 | 3.5108 ± 0.0477 | 6.2193 ± 0.4926 † | 1.0373 ± 0.0887 | 0.1490 ± 0.1439 | 14.4452 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9461 ± 0.0051 | 2.7134 ± 4.6904 | 5.7976 ± 2.4768 † | 1.0590 ± 0.0957 | 0.0571 ± 0.0990 | 3.4440 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9442 ± 0.0014 | 1.7817 ± 3.0860 | 5.7157 ± 1.4069 † | 1.0918 ± 0.0662 | 0.0190 ± 0.0330 | 1.4713 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9469 ± 0.0035 | 1.3554 ± 2.1285 | 5.1983 ± 1.3773 † | 1.0563 ± 0.0977 | 0.0238 ± 0.0412 | 4.3249 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0022 | 2.7176 ± 3.3689 | 5.6158 ± 1.8122 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.4452 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9422 ± 0.0049 | 4.1205 ± 0.0689 | 4.6138 ± 0.1853 | 1.0590 ± 0.0955 | 0.5284 ± 0.1988 | 3.4440 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9506 ± 0.0242 | 4.4378 ± 0.4427 | 5.5325 ± 0.4567 † | 1.2505 ± 0.2024 | 0.4807 ± 0.1912 | 1.4713 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9500 ± 0.0058 | 3.7933 ± 0.2722 | 4.9233 ± 0.4542 † | 1.0605 ± 0.0926 | 0.4424 ± 0.1083 | 4.3249 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9475 ± 0.0142 | 4.4650 ± 0.1404 | 4.8735 ± 0.2219 | 1.0610 ± 0.0939 | 0.5008 ± 0.2001 | 14.4452 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9314 ± 0.0071 | 4.2679 ± 0.1273 | 4.5769 ± 0.1704 | 1.0590 ± 0.0955 | 0.5089 ± 0.0192 | 3.4440 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.6531 ± 0.5318 | 4.2669 ± 0.1273 | 4.9851 ± 0.2854 † | 1.0918 ± 0.0662 | 0.3069 ± 0.5315 | 1.4713 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9469 ± 0.0038 | 4.4663 ± 0.1520 | 4.8412 ± 0.1714 | 1.0593 ± 0.0943 | 0.5451 ± 0.1687 | 10.9988 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9481 ± 0.0029 | 4.2848 ± 0.1263 | 4.6365 ± 0.1631 | 1.0556 ± 0.0975 | 0.4874 ± 0.1078 | 4.3249 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9411 ± 0.0176 | 4.4118 ± 0.0923 | 4.7599 ± 0.1630 | 1.0603 ± 0.0955 | 0.4689 ± 0.1976 | 14.4452 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9411 ± 0.0061 | 2.7714 ± 4.7906 | 5.8223 ± 2.5182 † | 1.0590 ± 0.0957 | 0.0095 ± 0.0165 | 3.4440 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9431 ± 0.0017 | 2.7679 ± 4.7942 | 6.1638 ± 2.1723 † | 1.0918 ± 0.0662 | 0.0000 ± 0.0000 | 1.4713 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9428 ± 0.0017 | 3.1754 ± 3.7726 | 5.8550 ± 1.9287 † | **1.0365 ± 0.0883** | 0.0095 ± 0.0165 | 10.9988 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9458 ± 0.0008 | 2.8360 ± 4.7208 | 5.8758 ± 2.4735 † | 1.0563 ± 0.0977 | 0.0286 ± 0.0495 | 4.3249 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9453 ± 0.0035 | 3.0312 ± 3.9203 | 5.7618 ± 2.0522 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.4452 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9767 ± 0.0161 | 4.1166 ± 0.2993 | 4.6963 ± 0.1527 | 1.0590 ± 0.0957 | 0.5315 ± 0.3103 | 3.4658 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.7769 ± 0.3030 | 3.2156 ± 0.1698 | 4.8097 ± 0.3436 † | 1.0918 ± 0.0662 | 0.1426 ± 0.0960 | 1.4728 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9672 ± 0.0104 | 3.6012 ± 0.4677 | 5.2009 ± 0.3159 † | 1.0563 ± 0.0977 | 0.3689 ± 0.1299 | 4.3940 |
+| `Raw+TabularMLP [outliers]` | torchregress | 0.9506 ± 0.0083 | 6.6737 ± 0.3947 | 7.7006 ± 0.1422 | 1.0373 ± 0.0887 | 0.0339 ± 0.0304 | 14.6385 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0068 | 4.0697 ± 0.3129 | 4.6639 ± 0.1526 | 1.0590 ± 0.0957 | 0.4948 ± 0.3284 | 3.4658 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9522 ± 0.0142 | 3.2156 ± 0.1698 | 4.8097 ± 0.3436 † | 1.0918 ± 0.0662 | 0.1426 ± 0.0960 | 1.4728 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9442 ± 0.0072 | 3.5750 ± 0.4595 | 5.1838 ± 0.3209 † | 1.0563 ± 0.0977 | 0.3623 ± 0.1193 | 4.3940 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9442 ± 0.0033 | 3.0061 ± 3.1272 | 5.7613 ± 1.6988 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.6385 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9464 ± 0.0059 | 1.4012 ± 2.1685 | **4.4032 ± 0.6441** † | 1.0590 ± 0.0957 | 0.0303 ± 0.0369 | 3.4658 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9389 ± 0.0118 | 2.8500 ± 1.9498 | 4.7810 ± 0.8307 † | 1.0918 ± 0.0662 | 0.2344 ± 0.3420 | 1.4728 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9461 ± 0.0027 | 1.0204 ± 0.4723 | 4.4775 ± 0.6841 † | 1.0563 ± 0.0977 | 0.0422 ± 0.0279 | 4.3940 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0022 | 2.7176 ± 3.3689 | 5.6158 ± 1.8122 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.6385 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9428 ± 0.0046 | 3.9436 ± 1.9321 | 6.6180 ± 1.4653 † | 1.0590 ± 0.0957 | 0.0598 ± 0.0033 | 3.4658 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9481 ± 0.0067 | 2.8119 ± 4.7090 | 5.8510 ± 2.4357 † | 1.0918 ± 0.0662 | 0.0000 ± 0.0000 | 1.4728 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9436 ± 0.0047 | 3.9964 ± 1.0747 | 6.5170 ± 1.3313 † | **1.0365 ± 0.0883** | 0.0924 ± 0.0519 | 10.9432 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9472 ± 0.0076 | 3.5650 ± 0.7012 | 6.0299 ± 0.5057 † | 1.0563 ± 0.0977 | 0.0967 ± 0.0326 | 4.3940 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0129 | 3.5108 ± 0.0477 | 6.2193 ± 0.4926 † | 1.0373 ± 0.0887 | 0.1490 ± 0.1439 | 14.6385 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9461 ± 0.0051 | 2.7134 ± 4.6904 | 5.7976 ± 2.4768 † | 1.0590 ± 0.0957 | 0.0571 ± 0.0990 | 3.4658 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9442 ± 0.0014 | 1.7817 ± 3.0860 | 5.7157 ± 1.4069 † | 1.0918 ± 0.0662 | 0.0190 ± 0.0330 | 1.4728 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9469 ± 0.0035 | 1.3554 ± 2.1285 | 5.1983 ± 1.3773 † | 1.0563 ± 0.0977 | 0.0238 ± 0.0412 | 4.3940 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0022 | 2.7176 ± 3.3689 | 5.6158 ± 1.8122 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.6385 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9422 ± 0.0049 | 4.1205 ± 0.0689 | 4.6138 ± 0.1853 | 1.0590 ± 0.0955 | 0.5284 ± 0.1988 | 3.4658 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9506 ± 0.0242 | 4.4378 ± 0.4427 | 5.5325 ± 0.4567 † | 1.2505 ± 0.2024 | 0.4807 ± 0.1912 | 1.4728 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9500 ± 0.0058 | 3.7933 ± 0.2722 | 4.9233 ± 0.4542 † | 1.0605 ± 0.0926 | 0.4424 ± 0.1083 | 4.3940 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9475 ± 0.0142 | 4.4650 ± 0.1404 | 4.8735 ± 0.2219 | 1.0610 ± 0.0939 | 0.5008 ± 0.2001 | 14.6385 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9314 ± 0.0071 | 4.2679 ± 0.1273 | 4.5769 ± 0.1704 | 1.0590 ± 0.0955 | 0.5089 ± 0.0192 | 3.4658 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.6531 ± 0.5318 | 4.2669 ± 0.1273 | 4.9851 ± 0.2854 † | 1.0918 ± 0.0662 | 0.3069 ± 0.5315 | 1.4728 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9469 ± 0.0038 | 4.4663 ± 0.1520 | 4.8412 ± 0.1714 | 1.0593 ± 0.0943 | 0.5451 ± 0.1687 | 10.9432 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9481 ± 0.0029 | 4.2848 ± 0.1263 | 4.6365 ± 0.1631 | 1.0556 ± 0.0975 | 0.4874 ± 0.1078 | 4.3940 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9411 ± 0.0176 | 4.4118 ± 0.0923 | 4.7599 ± 0.1630 | 1.0603 ± 0.0955 | 0.4689 ± 0.1976 | 14.6385 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9411 ± 0.0061 | 2.7714 ± 4.7906 | 5.8223 ± 2.5182 † | 1.0590 ± 0.0957 | 0.0095 ± 0.0165 | 3.4658 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9431 ± 0.0017 | 2.7679 ± 4.7942 | 6.1638 ± 2.1723 † | 1.0918 ± 0.0662 | 0.0000 ± 0.0000 | 1.4728 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9428 ± 0.0017 | 3.1754 ± 3.7726 | 5.8550 ± 1.9287 † | **1.0365 ± 0.0883** | 0.0095 ± 0.0165 | 10.9432 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9458 ± 0.0008 | 2.8360 ± 4.7208 | 5.8758 ± 2.4735 † | 1.0563 ± 0.0977 | 0.0286 ± 0.0495 | 4.3940 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9453 ± 0.0035 | 3.0312 ± 3.9203 | 5.7618 ± 2.0522 † | 1.0373 ± 0.0887 | 0.0143 ± 0.0247 | 14.6385 |
 
 ##### fm_uq_scenarios / insurance_claims@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.9514 ± 0.0013 | 1.8315 ± 0.4020 | 4.0105 ± 0.0403 | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.4583 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.3161 ± 0.5468 | 2.1389 ± 0.9165 | 4.4244 ± 0.3598 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3325 |
-| `Raw+TabICL [shift]` | tabicl | 0.9456 ± 0.0043 | 0.9525 ± 0.3234 | 4.2509 ± 0.2791 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3188 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.9503 ± 0.0025 | 3.1850 ± 0.1425 | 5.7516 ± 0.1594 | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8947 ± 0.0171 | 1.8286 ± 0.4019 | **4.0092 ± 0.0403** | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.4583 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.9506 ± 0.0027 | 2.1389 ± 0.9165 | 4.4244 ± 0.3598 † | 1.0092 ± 0.0624 | 0.0056 ± 0.0098 | 1.3325 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.8903 ± 0.0164 | 0.9510 ± 0.3237 | 4.2505 ± 0.2792 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3188 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9019 ± 0.0154 | 0.7553 ± 0.1114 | 4.5590 ± 0.3571 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9053 ± 0.0136 | 0.0013 ± 0.0002 | 4.4098 ± 0.3290 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.3528 ± 0.5028 | 12.3788 ± 10.6168 | 13.9207 ± 7.9503 † | 1.0092 ± 0.0624 | 0.0099 ± 0.0088 | 1.3325 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.8822 ± 0.0158 | 0.0737 ± 0.0148 | 4.3611 ± 0.2648 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 0.4779 ± 0.0458 | 4.4212 ± 0.3105 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9039 ± 0.0024 | 9.613e-04 ± 1.732e-04 | 4.4097 ± 0.3288 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9511 ± 0.0024 | 0.0410 ± 0.0374 | 4.3797 ± 0.3178 † | 1.0092 ± 0.0624 | 0.0166 ± 0.0170 | 1.3325 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9000 ± 0.0068 | 0.5463 ± 0.0568 | 4.4109 ± 0.2758 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0327 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9158 ± 0.0022 | 0.0034 ± 0.0005 | 4.4107 ± 0.3295 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9033 ± 0.0060 | 0.4722 ± 0.0384 | 4.4144 ± 0.3078 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9022 ± 0.0027 | 0.0090 ± 0.0123 | 4.4125 ± 0.3289 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9197 ± 0.0113 | 5.037e-08 ± 4.297e-08 | 4.4089 ± 0.3289 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3325 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.9000 ± 0.0147 | 0.0280 ± 0.0146 | 4.4205 ± 0.3285 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 0.4779 ± 0.0458 | 4.4212 ± 0.3105 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8994 ± 0.0093 | 1.3840 ± 0.7235 | 4.2404 ± 0.1165 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.3114 ± 0.5155 | 2.0409 ± 1.0322 | 4.5677 ± 0.4843 † | 1.0725 ± 0.1550 | 0.0000 ± 0.0000 | 1.3325 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8894 ± 0.0081 | 0.9643 ± 0.5319 | 4.2698 ± 0.2687 † | 1.0092 ± 0.0625 | 0.0056 ± 0.0098 | 4.3188 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 2.0017 ± 0.2753 | 4.4075 ± 0.2248 † | 1.0085 ± 0.0624 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8983 ± 0.0129 | 2.3475 ± 0.0699 | 4.4221 ± 0.2143 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.6317 ± 0.5470 | 2.3468 ± 0.0700 | 4.4215 ± 0.2143 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3325 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9169 ± 0.0029 | 2.4707 ± 0.0518 | 4.6536 ± 0.2974 † | 1.0038 ± 0.0601 | 0.0000 ± 0.0000 | 11.0327 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9058 ± 0.0050 | 2.3488 ± 0.0698 | 4.4246 ± 0.2148 | 1.0092 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9156 ± 0.0042 | 2.4148 ± 0.0712 | 4.4974 ± 0.2678 † | 1.0078 ± 0.0622 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.9167 ± 0.0038 | 0.0015 ± 0.0000 | 4.4101 ± 0.3288 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.9475 ± 0.0033 | 8.821e-09 ± 4.277e-09 | 4.4089 ± 0.3289 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3325 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.9158 ± 0.0025 | 0.7522 ± 0.1207 | 4.6387 ± 0.3782 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0327 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.9053 ± 0.0067 | 0.0047 ± 0.0006 | 4.4120 ± 0.3293 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.9150 ± 0.0029 | 0.5733 ± 0.0990 | 4.4858 ± 0.3568 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8942 ± 0.0131 | 1.8307 ± 0.4025 | 4.0112 ± 0.0432 | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.4583 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9506 ± 0.0027 | 2.1447 ± 0.9143 | 4.4301 ± 0.3691 † | 1.0092 ± 0.0624 | 0.0056 ± 0.0098 | 1.3325 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8961 ± 0.0025 | 0.9575 ± 0.3197 | 4.2569 ± 0.2856 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3188 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9025 ± 0.0044 | 0.7597 ± 0.1483 | 4.5637 ± 0.3648 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8986 ± 0.0034 | 0.0084 ± 0.0122 | 4.4172 ± 0.3395 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.4583 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9475 ± 0.0033 | 0.0071 ± 0.0123 | 4.4160 ± 0.3397 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3325 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9003 ± 0.0035 | 0.6924 ± 0.0944 | 4.6400 ± 0.3840 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0327 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8997 ± 0.0159 | 0.0117 ± 0.0127 | 4.4191 ± 0.3400 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3188 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9022 ± 0.0067 | 0.5644 ± 0.0989 | 4.4908 ± 0.3651 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 13.9440 |
+| `Raw+KumoTabular [shift]` | sdm | 0.9514 ± 0.0013 | 1.8315 ± 0.4020 | 4.0105 ± 0.0403 | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.5287 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.3161 ± 0.5468 | 2.1389 ± 0.9165 | 4.4244 ± 0.3598 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3284 |
+| `Raw+TabICL [shift]` | tabicl | 0.9456 ± 0.0043 | 0.9525 ± 0.3234 | 4.2509 ± 0.2791 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3888 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.9503 ± 0.0025 | 3.1850 ± 0.1425 | 5.7516 ± 0.1594 | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8947 ± 0.0171 | 1.8286 ± 0.4019 | **4.0092 ± 0.0403** | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.5287 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.9506 ± 0.0027 | 2.1389 ± 0.9165 | 4.4244 ± 0.3598 † | 1.0092 ± 0.0624 | 0.0056 ± 0.0098 | 1.3284 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.8903 ± 0.0164 | 0.9510 ± 0.3237 | 4.2505 ± 0.2792 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3888 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9019 ± 0.0154 | 0.7553 ± 0.1114 | 4.5590 ± 0.3571 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.9053 ± 0.0136 | 0.0013 ± 0.0002 | 4.4098 ± 0.3290 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.3528 ± 0.5028 | 12.3788 ± 10.6168 | 13.9207 ± 7.9503 † | 1.0092 ± 0.0624 | 0.0099 ± 0.0088 | 1.3284 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.8822 ± 0.0158 | 0.0737 ± 0.0148 | 4.3611 ± 0.2648 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 0.4779 ± 0.0458 | 4.4212 ± 0.3105 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9039 ± 0.0024 | 9.613e-04 ± 1.732e-04 | 4.4097 ± 0.3288 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9511 ± 0.0024 | 0.0410 ± 0.0374 | 4.3797 ± 0.3178 † | 1.0092 ± 0.0624 | 0.0166 ± 0.0170 | 1.3284 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9000 ± 0.0068 | 0.5463 ± 0.0568 | 4.4109 ± 0.2758 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0001 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9119 ± 0.0046 | 0.0034 ± 0.0005 | 4.4107 ± 0.3295 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9033 ± 0.0060 | 0.4722 ± 0.0384 | 4.4144 ± 0.3078 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9022 ± 0.0027 | 0.0090 ± 0.0123 | 4.4125 ± 0.3289 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9197 ± 0.0113 | 5.037e-08 ± 4.297e-08 | 4.4089 ± 0.3289 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3284 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.9000 ± 0.0147 | 0.0280 ± 0.0146 | 4.4205 ± 0.3285 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 0.4779 ± 0.0458 | 4.4212 ± 0.3105 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8994 ± 0.0093 | 1.3840 ± 0.7235 | 4.2404 ± 0.1165 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.3114 ± 0.5155 | 2.0409 ± 1.0322 | 4.5677 ± 0.4843 † | 1.0725 ± 0.1550 | 0.0000 ± 0.0000 | 1.3284 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.8894 ± 0.0081 | 0.9643 ± 0.5319 | 4.2698 ± 0.2687 † | 1.0092 ± 0.0625 | 0.0056 ± 0.0098 | 4.3888 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9125 ± 0.0104 | 2.0017 ± 0.2753 | 4.4075 ± 0.2248 † | 1.0085 ± 0.0624 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8983 ± 0.0129 | 2.3475 ± 0.0699 | 4.4221 ± 0.2143 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.6317 ± 0.5470 | 2.3468 ± 0.0700 | 4.4215 ± 0.2143 | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3284 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9169 ± 0.0029 | 2.4707 ± 0.0518 | 4.6536 ± 0.2974 † | 1.0038 ± 0.0601 | 0.0000 ± 0.0000 | 11.0001 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9058 ± 0.0050 | 2.3488 ± 0.0698 | 4.4246 ± 0.2148 | 1.0092 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9156 ± 0.0042 | 2.4148 ± 0.0712 | 4.4974 ± 0.2678 † | 1.0078 ± 0.0622 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.9167 ± 0.0038 | 0.0015 ± 0.0000 | 4.4101 ± 0.3288 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.9475 ± 0.0033 | 8.821e-09 ± 4.277e-09 | 4.4089 ± 0.3289 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3284 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.9158 ± 0.0025 | 0.7522 ± 0.1207 | 4.6387 ± 0.3782 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0001 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.9050 ± 0.0071 | 0.0047 ± 0.0006 | 4.4120 ± 0.3293 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.9150 ± 0.0029 | 0.5733 ± 0.0990 | 4.4858 ± 0.3568 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8942 ± 0.0131 | 1.8307 ± 0.4025 | 4.0112 ± 0.0432 | 1.0093 ± 0.0624 | 0.0215 ± 0.0241 | 3.5287 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9506 ± 0.0027 | 2.1447 ± 0.9143 | 4.4301 ± 0.3691 † | 1.0092 ± 0.0624 | 0.0056 ± 0.0098 | 1.3284 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8961 ± 0.0025 | 0.9575 ± 0.3197 | 4.2569 ± 0.2856 † | 1.0091 ± 0.0625 | 0.0268 ± 0.0329 | 4.3888 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9025 ± 0.0044 | 0.7597 ± 0.1483 | 4.5637 ± 0.3648 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.8986 ± 0.0034 | 0.0084 ± 0.0122 | 4.4172 ± 0.3395 † | 1.0093 ± 0.0624 | 0.0000 ± 0.0000 | 3.5287 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9475 ± 0.0033 | 0.0071 ± 0.0123 | 4.4160 ± 0.3397 † | 1.0092 ± 0.0624 | 0.0000 ± 0.0000 | 1.3284 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9003 ± 0.0035 | 0.6924 ± 0.0944 | 4.6400 ± 0.3840 † | **0.9825 ± 0.0596** | 0.0000 ± 0.0000 | 11.0001 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.8997 ± 0.0159 | 0.0117 ± 0.0127 | 4.4191 ± 0.3400 † | 1.0091 ± 0.0625 | 0.0000 ± 0.0000 | 4.3888 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9022 ± 0.0067 | 0.5644 ± 0.0989 | 4.4908 ± 0.3651 † | 0.9839 ± 0.0598 | 0.0000 ± 0.0000 | 14.1079 |
 
 ##### fm_uq_scenarios / openml_year
 
@@ -2161,330 +2071,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.9114 ± 0.0094 | 0.9129 ± 0.0141 | **1.1862 ± 0.0908** † | 0.3297 ± 0.0288 | 0.8580 ± 0.0298 | 2.7079 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.8694 ± 0.0125 | 1.5208 ± 0.0315 | 2.0358 ± 0.1157 † | 0.4265 ± 0.0256 | 0.6463 ± 0.0319 | 2.1524 |
-| `Raw+TabICL [clean]` | tabicl | 0.9033 ± 0.0159 | 1.0039 ± 0.0038 | 1.3610 ± 0.1067 † | 0.3618 ± 0.0273 | 0.8412 ± 0.0412 | 2.1491 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.9125 ± 0.0166 | 1.3777 ± 0.0169 | 1.8246 ± 0.1318 † | 0.4387 ± 0.0330 | 0.7965 ± 0.0702 | 32.1940 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9128 ± 0.0210 | 0.9208 ± 0.0384 | 1.1898 ± 0.0903 † | 0.3297 ± 0.0288 | 0.8608 ± 0.0485 | 2.7079 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.9047 ± 0.0049 | 1.6187 ± 0.0413 | 2.0239 ± 0.1094 † | 0.4265 ± 0.0256 | 0.7355 ± 0.0125 | 2.1524 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.9042 ± 0.0164 | 1.0119 ± 0.0188 | 1.3616 ± 0.1054 † | 0.3618 ± 0.0273 | 0.8410 ± 0.0427 | 2.1491 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8969 ± 0.0195 | 1.3120 ± 0.0567 | 1.8226 ± 0.1400 † | 0.4387 ± 0.0330 | 0.7631 ± 0.0684 | 32.1940 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9131 ± 0.0188 | 0.9236 ± 0.0542 | 1.1904 ± 0.0916 † | 0.3297 ± 0.0288 | 0.8672 ± 0.0486 | 2.7079 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.9044 ± 0.0046 | 1.8968 ± 0.1206 | 2.2244 ± 0.1458 † | 0.4265 ± 0.0256 | 0.6782 ± 0.0041 | 2.1524 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.9069 ± 0.0168 | 1.0179 ± 0.0262 | 1.3621 ± 0.1036 † | 0.3618 ± 0.0273 | 0.8467 ± 0.0473 | 2.1491 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8972 ± 0.0192 | 1.3001 ± 0.0654 | 1.8221 ± 0.1404 † | 0.4387 ± 0.0330 | 0.7714 ± 0.0672 | 32.1940 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8992 ± 0.0169 | 0.9727 ± 0.0512 | 1.5671 ± 0.1302 † | 0.3297 ± 0.0288 | 0.8426 ± 0.0233 | 2.7079 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8981 ± 0.0080 | 1.3309 ± 0.0270 | 1.9758 ± 0.1222 † | 0.4265 ± 0.0256 | 0.7750 ± 0.0232 | 2.1524 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.9047 ± 0.0240 | 0.9979 ± 0.0459 | 1.5577 ± 0.1523 † | **0.3291 ± 0.0346** | 0.8262 ± 0.0299 | 9.0642 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8989 ± 0.0178 | 1.0728 ± 0.0668 | 1.7316 ± 0.1356 † | 0.3618 ± 0.0273 | 0.8313 ± 0.0372 | 2.1491 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.9069 ± 0.0140 | 1.4062 ± 0.0099 | 2.0335 ± 0.1740 † | 0.4387 ± 0.0330 | 0.7858 ± 0.0130 | 32.1940 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9050 ± 0.0267 | 0.9173 ± 0.0728 | 1.2723 ± 0.1033 † | 0.3297 ± 0.0288 | 0.8509 ± 0.0372 | 2.7079 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.9017 ± 0.0036 | 1.2979 ± 0.0304 | 1.8860 ± 0.1214 † | 0.4265 ± 0.0256 | 0.7890 ± 0.0189 | 2.1524 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.9017 ± 0.0123 | 0.9937 ± 0.0432 | 1.4517 ± 0.1314 † | 0.3618 ± 0.0273 | 0.8124 ± 0.0206 | 2.1491 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8972 ± 0.0192 | 1.3001 ± 0.0654 | 1.8221 ± 0.1404 † | 0.4387 ± 0.0330 | 0.7714 ± 0.0672 | 32.1940 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9119 ± 0.0191 | 0.9149 ± 0.0586 | 1.1907 ± 0.0886 † | 0.3310 ± 0.0279 | 0.8595 ± 0.0386 | 2.7079 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.9044 ± 0.0075 | 1.8060 ± 0.0467 | 2.1809 ± 0.0954 | 0.4267 ± 0.0252 | 0.6717 ± 0.0572 | 2.1524 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.9042 ± 0.0172 | 1.0137 ± 0.0248 | 1.3607 ± 0.1080 † | 0.3622 ± 0.0270 | 0.8417 ± 0.0548 | 2.1491 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.9025 ± 0.0176 | 1.3284 ± 0.0443 | 1.8016 ± 0.1275 † | 0.4414 ± 0.0316 | 0.8089 ± 0.0661 | 32.1940 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8972 ± 0.0217 | 0.9869 ± 0.0523 | 1.5704 ± 0.1591 † | 0.3298 ± 0.0287 | 0.8120 ± 0.0374 | 2.7079 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.9003 ± 0.0013 | 1.3158 ± 0.0319 | 1.9587 ± 0.1434 † | 0.4271 ± 0.0255 | 0.7889 ± 0.0189 | 2.1524 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9042 ± 0.0175 | 0.9943 ± 0.0446 | 1.5532 ± 0.1736 † | 0.3294 ± 0.0344 | 0.8284 ± 0.0314 | 9.0642 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8986 ± 0.0158 | 1.0677 ± 0.0346 | 1.7219 ± 0.1524 † | 0.3619 ± 0.0273 | 0.8121 ± 0.0533 | 2.1491 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.9106 ± 0.0079 | 1.4056 ± 0.0210 | 2.0155 ± 0.1731 † | 0.4403 ± 0.0324 | 0.7919 ± 0.0298 | 32.1940 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.8944 ± 0.0193 | 0.9795 ± 0.0470 | 1.5844 ± 0.1524 † | 0.3297 ± 0.0288 | 0.7899 ± 0.0362 | 2.7079 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.8994 ± 0.0090 | 1.3379 ± 0.0394 | 1.9840 ± 0.1300 † | 0.4265 ± 0.0256 | 0.7469 ± 0.0169 | 2.1524 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.8992 ± 0.0154 | 0.9826 ± 0.0462 | 1.5578 ± 0.1711 † | **0.3291 ± 0.0346** | 0.8064 ± 0.0109 | 9.0642 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.8903 ± 0.0133 | 1.0571 ± 0.0452 | 1.7410 ± 0.1461 † | 0.3618 ± 0.0273 | 0.7994 ± 0.0450 | 2.1491 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.9083 ± 0.0106 | 1.4087 ± 0.0222 | 2.0332 ± 0.1674 † | 0.4387 ± 0.0330 | 0.7516 ± 0.0375 | 32.1940 |
+| `Raw+KumoTabular [clean]` | sdm | 0.9114 ± 0.0094 | 0.9129 ± 0.0141 | **1.1862 ± 0.0908** † | 0.3297 ± 0.0288 | 0.8580 ± 0.0298 | 2.6901 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.8694 ± 0.0125 | 1.5208 ± 0.0315 | 2.0358 ± 0.1157 † | 0.4265 ± 0.0256 | 0.6463 ± 0.0319 | 2.1391 |
+| `Raw+TabICL [clean]` | tabicl | 0.9033 ± 0.0159 | 1.0039 ± 0.0038 | 1.3610 ± 0.1067 † | 0.3618 ± 0.0273 | 0.8412 ± 0.0412 | 2.2040 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.9125 ± 0.0166 | 1.3777 ± 0.0169 | 1.8246 ± 0.1318 † | 0.4387 ± 0.0330 | 0.7965 ± 0.0702 | 33.0266 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.9128 ± 0.0210 | 0.9208 ± 0.0384 | 1.1898 ± 0.0903 † | 0.3297 ± 0.0288 | 0.8608 ± 0.0485 | 2.6901 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.9047 ± 0.0049 | 1.6187 ± 0.0413 | 2.0239 ± 0.1094 † | 0.4265 ± 0.0256 | 0.7355 ± 0.0125 | 2.1391 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.9042 ± 0.0164 | 1.0119 ± 0.0188 | 1.3616 ± 0.1054 † | 0.3618 ± 0.0273 | 0.8410 ± 0.0427 | 2.2040 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8969 ± 0.0195 | 1.3120 ± 0.0567 | 1.8226 ± 0.1400 † | 0.4387 ± 0.0330 | 0.7631 ± 0.0684 | 33.0266 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.9131 ± 0.0188 | 0.9236 ± 0.0542 | 1.1904 ± 0.0916 † | 0.3297 ± 0.0288 | 0.8672 ± 0.0486 | 2.6901 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.9044 ± 0.0046 | 1.8968 ± 0.1206 | 2.2244 ± 0.1458 † | 0.4265 ± 0.0256 | 0.6782 ± 0.0041 | 2.1391 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.9069 ± 0.0168 | 1.0179 ± 0.0262 | 1.3621 ± 0.1036 † | 0.3618 ± 0.0273 | 0.8467 ± 0.0473 | 2.2040 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8972 ± 0.0192 | 1.3001 ± 0.0654 | 1.8221 ± 0.1404 † | 0.4387 ± 0.0330 | 0.7714 ± 0.0672 | 33.0266 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8992 ± 0.0169 | 0.9727 ± 0.0512 | 1.5671 ± 0.1302 † | 0.3297 ± 0.0288 | 0.8426 ± 0.0233 | 2.6901 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8981 ± 0.0080 | 1.3309 ± 0.0270 | 1.9758 ± 0.1222 † | 0.4265 ± 0.0256 | 0.7750 ± 0.0232 | 2.1391 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.9047 ± 0.0240 | 0.9979 ± 0.0459 | 1.5577 ± 0.1523 † | **0.3291 ± 0.0346** | 0.8262 ± 0.0299 | 9.1660 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8989 ± 0.0178 | 1.0728 ± 0.0668 | 1.7316 ± 0.1356 † | 0.3618 ± 0.0273 | 0.8313 ± 0.0372 | 2.2040 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.9069 ± 0.0140 | 1.4062 ± 0.0099 | 2.0335 ± 0.1740 † | 0.4387 ± 0.0330 | 0.7858 ± 0.0130 | 33.0266 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.9050 ± 0.0267 | 0.9173 ± 0.0728 | 1.2723 ± 0.1033 † | 0.3297 ± 0.0288 | 0.8509 ± 0.0372 | 2.6901 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.9017 ± 0.0036 | 1.2979 ± 0.0304 | 1.8860 ± 0.1214 † | 0.4265 ± 0.0256 | 0.7890 ± 0.0189 | 2.1391 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.9017 ± 0.0123 | 0.9937 ± 0.0432 | 1.4517 ± 0.1314 † | 0.3618 ± 0.0273 | 0.8124 ± 0.0206 | 2.2040 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8972 ± 0.0192 | 1.3001 ± 0.0654 | 1.8221 ± 0.1404 † | 0.4387 ± 0.0330 | 0.7714 ± 0.0672 | 33.0266 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.9119 ± 0.0191 | 0.9149 ± 0.0586 | 1.1907 ± 0.0886 † | 0.3310 ± 0.0279 | 0.8595 ± 0.0386 | 2.6901 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.9044 ± 0.0075 | 1.8060 ± 0.0467 | 2.1809 ± 0.0954 | 0.4267 ± 0.0252 | 0.6717 ± 0.0572 | 2.1391 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.9042 ± 0.0172 | 1.0137 ± 0.0248 | 1.3607 ± 0.1080 † | 0.3622 ± 0.0270 | 0.8417 ± 0.0548 | 2.2040 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.9025 ± 0.0176 | 1.3284 ± 0.0443 | 1.8016 ± 0.1275 † | 0.4414 ± 0.0316 | 0.8089 ± 0.0661 | 33.0266 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8972 ± 0.0217 | 0.9869 ± 0.0523 | 1.5704 ± 0.1591 † | 0.3298 ± 0.0287 | 0.8120 ± 0.0374 | 2.6901 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.9003 ± 0.0013 | 1.3158 ± 0.0319 | 1.9587 ± 0.1434 † | 0.4271 ± 0.0255 | 0.7889 ± 0.0189 | 2.1391 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.9042 ± 0.0175 | 0.9943 ± 0.0446 | 1.5532 ± 0.1736 † | 0.3294 ± 0.0344 | 0.8284 ± 0.0314 | 9.1660 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8986 ± 0.0158 | 1.0677 ± 0.0346 | 1.7219 ± 0.1524 † | 0.3619 ± 0.0273 | 0.8121 ± 0.0533 | 2.2040 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.9106 ± 0.0079 | 1.4056 ± 0.0210 | 2.0155 ± 0.1731 † | 0.4403 ± 0.0324 | 0.7919 ± 0.0298 | 33.0266 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.8944 ± 0.0193 | 0.9795 ± 0.0470 | 1.5844 ± 0.1524 † | 0.3297 ± 0.0288 | 0.7899 ± 0.0362 | 2.6901 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.8994 ± 0.0090 | 1.3379 ± 0.0394 | 1.9840 ± 0.1300 † | 0.4265 ± 0.0256 | 0.7469 ± 0.0169 | 2.1391 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.8992 ± 0.0154 | 0.9826 ± 0.0462 | 1.5578 ± 0.1711 † | **0.3291 ± 0.0346** | 0.8064 ± 0.0109 | 9.1660 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.8903 ± 0.0133 | 1.0571 ± 0.0452 | 1.7410 ± 0.1461 † | 0.3618 ± 0.0273 | 0.7994 ± 0.0450 | 2.2040 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.9083 ± 0.0106 | 1.4087 ± 0.0222 | 2.0332 ± 0.1674 † | 0.4387 ± 0.0330 | 0.7516 ± 0.0375 | 33.0266 |
 
 ##### fm_uq_scenarios / openml_year@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9369 ± 0.0121 | 1.6982 ± 0.0885 | **1.8862 ± 0.1474** † | 0.4622 ± 0.0358 | 0.8653 ± 0.0521 | 2.2333 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7458 ± 0.0697 | 1.6109 ± 0.1353 | 2.8495 ± 0.5782 † | 0.5481 ± 0.0814 | 0.3375 ± 0.1644 | 1.9986 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9450 ± 0.0197 | 2.0225 ± 0.0323 | 2.2016 ± 0.1260 † | 0.5078 ± 0.0862 | 0.8571 ± 0.0550 | 1.9726 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.8544 ± 0.0778 | 1.7553 ± 0.0868 | 2.6662 ± 0.7955 † | 0.6258 ± 0.1908 | 0.6936 ± 0.2248 | 33.2413 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9414 ± 0.0156 | 1.7157 ± 0.1015 | 1.8958 ± 0.1458 † | 0.4622 ± 0.0358 | 0.8747 ± 0.0461 | 2.2333 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8139 ± 0.0689 | 1.7565 ± 0.0902 | 2.6819 ± 0.5067 † | 0.5481 ± 0.0814 | 0.4344 ± 0.1938 | 1.9986 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9439 ± 0.0222 | 2.0247 ± 0.0199 | 2.2038 ± 0.1225 † | 0.5078 ± 0.0862 | 0.8532 ± 0.0619 | 1.9726 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8456 ± 0.0643 | 1.7184 ± 0.1418 | 2.6556 ± 0.7716 † | 0.6258 ± 0.1908 | 0.6847 ± 0.2092 | 33.2413 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9403 ± 0.0178 | 1.7381 ± 0.1479 | 1.9165 ± 0.1568 † | 0.4622 ± 0.0358 | 0.8677 ± 0.0443 | 2.2333 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8186 ± 0.0697 | 2.0675 ± 0.1667 | 2.8913 ± 0.4765 † | 0.5481 ± 0.0814 | 0.4095 ± 0.1792 | 1.9986 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9472 ± 0.0215 | 2.0344 ± 0.0541 | 2.2107 ± 0.1213 † | 0.5078 ± 0.0862 | 0.8617 ± 0.0595 | 1.9726 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8464 ± 0.0621 | 1.7060 ± 0.1696 | 2.6344 ± 0.7624 † | 0.6258 ± 0.1908 | 0.6878 ± 0.2018 | 33.2413 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.7692 ± 0.0529 | 1.0085 ± 0.0477 | 2.4335 ± 0.3272 † | 0.4622 ± 0.0358 | 0.5346 ± 0.1056 | 2.2333 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.8022 ± 0.0658 | 1.3685 ± 0.0787 | 2.6771 ± 0.5951 † | 0.5481 ± 0.0814 | 0.4881 ± 0.1557 | 1.9986 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.7550 ± 0.0972 | 1.0027 ± 0.0892 | 2.6496 ± 0.7801 † | 0.4869 ± 0.0708 | 0.4135 ± 0.1141 | 9.1394 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.7533 ± 0.0883 | 1.0708 ± 0.0850 | 2.7820 ± 0.9531 † | 0.5078 ± 0.0862 | 0.3674 ± 0.0368 | 1.9726 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.7803 ± 0.1016 | 1.4001 ± 0.0945 | 3.3780 ± 1.6892 † | 0.6258 ± 0.1908 | 0.4033 ± 0.1637 | 33.2413 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9356 ± 0.0158 | 1.7462 ± 0.1100 | 2.0232 ± 0.0550 | 0.4622 ± 0.0358 | 0.8667 ± 0.0518 | 2.2333 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8358 ± 0.0327 | 1.4510 ± 0.1431 | 2.4287 ± 0.3947 † | 0.5481 ± 0.0814 | 0.6870 ± 0.1482 | 1.9986 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9572 ± 0.0106 | 2.0386 ± 0.0473 | 2.2493 ± 0.0293 | 0.5078 ± 0.0862 | 0.9181 ± 0.0134 | 1.9726 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8464 ± 0.0621 | 1.7060 ± 0.1696 | 2.6344 ± 0.7624 † | 0.6258 ± 0.1908 | 0.6878 ± 0.2018 | 33.2413 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9397 ± 0.0206 | 1.7409 ± 0.1455 | 1.9227 ± 0.1469 † | **0.4601 ± 0.0323** | 0.8700 ± 0.0457 | 2.2333 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8281 ± 0.0484 | 2.0091 ± 0.0962 | 2.7040 ± 0.2833 † | 0.5497 ± 0.0826 | 0.4954 ± 0.1643 | 1.9986 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9447 ± 0.0260 | 2.0418 ± 0.0563 | 2.2205 ± 0.1351 † | 0.5060 ± 0.0847 | 0.8597 ± 0.0813 | 1.9726 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8408 ± 0.0754 | 1.7183 ± 0.1538 | 2.7528 ± 0.9756 † | 0.6237 ± 0.1899 | 0.6653 ± 0.2327 | 33.2413 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.7625 ± 0.0479 | 0.9842 ± 0.0325 | 2.4514 ± 0.3438 † | 0.4622 ± 0.0356 | 0.6298 ± 0.1080 | 2.2333 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.7942 ± 0.0884 | 1.3094 ± 0.0323 | 2.7532 ± 0.8358 † | 0.5481 ± 0.0812 | 0.5610 ± 0.1882 | 1.9986 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.7478 ± 0.0830 | 0.9733 ± 0.0421 | 2.6367 ± 0.7003 † | 0.4835 ± 0.0695 | 0.4907 ± 0.1202 | 9.1394 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.7403 ± 0.0881 | 1.0417 ± 0.0588 | 2.8502 ± 0.9561 † | 0.5076 ± 0.0862 | 0.5102 ± 0.1413 | 1.9726 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.7833 ± 0.0966 | 1.3688 ± 0.0482 | 3.4527 ± 1.8525 † | 0.6268 ± 0.1888 | 0.5203 ± 0.2046 | 33.2413 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.7694 ± 0.0554 | 0.9725 ± 0.0245 | 2.4317 ± 0.3723 † | 0.4622 ± 0.0358 | 0.6457 ± 0.1128 | 2.2333 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8022 ± 0.0722 | 1.3209 ± 0.0473 | 2.6700 ± 0.6618 † | 0.5481 ± 0.0814 | 0.6067 ± 0.1421 | 1.9986 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.7500 ± 0.0893 | 0.9596 ± 0.0342 | 2.6438 ± 0.7860 † | 0.4869 ± 0.0708 | 0.5214 ± 0.1659 | 9.1394 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.7528 ± 0.1007 | 1.0427 ± 0.0663 | 2.7674 ± 0.9780 † | 0.5078 ± 0.0862 | 0.5537 ± 0.1705 | 1.9726 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.7922 ± 0.0972 | 1.3885 ± 0.0304 | 3.3381 ± 1.7132 † | 0.6258 ± 0.1908 | 0.5411 ± 0.1858 | 33.2413 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9369 ± 0.0121 | 1.6982 ± 0.0885 | **1.8862 ± 0.1474** † | 0.4622 ± 0.0358 | 0.8653 ± 0.0521 | 2.2973 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.7458 ± 0.0697 | 1.6109 ± 0.1353 | 2.8495 ± 0.5782 † | 0.5481 ± 0.0814 | 0.3375 ± 0.1644 | 1.9996 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9450 ± 0.0197 | 2.0225 ± 0.0323 | 2.2016 ± 0.1260 † | 0.5078 ± 0.0862 | 0.8571 ± 0.0550 | 2.0087 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.8544 ± 0.0778 | 1.7553 ± 0.0868 | 2.6662 ± 0.7955 † | 0.6258 ± 0.1908 | 0.6936 ± 0.2248 | 33.7364 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9414 ± 0.0156 | 1.7157 ± 0.1015 | 1.8958 ± 0.1458 † | 0.4622 ± 0.0358 | 0.8747 ± 0.0461 | 2.2973 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.8139 ± 0.0689 | 1.7565 ± 0.0902 | 2.6819 ± 0.5067 † | 0.5481 ± 0.0814 | 0.4344 ± 0.1938 | 1.9996 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9439 ± 0.0222 | 2.0247 ± 0.0199 | 2.2038 ± 0.1225 † | 0.5078 ± 0.0862 | 0.8532 ± 0.0619 | 2.0087 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.8456 ± 0.0643 | 1.7184 ± 0.1418 | 2.6556 ± 0.7716 † | 0.6258 ± 0.1908 | 0.6847 ± 0.2092 | 33.7364 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9403 ± 0.0178 | 1.7381 ± 0.1479 | 1.9165 ± 0.1568 † | 0.4622 ± 0.0358 | 0.8677 ± 0.0443 | 2.2973 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.8186 ± 0.0697 | 2.0675 ± 0.1667 | 2.8913 ± 0.4765 † | 0.5481 ± 0.0814 | 0.4095 ± 0.1792 | 1.9996 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9472 ± 0.0215 | 2.0344 ± 0.0541 | 2.2107 ± 0.1213 † | 0.5078 ± 0.0862 | 0.8617 ± 0.0595 | 2.0087 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.8464 ± 0.0621 | 1.7060 ± 0.1696 | 2.6344 ± 0.7624 † | 0.6258 ± 0.1908 | 0.6878 ± 0.2018 | 33.7364 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.7692 ± 0.0529 | 1.0085 ± 0.0477 | 2.4335 ± 0.3272 † | 0.4622 ± 0.0358 | 0.5346 ± 0.1056 | 2.2973 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.8022 ± 0.0658 | 1.3685 ± 0.0787 | 2.6771 ± 0.5951 † | 0.5481 ± 0.0814 | 0.4881 ± 0.1557 | 1.9996 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.7550 ± 0.0972 | 1.0027 ± 0.0892 | 2.6496 ± 0.7801 † | 0.4869 ± 0.0708 | 0.4135 ± 0.1141 | 9.1526 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.7533 ± 0.0883 | 1.0708 ± 0.0850 | 2.7820 ± 0.9531 † | 0.5078 ± 0.0862 | 0.3674 ± 0.0368 | 2.0087 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.7803 ± 0.1016 | 1.4001 ± 0.0945 | 3.3780 ± 1.6892 † | 0.6258 ± 0.1908 | 0.4033 ± 0.1637 | 33.7364 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9356 ± 0.0158 | 1.7462 ± 0.1100 | 2.0232 ± 0.0550 | 0.4622 ± 0.0358 | 0.8667 ± 0.0518 | 2.2973 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.8358 ± 0.0327 | 1.4510 ± 0.1431 | 2.4287 ± 0.3947 † | 0.5481 ± 0.0814 | 0.6870 ± 0.1482 | 1.9996 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9572 ± 0.0106 | 2.0386 ± 0.0473 | 2.2493 ± 0.0293 | 0.5078 ± 0.0862 | 0.9181 ± 0.0134 | 2.0087 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.8464 ± 0.0621 | 1.7060 ± 0.1696 | 2.6344 ± 0.7624 † | 0.6258 ± 0.1908 | 0.6878 ± 0.2018 | 33.7364 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9397 ± 0.0206 | 1.7409 ± 0.1455 | 1.9227 ± 0.1469 † | **0.4601 ± 0.0323** | 0.8700 ± 0.0457 | 2.2973 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.8281 ± 0.0484 | 2.0091 ± 0.0962 | 2.7040 ± 0.2833 † | 0.5497 ± 0.0826 | 0.4954 ± 0.1643 | 1.9996 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9447 ± 0.0260 | 2.0418 ± 0.0563 | 2.2205 ± 0.1351 † | 0.5060 ± 0.0847 | 0.8597 ± 0.0813 | 2.0087 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.8408 ± 0.0754 | 1.7183 ± 0.1538 | 2.7528 ± 0.9756 † | 0.6237 ± 0.1899 | 0.6653 ± 0.2327 | 33.7364 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.7625 ± 0.0479 | 0.9842 ± 0.0325 | 2.4514 ± 0.3438 † | 0.4622 ± 0.0356 | 0.6298 ± 0.1080 | 2.2973 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.7942 ± 0.0884 | 1.3094 ± 0.0323 | 2.7532 ± 0.8358 † | 0.5481 ± 0.0812 | 0.5610 ± 0.1882 | 1.9996 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.7478 ± 0.0830 | 0.9733 ± 0.0421 | 2.6367 ± 0.7003 † | 0.4835 ± 0.0695 | 0.4907 ± 0.1202 | 9.1526 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.7403 ± 0.0881 | 1.0417 ± 0.0588 | 2.8502 ± 0.9561 † | 0.5076 ± 0.0862 | 0.5102 ± 0.1413 | 2.0087 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.7833 ± 0.0966 | 1.3688 ± 0.0482 | 3.4527 ± 1.8525 † | 0.6268 ± 0.1888 | 0.5203 ± 0.2046 | 33.7364 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.7694 ± 0.0554 | 0.9725 ± 0.0245 | 2.4317 ± 0.3723 † | 0.4622 ± 0.0358 | 0.6457 ± 0.1128 | 2.2973 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.8022 ± 0.0722 | 1.3209 ± 0.0473 | 2.6700 ± 0.6618 † | 0.5481 ± 0.0814 | 0.6067 ± 0.1421 | 1.9996 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.7500 ± 0.0893 | 0.9596 ± 0.0342 | 2.6438 ± 0.7860 † | 0.4869 ± 0.0708 | 0.5214 ± 0.1659 | 9.1526 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.7528 ± 0.1007 | 1.0427 ± 0.0663 | 2.7674 ± 0.9780 † | 0.5078 ± 0.0862 | 0.5537 ± 0.1705 | 2.0087 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.7922 ± 0.0972 | 1.3885 ± 0.0304 | 3.3381 ± 1.7132 † | 0.6258 ± 0.1908 | 0.5411 ± 0.1858 | 33.7364 |
 
 ##### fm_uq_scenarios / openml_year@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9119 ± 0.0067 | 0.9243 ± 0.0151 | **1.2034 ± 0.1415** † | 0.4081 ± 0.0418 | 0.8625 ± 0.0226 | 2.2104 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8611 ± 0.0039 | 1.4121 ± 0.0301 | 2.1706 ± 0.1839 † | 0.5154 ± 0.0301 | 0.4680 ± 0.0164 | 1.9519 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.9011 ± 0.0124 | 1.0257 ± 0.0108 | 1.4189 ± 0.1814 † | 0.4399 ± 0.0354 | 0.8196 ± 0.0421 | 1.9801 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9319 ± 0.0180 | 1.5313 ± 0.0219 | 2.0901 ± 0.1964 † | 0.5195 ± 0.0532 | 0.7554 ± 0.0614 | 28.6843 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9092 ± 0.0159 | 0.9220 ± 0.0339 | 1.2043 ± 0.1421 † | 0.4081 ± 0.0418 | 0.8620 ± 0.0311 | 2.2104 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9072 ± 0.0098 | 1.4897 ± 0.0300 | 2.1682 ± 0.1783 † | 0.5154 ± 0.0301 | 0.6874 ± 0.0253 | 1.9519 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0159 | 1.0289 ± 0.0244 | 1.4197 ± 0.1806 † | 0.4399 ± 0.0354 | 0.8136 ± 0.0409 | 1.9801 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9022 ± 0.0087 | 1.3965 ± 0.0413 | 2.0649 ± 0.2173 † | 0.5195 ± 0.0532 | 0.7416 ± 0.0570 | 28.6843 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.9100 ± 0.0173 | 0.9183 ± 0.0577 | 1.2041 ± 0.1456 † | 0.4081 ± 0.0418 | 0.8679 ± 0.0317 | 2.2104 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9061 ± 0.0010 | 3.2179 ± 0.5013 | 3.5058 ± 0.4952 † | 0.5154 ± 0.0301 | 0.5870 ± 0.0329 | 1.9519 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0151 | 1.0357 ± 0.0481 | 1.4204 ± 0.1787 † | 0.4399 ± 0.0354 | 0.8165 ± 0.0416 | 1.9801 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9031 ± 0.0071 | 1.3404 ± 0.0628 | 2.0528 ± 0.2210 † | 0.5195 ± 0.0532 | 0.7166 ± 0.0457 | 28.6843 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9047 ± 0.0099 | 1.0389 ± 0.0602 | 1.7838 ± 0.2016 † | 0.4081 ± 0.0418 | 0.8001 ± 0.0277 | 2.2104 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8961 ± 0.0038 | 1.3326 ± 0.0607 | 2.1930 ± 0.2129 † | 0.5154 ± 0.0301 | 0.6875 ± 0.0133 | 1.9519 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9069 ± 0.0061 | 1.0286 ± 0.0741 | 1.6839 ± 0.1900 † | **0.3961 ± 0.0483** | 0.8127 ± 0.0136 | 9.1768 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.9050 ± 0.0104 | 1.1207 ± 0.0110 | 1.9257 ± 0.1811 † | 0.4399 ± 0.0354 | 0.7651 ± 0.0351 | 1.9801 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9111 ± 0.0126 | 1.3787 ± 0.0473 | 2.1765 ± 0.2768 † | 0.5195 ± 0.0532 | 0.7136 ± 0.0393 | 28.6843 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.9094 ± 0.0059 | 0.9457 ± 0.0389 | 1.4302 ± 0.1624 † | 0.4081 ± 0.0418 | 0.7485 ± 0.0286 | 2.2104 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8992 ± 0.0126 | 1.1912 ± 0.0722 | 2.2033 ± 0.1480 † | 0.5154 ± 0.0301 | 0.5640 ± 0.0340 | 1.9519 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9067 ± 0.0008 | 1.0491 ± 0.0145 | 1.6329 ± 0.1716 † | 0.4399 ± 0.0354 | 0.7361 ± 0.0248 | 1.9801 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9031 ± 0.0071 | 1.3404 ± 0.0628 | 2.0528 ± 0.2210 † | 0.5195 ± 0.0532 | 0.7166 ± 0.0457 | 28.6843 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9078 ± 0.0178 | 0.9140 ± 0.0674 | 1.2047 ± 0.1461 † | 0.4094 ± 0.0417 | 0.8628 ± 0.0421 | 2.2104 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9053 ± 0.0038 | 2.0453 ± 0.1614 | 2.5324 ± 0.1368 † | 0.5160 ± 0.0297 | 0.5207 ± 0.0398 | 1.9519 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0140 | 1.0271 ± 0.0351 | 1.4232 ± 0.1843 † | 0.4403 ± 0.0353 | 0.8092 ± 0.0602 | 1.9801 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9022 ± 0.0099 | 1.3446 ± 0.0484 | 2.0446 ± 0.2119 † | 0.5254 ± 0.0461 | 0.7220 ± 0.0445 | 28.6843 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9083 ± 0.0066 | 1.0456 ± 0.0385 | 2.0721 ± 0.2017 † | 0.4082 ± 0.0418 | 0.6083 ± 0.0160 | 2.2104 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9033 ± 0.0038 | 1.4714 ± 0.1020 | 2.6332 ± 0.1429 † | 0.5157 ± 0.0300 | 0.5067 ± 0.0324 | 1.9519 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9086 ± 0.0079 | 1.1178 ± 0.0441 | 2.0143 ± 0.2231 † | 0.3964 ± 0.0484 | 0.6152 ± 0.0252 | 9.1768 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.9094 ± 0.0076 | 1.1780 ± 0.0480 | 2.2528 ± 0.1753 † | 0.4400 ± 0.0354 | 0.6032 ± 0.0172 | 1.9801 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9064 ± 0.0100 | 1.5355 ± 0.0617 | 2.5871 ± 0.2818 † | 0.5204 ± 0.0532 | 0.5334 ± 0.0202 | 28.6843 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9092 ± 0.0071 | 1.0264 ± 0.0475 | 2.0788 ± 0.2089 † | 0.4081 ± 0.0418 | 0.6025 ± 0.0255 | 2.2104 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8989 ± 0.0029 | 1.3725 ± 0.1153 | 2.6710 ± 0.1475 † | 0.5154 ± 0.0301 | 0.4666 ± 0.0202 | 1.9519 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9086 ± 0.0084 | 1.1145 ± 0.0740 | 2.0106 ± 0.2259 † | **0.3961 ± 0.0483** | 0.6092 ± 0.0120 | 9.1768 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.9061 ± 0.0069 | 1.1494 ± 0.0540 | 2.2594 ± 0.1772 † | 0.4399 ± 0.0354 | 0.5787 ± 0.0315 | 1.9801 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9058 ± 0.0083 | 1.5147 ± 0.0660 | 2.5897 ± 0.2894 † | 0.5195 ± 0.0532 | 0.5280 ± 0.0184 | 28.6843 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9119 ± 0.0067 | 0.9243 ± 0.0151 | **1.2034 ± 0.1415** † | 0.4081 ± 0.0418 | 0.8625 ± 0.0226 | 2.3142 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8611 ± 0.0039 | 1.4121 ± 0.0301 | 2.1706 ± 0.1839 † | 0.5154 ± 0.0301 | 0.4680 ± 0.0164 | 1.9517 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.9011 ± 0.0124 | 1.0257 ± 0.0108 | 1.4189 ± 0.1814 † | 0.4399 ± 0.0354 | 0.8196 ± 0.0421 | 2.0099 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9319 ± 0.0180 | 1.5313 ± 0.0219 | 2.0901 ± 0.1964 † | 0.5195 ± 0.0532 | 0.7554 ± 0.0614 | 29.2405 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.9092 ± 0.0159 | 0.9220 ± 0.0339 | 1.2043 ± 0.1421 † | 0.4081 ± 0.0418 | 0.8620 ± 0.0311 | 2.3142 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.9072 ± 0.0098 | 1.4897 ± 0.0300 | 2.1682 ± 0.1783 † | 0.5154 ± 0.0301 | 0.6874 ± 0.0253 | 1.9517 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0159 | 1.0289 ± 0.0244 | 1.4197 ± 0.1806 † | 0.4399 ± 0.0354 | 0.8136 ± 0.0409 | 2.0099 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.9022 ± 0.0087 | 1.3965 ± 0.0413 | 2.0649 ± 0.2173 † | 0.5195 ± 0.0532 | 0.7416 ± 0.0570 | 29.2405 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.9100 ± 0.0173 | 0.9183 ± 0.0577 | 1.2041 ± 0.1456 † | 0.4081 ± 0.0418 | 0.8679 ± 0.0317 | 2.3142 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.9061 ± 0.0010 | 3.2179 ± 0.5013 | 3.5058 ± 0.4952 † | 0.5154 ± 0.0301 | 0.5870 ± 0.0329 | 1.9517 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0151 | 1.0357 ± 0.0481 | 1.4204 ± 0.1787 † | 0.4399 ± 0.0354 | 0.8165 ± 0.0416 | 2.0099 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.9031 ± 0.0071 | 1.3404 ± 0.0628 | 2.0528 ± 0.2210 † | 0.5195 ± 0.0532 | 0.7166 ± 0.0457 | 29.2405 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9047 ± 0.0099 | 1.0389 ± 0.0602 | 1.7838 ± 0.2016 † | 0.4081 ± 0.0418 | 0.8001 ± 0.0277 | 2.3142 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.8961 ± 0.0038 | 1.3326 ± 0.0607 | 2.1930 ± 0.2129 † | 0.5154 ± 0.0301 | 0.6875 ± 0.0133 | 1.9517 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9069 ± 0.0061 | 1.0286 ± 0.0741 | 1.6839 ± 0.1900 † | **0.3961 ± 0.0483** | 0.8127 ± 0.0136 | 9.0896 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.9050 ± 0.0104 | 1.1207 ± 0.0110 | 1.9257 ± 0.1811 † | 0.4399 ± 0.0354 | 0.7651 ± 0.0351 | 2.0099 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9111 ± 0.0126 | 1.3787 ± 0.0473 | 2.1765 ± 0.2768 † | 0.5195 ± 0.0532 | 0.7136 ± 0.0393 | 29.2405 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.9094 ± 0.0059 | 0.9457 ± 0.0389 | 1.4302 ± 0.1624 † | 0.4081 ± 0.0418 | 0.7485 ± 0.0286 | 2.3142 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.8992 ± 0.0126 | 1.1912 ± 0.0722 | 2.2033 ± 0.1480 † | 0.5154 ± 0.0301 | 0.5640 ± 0.0340 | 1.9517 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9067 ± 0.0008 | 1.0491 ± 0.0145 | 1.6329 ± 0.1716 † | 0.4399 ± 0.0354 | 0.7361 ± 0.0248 | 2.0099 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.9031 ± 0.0071 | 1.3404 ± 0.0628 | 2.0528 ± 0.2210 † | 0.5195 ± 0.0532 | 0.7166 ± 0.0457 | 29.2405 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.9078 ± 0.0178 | 0.9140 ± 0.0674 | 1.2047 ± 0.1461 † | 0.4094 ± 0.0417 | 0.8628 ± 0.0421 | 2.3142 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.9053 ± 0.0038 | 2.0453 ± 0.1614 | 2.5324 ± 0.1368 † | 0.5160 ± 0.0297 | 0.5207 ± 0.0398 | 1.9517 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.9022 ± 0.0140 | 1.0271 ± 0.0351 | 1.4232 ± 0.1843 † | 0.4403 ± 0.0353 | 0.8092 ± 0.0602 | 2.0099 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.9022 ± 0.0099 | 1.3446 ± 0.0484 | 2.0446 ± 0.2119 † | 0.5254 ± 0.0461 | 0.7220 ± 0.0445 | 29.2405 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9083 ± 0.0066 | 1.0456 ± 0.0385 | 2.0721 ± 0.2017 † | 0.4082 ± 0.0418 | 0.6083 ± 0.0160 | 2.3142 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9033 ± 0.0038 | 1.4714 ± 0.1020 | 2.6332 ± 0.1429 † | 0.5157 ± 0.0300 | 0.5067 ± 0.0324 | 1.9517 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.9086 ± 0.0079 | 1.1178 ± 0.0441 | 2.0143 ± 0.2231 † | 0.3964 ± 0.0484 | 0.6152 ± 0.0252 | 9.0896 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.9094 ± 0.0076 | 1.1780 ± 0.0480 | 2.2528 ± 0.1753 † | 0.4400 ± 0.0354 | 0.6032 ± 0.0172 | 2.0099 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.9064 ± 0.0100 | 1.5355 ± 0.0617 | 2.5871 ± 0.2818 † | 0.5204 ± 0.0532 | 0.5334 ± 0.0202 | 29.2405 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.9092 ± 0.0071 | 1.0264 ± 0.0475 | 2.0788 ± 0.2089 † | 0.4081 ± 0.0418 | 0.6025 ± 0.0255 | 2.3142 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.8989 ± 0.0029 | 1.3725 ± 0.1153 | 2.6710 ± 0.1475 † | 0.5154 ± 0.0301 | 0.4666 ± 0.0202 | 1.9517 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9086 ± 0.0084 | 1.1145 ± 0.0740 | 2.0106 ± 0.2259 † | **0.3961 ± 0.0483** | 0.6092 ± 0.0120 | 9.0896 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.9061 ± 0.0069 | 1.1494 ± 0.0540 | 2.2594 ± 0.1772 † | 0.4399 ± 0.0354 | 0.5787 ± 0.0315 | 2.0099 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.9058 ± 0.0083 | 1.5147 ± 0.0660 | 2.5897 ± 0.2894 † | 0.5195 ± 0.0532 | 0.5280 ± 0.0184 | 29.2405 |
 
 ##### fm_uq_scenarios / openml_year@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.8719 ± 0.0137 | 0.8685 ± 0.0149 | 1.4209 ± 0.0334 | **0.3735 ± 0.0071** | 0.7439 ± 0.0445 | 1.8962 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.7439 ± 0.0161 | 1.3385 ± 0.0526 | 2.8961 ± 0.0968 | 0.4903 ± 0.0061 | 0.3367 ± 0.0737 | 2.0896 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.8717 ± 0.0104 | 0.9455 ± 0.0064 | 1.5968 ± 0.0351 | 0.3954 ± 0.0105 | 0.7579 ± 0.0441 | 1.7485 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.8611 ± 0.0106 | 1.2791 ± 0.0761 | 2.1023 ± 0.0529 | 0.4807 ± 0.0192 | 0.6635 ± 0.0243 | 24.3161 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8783 ± 0.0172 | 0.8853 ± 0.0361 | 1.4176 ± 0.0412 | **0.3735 ± 0.0071** | 0.7481 ± 0.0430 | 1.8962 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.8178 ± 0.0038 | 1.4989 ± 0.0289 | 2.7146 ± 0.0688 | 0.4903 ± 0.0061 | 0.4781 ± 0.0308 | 2.0896 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8717 ± 0.0044 | 0.9508 ± 0.0265 | 1.5944 ± 0.0329 | 0.3954 ± 0.0105 | 0.7588 ± 0.0291 | 1.7485 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8433 ± 0.0147 | 1.2257 ± 0.0634 | 2.1287 ± 0.0466 | 0.4807 ± 0.0192 | 0.6340 ± 0.0339 | 24.3161 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8814 ± 0.0200 | 0.8898 ± 0.0493 | **1.4136 ± 0.0535** | **0.3735 ± 0.0071** | 0.7576 ± 0.0463 | 1.8962 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.8103 ± 0.0042 | 1.7300 ± 0.0591 | 2.8953 ± 0.0549 | 0.4903 ± 0.0061 | 0.4477 ± 0.0182 | 2.0896 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8731 ± 0.0091 | 0.9591 ± 0.0475 | 1.5889 ± 0.0358 | 0.3954 ± 0.0105 | 0.7620 ± 0.0217 | 1.7485 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8408 ± 0.0172 | 1.2073 ± 0.0692 | 2.1393 ± 0.0476 | 0.4807 ± 0.0192 | 0.6296 ± 0.0358 | 24.3161 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8475 ± 0.0145 | 0.9004 ± 0.0418 | 1.8791 ± 0.0254 | **0.3735 ± 0.0071** | 0.6703 ± 0.0557 | 1.8962 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8297 ± 0.0180 | 1.1894 ± 0.0480 | 2.4776 ± 0.0703 | 0.4903 ± 0.0061 | 0.5655 ± 0.0829 | 2.0896 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8436 ± 0.0134 | 0.8975 ± 0.0437 | 1.8941 ± 0.0740 | 0.3765 ± 0.0170 | 0.6551 ± 0.0534 | 8.2543 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8467 ± 0.0058 | 0.9534 ± 0.0151 | 1.9957 ± 0.0500 | 0.3954 ± 0.0105 | 0.6779 ± 0.0423 | 1.7485 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8608 ± 0.0164 | 1.2914 ± 0.0471 | 2.2767 ± 0.0956 | 0.4807 ± 0.0192 | 0.6607 ± 0.0278 | 24.3161 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8681 ± 0.0117 | 0.8890 ± 0.0500 | 1.5213 ± 0.0679 | **0.3735 ± 0.0071** | 0.7165 ± 0.0321 | 1.8962 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8489 ± 0.0079 | 1.2299 ± 0.0327 | 2.2552 ± 0.0577 | 0.4903 ± 0.0061 | 0.6457 ± 0.0033 | 2.0896 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8631 ± 0.0189 | 0.9483 ± 0.0699 | 1.6660 ± 0.0594 | 0.3954 ± 0.0105 | 0.7347 ± 0.0160 | 1.7485 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8408 ± 0.0172 | 1.2073 ± 0.0692 | 2.1393 ± 0.0476 | 0.4807 ± 0.0192 | 0.6296 ± 0.0358 | 24.3161 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8817 ± 0.0184 | 0.8900 ± 0.0483 | 1.4299 ± 0.0637 | 0.3740 ± 0.0090 | 0.7554 ± 0.0444 | 1.8962 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.8075 ± 0.0058 | 1.7236 ± 0.0541 | 2.9312 ± 0.0319 | 0.4931 ± 0.0050 | 0.4310 ± 0.0139 | 2.0896 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8708 ± 0.0068 | 0.9486 ± 0.0416 | 1.6130 ± 0.0624 | 0.3979 ± 0.0120 | 0.7455 ± 0.0118 | 1.7485 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8497 ± 0.0096 | 1.2191 ± 0.0641 | 2.0878 ± 0.0951 | 0.4909 ± 0.0155 | 0.6575 ± 0.0085 | 24.3161 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8458 ± 0.0043 | 0.8762 ± 0.0270 | 1.8591 ± 0.0704 | 0.3738 ± 0.0081 | 0.6744 ± 0.0263 | 1.8962 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.8317 ± 0.0118 | 1.1680 ± 0.0019 | 2.4074 ± 0.0678 | 0.4920 ± 0.0059 | 0.5778 ± 0.0303 | 2.0896 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8514 ± 0.0092 | 0.8926 ± 0.0333 | 1.8487 ± 0.1396 † | 0.3796 ± 0.0180 | 0.6849 ± 0.0141 | 8.2543 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8561 ± 0.0094 | 0.9519 ± 0.0329 | 1.9384 ± 0.1096 † | 0.3966 ± 0.0115 | 0.7052 ± 0.0097 | 1.7485 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8486 ± 0.0111 | 1.2496 ± 0.0314 | 2.3194 ± 0.1361 † | 0.4878 ± 0.0171 | 0.6325 ± 0.0134 | 24.3161 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.8361 ± 0.0118 | 0.8652 ± 0.0353 | 1.9059 ± 0.0374 | **0.3735 ± 0.0071** | 0.6487 ± 0.0479 | 1.8962 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.8228 ± 0.0138 | 1.1594 ± 0.0056 | 2.5037 ± 0.0325 | 0.4903 ± 0.0061 | 0.5519 ± 0.0416 | 2.0896 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.8467 ± 0.0044 | 0.8848 ± 0.0284 | 1.8989 ± 0.1016 † | 0.3765 ± 0.0170 | 0.6679 ± 0.0278 | 8.2543 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.8508 ± 0.0090 | 0.9540 ± 0.0494 | 1.9897 ± 0.0720 | 0.3954 ± 0.0105 | 0.6870 ± 0.0068 | 1.7485 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8464 ± 0.0103 | 1.2356 ± 0.0358 | 2.3304 ± 0.1022 | 0.4807 ± 0.0192 | 0.6250 ± 0.0105 | 24.3161 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.8719 ± 0.0137 | 0.8685 ± 0.0149 | 1.4209 ± 0.0334 | **0.3735 ± 0.0071** | 0.7439 ± 0.0445 | 2.0053 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.7439 ± 0.0161 | 1.3385 ± 0.0526 | 2.8961 ± 0.0968 | 0.4903 ± 0.0061 | 0.3367 ± 0.0737 | 2.0899 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.8717 ± 0.0104 | 0.9455 ± 0.0064 | 1.5968 ± 0.0351 | 0.3954 ± 0.0105 | 0.7579 ± 0.0441 | 1.7937 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.8611 ± 0.0106 | 1.2791 ± 0.0761 | 2.1023 ± 0.0529 | 0.4807 ± 0.0192 | 0.6635 ± 0.0243 | 24.5683 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.8783 ± 0.0172 | 0.8853 ± 0.0361 | 1.4176 ± 0.0412 | **0.3735 ± 0.0071** | 0.7481 ± 0.0430 | 2.0053 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.8178 ± 0.0038 | 1.4989 ± 0.0289 | 2.7146 ± 0.0688 | 0.4903 ± 0.0061 | 0.4781 ± 0.0308 | 2.0899 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.8717 ± 0.0044 | 0.9508 ± 0.0265 | 1.5944 ± 0.0329 | 0.3954 ± 0.0105 | 0.7588 ± 0.0291 | 1.7937 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.8433 ± 0.0147 | 1.2257 ± 0.0634 | 2.1287 ± 0.0466 | 0.4807 ± 0.0192 | 0.6340 ± 0.0339 | 24.5683 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.8814 ± 0.0200 | 0.8898 ± 0.0493 | **1.4136 ± 0.0535** | **0.3735 ± 0.0071** | 0.7576 ± 0.0463 | 2.0053 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.8103 ± 0.0042 | 1.7300 ± 0.0591 | 2.8953 ± 0.0549 | 0.4903 ± 0.0061 | 0.4477 ± 0.0182 | 2.0899 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.8731 ± 0.0091 | 0.9591 ± 0.0475 | 1.5889 ± 0.0358 | 0.3954 ± 0.0105 | 0.7620 ± 0.0217 | 1.7937 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.8408 ± 0.0172 | 1.2073 ± 0.0692 | 2.1393 ± 0.0476 | 0.4807 ± 0.0192 | 0.6296 ± 0.0358 | 24.5683 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.8475 ± 0.0145 | 0.9004 ± 0.0418 | 1.8791 ± 0.0254 | **0.3735 ± 0.0071** | 0.6703 ± 0.0557 | 2.0053 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.8297 ± 0.0180 | 1.1894 ± 0.0480 | 2.4776 ± 0.0703 | 0.4903 ± 0.0061 | 0.5655 ± 0.0829 | 2.0899 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.8436 ± 0.0134 | 0.8975 ± 0.0437 | 1.8941 ± 0.0740 | 0.3765 ± 0.0170 | 0.6551 ± 0.0534 | 8.2062 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.8467 ± 0.0058 | 0.9534 ± 0.0151 | 1.9957 ± 0.0500 | 0.3954 ± 0.0105 | 0.6779 ± 0.0423 | 1.7937 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.8608 ± 0.0164 | 1.2914 ± 0.0471 | 2.2767 ± 0.0956 | 0.4807 ± 0.0192 | 0.6607 ± 0.0278 | 24.5683 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.8681 ± 0.0117 | 0.8890 ± 0.0500 | 1.5213 ± 0.0679 | **0.3735 ± 0.0071** | 0.7165 ± 0.0321 | 2.0053 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.8489 ± 0.0079 | 1.2299 ± 0.0327 | 2.2552 ± 0.0577 | 0.4903 ± 0.0061 | 0.6457 ± 0.0033 | 2.0899 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.8631 ± 0.0189 | 0.9483 ± 0.0699 | 1.6660 ± 0.0594 | 0.3954 ± 0.0105 | 0.7347 ± 0.0160 | 1.7937 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.8408 ± 0.0172 | 1.2073 ± 0.0692 | 2.1393 ± 0.0476 | 0.4807 ± 0.0192 | 0.6296 ± 0.0358 | 24.5683 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.8817 ± 0.0184 | 0.8900 ± 0.0483 | 1.4299 ± 0.0637 | 0.3740 ± 0.0090 | 0.7554 ± 0.0444 | 2.0053 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.8075 ± 0.0058 | 1.7236 ± 0.0541 | 2.9312 ± 0.0319 | 0.4931 ± 0.0050 | 0.4310 ± 0.0139 | 2.0899 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.8708 ± 0.0068 | 0.9486 ± 0.0416 | 1.6130 ± 0.0624 | 0.3979 ± 0.0120 | 0.7455 ± 0.0118 | 1.7937 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.8497 ± 0.0096 | 1.2191 ± 0.0641 | 2.0878 ± 0.0951 | 0.4909 ± 0.0155 | 0.6575 ± 0.0085 | 24.5683 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.8458 ± 0.0043 | 0.8762 ± 0.0270 | 1.8591 ± 0.0704 | 0.3738 ± 0.0081 | 0.6744 ± 0.0263 | 2.0053 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.8317 ± 0.0118 | 1.1680 ± 0.0019 | 2.4074 ± 0.0678 | 0.4920 ± 0.0059 | 0.5778 ± 0.0303 | 2.0899 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.8514 ± 0.0092 | 0.8926 ± 0.0333 | 1.8487 ± 0.1396 † | 0.3796 ± 0.0180 | 0.6849 ± 0.0141 | 8.2062 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.8561 ± 0.0094 | 0.9519 ± 0.0329 | 1.9384 ± 0.1096 † | 0.3966 ± 0.0115 | 0.7052 ± 0.0097 | 1.7937 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.8486 ± 0.0111 | 1.2496 ± 0.0314 | 2.3194 ± 0.1361 † | 0.4878 ± 0.0171 | 0.6325 ± 0.0134 | 24.5683 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.8361 ± 0.0118 | 0.8652 ± 0.0353 | 1.9059 ± 0.0374 | **0.3735 ± 0.0071** | 0.6487 ± 0.0479 | 2.0053 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.8228 ± 0.0138 | 1.1594 ± 0.0056 | 2.5037 ± 0.0325 | 0.4903 ± 0.0061 | 0.5519 ± 0.0416 | 2.0899 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.8467 ± 0.0044 | 0.8848 ± 0.0284 | 1.8989 ± 0.1016 † | 0.3765 ± 0.0170 | 0.6679 ± 0.0278 | 8.2062 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.8508 ± 0.0090 | 0.9540 ± 0.0494 | 1.9897 ± 0.0720 | 0.3954 ± 0.0105 | 0.6870 ± 0.0068 | 1.7937 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.8464 ± 0.0103 | 1.2356 ± 0.0358 | 2.3304 ± 0.1022 | 0.4807 ± 0.0192 | 0.6250 ± 0.0105 | 24.5683 |
 
 ##### fm_uq_scenarios / openml_year@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.9036 ± 0.0071 | 2.3474 ± 0.0251 | 2.8805 ± 0.0668 | 0.7192 ± 0.0131 | 0.6802 ± 0.0421 | 2.2407 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.8533 ± 0.0096 | 2.2806 ± 0.0195 | 3.0353 ± 0.0969 | 0.7306 ± 0.0113 | 0.4485 ± 0.0246 | 1.9706 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.9058 ± 0.0076 | 2.3869 ± 0.0129 | 2.9176 ± 0.0704 | 0.7248 ± 0.0147 | 0.6839 ± 0.0325 | 1.9525 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.9136 ± 0.0086 | 2.4595 ± 0.0656 | 3.0278 ± 0.0925 | 0.7304 ± 0.0180 | 0.6697 ± 0.0273 | 19.2777 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9042 ± 0.0074 | 2.3520 ± 0.0427 | 2.8801 ± 0.0676 | 0.7192 ± 0.0131 | 0.6827 ± 0.0208 | 2.2407 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9067 ± 0.0073 | 2.5065 ± 0.0740 | 3.0010 ± 0.0834 | 0.7306 ± 0.0113 | 0.6253 ± 0.0273 | 1.9706 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.9025 ± 0.0052 | 2.3798 ± 0.0297 | 2.9168 ± 0.0713 | 0.7248 ± 0.0147 | 0.6700 ± 0.0174 | 1.9525 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9053 ± 0.0089 | 2.3929 ± 0.0587 | 3.0210 ± 0.0951 | 0.7304 ± 0.0180 | 0.6472 ± 0.0233 | 19.2777 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9058 ± 0.0058 | 2.3603 ± 0.0634 | **2.8797 ± 0.0666** | 0.7192 ± 0.0131 | 0.6877 ± 0.0290 | 2.2407 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9008 ± 0.0094 | 2.7636 ± 0.1881 | 3.1431 ± 0.1405 | 0.7306 ± 0.0113 | 0.5357 ± 0.0724 | 1.9706 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.9050 ± 0.0058 | 2.3677 ± 0.0503 | 2.9157 ± 0.0713 | 0.7248 ± 0.0147 | 0.6864 ± 0.0285 | 1.9525 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.9044 ± 0.0097 | 2.3870 ± 0.0663 | 3.0196 ± 0.0962 | 0.7304 ± 0.0180 | 0.6417 ± 0.0150 | 19.2777 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9069 ± 0.0088 | 2.4216 ± 0.0514 | 3.1466 ± 0.0939 | 0.7192 ± 0.0131 | 0.6393 ± 0.0184 | 2.2407 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9061 ± 0.0087 | 2.4417 ± 0.0489 | 3.1245 ± 0.0920 | 0.7306 ± 0.0113 | 0.6325 ± 0.0320 | 1.9706 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9069 ± 0.0021 | 2.3753 ± 0.0937 | 3.0619 ± 0.0832 | **0.7170 ± 0.0178** | 0.6557 ± 0.0276 | 9.1857 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.9033 ± 0.0088 | 2.4162 ± 0.0538 | 3.1744 ± 0.1022 | 0.7248 ± 0.0147 | 0.6366 ± 0.0171 | 1.9525 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9053 ± 0.0119 | 2.4367 ± 0.1071 | 3.0384 ± 0.0882 | 0.7304 ± 0.0180 | 0.6386 ± 0.0207 | 19.2777 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9044 ± 0.0064 | 2.3412 ± 0.0492 | 3.0735 ± 0.0889 | 0.7192 ± 0.0131 | 0.6508 ± 0.0436 | 2.2407 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.9069 ± 0.0068 | 2.4385 ± 0.0410 | 3.1164 ± 0.1004 | 0.7306 ± 0.0113 | 0.6341 ± 0.0276 | 1.9706 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9019 ± 0.0076 | 2.3241 ± 0.0696 | 3.1003 ± 0.0919 | 0.7248 ± 0.0147 | 0.6513 ± 0.0484 | 1.9525 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.9044 ± 0.0097 | 2.3870 ± 0.0663 | 3.0196 ± 0.0962 | 0.7304 ± 0.0180 | 0.6417 ± 0.0150 | 19.2777 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9058 ± 0.0043 | 2.3440 ± 0.0339 | 2.8822 ± 0.0719 | 0.7217 ± 0.0131 | 0.6697 ± 0.0318 | 2.2407 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.9033 ± 0.0083 | 2.6520 ± 0.1075 | 3.0819 ± 0.1068 | 0.7306 ± 0.0114 | 0.5565 ± 0.0381 | 1.9706 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.9036 ± 0.0065 | 2.3663 ± 0.0276 | 2.9218 ± 0.0743 | 0.7272 ± 0.0132 | 0.6700 ± 0.0353 | 1.9525 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.9103 ± 0.0054 | 2.4510 ± 0.0154 | 3.0030 ± 0.0832 | 0.7316 ± 0.0156 | 0.7043 ± 0.0478 | 19.2777 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9119 ± 0.0069 | 2.4588 ± 0.0606 | 3.0965 ± 0.0612 | 0.7201 ± 0.0127 | 0.7208 ± 0.0360 | 2.2407 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9133 ± 0.0096 | 2.5154 ± 0.0538 | 3.0966 ± 0.0642 | 0.7311 ± 0.0114 | 0.6845 ± 0.0115 | 1.9706 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9094 ± 0.0105 | 2.4445 ± 0.0816 | 3.0521 ± 0.0690 | 0.7201 ± 0.0172 | 0.6916 ± 0.0207 | 9.1857 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.9064 ± 0.0106 | 2.4567 ± 0.0561 | 3.1114 ± 0.0570 | 0.7261 ± 0.0141 | 0.7125 ± 0.0227 | 1.9525 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9086 ± 0.0041 | 2.4899 ± 0.0474 | 3.0490 ± 0.0845 | 0.7312 ± 0.0167 | 0.6964 ± 0.0279 | 19.2777 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9117 ± 0.0094 | 2.4329 ± 0.0869 | 3.1467 ± 0.0854 | 0.7192 ± 0.0131 | 0.6775 ± 0.0253 | 2.2407 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9078 ± 0.0060 | 2.4640 ± 0.0237 | 3.1394 ± 0.0775 | 0.7306 ± 0.0113 | 0.6637 ± 0.0317 | 1.9706 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.9094 ± 0.0121 | 2.4068 ± 0.0945 | 3.0655 ± 0.0853 | **0.7170 ± 0.0178** | 0.6748 ± 0.0225 | 9.1857 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.9100 ± 0.0051 | 2.4236 ± 0.0722 | 3.1605 ± 0.0850 | 0.7248 ± 0.0147 | 0.6770 ± 0.0388 | 1.9525 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.9106 ± 0.0059 | 2.4391 ± 0.0482 | 3.0550 ± 0.0886 | 0.7304 ± 0.0180 | 0.6664 ± 0.0155 | 19.2777 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.9036 ± 0.0071 | 2.3474 ± 0.0251 | 2.8805 ± 0.0668 | 0.7192 ± 0.0131 | 0.6802 ± 0.0421 | 2.3370 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.8533 ± 0.0096 | 2.2806 ± 0.0195 | 3.0353 ± 0.0969 | 0.7306 ± 0.0113 | 0.4485 ± 0.0246 | 1.9671 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.9058 ± 0.0076 | 2.3869 ± 0.0129 | 2.9176 ± 0.0704 | 0.7248 ± 0.0147 | 0.6839 ± 0.0325 | 2.0054 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.9136 ± 0.0086 | 2.4595 ± 0.0656 | 3.0278 ± 0.0925 | 0.7304 ± 0.0180 | 0.6697 ± 0.0273 | 19.7770 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.9042 ± 0.0074 | 2.3520 ± 0.0427 | 2.8801 ± 0.0676 | 0.7192 ± 0.0131 | 0.6827 ± 0.0208 | 2.3370 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.9067 ± 0.0073 | 2.5065 ± 0.0740 | 3.0010 ± 0.0834 | 0.7306 ± 0.0113 | 0.6253 ± 0.0273 | 1.9671 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.9025 ± 0.0052 | 2.3798 ± 0.0297 | 2.9168 ± 0.0713 | 0.7248 ± 0.0147 | 0.6700 ± 0.0174 | 2.0054 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.9053 ± 0.0089 | 2.3929 ± 0.0587 | 3.0210 ± 0.0951 | 0.7304 ± 0.0180 | 0.6472 ± 0.0233 | 19.7770 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.9058 ± 0.0058 | 2.3603 ± 0.0634 | **2.8797 ± 0.0666** | 0.7192 ± 0.0131 | 0.6877 ± 0.0290 | 2.3370 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.9008 ± 0.0094 | 2.7636 ± 0.1881 | 3.1431 ± 0.1405 | 0.7306 ± 0.0113 | 0.5357 ± 0.0724 | 1.9671 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.9050 ± 0.0058 | 2.3677 ± 0.0503 | 2.9157 ± 0.0713 | 0.7248 ± 0.0147 | 0.6864 ± 0.0285 | 2.0054 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.9044 ± 0.0097 | 2.3870 ± 0.0663 | 3.0196 ± 0.0962 | 0.7304 ± 0.0180 | 0.6417 ± 0.0150 | 19.7770 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.9069 ± 0.0088 | 2.4216 ± 0.0514 | 3.1466 ± 0.0939 | 0.7192 ± 0.0131 | 0.6393 ± 0.0184 | 2.3370 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.9061 ± 0.0087 | 2.4417 ± 0.0489 | 3.1245 ± 0.0920 | 0.7306 ± 0.0113 | 0.6325 ± 0.0320 | 1.9671 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.9069 ± 0.0021 | 2.3753 ± 0.0937 | 3.0619 ± 0.0832 | **0.7170 ± 0.0178** | 0.6557 ± 0.0276 | 9.2543 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.9033 ± 0.0088 | 2.4162 ± 0.0538 | 3.1744 ± 0.1022 | 0.7248 ± 0.0147 | 0.6366 ± 0.0171 | 2.0054 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.9053 ± 0.0119 | 2.4367 ± 0.1071 | 3.0384 ± 0.0882 | 0.7304 ± 0.0180 | 0.6386 ± 0.0207 | 19.7770 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.9044 ± 0.0064 | 2.3412 ± 0.0492 | 3.0735 ± 0.0889 | 0.7192 ± 0.0131 | 0.6508 ± 0.0436 | 2.3370 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.9069 ± 0.0068 | 2.4385 ± 0.0410 | 3.1164 ± 0.1004 | 0.7306 ± 0.0113 | 0.6341 ± 0.0276 | 1.9671 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.9019 ± 0.0076 | 2.3241 ± 0.0696 | 3.1003 ± 0.0919 | 0.7248 ± 0.0147 | 0.6513 ± 0.0484 | 2.0054 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.9044 ± 0.0097 | 2.3870 ± 0.0663 | 3.0196 ± 0.0962 | 0.7304 ± 0.0180 | 0.6417 ± 0.0150 | 19.7770 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.9058 ± 0.0043 | 2.3440 ± 0.0339 | 2.8822 ± 0.0719 | 0.7217 ± 0.0131 | 0.6697 ± 0.0318 | 2.3370 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.9033 ± 0.0083 | 2.6520 ± 0.1075 | 3.0819 ± 0.1068 | 0.7306 ± 0.0114 | 0.5565 ± 0.0381 | 1.9671 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.9036 ± 0.0065 | 2.3663 ± 0.0276 | 2.9218 ± 0.0743 | 0.7272 ± 0.0132 | 0.6700 ± 0.0353 | 2.0054 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.9103 ± 0.0054 | 2.4510 ± 0.0154 | 3.0030 ± 0.0832 | 0.7316 ± 0.0156 | 0.7043 ± 0.0478 | 19.7770 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.9119 ± 0.0069 | 2.4588 ± 0.0606 | 3.0965 ± 0.0612 | 0.7201 ± 0.0127 | 0.7208 ± 0.0360 | 2.3370 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.9133 ± 0.0096 | 2.5154 ± 0.0538 | 3.0966 ± 0.0642 | 0.7311 ± 0.0114 | 0.6845 ± 0.0115 | 1.9671 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.9094 ± 0.0105 | 2.4445 ± 0.0816 | 3.0521 ± 0.0690 | 0.7201 ± 0.0172 | 0.6916 ± 0.0207 | 9.2543 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.9064 ± 0.0106 | 2.4567 ± 0.0561 | 3.1114 ± 0.0570 | 0.7261 ± 0.0141 | 0.7125 ± 0.0227 | 2.0054 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.9086 ± 0.0041 | 2.4899 ± 0.0474 | 3.0490 ± 0.0845 | 0.7312 ± 0.0167 | 0.6964 ± 0.0279 | 19.7770 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.9117 ± 0.0094 | 2.4329 ± 0.0869 | 3.1467 ± 0.0854 | 0.7192 ± 0.0131 | 0.6775 ± 0.0253 | 2.3370 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.9078 ± 0.0060 | 2.4640 ± 0.0237 | 3.1394 ± 0.0775 | 0.7306 ± 0.0113 | 0.6637 ± 0.0317 | 1.9671 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.9094 ± 0.0121 | 2.4068 ± 0.0945 | 3.0655 ± 0.0853 | **0.7170 ± 0.0178** | 0.6748 ± 0.0225 | 9.2543 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.9100 ± 0.0051 | 2.4236 ± 0.0722 | 3.1605 ± 0.0850 | 0.7248 ± 0.0147 | 0.6770 ± 0.0388 | 2.0054 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.9106 ± 0.0059 | 2.4391 ± 0.0482 | 3.0550 ± 0.0886 | 0.7304 ± 0.0180 | 0.6664 ± 0.0155 | 19.7770 |
 
 ##### fm_uq_scenarios / openml_year@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 0.9447 ± 0.0159 | 3.7198 ± 0.1265 | 4.1741 ± 0.0355 | 1.0118 ± 0.0071 | 0.8809 ± 0.0323 | 2.2291 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.7928 ± 0.0131 | 2.0962 ± 0.0576 | 3.6132 ± 0.0940 | 0.8828 ± 0.0345 | 0.4302 ± 0.0426 | 1.9769 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.9456 ± 0.0077 | 3.4997 ± 0.0843 | 3.9648 ± 0.0837 | 0.9184 ± 0.0095 | 0.8875 ± 0.0223 | 1.9634 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.6672 ± 0.0342 | 2.4633 ± 0.1802 | 6.6863 ± 0.5693 † | 1.1310 ± 0.0289 | 0.5514 ± 0.0051 | 32.2454 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9472 ± 0.0109 | 3.7277 ± 0.0979 | 4.1752 ± 0.0367 | 1.0118 ± 0.0071 | 0.8945 ± 0.0100 | 2.2291 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.8178 ± 0.0149 | 2.1942 ± 0.0700 | 3.5215 ± 0.0931 | 0.8828 ± 0.0345 | 0.4865 ± 0.0460 | 1.9769 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9469 ± 0.0060 | 3.5077 ± 0.0698 | 3.9679 ± 0.0780 | 0.9184 ± 0.0095 | 0.8951 ± 0.0156 | 1.9634 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6536 ± 0.0267 | 2.3975 ± 0.1299 | 6.8334 ± 0.5196 † | 1.1310 ± 0.0289 | 0.5347 ± 0.0140 | 32.2454 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9481 ± 0.0063 | 3.7558 ± 0.0124 | 4.1847 ± 0.0523 | 1.0118 ± 0.0071 | 0.8918 ± 0.0141 | 2.2291 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8414 ± 0.0156 | 2.3827 ± 0.1078 | **3.4002 ± 0.0341** | 0.8828 ± 0.0345 | 0.4582 ± 0.0628 | 1.9769 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9503 ± 0.0021 | 3.5340 ± 0.0315 | 3.9779 ± 0.0663 | 0.9184 ± 0.0095 | 0.8949 ± 0.0100 | 1.9634 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6461 ± 0.0189 | 2.3193 ± 0.0749 | 6.8657 ± 0.5133 † | 1.1310 ± 0.0289 | 0.5293 ± 0.0148 | 32.2454 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.3947 ± 0.0094 | 0.9551 ± 0.0410 | 9.0880 ± 0.2358 | 1.0118 ± 0.0071 | 0.1985 ± 0.0071 | 2.2291 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.5756 ± 0.0104 | 1.3217 ± 0.0288 | 5.8914 ± 0.3251 † | 0.8828 ± 0.0345 | 0.4565 ± 0.0538 | 1.9769 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.4206 ± 0.0348 | 0.9928 ± 0.0374 | 8.0899 ± 0.4009 | 0.9437 ± 0.0150 | 0.1430 ± 0.1079 | 9.1945 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.4722 ± 0.0322 | 1.0665 ± 0.0734 | 7.3276 ± 0.4228 † | 0.9184 ± 0.0095 | 0.2609 ± 0.0432 | 1.9634 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.4808 ± 0.0159 | 1.3676 ± 0.0157 | 8.6891 ± 0.3186 | 1.1310 ± 0.0289 | 0.3811 ± 0.0116 | 32.2454 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.8961 ± 0.0113 | 3.7295 ± 0.1412 | 4.7545 ± 0.1016 | 1.0118 ± 0.0071 | 0.7104 ± 0.0973 | 2.2291 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7011 ± 0.0156 | 1.7891 ± 0.0595 | 4.7507 ± 0.1605 | 0.8828 ± 0.0345 | 0.5839 ± 0.0516 | 1.9769 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9108 ± 0.0095 | 3.4616 ± 0.0740 | 4.3900 ± 0.0704 | 0.9184 ± 0.0095 | 0.7902 ± 0.0233 | 1.9634 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6461 ± 0.0189 | 2.3193 ± 0.0749 | 6.8657 ± 0.5133 † | 1.1310 ± 0.0289 | 0.5293 ± 0.0148 | 32.2454 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9464 ± 0.0067 | 3.7784 ± 0.0259 | 4.2450 ± 0.0847 | 1.0198 ± 0.0135 | 0.8775 ± 0.0219 | 2.2291 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8364 ± 0.0207 | 2.3404 ± 0.0567 | 3.4486 ± 0.0887 | **0.8811 ± 0.0327** | 0.5118 ± 0.0526 | 1.9769 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9492 ± 0.0014 | 3.5252 ± 0.0314 | 3.9726 ± 0.0451 | 0.9190 ± 0.0113 | 0.9007 ± 0.0191 | 1.9634 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6503 ± 0.0200 | 2.3714 ± 0.0909 | 6.8624 ± 0.5604 † | 1.1160 ± 0.0299 | 0.5524 ± 0.0151 | 32.2454 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.4128 ± 0.0182 | 0.9869 ± 0.0523 | 8.8174 ± 0.2987 | 1.0122 ± 0.0071 | 0.1882 ± 0.0122 | 2.2291 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.5753 ± 0.0054 | 1.3158 ± 0.0319 | 5.8909 ± 0.3495 † | 0.8830 ± 0.0339 | 0.4651 ± 0.0326 | 1.9769 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.4278 ± 0.0298 | 0.9943 ± 0.0446 | 8.0015 ± 0.4718 † | 0.9451 ± 0.0139 | 0.1467 ± 0.0648 | 9.1945 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.4733 ± 0.0250 | 1.0677 ± 0.0346 | 7.2407 ± 0.1981 | 0.9186 ± 0.0096 | 0.2756 ± 0.0409 | 1.9634 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.4931 ± 0.0125 | 1.4056 ± 0.0210 | 8.5439 ± 0.2492 | 1.1291 ± 0.0285 | 0.4009 ± 0.0167 | 32.2454 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.4083 ± 0.0132 | 0.9795 ± 0.0470 | 8.9484 ± 0.2612 | 1.0118 ± 0.0071 | 0.1800 ± 0.0098 | 2.2291 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.5914 ± 0.0126 | 1.3379 ± 0.0394 | 5.8108 ± 0.3004 † | 0.8828 ± 0.0345 | 0.4912 ± 0.0267 | 1.9769 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.4208 ± 0.0268 | 0.9826 ± 0.0462 | 8.1132 ± 0.4025 | 0.9437 ± 0.0150 | 0.1322 ± 0.0817 | 9.1945 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.4742 ± 0.0260 | 1.0571 ± 0.0452 | 7.3422 ± 0.3082 | 0.9184 ± 0.0095 | 0.2635 ± 0.0502 | 1.9634 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.4967 ± 0.0181 | 1.4087 ± 0.0222 | 8.4811 ± 0.3564 | 1.1310 ± 0.0289 | 0.3840 ± 0.0245 | 32.2454 |
+| `Raw+KumoTabular [noise_test]` | sdm | 0.9447 ± 0.0159 | 3.7198 ± 0.1265 | 4.1741 ± 0.0355 | 1.0118 ± 0.0071 | 0.8809 ± 0.0323 | 2.3332 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.7928 ± 0.0131 | 2.0962 ± 0.0576 | 3.6132 ± 0.0940 | 0.8828 ± 0.0345 | 0.4302 ± 0.0426 | 1.9740 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.9456 ± 0.0077 | 3.4997 ± 0.0843 | 3.9648 ± 0.0837 | 0.9184 ± 0.0095 | 0.8875 ± 0.0223 | 2.0207 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.6672 ± 0.0342 | 2.4633 ± 0.1802 | 6.6863 ± 0.5693 † | 1.1310 ± 0.0289 | 0.5514 ± 0.0051 | 32.7429 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 0.9472 ± 0.0109 | 3.7277 ± 0.0979 | 4.1752 ± 0.0367 | 1.0118 ± 0.0071 | 0.8945 ± 0.0100 | 2.3332 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.8178 ± 0.0149 | 2.1942 ± 0.0700 | 3.5215 ± 0.0931 | 0.8828 ± 0.0345 | 0.4865 ± 0.0460 | 1.9740 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9469 ± 0.0060 | 3.5077 ± 0.0698 | 3.9679 ± 0.0780 | 0.9184 ± 0.0095 | 0.8951 ± 0.0156 | 2.0207 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.6536 ± 0.0267 | 2.3975 ± 0.1299 | 6.8334 ± 0.5196 † | 1.1310 ± 0.0289 | 0.5347 ± 0.0140 | 32.7429 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 0.9481 ± 0.0063 | 3.7558 ± 0.0124 | 4.1847 ± 0.0523 | 1.0118 ± 0.0071 | 0.8918 ± 0.0141 | 2.3332 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8414 ± 0.0156 | 2.3827 ± 0.1078 | **3.4002 ± 0.0341** | 0.8828 ± 0.0345 | 0.4582 ± 0.0628 | 1.9740 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9503 ± 0.0021 | 3.5340 ± 0.0315 | 3.9779 ± 0.0663 | 0.9184 ± 0.0095 | 0.8949 ± 0.0100 | 2.0207 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.6461 ± 0.0189 | 2.3193 ± 0.0749 | 6.8657 ± 0.5133 † | 1.1310 ± 0.0289 | 0.5293 ± 0.0148 | 32.7429 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.3947 ± 0.0094 | 0.9551 ± 0.0410 | 9.0880 ± 0.2358 | 1.0118 ± 0.0071 | 0.1985 ± 0.0071 | 2.3332 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.5756 ± 0.0104 | 1.3217 ± 0.0288 | 5.8914 ± 0.3251 † | 0.8828 ± 0.0345 | 0.4565 ± 0.0538 | 1.9740 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.4206 ± 0.0348 | 0.9928 ± 0.0374 | 8.0899 ± 0.4009 | 0.9437 ± 0.0150 | 0.1430 ± 0.1079 | 9.1263 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.4722 ± 0.0322 | 1.0665 ± 0.0734 | 7.3276 ± 0.4228 † | 0.9184 ± 0.0095 | 0.2609 ± 0.0432 | 2.0207 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.4808 ± 0.0159 | 1.3676 ± 0.0157 | 8.6891 ± 0.3186 | 1.1310 ± 0.0289 | 0.3811 ± 0.0116 | 32.7429 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 0.8961 ± 0.0113 | 3.7295 ± 0.1412 | 4.7545 ± 0.1016 | 1.0118 ± 0.0071 | 0.7104 ± 0.0973 | 2.3332 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.7011 ± 0.0156 | 1.7891 ± 0.0595 | 4.7507 ± 0.1605 | 0.8828 ± 0.0345 | 0.5839 ± 0.0516 | 1.9740 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9108 ± 0.0095 | 3.4616 ± 0.0740 | 4.3900 ± 0.0704 | 0.9184 ± 0.0095 | 0.7902 ± 0.0233 | 2.0207 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.6461 ± 0.0189 | 2.3193 ± 0.0749 | 6.8657 ± 0.5133 † | 1.1310 ± 0.0289 | 0.5293 ± 0.0148 | 32.7429 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 0.9464 ± 0.0067 | 3.7784 ± 0.0259 | 4.2450 ± 0.0847 | 1.0198 ± 0.0135 | 0.8775 ± 0.0219 | 2.3332 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8364 ± 0.0207 | 2.3404 ± 0.0567 | 3.4486 ± 0.0887 | **0.8811 ± 0.0327** | 0.5118 ± 0.0526 | 1.9740 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9492 ± 0.0014 | 3.5252 ± 0.0314 | 3.9726 ± 0.0451 | 0.9190 ± 0.0113 | 0.9007 ± 0.0191 | 2.0207 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.6503 ± 0.0200 | 2.3714 ± 0.0909 | 6.8624 ± 0.5604 † | 1.1160 ± 0.0299 | 0.5524 ± 0.0151 | 32.7429 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.4128 ± 0.0182 | 0.9869 ± 0.0523 | 8.8174 ± 0.2987 | 1.0122 ± 0.0071 | 0.1882 ± 0.0122 | 2.3332 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.5753 ± 0.0054 | 1.3158 ± 0.0319 | 5.8909 ± 0.3495 † | 0.8830 ± 0.0339 | 0.4651 ± 0.0326 | 1.9740 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.4278 ± 0.0298 | 0.9943 ± 0.0446 | 8.0015 ± 0.4718 † | 0.9451 ± 0.0139 | 0.1467 ± 0.0648 | 9.1263 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.4733 ± 0.0250 | 1.0677 ± 0.0346 | 7.2407 ± 0.1981 | 0.9186 ± 0.0096 | 0.2756 ± 0.0409 | 2.0207 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.4931 ± 0.0125 | 1.4056 ± 0.0210 | 8.5439 ± 0.2492 | 1.1291 ± 0.0285 | 0.4009 ± 0.0167 | 32.7429 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.4083 ± 0.0132 | 0.9795 ± 0.0470 | 8.9484 ± 0.2612 | 1.0118 ± 0.0071 | 0.1800 ± 0.0098 | 2.3332 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.5914 ± 0.0126 | 1.3379 ± 0.0394 | 5.8108 ± 0.3004 † | 0.8828 ± 0.0345 | 0.4912 ± 0.0267 | 1.9740 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.4208 ± 0.0268 | 0.9826 ± 0.0462 | 8.1132 ± 0.4025 | 0.9437 ± 0.0150 | 0.1322 ± 0.0817 | 9.1263 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.4742 ± 0.0260 | 1.0571 ± 0.0452 | 7.3422 ± 0.3082 | 0.9184 ± 0.0095 | 0.2635 ± 0.0502 | 2.0207 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.4967 ± 0.0181 | 1.4087 ± 0.0222 | 8.4811 ± 0.3564 | 1.1310 ± 0.0289 | 0.3840 ± 0.0245 | 32.7429 |
 
 ##### fm_uq_scenarios / openml_year@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9833 ± 0.0025 | 2.0099 ± 0.1377 | 2.0823 ± 0.1837 † | **0.3354 ± 0.0296** | 0.9589 ± 0.0003 | 2.2073 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.9347 ± 0.0038 | 2.5670 ± 0.0782 | 2.8940 ± 0.0854 | 0.4306 ± 0.0234 | 0.7943 ± 0.0314 | 2.3136 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9550 ± 0.0036 | 1.9686 ± 0.0952 | 2.1117 ± 0.0456 | 0.3667 ± 0.0284 | 0.8885 ± 0.0120 | 1.9752 |
-| `Raw+TabularMLP [outliers]` | torchregress | 0.9997 ± 0.0005 | 6.0412 ± 0.1565 | 6.0429 ± 0.1543 | 0.5741 ± 0.0095 | 0.9977 ± 0.0039 | 14.3338 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9481 ± 0.0076 | 1.9670 ± 0.1513 | 2.0502 ± 0.1952 † | **0.3354 ± 0.0296** | 0.6682 ± 0.0556 | 2.2073 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9536 ± 0.0034 | 2.7214 ± 0.0561 | 2.9626 ± 0.0712 | 0.4306 ± 0.0234 | 0.8477 ± 0.0318 | 2.3136 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9500 ± 0.0030 | 1.9510 ± 0.0856 | 2.1024 ± 0.0369 | 0.3667 ± 0.0284 | 0.8857 ± 0.0076 | 1.9752 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9497 ± 0.0075 | 2.4503 ± 0.0939 | 2.8284 ± 0.1722 † | 0.5741 ± 0.0095 | 0.7718 ± 0.0018 | 14.3338 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9617 ± 0.0043 | 1.3047 ± 0.1204 | 1.4480 ± 0.1530 † | **0.3354 ± 0.0296** | 0.9334 ± 0.0164 | 2.2073 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9517 ± 0.0055 | 2.9464 ± 0.0934 | 3.1884 ± 0.0317 | 0.4306 ± 0.0234 | 0.8348 ± 0.0345 | 2.3136 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9464 ± 0.0077 | 1.8125 ± 0.1127 | 1.9866 ± 0.0434 | 0.3667 ± 0.0284 | 0.8703 ± 0.0202 | 1.9752 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0088 | 2.2469 ± 0.0954 | 2.6565 ± 0.0380 | 0.5741 ± 0.0095 | 0.7999 ± 0.0304 | 14.3338 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0096 | 1.4002 ± 0.0039 | 1.7375 ± 0.1152 † | **0.3354 ± 0.0296** | 0.9149 ± 0.0247 | 2.2073 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9461 ± 0.0083 | 1.7370 ± 0.0736 | 2.1110 ± 0.0535 | 0.4306 ± 0.0234 | 0.8647 ± 0.0271 | 2.3136 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9508 ± 0.0101 | 1.4858 ± 0.0940 | 1.7925 ± 0.1341 † | 0.3523 ± 0.0323 | 0.8915 ± 0.0053 | 9.0859 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9486 ± 0.0139 | 1.5094 ± 0.0354 | 1.8685 ± 0.1123 † | 0.3667 ± 0.0284 | 0.9136 ± 0.0226 | 1.9752 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0106 | 2.2476 ± 0.1480 | 2.6421 ± 0.0454 | 0.5741 ± 0.0095 | 0.8357 ± 0.0372 | 14.3338 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9483 ± 0.0117 | 1.4400 ± 0.0882 | 1.6508 ± 0.1515 † | **0.3354 ± 0.0296** | 0.8930 ± 0.0219 | 2.2073 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0096 | 2.0160 ± 0.0765 | 2.3195 ± 0.0600 | 0.4306 ± 0.0234 | 0.8787 ± 0.0177 | 2.3136 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9453 ± 0.0051 | 1.7990 ± 0.1327 | 2.0191 ± 0.0790 | 0.3667 ± 0.0284 | 0.8926 ± 0.0186 | 1.9752 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0088 | 2.2469 ± 0.0954 | 2.6565 ± 0.0380 | 0.5741 ± 0.0095 | 0.7999 ± 0.0304 | 14.3338 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9633 ± 0.0058 | 1.3088 ± 0.1119 | **1.4477 ± 0.1364** † | 0.3358 ± 0.0293 | 0.9370 ± 0.0167 | 2.2073 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0060 | 2.9859 ± 0.2199 | 3.2195 ± 0.1280 | 0.4307 ± 0.0233 | 0.8505 ± 0.0213 | 2.3136 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9486 ± 0.0077 | 1.8795 ± 0.1406 | 2.0380 ± 0.0794 | 0.3675 ± 0.0277 | 0.8757 ± 0.0272 | 1.9752 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9467 ± 0.0046 | 2.2398 ± 0.0492 | 2.6258 ± 0.0702 | 0.5710 ± 0.0115 | 0.8518 ± 0.0427 | 14.3338 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9517 ± 0.0095 | 1.3958 ± 0.0516 | 1.7239 ± 0.1206 † | 0.3354 ± 0.0295 | 0.9083 ± 0.0097 | 2.2073 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0130 | 1.7628 ± 0.0553 | 2.0972 ± 0.1178 † | 0.4309 ± 0.0235 | 0.8897 ± 0.0254 | 2.3136 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9539 ± 0.0126 | 1.4241 ± 0.0483 | 1.7510 ± 0.1333 † | 0.3499 ± 0.0310 | 0.8983 ± 0.0224 | 9.0859 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9508 ± 0.0121 | 1.4977 ± 0.0399 | 1.8557 ± 0.1254 † | 0.3670 ± 0.0283 | 0.8979 ± 0.0289 | 1.9752 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9469 ± 0.0068 | 2.2103 ± 0.0601 | 2.6038 ± 0.0451 | 0.5711 ± 0.0118 | 0.8483 ± 0.0437 | 14.3338 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9536 ± 0.0096 | 1.3969 ± 0.0306 | 1.7233 ± 0.1240 † | **0.3354 ± 0.0296** | 0.8992 ± 0.0188 | 2.2073 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9486 ± 0.0113 | 1.7239 ± 0.0649 | 2.0967 ± 0.0857 | 0.4306 ± 0.0234 | 0.8485 ± 0.0345 | 2.3136 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9517 ± 0.0109 | 1.4105 ± 0.0647 | 1.7561 ± 0.1305 † | 0.3523 ± 0.0323 | 0.8914 ± 0.0104 | 9.0859 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9508 ± 0.0131 | 1.4716 ± 0.0366 | 1.8452 ± 0.1070 † | 0.3667 ± 0.0284 | 0.8853 ± 0.0331 | 1.9752 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0077 | 2.2388 ± 0.1131 | 2.6420 ± 0.0384 | 0.5741 ± 0.0095 | 0.8184 ± 0.0371 | 14.3338 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9833 ± 0.0025 | 2.0099 ± 0.1377 | 2.0823 ± 0.1837 † | **0.3354 ± 0.0296** | 0.9589 ± 0.0003 | 2.3215 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.9347 ± 0.0038 | 2.5670 ± 0.0782 | 2.8940 ± 0.0854 | 0.4306 ± 0.0234 | 0.7943 ± 0.0314 | 2.3149 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9550 ± 0.0036 | 1.9686 ± 0.0952 | 2.1117 ± 0.0456 | 0.3667 ± 0.0284 | 0.8885 ± 0.0120 | 2.0046 |
+| `Raw+TabularMLP [outliers]` | torchregress | 0.9997 ± 0.0005 | 6.0412 ± 0.1565 | 6.0429 ± 0.1543 | 0.5741 ± 0.0095 | 0.9977 ± 0.0039 | 14.5632 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9481 ± 0.0076 | 1.9670 ± 0.1513 | 2.0502 ± 0.1952 † | **0.3354 ± 0.0296** | 0.6682 ± 0.0556 | 2.3215 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9536 ± 0.0034 | 2.7214 ± 0.0561 | 2.9626 ± 0.0712 | 0.4306 ± 0.0234 | 0.8477 ± 0.0318 | 2.3149 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9500 ± 0.0030 | 1.9510 ± 0.0856 | 2.1024 ± 0.0369 | 0.3667 ± 0.0284 | 0.8857 ± 0.0076 | 2.0046 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9497 ± 0.0075 | 2.4503 ± 0.0939 | 2.8284 ± 0.1722 † | 0.5741 ± 0.0095 | 0.7718 ± 0.0018 | 14.5632 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9617 ± 0.0043 | 1.3047 ± 0.1204 | 1.4480 ± 0.1530 † | **0.3354 ± 0.0296** | 0.9334 ± 0.0164 | 2.3215 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9517 ± 0.0055 | 2.9464 ± 0.0934 | 3.1884 ± 0.0317 | 0.4306 ± 0.0234 | 0.8348 ± 0.0345 | 2.3149 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9464 ± 0.0077 | 1.8125 ± 0.1127 | 1.9866 ± 0.0434 | 0.3667 ± 0.0284 | 0.8703 ± 0.0202 | 2.0046 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0088 | 2.2469 ± 0.0954 | 2.6565 ± 0.0380 | 0.5741 ± 0.0095 | 0.7999 ± 0.0304 | 14.5632 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9492 ± 0.0096 | 1.4002 ± 0.0039 | 1.7375 ± 0.1152 † | **0.3354 ± 0.0296** | 0.9149 ± 0.0247 | 2.3215 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9461 ± 0.0083 | 1.7370 ± 0.0736 | 2.1110 ± 0.0535 | 0.4306 ± 0.0234 | 0.8647 ± 0.0271 | 2.3149 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9508 ± 0.0101 | 1.4858 ± 0.0940 | 1.7925 ± 0.1341 † | 0.3523 ± 0.0323 | 0.8915 ± 0.0053 | 9.1757 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9486 ± 0.0139 | 1.5094 ± 0.0354 | 1.8685 ± 0.1123 † | 0.3667 ± 0.0284 | 0.9136 ± 0.0226 | 2.0046 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0106 | 2.2476 ± 0.1480 | 2.6421 ± 0.0454 | 0.5741 ± 0.0095 | 0.8357 ± 0.0372 | 14.5632 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9483 ± 0.0117 | 1.4400 ± 0.0882 | 1.6508 ± 0.1515 † | **0.3354 ± 0.0296** | 0.8930 ± 0.0219 | 2.3215 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0096 | 2.0160 ± 0.0765 | 2.3195 ± 0.0600 | 0.4306 ± 0.0234 | 0.8787 ± 0.0177 | 2.3149 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9453 ± 0.0051 | 1.7990 ± 0.1327 | 2.0191 ± 0.0790 | 0.3667 ± 0.0284 | 0.8926 ± 0.0186 | 2.0046 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9458 ± 0.0088 | 2.2469 ± 0.0954 | 2.6565 ± 0.0380 | 0.5741 ± 0.0095 | 0.7999 ± 0.0304 | 14.5632 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9633 ± 0.0058 | 1.3088 ± 0.1119 | **1.4477 ± 0.1364** † | 0.3358 ± 0.0293 | 0.9370 ± 0.0167 | 2.3215 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0060 | 2.9859 ± 0.2199 | 3.2195 ± 0.1280 | 0.4307 ± 0.0233 | 0.8505 ± 0.0213 | 2.3149 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9486 ± 0.0077 | 1.8795 ± 0.1406 | 2.0380 ± 0.0794 | 0.3675 ± 0.0277 | 0.8757 ± 0.0272 | 2.0046 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9467 ± 0.0046 | 2.2398 ± 0.0492 | 2.6258 ± 0.0702 | 0.5710 ± 0.0115 | 0.8518 ± 0.0427 | 14.5632 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9517 ± 0.0095 | 1.3958 ± 0.0516 | 1.7239 ± 0.1206 † | 0.3354 ± 0.0295 | 0.9083 ± 0.0097 | 2.3215 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9533 ± 0.0130 | 1.7628 ± 0.0553 | 2.0972 ± 0.1178 † | 0.4309 ± 0.0235 | 0.8897 ± 0.0254 | 2.3149 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9539 ± 0.0126 | 1.4241 ± 0.0483 | 1.7510 ± 0.1333 † | 0.3499 ± 0.0310 | 0.8983 ± 0.0224 | 9.1757 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9508 ± 0.0121 | 1.4977 ± 0.0399 | 1.8557 ± 0.1254 † | 0.3670 ± 0.0283 | 0.8979 ± 0.0289 | 2.0046 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9469 ± 0.0068 | 2.2103 ± 0.0601 | 2.6038 ± 0.0451 | 0.5711 ± 0.0118 | 0.8483 ± 0.0437 | 14.5632 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9536 ± 0.0096 | 1.3969 ± 0.0306 | 1.7233 ± 0.1240 † | **0.3354 ± 0.0296** | 0.8992 ± 0.0188 | 2.3215 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9486 ± 0.0113 | 1.7239 ± 0.0649 | 2.0967 ± 0.0857 | 0.4306 ± 0.0234 | 0.8485 ± 0.0345 | 2.3149 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9517 ± 0.0109 | 1.4105 ± 0.0647 | 1.7561 ± 0.1305 † | 0.3523 ± 0.0323 | 0.8914 ± 0.0104 | 9.1757 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9508 ± 0.0131 | 1.4716 ± 0.0366 | 1.8452 ± 0.1070 † | 0.3667 ± 0.0284 | 0.8853 ± 0.0331 | 2.0046 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9472 ± 0.0077 | 2.2388 ± 0.1131 | 2.6420 ± 0.0384 | 0.5741 ± 0.0095 | 0.8184 ± 0.0371 | 14.5632 |
 
 ##### fm_uq_scenarios / openml_year@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.9036 ± 0.0059 | 0.9797 ± 0.0243 | 1.2788 ± 0.0248 | 0.3462 ± 0.0060 | 0.8583 ± 0.0211 | 2.2220 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.8511 ± 0.0087 | 1.5147 ± 0.0478 | 2.0594 ± 0.0137 | 0.4313 ± 0.0092 | 0.5659 ± 0.0532 | 1.9650 |
-| `Raw+TabICL [shift]` | tabicl | 0.9050 ± 0.0079 | 1.0817 ± 0.0242 | 1.4045 ± 0.0330 | 0.3712 ± 0.0157 | 0.8067 ± 0.0852 | 1.9936 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0145 | 1.4179 ± 0.0358 | 1.8557 ± 0.0764 | 0.4490 ± 0.0111 | 0.8323 ± 0.0483 | 33.0733 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8936 ± 0.0068 | 0.9676 ± 0.0205 | 1.2787 ± 0.0246 | 0.3462 ± 0.0060 | 0.8454 ± 0.0099 | 2.2220 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.8989 ± 0.0179 | 1.6300 ± 0.0313 | 2.0408 ± 0.0090 | 0.4313 ± 0.0092 | 0.6954 ± 0.0570 | 1.9650 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.8983 ± 0.0117 | 1.0726 ± 0.0311 | 1.4047 ± 0.0321 | 0.3712 ± 0.0157 | 0.7803 ± 0.1139 | 1.9936 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0231 | 1.4180 ± 0.0375 | 1.8619 ± 0.0695 | 0.4490 ± 0.0111 | 0.8257 ± 0.0700 | 33.0733 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8967 ± 0.0036 | 0.9556 ± 0.0166 | 1.2782 ± 0.0244 | 0.3462 ± 0.0060 | 0.8395 ± 0.0054 | 2.2220 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.9003 ± 0.0173 | 2.0118 ± 0.1659 | 2.3284 ± 0.1358 † | 0.4313 ± 0.0092 | 0.6250 ± 0.0652 | 1.9650 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.9017 ± 0.0123 | 1.0678 ± 0.0390 | 1.4046 ± 0.0322 | 0.3712 ± 0.0157 | 0.7970 ± 0.0941 | 1.9936 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0240 | 1.4162 ± 0.0520 | 1.8610 ± 0.0695 | 0.4490 ± 0.0111 | 0.8224 ± 0.0754 | 33.0733 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8867 ± 0.0096 | 0.9775 ± 0.0527 | 1.6444 ± 0.0405 | 0.3462 ± 0.0060 | 0.8098 ± 0.0393 | 2.2220 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9067 ± 0.0058 | 1.3705 ± 0.0266 | 1.9762 ± 0.0765 | 0.4313 ± 0.0092 | 0.8221 ± 0.0562 | 1.9650 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8822 ± 0.0133 | 0.9666 ± 0.0255 | 1.6384 ± 0.1303 † | **0.3438 ± 0.0255** | 0.7676 ± 0.0374 | 9.0888 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8900 ± 0.0080 | 1.0737 ± 0.0151 | 1.7727 ± 0.0979 † | 0.3712 ± 0.0157 | 0.8211 ± 0.0237 | 1.9936 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9061 ± 0.0070 | 1.4352 ± 0.0533 | 2.0492 ± 0.0587 | 0.4490 ± 0.0111 | 0.7946 ± 0.0490 | 33.0733 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9033 ± 0.0014 | 0.9774 ± 0.0055 | 1.3804 ± 0.0266 | 0.3462 ± 0.0060 | 0.8276 ± 0.0283 | 2.2220 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9036 ± 0.0093 | 1.3388 ± 0.0427 | 1.8703 ± 0.0419 | 0.4313 ± 0.0092 | 0.8207 ± 0.0492 | 1.9650 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.9017 ± 0.0129 | 1.0908 ± 0.0367 | 1.5071 ± 0.0499 | 0.3712 ± 0.0157 | 0.8121 ± 0.0542 | 1.9936 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0240 | 1.4162 ± 0.0520 | 1.8610 ± 0.0695 | 0.4490 ± 0.0111 | 0.8224 ± 0.0754 | 33.0733 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8958 ± 0.0017 | 0.9538 ± 0.0133 | **1.2780 ± 0.0252** | 0.3463 ± 0.0060 | 0.8395 ± 0.0054 | 2.2220 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8994 ± 0.0143 | 1.8216 ± 0.0431 | 2.1776 ± 0.0190 | 0.4306 ± 0.0087 | 0.6382 ± 0.0779 | 1.9650 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.9011 ± 0.0092 | 1.0672 ± 0.0306 | 1.4047 ± 0.0308 | 0.3717 ± 0.0158 | 0.7940 ± 0.0910 | 1.9936 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9097 ± 0.0223 | 1.4416 ± 0.0638 | 1.8622 ± 0.0643 | 0.4500 ± 0.0094 | 0.8472 ± 0.0528 | 33.0733 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8958 ± 0.0121 | 0.9930 ± 0.0522 | 1.6301 ± 0.0347 | 0.3462 ± 0.0059 | 0.8018 ± 0.0388 | 2.2220 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9128 ± 0.0051 | 1.3833 ± 0.0138 | 1.9499 ± 0.0703 | 0.4310 ± 0.0090 | 0.8297 ± 0.0543 | 1.9650 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8869 ± 0.0135 | 0.9878 ± 0.0420 | 1.6264 ± 0.1184 † | 0.3444 ± 0.0250 | 0.7933 ± 0.0145 | 9.0888 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8961 ± 0.0071 | 1.0892 ± 0.0454 | 1.7432 ± 0.0833 | 0.3715 ± 0.0158 | 0.8169 ± 0.0361 | 1.9936 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9092 ± 0.0101 | 1.4496 ± 0.0340 | 2.0425 ± 0.0647 | 0.4495 ± 0.0103 | 0.8122 ± 0.0645 | 33.0733 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.8894 ± 0.0104 | 0.9767 ± 0.0611 | 1.6437 ± 0.0270 | 0.3462 ± 0.0060 | 0.7717 ± 0.0390 | 2.2220 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.9069 ± 0.0076 | 1.3632 ± 0.0218 | 1.9738 ± 0.0550 | 0.4313 ± 0.0092 | 0.7859 ± 0.0863 | 1.9650 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.8872 ± 0.0138 | 0.9855 ± 0.0316 | 1.6239 ± 0.1083 † | **0.3438 ± 0.0255** | 0.7932 ± 0.0350 | 9.0888 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.8903 ± 0.0107 | 1.0756 ± 0.0457 | 1.7550 ± 0.0706 | 0.3712 ± 0.0157 | 0.7921 ± 0.0353 | 1.9936 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.9133 ± 0.0096 | 1.4540 ± 0.0375 | 2.0477 ± 0.0543 | 0.4490 ± 0.0111 | 0.8096 ± 0.0794 | 33.0733 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8919 ± 0.0064 | 0.9719 ± 0.0266 | 1.2825 ± 0.0276 | 0.3462 ± 0.0060 | 0.8324 ± 0.0317 | 2.2220 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9156 ± 0.0118 | 1.7003 ± 0.0632 | 2.0469 ± 0.0061 | 0.4313 ± 0.0092 | 0.7484 ± 0.0346 | 1.9650 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8958 ± 0.0073 | 1.0775 ± 0.0317 | 1.4106 ± 0.0372 | 0.3712 ± 0.0157 | 0.7732 ± 0.1148 | 1.9936 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9144 ± 0.0208 | 1.4867 ± 0.0529 | 1.8752 ± 0.0514 | 0.4490 ± 0.0111 | 0.8432 ± 0.0552 | 33.0733 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9094 ± 0.0146 | 1.0695 ± 0.1145 | 1.6344 ± 0.0316 | 0.3462 ± 0.0060 | 0.8040 ± 0.0435 | 2.2220 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9261 ± 0.0126 | 1.4973 ± 0.1014 | 1.9927 ± 0.0514 | 0.4313 ± 0.0092 | 0.8131 ± 0.0527 | 1.9650 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9089 ± 0.0247 | 1.0826 ± 0.1149 | 1.6193 ± 0.0948 † | **0.3438 ± 0.0255** | 0.8185 ± 0.0418 | 9.0888 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9136 ± 0.0185 | 1.2050 ± 0.1254 | 1.7601 ± 0.0470 | 0.3712 ± 0.0157 | 0.8359 ± 0.0299 | 1.9936 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9256 ± 0.0090 | 1.5594 ± 0.0667 | 2.0648 ± 0.0450 | 0.4490 ± 0.0111 | 0.8367 ± 0.0630 | 33.0733 |
+| `Raw+KumoTabular [shift]` | sdm | 0.9036 ± 0.0059 | 0.9797 ± 0.0243 | 1.2788 ± 0.0248 | 0.3462 ± 0.0060 | 0.8583 ± 0.0211 | 2.3349 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.8511 ± 0.0087 | 1.5147 ± 0.0478 | 2.0594 ± 0.0137 | 0.4313 ± 0.0092 | 0.5659 ± 0.0532 | 1.9631 |
+| `Raw+TabICL [shift]` | tabicl | 0.9050 ± 0.0079 | 1.0817 ± 0.0242 | 1.4045 ± 0.0330 | 0.3712 ± 0.0157 | 0.8067 ± 0.0852 | 2.0321 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0145 | 1.4179 ± 0.0358 | 1.8557 ± 0.0764 | 0.4490 ± 0.0111 | 0.8323 ± 0.0483 | 33.3852 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.8936 ± 0.0068 | 0.9676 ± 0.0205 | 1.2787 ± 0.0246 | 0.3462 ± 0.0060 | 0.8454 ± 0.0099 | 2.3349 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.8989 ± 0.0179 | 1.6300 ± 0.0313 | 2.0408 ± 0.0090 | 0.4313 ± 0.0092 | 0.6954 ± 0.0570 | 1.9631 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.8983 ± 0.0117 | 1.0726 ± 0.0311 | 1.4047 ± 0.0321 | 0.3712 ± 0.0157 | 0.7803 ± 0.1139 | 2.0321 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0231 | 1.4180 ± 0.0375 | 1.8619 ± 0.0695 | 0.4490 ± 0.0111 | 0.8257 ± 0.0700 | 33.3852 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8967 ± 0.0036 | 0.9556 ± 0.0166 | 1.2782 ± 0.0244 | 0.3462 ± 0.0060 | 0.8395 ± 0.0054 | 2.3349 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.9003 ± 0.0173 | 2.0118 ± 0.1659 | 2.3284 ± 0.1358 † | 0.4313 ± 0.0092 | 0.6250 ± 0.0652 | 1.9631 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.9017 ± 0.0123 | 1.0678 ± 0.0390 | 1.4046 ± 0.0322 | 0.3712 ± 0.0157 | 0.7970 ± 0.0941 | 2.0321 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0240 | 1.4162 ± 0.0520 | 1.8610 ± 0.0695 | 0.4490 ± 0.0111 | 0.8224 ± 0.0754 | 33.3852 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.8867 ± 0.0096 | 0.9775 ± 0.0527 | 1.6444 ± 0.0405 | 0.3462 ± 0.0060 | 0.8098 ± 0.0393 | 2.3349 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9067 ± 0.0058 | 1.3705 ± 0.0266 | 1.9762 ± 0.0765 | 0.4313 ± 0.0092 | 0.8221 ± 0.0562 | 1.9631 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.8822 ± 0.0133 | 0.9666 ± 0.0255 | 1.6384 ± 0.1303 † | **0.3438 ± 0.0255** | 0.7676 ± 0.0374 | 9.0572 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.8900 ± 0.0080 | 1.0737 ± 0.0151 | 1.7727 ± 0.0979 † | 0.3712 ± 0.0157 | 0.8211 ± 0.0237 | 2.0321 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9061 ± 0.0070 | 1.4352 ± 0.0533 | 2.0492 ± 0.0587 | 0.4490 ± 0.0111 | 0.7946 ± 0.0490 | 33.3852 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.9033 ± 0.0014 | 0.9774 ± 0.0055 | 1.3804 ± 0.0266 | 0.3462 ± 0.0060 | 0.8276 ± 0.0283 | 2.3349 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9036 ± 0.0093 | 1.3388 ± 0.0427 | 1.8703 ± 0.0419 | 0.4313 ± 0.0092 | 0.8207 ± 0.0492 | 1.9631 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.9017 ± 0.0129 | 1.0908 ± 0.0367 | 1.5071 ± 0.0499 | 0.3712 ± 0.0157 | 0.8121 ± 0.0542 | 2.0321 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.9053 ± 0.0240 | 1.4162 ± 0.0520 | 1.8610 ± 0.0695 | 0.4490 ± 0.0111 | 0.8224 ± 0.0754 | 33.3852 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8958 ± 0.0017 | 0.9538 ± 0.0133 | **1.2780 ± 0.0252** | 0.3463 ± 0.0060 | 0.8395 ± 0.0054 | 2.3349 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.8994 ± 0.0143 | 1.8216 ± 0.0431 | 2.1776 ± 0.0190 | 0.4306 ± 0.0087 | 0.6382 ± 0.0779 | 1.9631 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.9011 ± 0.0092 | 1.0672 ± 0.0306 | 1.4047 ± 0.0308 | 0.3717 ± 0.0158 | 0.7940 ± 0.0910 | 2.0321 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.9097 ± 0.0223 | 1.4416 ± 0.0638 | 1.8622 ± 0.0643 | 0.4500 ± 0.0094 | 0.8472 ± 0.0528 | 33.3852 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8958 ± 0.0121 | 0.9930 ± 0.0522 | 1.6301 ± 0.0347 | 0.3462 ± 0.0059 | 0.8018 ± 0.0388 | 2.3349 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9128 ± 0.0051 | 1.3833 ± 0.0138 | 1.9499 ± 0.0703 | 0.4310 ± 0.0090 | 0.8297 ± 0.0543 | 1.9631 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.8869 ± 0.0135 | 0.9878 ± 0.0420 | 1.6264 ± 0.1184 † | 0.3444 ± 0.0250 | 0.7933 ± 0.0145 | 9.0572 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.8961 ± 0.0071 | 1.0892 ± 0.0454 | 1.7432 ± 0.0833 | 0.3715 ± 0.0158 | 0.8169 ± 0.0361 | 2.0321 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9092 ± 0.0101 | 1.4496 ± 0.0340 | 2.0425 ± 0.0647 | 0.4495 ± 0.0103 | 0.8122 ± 0.0645 | 33.3852 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.8894 ± 0.0104 | 0.9767 ± 0.0611 | 1.6437 ± 0.0270 | 0.3462 ± 0.0060 | 0.7717 ± 0.0390 | 2.3349 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.9069 ± 0.0076 | 1.3632 ± 0.0218 | 1.9738 ± 0.0550 | 0.4313 ± 0.0092 | 0.7859 ± 0.0863 | 1.9631 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.8872 ± 0.0138 | 0.9855 ± 0.0316 | 1.6239 ± 0.1083 † | **0.3438 ± 0.0255** | 0.7932 ± 0.0350 | 9.0572 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.8903 ± 0.0107 | 1.0756 ± 0.0457 | 1.7550 ± 0.0706 | 0.3712 ± 0.0157 | 0.7921 ± 0.0353 | 2.0321 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.9133 ± 0.0096 | 1.4540 ± 0.0375 | 2.0477 ± 0.0543 | 0.4490 ± 0.0111 | 0.8096 ± 0.0794 | 33.3852 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.8919 ± 0.0064 | 0.9719 ± 0.0266 | 1.2825 ± 0.0276 | 0.3462 ± 0.0060 | 0.8324 ± 0.0317 | 2.3349 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9156 ± 0.0118 | 1.7003 ± 0.0632 | 2.0469 ± 0.0061 | 0.4313 ± 0.0092 | 0.7484 ± 0.0346 | 1.9631 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.8958 ± 0.0073 | 1.0775 ± 0.0317 | 1.4106 ± 0.0372 | 0.3712 ± 0.0157 | 0.7732 ± 0.1148 | 2.0321 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9144 ± 0.0208 | 1.4867 ± 0.0529 | 1.8752 ± 0.0514 | 0.4490 ± 0.0111 | 0.8432 ± 0.0552 | 33.3852 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9094 ± 0.0146 | 1.0695 ± 0.1145 | 1.6344 ± 0.0316 | 0.3462 ± 0.0060 | 0.8040 ± 0.0435 | 2.3349 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9261 ± 0.0126 | 1.4973 ± 0.1014 | 1.9927 ± 0.0514 | 0.4313 ± 0.0092 | 0.8131 ± 0.0527 | 1.9631 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9089 ± 0.0247 | 1.0826 ± 0.1149 | 1.6193 ± 0.0948 † | **0.3438 ± 0.0255** | 0.8185 ± 0.0418 | 9.0572 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9136 ± 0.0185 | 1.2050 ± 0.1254 | 1.7601 ± 0.0470 | 0.3712 ± 0.0157 | 0.8359 ± 0.0299 | 2.0321 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9256 ± 0.0090 | 1.5594 ± 0.0667 | 2.0648 ± 0.0450 | 0.4490 ± 0.0111 | 0.8367 ± 0.0630 | 33.3852 |
 
 ##### fm_uq_scenarios / zurich_delays
 
@@ -2494,330 +2404,330 @@ _No successful rows._
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [clean]` | sdm | 0.9033 ± 0.0162 | 1.5267 ± 0.6907 | **2.2603 ± 1.1435** † | 0.6484 ± 0.3291 | 0.5612 ± 0.0732 | 5.1230 |
-| `Raw+LightGBM [clean]` | lightgbm | 0.8286 ± 0.0113 | 1.2183 ± 0.6006 | 2.4331 ± 1.2211 † | 0.6597 ± 0.3320 | 0.2919 ± 0.0072 | 2.2628 |
-| `Raw+TabICL [clean]` | tabicl | 0.8958 ± 0.0109 | 1.4497 ± 0.6945 | 2.2622 ± 1.1605 † | 0.6486 ± 0.3317 | 0.5303 ± 0.0443 | 7.0951 |
-| `Raw+TabularMLP [clean]` | torchregress | 0.9472 ± 0.0120 | 1.9081 ± 0.9036 | 2.6707 ± 1.2908 † | 0.6479 ± 0.3320 | 0.5409 ± 0.0561 | 20.8735 |
-| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8842 ± 0.0088 | 1.4782 ± 0.6757 | 2.2639 ± 1.1514 † | 0.6484 ± 0.3291 | 0.4656 ± 0.0469 | 5.1230 |
-| `tr_CQR+LightGBM [clean]` | torchregress | 0.8983 ± 0.0030 | 1.3966 ± 0.6915 | 2.3729 ± 1.1949 † | 0.6597 ± 0.3320 | 0.4080 ± 0.0177 | 2.2628 |
-| `tr_CQR+TabICL [clean]` | torchregress | 0.8883 ± 0.0079 | 1.4301 ± 0.6828 | 2.2641 ± 1.1634 † | 0.6486 ± 0.3317 | 0.4927 ± 0.0054 | 7.0951 |
-| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0172 | 1.4944 ± 0.7180 | 2.5557 ± 1.2653 † | 0.6479 ± 0.3320 | 0.4058 ± 0.0178 | 20.8735 |
-| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8811 ± 0.0096 | 1.4093 ± 0.6747 | 2.2667 ± 1.1484 † | 0.6484 ± 0.3291 | 0.4795 ± 0.0352 | 5.1230 |
-| `tr_DCP+LightGBM [clean]` | torchregress | 0.8936 ± 0.0043 | 1.5332 ± 0.7399 | 2.3935 ± 1.1901 † | 0.6597 ± 0.3320 | 0.4936 ± 0.0374 | 2.2628 |
-| `tr_DCP+TabICL [clean]` | torchregress | 0.8881 ± 0.0082 | 1.4130 ± 0.6748 | 2.2643 ± 1.1642 † | 0.6486 ± 0.3317 | 0.4975 ± 0.0056 | 7.0951 |
-| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8836 ± 0.0171 | 1.3725 ± 0.6654 | 2.5074 ± 1.2317 † | 0.6479 ± 0.3320 | 0.3426 ± 0.0347 | 20.8735 |
-| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8850 ± 0.0080 | 1.3939 ± 0.6943 | 2.7046 ± 1.3577 † | 0.6484 ± 0.3291 | 0.3307 ± 0.0247 | 5.1230 |
-| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8822 ± 0.0125 | 1.3881 ± 0.7620 | 2.7984 ± 1.3927 † | 0.6597 ± 0.3320 | 0.2174 ± 0.0906 | 2.2628 |
-| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8908 ± 0.0066 | 1.4023 ± 0.7428 | 2.5809 ± 1.2313 † | **0.6471 ± 0.3283** | 0.3853 ± 0.0254 | 13.3470 |
-| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8786 ± 0.0029 | 1.3818 ± 0.7095 | 2.7436 ± 1.3625 † | 0.6486 ± 0.3317 | 0.2846 ± 0.0163 | 7.0951 |
-| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0092 | 1.3538 ± 0.7139 | 2.5244 ± 1.2466 † | 0.6479 ± 0.3320 | 0.3544 ± 0.0402 | 20.8735 |
-| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8792 ± 0.0014 | 1.3395 ± 0.6552 | 2.5847 ± 1.2530 † | 0.6484 ± 0.3291 | 0.2986 ± 0.0115 | 5.1230 |
-| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8886 ± 0.0099 | 1.3930 ± 0.7143 | 2.6862 ± 1.3219 † | 0.6597 ± 0.3320 | 0.2329 ± 0.0375 | 2.2628 |
-| `tr_Normalized+TabICL [clean]` | torchregress | 0.8844 ± 0.0034 | 1.4132 ± 0.7256 | 2.6105 ± 1.3029 † | 0.6486 ± 0.3317 | 0.2947 ± 0.0137 | 7.0951 |
-| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8836 ± 0.0171 | 1.3725 ± 0.6654 | 2.5074 ± 1.2317 † | 0.6479 ± 0.3320 | 0.3426 ± 0.0347 | 20.8735 |
-| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8808 ± 0.0096 | 1.3767 ± 0.6720 | 2.2741 ± 1.1459 † | 0.6548 ± 0.3311 | 0.4710 ± 0.0128 | 5.1230 |
-| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8928 ± 0.0025 | 1.5045 ± 0.7503 | 2.3887 ± 1.1838 † | 0.6647 ± 0.3323 | 0.4839 ± 0.0256 | 2.2628 |
-| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8883 ± 0.0079 | 1.4178 ± 0.6900 | 2.2645 ± 1.1644 † | 0.6488 ± 0.3329 | 0.5225 ± 0.0358 | 7.0951 |
-| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8842 ± 0.0088 | 1.4745 ± 0.7274 | 2.4342 ± 1.2349 † | 0.6626 ± 0.3315 | 0.4866 ± 0.0319 | 20.8735 |
-| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8950 ± 0.0074 | 1.4772 ± 0.7653 | 2.5730 ± 1.2879 † | 0.6518 ± 0.3297 | 0.4594 ± 0.0580 | 5.1230 |
-| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8908 ± 0.0146 | 1.4957 ± 0.7966 | 2.5817 ± 1.2664 † | 0.6626 ± 0.3323 | 0.4231 ± 0.0924 | 2.2628 |
-| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.8989 ± 0.0070 | 1.5103 ± 0.7905 | 2.6880 ± 1.3215 † | 0.6529 ± 0.3286 | 0.4400 ± 0.0414 | 13.3470 |
-| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8903 ± 0.0092 | 1.4551 ± 0.7539 | 2.5706 ± 1.2885 † | 0.6485 ± 0.3324 | 0.4309 ± 0.0827 | 7.0951 |
-| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8983 ± 0.0106 | 1.5031 ± 0.7710 | 2.6445 ± 1.3176 † | 0.6546 ± 0.3320 | 0.4387 ± 0.0611 | 20.8735 |
-| `tr_Split+KumoTabular [clean]` | torchregress | 0.8972 ± 0.0099 | 1.3544 ± 0.6995 | 2.7994 ± 1.3555 † | 0.6484 ± 0.3291 | 0.0858 ± 0.0392 | 5.1230 |
-| `tr_Split+LightGBM [clean]` | torchregress | 0.8989 ± 0.0133 | 1.3654 ± 0.7074 | 2.8446 ± 1.3721 † | 0.6597 ± 0.3320 | 0.0622 ± 0.0483 | 2.2628 |
-| `tr_Split+TabFM [clean]` | torchregress | 0.8964 ± 0.0117 | 1.4177 ± 0.7421 | 2.7434 ± 1.3282 † | **0.6471 ± 0.3283** | 0.2564 ± 0.0461 | 13.3470 |
-| `tr_Split+TabICL [clean]` | torchregress | 0.8975 ± 0.0098 | 1.3977 ± 0.7283 | 2.8373 ± 1.3642 † | 0.6486 ± 0.3317 | 0.0823 ± 0.0308 | 7.0951 |
-| `tr_Split+TabularMLP [clean]` | torchregress | 0.9017 ± 0.0108 | 1.4338 ± 0.7355 | 2.6836 ± 1.3231 † | 0.6479 ± 0.3320 | 0.2856 ± 0.0365 | 20.8735 |
+| `Raw+KumoTabular [clean]` | sdm | 0.9033 ± 0.0162 | 1.5267 ± 0.6907 | **2.2603 ± 1.1435** † | 0.6484 ± 0.3291 | 0.5612 ± 0.0732 | 5.0308 |
+| `Raw+LightGBM [clean]` | lightgbm | 0.8286 ± 0.0113 | 1.2183 ± 0.6006 | 2.4331 ± 1.2211 † | 0.6597 ± 0.3320 | 0.2919 ± 0.0072 | 2.3299 |
+| `Raw+TabICL [clean]` | tabicl | 0.8958 ± 0.0109 | 1.4497 ± 0.6945 | 2.2622 ± 1.1605 † | 0.6486 ± 0.3317 | 0.5303 ± 0.0443 | 7.1898 |
+| `Raw+TabularMLP [clean]` | torchregress | 0.9472 ± 0.0120 | 1.9081 ± 0.9036 | 2.6707 ± 1.2908 † | 0.6479 ± 0.3320 | 0.5409 ± 0.0561 | 20.9347 |
+| `tr_CQR+KumoTabular [clean]` | torchregress | 0.8842 ± 0.0088 | 1.4782 ± 0.6757 | 2.2639 ± 1.1514 † | 0.6484 ± 0.3291 | 0.4656 ± 0.0469 | 5.0308 |
+| `tr_CQR+LightGBM [clean]` | torchregress | 0.8983 ± 0.0030 | 1.3966 ± 0.6915 | 2.3729 ± 1.1949 † | 0.6597 ± 0.3320 | 0.4080 ± 0.0177 | 2.3299 |
+| `tr_CQR+TabICL [clean]` | torchregress | 0.8883 ± 0.0079 | 1.4301 ± 0.6828 | 2.2641 ± 1.1634 † | 0.6486 ± 0.3317 | 0.4927 ± 0.0054 | 7.1898 |
+| `tr_CQR+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0172 | 1.4944 ± 0.7180 | 2.5557 ± 1.2653 † | 0.6479 ± 0.3320 | 0.4058 ± 0.0178 | 20.9347 |
+| `tr_DCP+KumoTabular [clean]` | torchregress | 0.8811 ± 0.0096 | 1.4093 ± 0.6747 | 2.2667 ± 1.1484 † | 0.6484 ± 0.3291 | 0.4795 ± 0.0352 | 5.0308 |
+| `tr_DCP+LightGBM [clean]` | torchregress | 0.8936 ± 0.0043 | 1.5332 ± 0.7399 | 2.3935 ± 1.1901 † | 0.6597 ± 0.3320 | 0.4936 ± 0.0374 | 2.3299 |
+| `tr_DCP+TabICL [clean]` | torchregress | 0.8881 ± 0.0082 | 1.4130 ± 0.6748 | 2.2643 ± 1.1642 † | 0.6486 ± 0.3317 | 0.4975 ± 0.0056 | 7.1898 |
+| `tr_DCP+TabularMLP [clean]` | torchregress | 0.8836 ± 0.0171 | 1.3725 ± 0.6654 | 2.5074 ± 1.2317 † | 0.6479 ± 0.3320 | 0.3426 ± 0.0347 | 20.9347 |
+| `tr_Mondrian+KumoTabular [clean]` | torchregress | 0.8850 ± 0.0080 | 1.3939 ± 0.6943 | 2.7046 ± 1.3577 † | 0.6484 ± 0.3291 | 0.3307 ± 0.0247 | 5.0308 |
+| `tr_Mondrian+LightGBM [clean]` | torchregress | 0.8822 ± 0.0125 | 1.3881 ± 0.7620 | 2.7984 ± 1.3927 † | 0.6597 ± 0.3320 | 0.2174 ± 0.0906 | 2.3299 |
+| `tr_Mondrian+TabFM [clean]` | torchregress | 0.8908 ± 0.0066 | 1.4023 ± 0.7428 | 2.5809 ± 1.2313 † | **0.6471 ± 0.3283** | 0.3853 ± 0.0254 | 13.4380 |
+| `tr_Mondrian+TabICL [clean]` | torchregress | 0.8786 ± 0.0029 | 1.3818 ± 0.7095 | 2.7436 ± 1.3625 † | 0.6486 ± 0.3317 | 0.2846 ± 0.0163 | 7.1898 |
+| `tr_Mondrian+TabularMLP [clean]` | torchregress | 0.8850 ± 0.0092 | 1.3538 ± 0.7139 | 2.5244 ± 1.2466 † | 0.6479 ± 0.3320 | 0.3544 ± 0.0402 | 20.9347 |
+| `tr_Normalized+KumoTabular [clean]` | torchregress | 0.8792 ± 0.0014 | 1.3395 ± 0.6552 | 2.5847 ± 1.2530 † | 0.6484 ± 0.3291 | 0.2986 ± 0.0115 | 5.0308 |
+| `tr_Normalized+LightGBM [clean]` | torchregress | 0.8886 ± 0.0099 | 1.3930 ± 0.7143 | 2.6862 ± 1.3219 † | 0.6597 ± 0.3320 | 0.2329 ± 0.0375 | 2.3299 |
+| `tr_Normalized+TabICL [clean]` | torchregress | 0.8844 ± 0.0034 | 1.4132 ± 0.7256 | 2.6105 ± 1.3029 † | 0.6486 ± 0.3317 | 0.2947 ± 0.0137 | 7.1898 |
+| `tr_Normalized+TabularMLP [clean]` | torchregress | 0.8836 ± 0.0171 | 1.3725 ± 0.6654 | 2.5074 ± 1.2317 † | 0.6479 ± 0.3320 | 0.3426 ± 0.0347 | 20.9347 |
+| `tr_PITRecal+KumoTabular [clean]` | torchregress | 0.8808 ± 0.0096 | 1.3767 ± 0.6720 | 2.2741 ± 1.1459 † | 0.6548 ± 0.3311 | 0.4710 ± 0.0128 | 5.0308 |
+| `tr_PITRecal+LightGBM [clean]` | torchregress | 0.8928 ± 0.0025 | 1.5045 ± 0.7503 | 2.3887 ± 1.1838 † | 0.6647 ± 0.3323 | 0.4839 ± 0.0256 | 2.3299 |
+| `tr_PITRecal+TabICL [clean]` | torchregress | 0.8883 ± 0.0079 | 1.4178 ± 0.6900 | 2.2645 ± 1.1644 † | 0.6488 ± 0.3329 | 0.5225 ± 0.0358 | 7.1898 |
+| `tr_PITRecal+TabularMLP [clean]` | torchregress | 0.8842 ± 0.0088 | 1.4745 ± 0.7274 | 2.4342 ± 1.2349 † | 0.6626 ± 0.3315 | 0.4866 ± 0.0319 | 20.9347 |
+| `tr_ResidualDist+KumoTabular [clean]` | torchregress | 0.8950 ± 0.0074 | 1.4772 ± 0.7653 | 2.5730 ± 1.2879 † | 0.6518 ± 0.3297 | 0.4594 ± 0.0580 | 5.0308 |
+| `tr_ResidualDist+LightGBM [clean]` | torchregress | 0.8908 ± 0.0146 | 1.4957 ± 0.7966 | 2.5817 ± 1.2664 † | 0.6626 ± 0.3323 | 0.4231 ± 0.0924 | 2.3299 |
+| `tr_ResidualDist+TabFM [clean]` | torchregress | 0.8989 ± 0.0070 | 1.5103 ± 0.7905 | 2.6880 ± 1.3215 † | 0.6529 ± 0.3286 | 0.4400 ± 0.0414 | 13.4380 |
+| `tr_ResidualDist+TabICL [clean]` | torchregress | 0.8903 ± 0.0092 | 1.4551 ± 0.7539 | 2.5706 ± 1.2885 † | 0.6485 ± 0.3324 | 0.4309 ± 0.0827 | 7.1898 |
+| `tr_ResidualDist+TabularMLP [clean]` | torchregress | 0.8983 ± 0.0106 | 1.5031 ± 0.7710 | 2.6445 ± 1.3176 † | 0.6546 ± 0.3320 | 0.4387 ± 0.0611 | 20.9347 |
+| `tr_Split+KumoTabular [clean]` | torchregress | 0.8972 ± 0.0099 | 1.3544 ± 0.6995 | 2.7994 ± 1.3555 † | 0.6484 ± 0.3291 | 0.0858 ± 0.0392 | 5.0308 |
+| `tr_Split+LightGBM [clean]` | torchregress | 0.8989 ± 0.0133 | 1.3654 ± 0.7074 | 2.8446 ± 1.3721 † | 0.6597 ± 0.3320 | 0.0622 ± 0.0483 | 2.3299 |
+| `tr_Split+TabFM [clean]` | torchregress | 0.8964 ± 0.0117 | 1.4177 ± 0.7421 | 2.7434 ± 1.3282 † | **0.6471 ± 0.3283** | 0.2564 ± 0.0461 | 13.4380 |
+| `tr_Split+TabICL [clean]` | torchregress | 0.8975 ± 0.0098 | 1.3977 ± 0.7283 | 2.8373 ± 1.3642 † | 0.6486 ± 0.3317 | 0.0823 ± 0.0308 | 7.1898 |
+| `tr_Split+TabularMLP [clean]` | torchregress | 0.9017 ± 0.0108 | 1.4338 ± 0.7355 | 2.6836 ± 1.3231 † | 0.6479 ± 0.3320 | 0.2856 ± 0.0365 | 20.9347 |
 
 ##### fm_uq_scenarios / zurich_delays@extrapolate
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [extrapolate]` | sdm | 0.9222 ± 0.0010 | 1.7052 ± 0.8665 | 2.2197 ± 1.1929 † | **0.5834 ± 0.3345** | 0.5230 ± 0.0991 | 4.6529 |
-| `Raw+LightGBM [extrapolate]` | lightgbm | 0.8511 ± 0.0210 | 1.3080 ± 0.7096 | 2.2052 ± 1.2652 † | 0.6010 ± 0.3504 | 0.2797 ± 0.0433 | 2.1892 |
-| `Raw+TabICL [extrapolate]` | tabicl | 0.9214 ± 0.0034 | 1.5648 ± 0.8171 | **2.0928 ± 1.1223** † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.7419 |
-| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9583 ± 0.0090 | 2.3396 ± 1.3653 | 2.8863 ± 1.7354 † | 0.5962 ± 0.3398 | 0.5253 ± 0.0718 | 19.4284 |
-| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9158 ± 0.0052 | 1.6826 ± 0.8535 | 2.2156 ± 1.1901 † | **0.5834 ± 0.3345** | 0.4949 ± 0.1247 | 4.6529 |
-| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9200 ± 0.0066 | 1.5094 ± 0.8120 | 2.1884 ± 1.2673 † | 0.6010 ± 0.3504 | 0.4523 ± 0.0511 | 2.1892 |
-| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9256 ± 0.0021 | 1.5763 ± 0.8133 | 2.0953 ± 1.1213 † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.7419 |
-| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.9147 ± 0.0174 | 2.0115 ± 1.2359 | 2.7568 ± 1.6913 † | 0.5962 ± 0.3398 | 0.3780 ± 0.1860 | 19.4284 |
-| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9136 ± 0.0063 | 1.6365 ± 0.8284 | 2.1897 ± 1.1831 † | **0.5834 ± 0.3345** | 0.4790 ± 0.1184 | 4.6529 |
-| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.9119 ± 0.0091 | 1.7657 ± 0.9471 | 2.3499 ± 1.3151 † | 0.6010 ± 0.3504 | 0.5112 ± 0.0570 | 2.1892 |
-| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9239 ± 0.0017 | 1.5869 ± 0.8102 | 2.1032 ± 1.1199 † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.7419 |
-| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9167 ± 0.0213 | 1.8633 ± 1.1302 | 2.6276 ± 1.5879 † | 0.5962 ± 0.3398 | 0.3421 ± 0.2270 | 19.4284 |
-| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.9044 ± 0.0343 | 1.5699 ± 1.1550 | 2.4590 ± 1.4989 † | **0.5834 ± 0.3345** | 0.2763 ± 0.2093 | 4.6529 |
-| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9200 ± 0.0096 | 1.5907 ± 1.0283 | 2.5301 ± 1.5759 † | 0.6010 ± 0.3504 | 0.2742 ± 0.1032 | 2.1892 |
-| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8894 ± 0.0529 | 1.5059 ± 0.9498 | 3.6872 ± 1.1832 † | 1.0859 ± 0.5297 | 0.3508 ± 0.1813 | 13.1460 |
-| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9197 ± 0.0217 | 1.6220 ± 1.0587 | 2.5023 ± 1.4667 † | 0.5928 ± 0.3429 | 0.2758 ± 0.1765 | 6.7419 |
-| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9014 ± 0.0252 | 1.5032 ± 1.0000 | 2.3557 ± 1.4298 † | 0.5962 ± 0.3398 | 0.2944 ± 0.1477 | 19.4284 |
-| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9194 ± 0.0193 | 1.6554 ± 0.9367 | 2.4215 ± 1.3780 † | **0.5834 ± 0.3345** | 0.3388 ± 0.2002 | 4.6529 |
-| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9319 ± 0.0091 | 1.6276 ± 0.9615 | 2.4462 ± 1.4862 † | 0.6010 ± 0.3504 | 0.3064 ± 0.0951 | 2.1892 |
-| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9294 ± 0.0147 | 1.6377 ± 0.8959 | 2.3490 ± 1.3160 † | 0.5928 ± 0.3429 | 0.3241 ± 0.1762 | 6.7419 |
-| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9167 ± 0.0213 | 1.8633 ± 1.1302 | 2.6276 ± 1.5879 † | 0.5962 ± 0.3398 | 0.3421 ± 0.2270 | 19.4284 |
-| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9156 ± 0.0061 | 1.6719 ± 0.8673 | 2.2008 ± 1.1837 † | 0.5852 ± 0.3335 | 0.4408 ± 0.1620 | 4.6529 |
-| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.9181 ± 0.0059 | 1.7604 ± 0.9781 | 2.3231 ± 1.2955 † | 0.6007 ± 0.3501 | 0.4806 ± 0.1164 | 2.1892 |
-| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9222 ± 0.0050 | 1.6629 ± 0.8821 | 2.1473 ± 1.1570 † | 0.5923 ± 0.3409 | 0.4825 ± 0.1456 | 6.7419 |
-| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9139 ± 0.0075 | 1.9644 ± 1.1461 | 2.6007 ± 1.5347 † | 0.6819 ± 0.4132 | 0.4575 ± 0.1552 | 19.4284 |
-| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.9186 ± 0.0097 | 1.5742 ± 0.8145 | 2.3433 ± 1.3220 † | 0.5845 ± 0.3333 | 0.4428 ± 0.0520 | 4.6529 |
-| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.9028 ± 0.0050 | 1.6266 ± 0.8678 | 2.4307 ± 1.3674 † | 0.6008 ± 0.3499 | 0.4764 ± 0.0950 | 2.1892 |
-| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9028 ± 0.0177 | 1.6112 ± 0.8056 | 3.7312 ± 0.9107 † | 1.0861 ± 0.5349 | 0.4933 ± 0.0592 | 13.1460 |
-| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9219 ± 0.0071 | 1.5734 ± 0.8159 | 2.3821 ± 1.3211 † | 0.5905 ± 0.3402 | 0.4522 ± 0.0408 | 6.7419 |
-| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9194 ± 0.0119 | 1.6588 ± 0.8757 | 2.4783 ± 1.4064 † | 0.5970 ± 0.3447 | 0.4580 ± 0.0526 | 19.4284 |
-| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.9286 ± 0.0032 | 1.4893 ± 0.7916 | 2.4616 ± 1.3913 † | **0.5834 ± 0.3345** | 0.1300 ± 0.1534 | 4.6529 |
-| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9322 ± 0.0099 | 1.4966 ± 0.7800 | 2.5176 ± 1.4700 † | 0.6010 ± 0.3504 | 0.1427 ± 0.1006 | 2.1892 |
-| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9106 ± 0.0280 | 1.5350 ± 0.7712 | 3.7468 ± 1.0050 † | 1.0859 ± 0.5297 | 0.3315 ± 0.1620 | 13.1460 |
-| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9283 ± 0.0072 | 1.5192 ± 0.7919 | 2.5624 ± 1.4463 † | 0.5928 ± 0.3429 | 0.0997 ± 0.1084 | 6.7419 |
-| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9169 ± 0.0125 | 1.4548 ± 0.7321 | 2.4323 ± 1.3840 † | 0.5962 ± 0.3398 | 0.2494 ± 0.1734 | 19.4284 |
+| `Raw+KumoTabular [extrapolate]` | sdm | 0.9222 ± 0.0010 | 1.7052 ± 0.8665 | 2.2197 ± 1.1929 † | **0.5834 ± 0.3345** | 0.5230 ± 0.0991 | 4.7184 |
+| `Raw+LightGBM [extrapolate]` | lightgbm | 0.8511 ± 0.0210 | 1.3080 ± 0.7096 | 2.2052 ± 1.2652 † | 0.6010 ± 0.3504 | 0.2797 ± 0.0433 | 2.1733 |
+| `Raw+TabICL [extrapolate]` | tabicl | 0.9214 ± 0.0034 | 1.5647 ± 0.8170 | **2.0927 ± 1.1223** † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.8230 |
+| `Raw+TabularMLP [extrapolate]` | torchregress | 0.9583 ± 0.0090 | 2.3396 ± 1.3653 | 2.8863 ± 1.7354 † | 0.5962 ± 0.3398 | 0.5253 ± 0.0718 | 19.2814 |
+| `tr_CQR+KumoTabular [extrapolate]` | torchregress | 0.9158 ± 0.0052 | 1.6826 ± 0.8535 | 2.2156 ± 1.1901 † | **0.5834 ± 0.3345** | 0.4949 ± 0.1247 | 4.7184 |
+| `tr_CQR+LightGBM [extrapolate]` | torchregress | 0.9200 ± 0.0066 | 1.5094 ± 0.8120 | 2.1884 ± 1.2673 † | 0.6010 ± 0.3504 | 0.4523 ± 0.0511 | 2.1733 |
+| `tr_CQR+TabICL [extrapolate]` | torchregress | 0.9256 ± 0.0021 | 1.5762 ± 0.8133 | 2.0953 ± 1.1212 † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.8230 |
+| `tr_CQR+TabularMLP [extrapolate]` | torchregress | 0.9147 ± 0.0174 | 2.0115 ± 1.2359 | 2.7568 ± 1.6913 † | 0.5962 ± 0.3398 | 0.3780 ± 0.1860 | 19.2814 |
+| `tr_DCP+KumoTabular [extrapolate]` | torchregress | 0.9136 ± 0.0063 | 1.6365 ± 0.8284 | 2.1897 ± 1.1831 † | **0.5834 ± 0.3345** | 0.4790 ± 0.1184 | 4.7184 |
+| `tr_DCP+LightGBM [extrapolate]` | torchregress | 0.9119 ± 0.0091 | 1.7657 ± 0.9471 | 2.3499 ± 1.3151 † | 0.6010 ± 0.3504 | 0.5112 ± 0.0570 | 2.1733 |
+| `tr_DCP+TabICL [extrapolate]` | torchregress | 0.9239 ± 0.0017 | 1.5869 ± 0.8102 | 2.1031 ± 1.1199 † | 0.5928 ± 0.3429 | 0.5265 ± 0.0787 | 6.8230 |
+| `tr_DCP+TabularMLP [extrapolate]` | torchregress | 0.9167 ± 0.0213 | 1.8633 ± 1.1302 | 2.6276 ± 1.5879 † | 0.5962 ± 0.3398 | 0.3421 ± 0.2270 | 19.2814 |
+| `tr_Mondrian+KumoTabular [extrapolate]` | torchregress | 0.9044 ± 0.0343 | 1.5699 ± 1.1550 | 2.4590 ± 1.4989 † | **0.5834 ± 0.3345** | 0.2763 ± 0.2093 | 4.7184 |
+| `tr_Mondrian+LightGBM [extrapolate]` | torchregress | 0.9200 ± 0.0096 | 1.5907 ± 1.0283 | 2.5301 ± 1.5759 † | 0.6010 ± 0.3504 | 0.2742 ± 0.1032 | 2.1733 |
+| `tr_Mondrian+TabFM [extrapolate]` | torchregress | 0.8894 ± 0.0529 | 1.5059 ± 0.9498 | 3.6872 ± 1.1832 † | 1.0859 ± 0.5297 | 0.3508 ± 0.1813 | 13.2204 |
+| `tr_Mondrian+TabICL [extrapolate]` | torchregress | 0.9197 ± 0.0217 | 1.6221 ± 1.0588 | 2.5024 ± 1.4668 † | 0.5928 ± 0.3429 | 0.2758 ± 0.1765 | 6.8230 |
+| `tr_Mondrian+TabularMLP [extrapolate]` | torchregress | 0.9014 ± 0.0252 | 1.5032 ± 1.0000 | 2.3557 ± 1.4298 † | 0.5962 ± 0.3398 | 0.2944 ± 0.1477 | 19.2814 |
+| `tr_Normalized+KumoTabular [extrapolate]` | torchregress | 0.9194 ± 0.0193 | 1.6554 ± 0.9367 | 2.4215 ± 1.3780 † | **0.5834 ± 0.3345** | 0.3388 ± 0.2002 | 4.7184 |
+| `tr_Normalized+LightGBM [extrapolate]` | torchregress | 0.9319 ± 0.0091 | 1.6276 ± 0.9615 | 2.4462 ± 1.4862 † | 0.6010 ± 0.3504 | 0.3064 ± 0.0951 | 2.1733 |
+| `tr_Normalized+TabICL [extrapolate]` | torchregress | 0.9294 ± 0.0147 | 1.6376 ± 0.8958 | 2.3490 ± 1.3160 † | 0.5928 ± 0.3429 | 0.3241 ± 0.1762 | 6.8230 |
+| `tr_Normalized+TabularMLP [extrapolate]` | torchregress | 0.9167 ± 0.0213 | 1.8633 ± 1.1302 | 2.6276 ± 1.5879 † | 0.5962 ± 0.3398 | 0.3421 ± 0.2270 | 19.2814 |
+| `tr_PITRecal+KumoTabular [extrapolate]` | torchregress | 0.9156 ± 0.0061 | 1.6719 ± 0.8673 | 2.2008 ± 1.1837 † | 0.5852 ± 0.3335 | 0.4408 ± 0.1620 | 4.7184 |
+| `tr_PITRecal+LightGBM [extrapolate]` | torchregress | 0.9181 ± 0.0059 | 1.7604 ± 0.9781 | 2.3231 ± 1.2955 † | 0.6007 ± 0.3501 | 0.4806 ± 0.1164 | 2.1733 |
+| `tr_PITRecal+TabICL [extrapolate]` | torchregress | 0.9222 ± 0.0050 | 1.6628 ± 0.8820 | 2.1472 ± 1.1569 † | 0.5923 ± 0.3409 | 0.4825 ± 0.1456 | 6.8230 |
+| `tr_PITRecal+TabularMLP [extrapolate]` | torchregress | 0.9139 ± 0.0075 | 1.9644 ± 1.1461 | 2.6007 ± 1.5347 † | 0.6819 ± 0.4132 | 0.4575 ± 0.1552 | 19.2814 |
+| `tr_ResidualDist+KumoTabular [extrapolate]` | torchregress | 0.9186 ± 0.0097 | 1.5742 ± 0.8145 | 2.3433 ± 1.3220 † | 0.5845 ± 0.3333 | 0.4428 ± 0.0520 | 4.7184 |
+| `tr_ResidualDist+LightGBM [extrapolate]` | torchregress | 0.9028 ± 0.0050 | 1.6266 ± 0.8678 | 2.4307 ± 1.3674 † | 0.6008 ± 0.3499 | 0.4764 ± 0.0950 | 2.1733 |
+| `tr_ResidualDist+TabFM [extrapolate]` | torchregress | 0.9028 ± 0.0177 | 1.6112 ± 0.8056 | 3.7312 ± 0.9107 † | 1.0861 ± 0.5349 | 0.4933 ± 0.0592 | 13.2204 |
+| `tr_ResidualDist+TabICL [extrapolate]` | torchregress | 0.9219 ± 0.0071 | 1.5734 ± 0.8159 | 2.3820 ± 1.3211 † | 0.5905 ± 0.3402 | 0.4522 ± 0.0408 | 6.8230 |
+| `tr_ResidualDist+TabularMLP [extrapolate]` | torchregress | 0.9194 ± 0.0119 | 1.6588 ± 0.8757 | 2.4783 ± 1.4064 † | 0.5970 ± 0.3447 | 0.4580 ± 0.0526 | 19.2814 |
+| `tr_Split+KumoTabular [extrapolate]` | torchregress | 0.9286 ± 0.0032 | 1.4893 ± 0.7916 | 2.4616 ± 1.3913 † | **0.5834 ± 0.3345** | 0.1300 ± 0.1534 | 4.7184 |
+| `tr_Split+LightGBM [extrapolate]` | torchregress | 0.9322 ± 0.0099 | 1.4966 ± 0.7800 | 2.5176 ± 1.4700 † | 0.6010 ± 0.3504 | 0.1427 ± 0.1006 | 2.1733 |
+| `tr_Split+TabFM [extrapolate]` | torchregress | 0.9106 ± 0.0280 | 1.5350 ± 0.7712 | 3.7468 ± 1.0050 † | 1.0859 ± 0.5297 | 0.3315 ± 0.1620 | 13.2204 |
+| `tr_Split+TabICL [extrapolate]` | torchregress | 0.9283 ± 0.0072 | 1.5192 ± 0.7919 | 2.5624 ± 1.4463 † | 0.5928 ± 0.3429 | 0.0997 ± 0.1084 | 6.8230 |
+| `tr_Split+TabularMLP [extrapolate]` | torchregress | 0.9169 ± 0.0125 | 1.4548 ± 0.7321 | 2.4323 ± 1.3840 † | 0.5962 ± 0.3398 | 0.2494 ± 0.1734 | 19.2814 |
 
 ##### fm_uq_scenarios / zurich_delays@heavy_tail
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9989 ± 0.0019 | 0.0018 ± 0.0015 | 0.4344 ± 0.7478 † | 0.7456 ± 1.2907 | 0.9903 ± 0.0168 | 4.7240 |
-| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8192 (n=1) | 4.266e-04 (n=1) | 1.2983 (n=1) | 2.2360 (n=1) | 0.2905 (n=1) | 2.1956 |
-| `Raw+TabICL [heavy_tail]` | tabicl | 0.9947 ± 0.0005 | 0.0013 ± 0.0011 | 0.4339 ± 0.7482 † | 0.7456 ± 1.2908 | 0.9899 ± 0.0081 | 6.9538 |
-| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9992 ± 0.0014 | 0.0392 ± 0.0319 | 0.4717 ± 0.7276 † | 0.7470 ± 1.2896 | 0.9935 ± 0.0112 | 25.9421 |
-| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8958 ± 0.0146 | 9.432e-04 ± 9.513e-04 | 0.4337 ± 0.7484 † | 0.7456 ± 1.2907 | 0.8793 ± 0.0181 | 4.7240 |
-| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8833 (n=1) | 4.266e-04 (n=1) | 1.2983 (n=1) | 2.2360 (n=1) | 0.4660 (n=1) | 2.1956 |
-| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9056 ± 0.0136 | 7.888e-04 ± 6.727e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8949 ± 0.0319 | 6.9538 |
-| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.8969 ± 0.0041 | 0.0077 ± 0.0077 | 0.4417 ± 0.7419 † | 0.7470 ± 1.2896 | 0.8824 ± 0.0211 | 25.9421 |
-| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8992 ± 0.0044 | 8.775e-04 ± 8.749e-04 | 0.4336 ± 0.7485 † | 0.7456 ± 1.2907 | 0.8817 ± 0.0276 | 4.7240 |
-| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.8867 (n=1) | 0.0014 (n=1) | 1.2993 (n=1) | 2.2360 (n=1) | 0.4932 (n=1) | 2.1956 |
-| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9042 ± 0.0139 | 7.858e-04 ± 6.715e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8820 ± 0.0522 | 6.9538 |
-| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.8986 ± 0.0173 | 0.0043 ± 0.0071 | 0.4376 ± 0.7451 † | 0.7470 ± 1.2896 | 0.8829 ± 0.0369 | 25.9421 |
-| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9014 ± 0.0155 | 5.913e-04 ± 5.704e-04 | 0.4333 ± 0.7488 † | 0.7456 ± 1.2907 | 0.8860 ± 0.0379 | 4.7240 |
-| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9608 ± 0.0678 | 8.066e-09 ± 1.284e-08 | 0.4326 ± 0.7493 † | 0.7453 ± 1.2910 | 0.7670 ± 0.4036 | 1.2357 |
-| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9083 ± 0.0079 | 0.0277 ± 0.0236 | 0.4777 ± 0.7114 † | 0.7642 ± 1.2746 | 0.8834 ± 0.0499 | 13.3050 |
-| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.8997 ± 0.0142 | 5.421e-04 ± 4.629e-04 | 0.4333 ± 0.7488 † | 0.7456 ± 1.2908 | 0.8666 ± 0.0698 | 6.9538 |
-| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9072 ± 0.0104 | 0.0033 ± 0.0054 | 0.4362 ± 0.7463 † | 0.7470 ± 1.2896 | 0.8886 ± 0.0219 | 25.9421 |
-| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8989 ± 0.0025 | 7.641e-04 ± 7.139e-04 | 0.4335 ± 0.7486 † | 0.7456 ± 1.2907 | 0.8882 ± 0.0161 | 4.7240 |
-| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9092 (n=1) | 3.994e-06 (n=1) | 1.2978 (n=1) | 2.2360 (n=1) | 0.1068 (n=1) | 2.1956 |
-| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9039 ± 0.0229 | 8.028e-04 ± 6.862e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8853 ± 0.0550 | 6.9538 |
-| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.8986 ± 0.0173 | 0.0043 ± 0.0071 | 0.4376 ± 0.7451 † | 0.7470 ± 1.2896 | 0.8829 ± 0.0369 | 25.9421 |
-| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8947 ± 0.0092 | 3.726e-04 ± 3.190e-04 | 0.4331 ± 0.7489 † | 0.7455 ± 1.2909 | 0.8767 ± 0.0235 | 4.7240 |
-| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.8858 (n=1) | 0.0016 (n=1) | 1.2994 (n=1) | 2.2360 (n=1) | 0.4797 (n=1) | 2.1956 |
-| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8972 ± 0.0126 | 5.520e-04 ± 4.691e-04 | 0.4333 ± 0.7487 † | 0.7455 ± 1.2908 | 0.8783 ± 0.0416 | 6.9538 |
-| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8936 ± 0.0083 | 0.0018 ± 0.0028 | 0.4349 ± 0.7474 † | 0.7460 ± 1.2904 | 0.8746 ± 0.0335 | 25.9421 |
-| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9069 ± 0.0039 | 3.750e-04 ± 3.180e-04 | 0.4331 ± 0.7489 † | 0.7455 ± 1.2909 | 0.8922 ± 0.0246 | 4.7240 |
-| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9642 ± 0.0621 | 5.453e-09 ± 9.444e-09 | **0.4326 ± 0.7493** † | **0.7453 ± 1.2910** | 0.8378 ± 0.2809 | 1.2357 |
-| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.8981 ± 0.0243 | 0.0162 ± 0.0136 | 0.4716 ± 0.7169 † | 0.7599 ± 1.2784 | 0.8663 ± 0.0490 | 13.3050 |
-| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8953 ± 0.0059 | 5.419e-04 ± 4.603e-04 | 0.4334 ± 0.7487 † | 0.7455 ± 1.2908 | 0.8778 ± 0.0319 | 6.9538 |
-| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8914 ± 0.0092 | 0.0019 ± 0.0029 | 0.4351 ± 0.7472 † | 0.7460 ± 1.2904 | 0.8735 ± 0.0328 | 25.9421 |
-| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.8994 ± 0.0092 | 7.644e-04 ± 7.063e-04 | 0.4335 ± 0.7486 † | 0.7456 ± 1.2907 | 0.8767 ± 0.0321 | 4.7240 |
-| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9708 ± 0.0505 | 3.953e-09 ± 5.713e-09 | 0.4326 ± 0.7493 † | 0.7453 ± 1.2910 | 0.6990 ± 0.5213 | 1.2357 |
-| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9044 ± 0.0216 | 0.0351 ± 0.0301 | 0.4924 ± 0.6991 † | 0.7642 ± 1.2746 | 0.8668 ± 0.0865 | 13.3050 |
-| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8956 ± 0.0117 | 7.646e-04 ± 6.536e-04 | 0.4336 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8750 ± 0.0464 | 6.9538 |
-| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.8917 ± 0.0090 | 0.0043 ± 0.0071 | 0.4378 ± 0.7449 † | 0.7470 ± 1.2896 | 0.8704 ± 0.0400 | 25.9421 |
+| `Raw+KumoTabular [heavy_tail]` | sdm | 0.9989 ± 0.0019 | 0.0018 ± 0.0015 | 0.4344 ± 0.7478 † | 0.7456 ± 1.2907 | 0.9903 ± 0.0168 | 4.7812 |
+| `Raw+LightGBM [heavy_tail]` | lightgbm | 0.8192 (n=1) | 4.266e-04 (n=1) | 1.2983 (n=1) | 2.2360 (n=1) | 0.2905 (n=1) | 2.1767 |
+| `Raw+TabICL [heavy_tail]` | tabicl | 0.9947 ± 0.0005 | 0.0013 ± 0.0011 | 0.4339 ± 0.7482 † | 0.7456 ± 1.2908 | 0.9899 ± 0.0081 | 6.8467 |
+| `Raw+TabularMLP [heavy_tail]` | torchregress | 0.9992 ± 0.0014 | 0.0392 ± 0.0319 | 0.4717 ± 0.7276 † | 0.7470 ± 1.2896 | 0.9935 ± 0.0112 | 25.5266 |
+| `tr_CQR+KumoTabular [heavy_tail]` | torchregress | 0.8958 ± 0.0146 | 9.432e-04 ± 9.513e-04 | 0.4337 ± 0.7484 † | 0.7456 ± 1.2907 | 0.8793 ± 0.0181 | 4.7812 |
+| `tr_CQR+LightGBM [heavy_tail]` | torchregress | 0.8833 (n=1) | 4.266e-04 (n=1) | 1.2983 (n=1) | 2.2360 (n=1) | 0.4660 (n=1) | 2.1767 |
+| `tr_CQR+TabICL [heavy_tail]` | torchregress | 0.9056 ± 0.0136 | 7.888e-04 ± 6.727e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8949 ± 0.0319 | 6.8467 |
+| `tr_CQR+TabularMLP [heavy_tail]` | torchregress | 0.8969 ± 0.0041 | 0.0077 ± 0.0077 | 0.4417 ± 0.7419 † | 0.7470 ± 1.2896 | 0.8824 ± 0.0211 | 25.5266 |
+| `tr_DCP+KumoTabular [heavy_tail]` | torchregress | 0.8992 ± 0.0044 | 8.775e-04 ± 8.749e-04 | 0.4336 ± 0.7485 † | 0.7456 ± 1.2907 | 0.8817 ± 0.0276 | 4.7812 |
+| `tr_DCP+LightGBM [heavy_tail]` | torchregress | 0.8867 (n=1) | 0.0014 (n=1) | 1.2993 (n=1) | 2.2360 (n=1) | 0.4932 (n=1) | 2.1767 |
+| `tr_DCP+TabICL [heavy_tail]` | torchregress | 0.9042 ± 0.0139 | 7.858e-04 ± 6.715e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8820 ± 0.0522 | 6.8467 |
+| `tr_DCP+TabularMLP [heavy_tail]` | torchregress | 0.8986 ± 0.0173 | 0.0043 ± 0.0071 | 0.4376 ± 0.7451 † | 0.7470 ± 1.2896 | 0.8829 ± 0.0369 | 25.5266 |
+| `tr_Mondrian+KumoTabular [heavy_tail]` | torchregress | 0.9014 ± 0.0155 | 5.913e-04 ± 5.704e-04 | 0.4333 ± 0.7488 † | 0.7456 ± 1.2907 | 0.8860 ± 0.0379 | 4.7812 |
+| `tr_Mondrian+LightGBM [heavy_tail]` | torchregress | 0.9608 ± 0.0678 | 8.066e-09 ± 1.284e-08 | 0.4326 ± 0.7493 † | 0.7453 ± 1.2910 | 0.7670 ± 0.4036 | 1.2294 |
+| `tr_Mondrian+TabFM [heavy_tail]` | torchregress | 0.9083 ± 0.0079 | 0.0277 ± 0.0236 | 0.4777 ± 0.7114 † | 0.7642 ± 1.2746 | 0.8834 ± 0.0499 | 13.4535 |
+| `tr_Mondrian+TabICL [heavy_tail]` | torchregress | 0.9017 ± 0.0115 | 5.421e-04 ± 4.629e-04 | 0.4333 ± 0.7488 † | 0.7456 ± 1.2908 | 0.8731 ± 0.0587 | 6.8467 |
+| `tr_Mondrian+TabularMLP [heavy_tail]` | torchregress | 0.9072 ± 0.0104 | 0.0033 ± 0.0054 | 0.4362 ± 0.7463 † | 0.7470 ± 1.2896 | 0.8886 ± 0.0219 | 25.5266 |
+| `tr_Normalized+KumoTabular [heavy_tail]` | torchregress | 0.8989 ± 0.0025 | 7.641e-04 ± 7.139e-04 | 0.4335 ± 0.7486 † | 0.7456 ± 1.2907 | 0.8882 ± 0.0161 | 4.7812 |
+| `tr_Normalized+LightGBM [heavy_tail]` | torchregress | 0.9092 (n=1) | 3.994e-06 (n=1) | 1.2978 (n=1) | 2.2360 (n=1) | 0.1068 (n=1) | 2.1767 |
+| `tr_Normalized+TabICL [heavy_tail]` | torchregress | 0.9039 ± 0.0229 | 8.028e-04 ± 6.862e-04 | 0.4335 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8853 ± 0.0550 | 6.8467 |
+| `tr_Normalized+TabularMLP [heavy_tail]` | torchregress | 0.8986 ± 0.0173 | 0.0043 ± 0.0071 | 0.4376 ± 0.7451 † | 0.7470 ± 1.2896 | 0.8829 ± 0.0369 | 25.5266 |
+| `tr_PITRecal+KumoTabular [heavy_tail]` | torchregress | 0.8947 ± 0.0092 | 3.726e-04 ± 3.190e-04 | 0.4331 ± 0.7489 † | 0.7455 ± 1.2909 | 0.8767 ± 0.0235 | 4.7812 |
+| `tr_PITRecal+LightGBM [heavy_tail]` | torchregress | 0.8858 (n=1) | 0.0016 (n=1) | 1.2994 (n=1) | 2.2360 (n=1) | 0.4797 (n=1) | 2.1767 |
+| `tr_PITRecal+TabICL [heavy_tail]` | torchregress | 0.8972 ± 0.0126 | 5.520e-04 ± 4.691e-04 | 0.4333 ± 0.7487 † | 0.7455 ± 1.2908 | 0.8783 ± 0.0416 | 6.8467 |
+| `tr_PITRecal+TabularMLP [heavy_tail]` | torchregress | 0.8936 ± 0.0083 | 0.0018 ± 0.0028 | 0.4349 ± 0.7474 † | 0.7460 ± 1.2904 | 0.8746 ± 0.0335 | 25.5266 |
+| `tr_ResidualDist+KumoTabular [heavy_tail]` | torchregress | 0.9069 ± 0.0039 | 3.750e-04 ± 3.180e-04 | 0.4331 ± 0.7489 † | 0.7455 ± 1.2909 | 0.8922 ± 0.0246 | 4.7812 |
+| `tr_ResidualDist+LightGBM [heavy_tail]` | torchregress | 0.9642 ± 0.0621 | 5.453e-09 ± 9.444e-09 | **0.4326 ± 0.7493** † | **0.7453 ± 1.2910** | 0.8378 ± 0.2809 | 1.2294 |
+| `tr_ResidualDist+TabFM [heavy_tail]` | torchregress | 0.8981 ± 0.0243 | 0.0162 ± 0.0136 | 0.4716 ± 0.7169 † | 0.7599 ± 1.2784 | 0.8663 ± 0.0490 | 13.4535 |
+| `tr_ResidualDist+TabICL [heavy_tail]` | torchregress | 0.8953 ± 0.0059 | 5.419e-04 ± 4.603e-04 | 0.4334 ± 0.7487 † | 0.7455 ± 1.2908 | 0.8778 ± 0.0319 | 6.8467 |
+| `tr_ResidualDist+TabularMLP [heavy_tail]` | torchregress | 0.8914 ± 0.0092 | 0.0019 ± 0.0029 | 0.4351 ± 0.7472 † | 0.7460 ± 1.2904 | 0.8735 ± 0.0328 | 25.5266 |
+| `tr_Split+KumoTabular [heavy_tail]` | torchregress | 0.8994 ± 0.0092 | 7.644e-04 ± 7.063e-04 | 0.4335 ± 0.7486 † | 0.7456 ± 1.2907 | 0.8767 ± 0.0321 | 4.7812 |
+| `tr_Split+LightGBM [heavy_tail]` | torchregress | 0.9708 ± 0.0505 | 3.953e-09 ± 5.713e-09 | 0.4326 ± 0.7493 † | 0.7453 ± 1.2910 | 0.6990 ± 0.5213 | 1.2294 |
+| `tr_Split+TabFM [heavy_tail]` | torchregress | 0.9044 ± 0.0216 | 0.0351 ± 0.0301 | 0.4924 ± 0.6991 † | 0.7642 ± 1.2746 | 0.8668 ± 0.0865 | 13.4535 |
+| `tr_Split+TabICL [heavy_tail]` | torchregress | 0.8956 ± 0.0117 | 7.646e-04 ± 6.536e-04 | 0.4336 ± 0.7485 † | 0.7456 ± 1.2908 | 0.8750 ± 0.0464 | 6.8467 |
+| `tr_Split+TabularMLP [heavy_tail]` | torchregress | 0.8917 ± 0.0090 | 0.0043 ± 0.0071 | 0.4378 ± 0.7449 † | 0.7470 ± 1.2896 | 0.8704 ± 0.0400 | 25.5266 |
 
 ##### fm_uq_scenarios / zurich_delays@imbalance
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [imbalance]` | sdm | 0.7469 ± 0.0048 | 0.7957 ± 0.4017 | 3.3606 ± 1.5122 † | 0.6936 ± 0.3420 | 0.1778 ± 0.0231 | 4.0301 |
-| `Raw+LightGBM [imbalance]` | lightgbm | 0.6736 ± 0.0143 | 0.6936 ± 0.3382 | 3.6387 ± 1.6838 † | 0.6935 ± 0.3439 | 0.1027 ± 0.0322 | 2.0129 |
-| `Raw+TabICL [imbalance]` | tabicl | 0.7636 ± 0.0101 | 0.8544 ± 0.4330 | **3.1975 ± 1.4617** † | 0.6956 ± 0.3445 | 0.2506 ± 0.0139 | 6.0894 |
-| `Raw+TabularMLP [imbalance]` | torchregress | 0.8342 ± 0.0405 | 1.3642 ± 0.6846 | 3.3667 ± 1.8395 † | **0.6838 ± 0.3390** | 0.4216 ± 0.1276 | 15.3823 |
-| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.7306 ± 0.0113 | 0.7582 ± 0.3762 | 3.4227 ± 1.5655 † | 0.6936 ± 0.3420 | 0.1449 ± 0.0335 | 4.0301 |
-| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7428 ± 0.0090 | 0.8134 ± 0.3915 | 3.4097 ± 1.6007 † | 0.6935 ± 0.3439 | 0.1740 ± 0.0441 | 2.0129 |
-| `tr_CQR+TabICL [imbalance]` | torchregress | 0.7456 ± 0.0104 | 0.8184 ± 0.4221 | 3.2511 ± 1.4958 † | 0.6956 ± 0.3445 | 0.2243 ± 0.0446 | 6.0894 |
-| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.7525 ± 0.0208 | 1.1457 ± 0.6660 | 3.5811 ± 1.8907 † | **0.6838 ± 0.3390** | 0.2426 ± 0.0996 | 15.3823 |
-| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.7308 ± 0.0095 | 0.7519 ± 0.3709 | 3.4453 ± 1.5853 † | 0.6936 ± 0.3420 | 0.1450 ± 0.0280 | 4.0301 |
-| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7428 ± 0.0129 | 0.8589 ± 0.4071 | 3.3436 ± 1.5429 † | 0.6935 ± 0.3439 | 0.1890 ± 0.0556 | 2.0129 |
-| `tr_DCP+TabICL [imbalance]` | torchregress | 0.7414 ± 0.0146 | 0.8049 ± 0.4096 | 3.2936 ± 1.5426 † | 0.6956 ± 0.3445 | 0.2022 ± 0.0598 | 6.0894 |
-| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0150 | 1.0497 ± 0.6143 | 3.5494 ± 1.8501 † | **0.6838 ± 0.3390** | 0.2115 ± 0.0874 | 15.3823 |
-| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.7256 ± 0.0055 | 0.7367 ± 0.3615 | 3.6262 ± 1.7406 † | 0.6936 ± 0.3420 | 0.1103 ± 0.0247 | 4.0301 |
-| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.7297 ± 0.0051 | 0.7595 ± 0.3717 | 3.5914 ± 1.7314 † | 0.6935 ± 0.3439 | 0.1211 ± 0.0295 | 2.0129 |
-| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.7356 ± 0.0046 | 0.7739 ± 0.3770 | 3.5769 ± 1.6721 † | 0.7042 ± 0.3326 | 0.1517 ± 0.0196 | 11.8039 |
-| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.7300 ± 0.0088 | 0.7408 ± 0.3578 | 3.6687 ± 1.7905 † | 0.6956 ± 0.3445 | 0.1051 ± 0.0160 | 6.0894 |
-| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.7294 ± 0.0112 | 0.7392 ± 0.3528 | 3.5112 ± 1.7116 † | **0.6838 ± 0.3390** | 0.1607 ± 0.0621 | 15.3823 |
-| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.7267 ± 0.0092 | 0.7513 ± 0.3748 | 3.5389 ± 1.6356 † | 0.6936 ± 0.3420 | 0.1191 ± 0.0202 | 4.0301 |
-| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.7403 ± 0.0079 | 0.8207 ± 0.3964 | 3.5015 ± 1.6618 † | 0.6935 ± 0.3439 | 0.1533 ± 0.0496 | 2.0129 |
-| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.7356 ± 0.0115 | 0.8064 ± 0.4074 | 3.4908 ± 1.6470 † | 0.6956 ± 0.3445 | 0.1383 ± 0.0420 | 6.0894 |
-| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0150 | 1.0497 ± 0.6143 | 3.5494 ± 1.8501 † | **0.6838 ± 0.3390** | 0.2115 ± 0.0874 | 15.3823 |
-| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.7286 ± 0.0142 | 0.7489 ± 0.3669 | 3.4784 ± 1.6325 † | 0.7005 ± 0.3469 | 0.1328 ± 0.0429 | 4.0301 |
-| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7450 ± 0.0129 | 0.8634 ± 0.4044 | 3.3960 ± 1.5863 † | 0.6977 ± 0.3449 | 0.1781 ± 0.0579 | 2.0129 |
-| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.7406 ± 0.0126 | 0.8006 ± 0.4053 | 3.3649 ± 1.6046 † | 0.6975 ± 0.3466 | 0.1747 ± 0.0736 | 6.0894 |
-| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0195 | 1.0514 ± 0.6174 | 3.5788 ± 1.8575 † | 0.7744 ± 0.4356 | 0.1952 ± 0.0901 | 15.3823 |
-| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.7261 ± 0.0071 | 0.7307 ± 0.3573 | 3.6052 ± 1.7384 † | 0.6994 ± 0.3452 | 0.1211 ± 0.0281 | 4.0301 |
-| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7294 ± 0.0085 | 0.7492 ± 0.3691 | 3.5714 ± 1.7364 † | 0.6974 ± 0.3454 | 0.1425 ± 0.0468 | 2.0129 |
-| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.7367 ± 0.0096 | 0.7669 ± 0.3742 | 3.5627 ± 1.6862 † | 0.7109 ± 0.3377 | 0.1654 ± 0.0382 | 11.8039 |
-| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.7244 ± 0.0131 | 0.7347 ± 0.3560 | 3.6053 ± 1.7716 † | 0.6971 ± 0.3459 | 0.1286 ± 0.0326 | 6.0894 |
-| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7289 ± 0.0113 | 0.7380 ± 0.3574 | 3.5711 ± 1.7173 † | 0.6951 ± 0.3426 | 0.1307 ± 0.0376 | 15.3823 |
-| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7256 ± 0.0077 | 0.7306 ± 0.3570 | 3.6312 ± 1.7393 † | 0.6936 ± 0.3420 | 0.1127 ± 0.0139 | 4.0301 |
-| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7244 ± 0.0076 | 0.7485 ± 0.3687 | 3.6120 ± 1.7352 † | 0.6935 ± 0.3439 | 0.1101 ± 0.0363 | 2.0129 |
-| `tr_Split+TabFM [imbalance]` | torchregress | 0.7383 ± 0.0092 | 0.7677 ± 0.3767 | 3.5808 ± 1.6677 † | 0.7042 ± 0.3326 | 0.1579 ± 0.0395 | 11.8039 |
-| `tr_Split+TabICL [imbalance]` | torchregress | 0.7269 ± 0.0094 | 0.7382 ± 0.3597 | 3.6614 ± 1.7778 † | 0.6956 ± 0.3445 | 0.1049 ± 0.0253 | 6.0894 |
-| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7281 ± 0.0114 | 0.7373 ± 0.3543 | 3.5112 ± 1.7075 † | **0.6838 ± 0.3390** | 0.1597 ± 0.0562 | 15.3823 |
+| `Raw+KumoTabular [imbalance]` | sdm | 0.7469 ± 0.0048 | 0.7957 ± 0.4017 | 3.3606 ± 1.5122 † | 0.6936 ± 0.3420 | 0.1778 ± 0.0231 | 4.0684 |
+| `Raw+LightGBM [imbalance]` | lightgbm | 0.6736 ± 0.0143 | 0.6936 ± 0.3382 | 3.6387 ± 1.6838 † | 0.6935 ± 0.3439 | 0.1027 ± 0.0322 | 2.0003 |
+| `Raw+TabICL [imbalance]` | tabicl | 0.7636 ± 0.0101 | 0.8544 ± 0.4330 | **3.1975 ± 1.4617** † | 0.6956 ± 0.3445 | 0.2506 ± 0.0139 | 6.0972 |
+| `Raw+TabularMLP [imbalance]` | torchregress | 0.8342 ± 0.0405 | 1.3642 ± 0.6846 | 3.3667 ± 1.8395 † | **0.6838 ± 0.3390** | 0.4216 ± 0.1276 | 14.7113 |
+| `tr_CQR+KumoTabular [imbalance]` | torchregress | 0.7306 ± 0.0113 | 0.7582 ± 0.3762 | 3.4227 ± 1.5655 † | 0.6936 ± 0.3420 | 0.1449 ± 0.0335 | 4.0684 |
+| `tr_CQR+LightGBM [imbalance]` | torchregress | 0.7428 ± 0.0090 | 0.8134 ± 0.3915 | 3.4097 ± 1.6007 † | 0.6935 ± 0.3439 | 0.1740 ± 0.0441 | 2.0003 |
+| `tr_CQR+TabICL [imbalance]` | torchregress | 0.7456 ± 0.0104 | 0.8184 ± 0.4221 | 3.2511 ± 1.4958 † | 0.6956 ± 0.3445 | 0.2243 ± 0.0446 | 6.0972 |
+| `tr_CQR+TabularMLP [imbalance]` | torchregress | 0.7525 ± 0.0208 | 1.1457 ± 0.6660 | 3.5811 ± 1.8907 † | **0.6838 ± 0.3390** | 0.2426 ± 0.0996 | 14.7113 |
+| `tr_DCP+KumoTabular [imbalance]` | torchregress | 0.7308 ± 0.0095 | 0.7519 ± 0.3709 | 3.4453 ± 1.5853 † | 0.6936 ± 0.3420 | 0.1450 ± 0.0280 | 4.0684 |
+| `tr_DCP+LightGBM [imbalance]` | torchregress | 0.7428 ± 0.0129 | 0.8589 ± 0.4071 | 3.3436 ± 1.5429 † | 0.6935 ± 0.3439 | 0.1890 ± 0.0556 | 2.0003 |
+| `tr_DCP+TabICL [imbalance]` | torchregress | 0.7414 ± 0.0146 | 0.8049 ± 0.4096 | 3.2936 ± 1.5426 † | 0.6956 ± 0.3445 | 0.2022 ± 0.0598 | 6.0972 |
+| `tr_DCP+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0150 | 1.0497 ± 0.6143 | 3.5494 ± 1.8501 † | **0.6838 ± 0.3390** | 0.2115 ± 0.0874 | 14.7113 |
+| `tr_Mondrian+KumoTabular [imbalance]` | torchregress | 0.7256 ± 0.0055 | 0.7367 ± 0.3615 | 3.6262 ± 1.7406 † | 0.6936 ± 0.3420 | 0.1103 ± 0.0247 | 4.0684 |
+| `tr_Mondrian+LightGBM [imbalance]` | torchregress | 0.7297 ± 0.0051 | 0.7595 ± 0.3717 | 3.5914 ± 1.7314 † | 0.6935 ± 0.3439 | 0.1211 ± 0.0295 | 2.0003 |
+| `tr_Mondrian+TabFM [imbalance]` | torchregress | 0.7356 ± 0.0046 | 0.7739 ± 0.3770 | 3.5769 ± 1.6721 † | 0.7042 ± 0.3326 | 0.1517 ± 0.0196 | 11.7950 |
+| `tr_Mondrian+TabICL [imbalance]` | torchregress | 0.7300 ± 0.0088 | 0.7408 ± 0.3578 | 3.6687 ± 1.7905 † | 0.6956 ± 0.3445 | 0.1051 ± 0.0160 | 6.0972 |
+| `tr_Mondrian+TabularMLP [imbalance]` | torchregress | 0.7294 ± 0.0112 | 0.7392 ± 0.3528 | 3.5112 ± 1.7116 † | **0.6838 ± 0.3390** | 0.1607 ± 0.0621 | 14.7113 |
+| `tr_Normalized+KumoTabular [imbalance]` | torchregress | 0.7267 ± 0.0092 | 0.7513 ± 0.3748 | 3.5389 ± 1.6356 † | 0.6936 ± 0.3420 | 0.1191 ± 0.0202 | 4.0684 |
+| `tr_Normalized+LightGBM [imbalance]` | torchregress | 0.7403 ± 0.0079 | 0.8207 ± 0.3964 | 3.5015 ± 1.6618 † | 0.6935 ± 0.3439 | 0.1533 ± 0.0496 | 2.0003 |
+| `tr_Normalized+TabICL [imbalance]` | torchregress | 0.7356 ± 0.0115 | 0.8064 ± 0.4074 | 3.4908 ± 1.6470 † | 0.6956 ± 0.3445 | 0.1383 ± 0.0420 | 6.0972 |
+| `tr_Normalized+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0150 | 1.0497 ± 0.6143 | 3.5494 ± 1.8501 † | **0.6838 ± 0.3390** | 0.2115 ± 0.0874 | 14.7113 |
+| `tr_PITRecal+KumoTabular [imbalance]` | torchregress | 0.7286 ± 0.0142 | 0.7489 ± 0.3669 | 3.4784 ± 1.6325 † | 0.7005 ± 0.3469 | 0.1328 ± 0.0429 | 4.0684 |
+| `tr_PITRecal+LightGBM [imbalance]` | torchregress | 0.7450 ± 0.0129 | 0.8634 ± 0.4044 | 3.3960 ± 1.5863 † | 0.6977 ± 0.3449 | 0.1781 ± 0.0579 | 2.0003 |
+| `tr_PITRecal+TabICL [imbalance]` | torchregress | 0.7406 ± 0.0126 | 0.8006 ± 0.4053 | 3.3649 ± 1.6046 † | 0.6975 ± 0.3466 | 0.1747 ± 0.0736 | 6.0972 |
+| `tr_PITRecal+TabularMLP [imbalance]` | torchregress | 0.7447 ± 0.0195 | 1.0514 ± 0.6174 | 3.5788 ± 1.8575 † | 0.7744 ± 0.4356 | 0.1952 ± 0.0901 | 14.7113 |
+| `tr_ResidualDist+KumoTabular [imbalance]` | torchregress | 0.7261 ± 0.0071 | 0.7307 ± 0.3573 | 3.6052 ± 1.7384 † | 0.6994 ± 0.3452 | 0.1211 ± 0.0281 | 4.0684 |
+| `tr_ResidualDist+LightGBM [imbalance]` | torchregress | 0.7294 ± 0.0085 | 0.7492 ± 0.3691 | 3.5714 ± 1.7364 † | 0.6974 ± 0.3454 | 0.1425 ± 0.0468 | 2.0003 |
+| `tr_ResidualDist+TabFM [imbalance]` | torchregress | 0.7367 ± 0.0096 | 0.7669 ± 0.3742 | 3.5627 ± 1.6862 † | 0.7109 ± 0.3377 | 0.1654 ± 0.0382 | 11.7950 |
+| `tr_ResidualDist+TabICL [imbalance]` | torchregress | 0.7244 ± 0.0131 | 0.7347 ± 0.3560 | 3.6053 ± 1.7716 † | 0.6971 ± 0.3459 | 0.1286 ± 0.0326 | 6.0972 |
+| `tr_ResidualDist+TabularMLP [imbalance]` | torchregress | 0.7289 ± 0.0113 | 0.7380 ± 0.3574 | 3.5711 ± 1.7173 † | 0.6951 ± 0.3426 | 0.1307 ± 0.0376 | 14.7113 |
+| `tr_Split+KumoTabular [imbalance]` | torchregress | 0.7256 ± 0.0077 | 0.7306 ± 0.3570 | 3.6312 ± 1.7393 † | 0.6936 ± 0.3420 | 0.1127 ± 0.0139 | 4.0684 |
+| `tr_Split+LightGBM [imbalance]` | torchregress | 0.7244 ± 0.0076 | 0.7485 ± 0.3687 | 3.6120 ± 1.7352 † | 0.6935 ± 0.3439 | 0.1101 ± 0.0363 | 2.0003 |
+| `tr_Split+TabFM [imbalance]` | torchregress | 0.7383 ± 0.0092 | 0.7677 ± 0.3767 | 3.5808 ± 1.6677 † | 0.7042 ± 0.3326 | 0.1579 ± 0.0395 | 11.7950 |
+| `tr_Split+TabICL [imbalance]` | torchregress | 0.7269 ± 0.0094 | 0.7382 ± 0.3597 | 3.6614 ± 1.7778 † | 0.6956 ± 0.3445 | 0.1049 ± 0.0253 | 6.0972 |
+| `tr_Split+TabularMLP [imbalance]` | torchregress | 0.7281 ± 0.0114 | 0.7373 ± 0.3543 | 3.5112 ± 1.7075 † | **0.6838 ± 0.3390** | 0.1597 ± 0.0562 | 14.7113 |
 
 ##### fm_uq_scenarios / zurich_delays@noise_all
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_all]` | sdm | 0.9014 ± 0.0089 | 1.5908 ± 0.7790 | 2.5043 ± 1.2916 † | 0.6684 ± 0.3364 | 0.5414 ± 0.0359 | 4.7711 |
-| `Raw+LightGBM [noise_all]` | lightgbm | 0.8000 ± 0.0167 | 1.1249 ± 0.5435 | 2.7232 ± 1.3166 † | 0.6748 ± 0.3392 | 0.1448 ± 0.0397 | 15.9809 |
-| `Raw+TabICL [noise_all]` | tabicl | 0.9033 ± 0.0132 | 1.6584 ± 0.8184 | 2.6095 ± 1.3177 † | 0.6764 ± 0.3369 | 0.5528 ± 0.0665 | 6.4647 |
-| `Raw+TabularMLP [noise_all]` | torchregress | 0.9603 ± 0.0128 | 2.2083 ± 0.9910 | 3.0386 ± 1.4160 † | 0.6670 ± 0.3372 | 0.5969 ± 0.1566 | 14.2075 |
-| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8908 ± 0.0098 | 1.5468 ± 0.7521 | 2.5081 ± 1.2981 † | 0.6684 ± 0.3364 | 0.4878 ± 0.0421 | 4.7711 |
-| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.8989 ± 0.0071 | 1.4104 ± 0.7090 | 2.5960 ± 1.2502 † | 0.6748 ± 0.3392 | 0.3139 ± 0.0380 | 15.9809 |
-| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8903 ± 0.0156 | 1.6129 ± 0.7876 | 2.6131 ± 1.3236 † | 0.6764 ± 0.3369 | 0.4830 ± 0.0620 | 6.4647 |
-| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8981 ± 0.0101 | 1.4628 ± 0.6934 | 2.7456 ± 1.3946 † | 0.6670 ± 0.3372 | 0.2961 ± 0.0963 | 14.2075 |
-| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8925 ± 0.0113 | 1.5063 ± 0.7319 | 2.4973 ± 1.2879 † | 0.6684 ± 0.3364 | 0.5134 ± 0.0469 | 4.7711 |
-| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.8950 ± 0.0055 | 1.7360 ± 0.8579 | 2.6978 ± 1.3073 † | 0.6748 ± 0.3392 | 0.4410 ± 0.0681 | 15.9809 |
-| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8889 ± 0.0147 | 1.5352 ± 0.7278 | 2.5956 ± 1.3119 † | 0.6764 ± 0.3369 | 0.4883 ± 0.0548 | 6.4647 |
-| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0058 | 1.3763 ± 0.6486 | 2.7117 ± 1.3736 † | 0.6670 ± 0.3372 | 0.2242 ± 0.1033 | 14.2075 |
-| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.8858 ± 0.0066 | 1.4295 ± 0.7597 | 2.8381 ± 1.4018 † | 0.6684 ± 0.3364 | 0.2499 ± 0.0796 | 4.7711 |
-| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.8894 ± 0.0055 | 1.3883 ± 0.7275 | 2.9249 ± 1.4125 † | 0.6748 ± 0.3392 | 0.1329 ± 0.0760 | 15.9809 |
-| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8919 ± 0.0075 | 1.3354 ± 0.6827 | 2.6300 ± 1.2856 † | **0.6607 ± 0.3381** | 0.2793 ± 0.0477 | 13.3537 |
-| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8919 ± 0.0125 | 1.4664 ± 0.7959 | 2.9216 ± 1.4147 † | 0.6764 ± 0.3369 | 0.2311 ± 0.0735 | 6.4647 |
-| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8992 ± 0.0058 | 1.3938 ± 0.6682 | 2.6912 ± 1.3646 † | 0.6670 ± 0.3372 | 0.2584 ± 0.0766 | 14.2075 |
-| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8897 ± 0.0065 | 1.4325 ± 0.7634 | 2.7895 ± 1.3959 † | 0.6684 ± 0.3364 | 0.2526 ± 0.0765 | 4.7711 |
-| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8956 ± 0.0098 | 1.3732 ± 0.7044 | 2.8755 ± 1.3695 † | 0.6748 ± 0.3392 | 0.1336 ± 0.0511 | 15.9809 |
-| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8894 ± 0.0090 | 1.4915 ± 0.8054 | 2.9272 ± 1.4375 † | 0.6764 ± 0.3369 | 0.2092 ± 0.0819 | 6.4647 |
-| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0058 | 1.3763 ± 0.6486 | 2.7117 ± 1.3736 † | 0.6670 ± 0.3372 | 0.2242 ± 0.1033 | 14.2075 |
-| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8897 ± 0.0102 | 1.4731 ± 0.7328 | **2.4947 ± 1.2864** † | 0.6743 ± 0.3382 | 0.5016 ± 0.0410 | 4.7711 |
-| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8944 ± 0.0035 | 1.5922 ± 0.7829 | 2.6655 ± 1.2581 † | 0.6804 ± 0.3415 | 0.4621 ± 0.0537 | 15.9809 |
-| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8861 ± 0.0149 | 1.5219 ± 0.7491 | 2.5957 ± 1.3096 † | 0.6785 ± 0.3393 | 0.4696 ± 0.0451 | 6.4647 |
-| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8972 ± 0.0096 | 1.5691 ± 0.8049 | 2.6263 ± 1.3123 † | 0.6842 ± 0.3433 | 0.4573 ± 0.0254 | 14.2075 |
-| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8944 ± 0.0060 | 1.5076 ± 0.7857 | 2.6059 ± 1.2862 † | 0.6732 ± 0.3380 | 0.4494 ± 0.0794 | 4.7711 |
-| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.8956 ± 0.0027 | 1.5391 ± 0.8148 | 2.6401 ± 1.3121 † | 0.6804 ± 0.3425 | 0.4480 ± 0.0785 | 15.9809 |
-| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8925 ± 0.0058 | 1.5354 ± 0.7992 | 2.6587 ± 1.3265 † | 0.6692 ± 0.3393 | 0.4235 ± 0.0523 | 13.3537 |
-| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8900 ± 0.0017 | 1.5150 ± 0.7849 | 2.6399 ± 1.2960 † | 0.6783 ± 0.3389 | 0.4487 ± 0.0732 | 6.4647 |
-| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8919 ± 0.0035 | 1.5375 ± 0.8044 | 2.6387 ± 1.2980 † | 0.6792 ± 0.3419 | 0.4573 ± 0.0724 | 14.2075 |
-| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.8983 ± 0.0145 | 1.3807 ± 0.7382 | 2.8958 ± 1.3855 † | 0.6684 ± 0.3364 | 0.0464 ± 0.0269 | 4.7711 |
-| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8981 ± 0.0142 | 1.3878 ± 0.7288 | 2.9377 ± 1.4029 † | 0.6748 ± 0.3392 | 0.0369 ± 0.0333 | 15.9809 |
-| `tr_Split+TabFM [noise_all]` | torchregress | 0.9019 ± 0.0088 | 1.4568 ± 0.7682 | 2.7186 ± 1.3271 † | **0.6607 ± 0.3381** | 0.2429 ± 0.0695 | 13.3537 |
-| `tr_Split+TabICL [noise_all]` | torchregress | 0.8983 ± 0.0134 | 1.4038 ± 0.7420 | 2.9563 ± 1.4012 † | 0.6764 ± 0.3369 | 0.0313 ± 0.0283 | 6.4647 |
-| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8975 ± 0.0118 | 1.3446 ± 0.6476 | 2.7256 ± 1.3554 † | 0.6670 ± 0.3372 | 0.1776 ± 0.0898 | 14.2075 |
+| `Raw+KumoTabular [noise_all]` | sdm | 0.9014 ± 0.0089 | 1.5908 ± 0.7790 | 2.5043 ± 1.2916 † | 0.6684 ± 0.3364 | 0.5414 ± 0.0359 | 4.8217 |
+| `Raw+LightGBM [noise_all]` | lightgbm | 0.8000 ± 0.0167 | 1.1249 ± 0.5435 | 2.7232 ± 1.3166 † | 0.6748 ± 0.3392 | 0.1448 ± 0.0397 | 15.8774 |
+| `Raw+TabICL [noise_all]` | tabicl | 0.9033 ± 0.0132 | 1.6584 ± 0.8184 | 2.6095 ± 1.3177 † | 0.6764 ± 0.3369 | 0.5528 ± 0.0665 | 6.4643 |
+| `Raw+TabularMLP [noise_all]` | torchregress | 0.9603 ± 0.0128 | 2.2083 ± 0.9910 | 3.0386 ± 1.4160 † | 0.6670 ± 0.3372 | 0.5969 ± 0.1566 | 14.0707 |
+| `tr_CQR+KumoTabular [noise_all]` | torchregress | 0.8908 ± 0.0098 | 1.5468 ± 0.7521 | 2.5081 ± 1.2981 † | 0.6684 ± 0.3364 | 0.4878 ± 0.0421 | 4.8217 |
+| `tr_CQR+LightGBM [noise_all]` | torchregress | 0.8989 ± 0.0071 | 1.4104 ± 0.7090 | 2.5960 ± 1.2502 † | 0.6748 ± 0.3392 | 0.3139 ± 0.0380 | 15.8774 |
+| `tr_CQR+TabICL [noise_all]` | torchregress | 0.8903 ± 0.0156 | 1.6129 ± 0.7876 | 2.6131 ± 1.3236 † | 0.6764 ± 0.3369 | 0.4830 ± 0.0620 | 6.4643 |
+| `tr_CQR+TabularMLP [noise_all]` | torchregress | 0.8981 ± 0.0101 | 1.4628 ± 0.6934 | 2.7456 ± 1.3946 † | 0.6670 ± 0.3372 | 0.2961 ± 0.0963 | 14.0707 |
+| `tr_DCP+KumoTabular [noise_all]` | torchregress | 0.8925 ± 0.0113 | 1.5063 ± 0.7319 | 2.4973 ± 1.2879 † | 0.6684 ± 0.3364 | 0.5134 ± 0.0469 | 4.8217 |
+| `tr_DCP+LightGBM [noise_all]` | torchregress | 0.8950 ± 0.0055 | 1.7360 ± 0.8579 | 2.6978 ± 1.3073 † | 0.6748 ± 0.3392 | 0.4410 ± 0.0681 | 15.8774 |
+| `tr_DCP+TabICL [noise_all]` | torchregress | 0.8889 ± 0.0147 | 1.5352 ± 0.7278 | 2.5956 ± 1.3119 † | 0.6764 ± 0.3369 | 0.4883 ± 0.0548 | 6.4643 |
+| `tr_DCP+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0058 | 1.3763 ± 0.6486 | 2.7117 ± 1.3736 † | 0.6670 ± 0.3372 | 0.2242 ± 0.1033 | 14.0707 |
+| `tr_Mondrian+KumoTabular [noise_all]` | torchregress | 0.8858 ± 0.0066 | 1.4295 ± 0.7597 | 2.8381 ± 1.4018 † | 0.6684 ± 0.3364 | 0.2499 ± 0.0796 | 4.8217 |
+| `tr_Mondrian+LightGBM [noise_all]` | torchregress | 0.8894 ± 0.0055 | 1.3883 ± 0.7275 | 2.9249 ± 1.4125 † | 0.6748 ± 0.3392 | 0.1329 ± 0.0760 | 15.8774 |
+| `tr_Mondrian+TabFM [noise_all]` | torchregress | 0.8919 ± 0.0075 | 1.3354 ± 0.6827 | 2.6300 ± 1.2856 † | **0.6607 ± 0.3381** | 0.2793 ± 0.0477 | 13.3126 |
+| `tr_Mondrian+TabICL [noise_all]` | torchregress | 0.8919 ± 0.0125 | 1.4664 ± 0.7959 | 2.9216 ± 1.4147 † | 0.6764 ± 0.3369 | 0.2311 ± 0.0735 | 6.4643 |
+| `tr_Mondrian+TabularMLP [noise_all]` | torchregress | 0.8992 ± 0.0058 | 1.3938 ± 0.6682 | 2.6912 ± 1.3646 † | 0.6670 ± 0.3372 | 0.2584 ± 0.0766 | 14.0707 |
+| `tr_Normalized+KumoTabular [noise_all]` | torchregress | 0.8897 ± 0.0065 | 1.4325 ± 0.7634 | 2.7895 ± 1.3959 † | 0.6684 ± 0.3364 | 0.2526 ± 0.0765 | 4.8217 |
+| `tr_Normalized+LightGBM [noise_all]` | torchregress | 0.8956 ± 0.0098 | 1.3732 ± 0.7044 | 2.8755 ± 1.3695 † | 0.6748 ± 0.3392 | 0.1336 ± 0.0511 | 15.8774 |
+| `tr_Normalized+TabICL [noise_all]` | torchregress | 0.8894 ± 0.0090 | 1.4915 ± 0.8054 | 2.9272 ± 1.4375 † | 0.6764 ± 0.3369 | 0.2092 ± 0.0819 | 6.4643 |
+| `tr_Normalized+TabularMLP [noise_all]` | torchregress | 0.8958 ± 0.0058 | 1.3763 ± 0.6486 | 2.7117 ± 1.3736 † | 0.6670 ± 0.3372 | 0.2242 ± 0.1033 | 14.0707 |
+| `tr_PITRecal+KumoTabular [noise_all]` | torchregress | 0.8897 ± 0.0102 | 1.4731 ± 0.7328 | **2.4947 ± 1.2864** † | 0.6743 ± 0.3382 | 0.5016 ± 0.0410 | 4.8217 |
+| `tr_PITRecal+LightGBM [noise_all]` | torchregress | 0.8944 ± 0.0035 | 1.5922 ± 0.7829 | 2.6655 ± 1.2581 † | 0.6804 ± 0.3415 | 0.4621 ± 0.0537 | 15.8774 |
+| `tr_PITRecal+TabICL [noise_all]` | torchregress | 0.8861 ± 0.0149 | 1.5219 ± 0.7491 | 2.5957 ± 1.3096 † | 0.6785 ± 0.3393 | 0.4696 ± 0.0451 | 6.4643 |
+| `tr_PITRecal+TabularMLP [noise_all]` | torchregress | 0.8972 ± 0.0096 | 1.5691 ± 0.8049 | 2.6263 ± 1.3123 † | 0.6842 ± 0.3433 | 0.4573 ± 0.0254 | 14.0707 |
+| `tr_ResidualDist+KumoTabular [noise_all]` | torchregress | 0.8944 ± 0.0060 | 1.5076 ± 0.7857 | 2.6059 ± 1.2862 † | 0.6732 ± 0.3380 | 0.4494 ± 0.0794 | 4.8217 |
+| `tr_ResidualDist+LightGBM [noise_all]` | torchregress | 0.8956 ± 0.0027 | 1.5391 ± 0.8148 | 2.6401 ± 1.3121 † | 0.6804 ± 0.3425 | 0.4480 ± 0.0785 | 15.8774 |
+| `tr_ResidualDist+TabFM [noise_all]` | torchregress | 0.8925 ± 0.0058 | 1.5354 ± 0.7992 | 2.6587 ± 1.3265 † | 0.6692 ± 0.3393 | 0.4235 ± 0.0523 | 13.3126 |
+| `tr_ResidualDist+TabICL [noise_all]` | torchregress | 0.8900 ± 0.0017 | 1.5150 ± 0.7849 | 2.6399 ± 1.2960 † | 0.6783 ± 0.3389 | 0.4487 ± 0.0732 | 6.4643 |
+| `tr_ResidualDist+TabularMLP [noise_all]` | torchregress | 0.8919 ± 0.0035 | 1.5375 ± 0.8044 | 2.6387 ± 1.2980 † | 0.6792 ± 0.3419 | 0.4573 ± 0.0724 | 14.0707 |
+| `tr_Split+KumoTabular [noise_all]` | torchregress | 0.8983 ± 0.0145 | 1.3807 ± 0.7382 | 2.8958 ± 1.3855 † | 0.6684 ± 0.3364 | 0.0464 ± 0.0269 | 4.8217 |
+| `tr_Split+LightGBM [noise_all]` | torchregress | 0.8981 ± 0.0142 | 1.3878 ± 0.7288 | 2.9377 ± 1.4029 † | 0.6748 ± 0.3392 | 0.0369 ± 0.0333 | 15.8774 |
+| `tr_Split+TabFM [noise_all]` | torchregress | 0.9019 ± 0.0088 | 1.4568 ± 0.7682 | 2.7186 ± 1.3271 † | **0.6607 ± 0.3381** | 0.2429 ± 0.0695 | 13.3126 |
+| `tr_Split+TabICL [noise_all]` | torchregress | 0.8983 ± 0.0134 | 1.4038 ± 0.7420 | 2.9563 ± 1.4012 † | 0.6764 ± 0.3369 | 0.0313 ± 0.0283 | 6.4643 |
+| `tr_Split+TabularMLP [noise_all]` | torchregress | 0.8975 ± 0.0118 | 1.3446 ± 0.6476 | 2.7256 ± 1.3554 † | 0.6670 ± 0.3372 | 0.1776 ± 0.0898 | 14.0707 |
 
 ##### fm_uq_scenarios / zurich_delays@noise_test
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [noise_test]` | sdm | 1.0000 ± 0.0000 | 99.6755 ± 40.2934 | 99.6755 ± 40.2934 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.7285 |
-| `Raw+LightGBM [noise_test]` | lightgbm | 0.8369 ± 0.0263 | 1.7522 ± 0.7176 | 2.9574 ± 1.4393 † | 0.6797 ± 0.3435 | 0.3181 ± 0.0648 | 2.2564 |
-| `Raw+TabICL [noise_test]` | tabicl | 0.9994 ± 0.0010 | 22.7602 ± 3.7418 | 22.8068 ± 3.6691 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 6.9405 |
-| `Raw+TabularMLP [noise_test]` | torchregress | 0.9383 ± 0.0145 | 1.7612 ± 0.8641 | 2.7842 ± 1.3562 † | **0.6640 ± 0.3397** | 0.4388 ± 0.0936 | 20.2037 |
-| `tr_CQR+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 99.6270 ± 40.3161 | 99.6270 ± 40.3161 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.7285 |
-| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9025 ± 0.0145 | 1.9305 ± 0.8086 | 2.8950 ± 1.3844 † | 0.6797 ± 0.3435 | 0.5673 ± 0.0380 | 2.2564 |
-| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 22.7407 ± 3.7597 | 22.7875 ± 3.6866 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 6.9405 |
-| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.8681 ± 0.0156 | 1.3474 ± 0.6838 | 2.7205 ± 1.3489 † | **0.6640 ± 0.3397** | 0.2575 ± 0.0247 | 20.2037 |
-| `tr_DCP+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 91.3840 ± 36.4161 | 91.3840 ± 36.4161 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.7285 |
-| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8947 ± 0.0172 | 2.1658 ± 0.8781 | 3.0648 ± 1.4395 † | 0.6797 ± 0.3435 | 0.4780 ± 0.0955 | 2.2564 |
-| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 22.2904 ± 3.9059 | 22.3394 ± 3.8334 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 6.9405 |
-| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.8683 ± 0.0167 | 1.2675 ± 0.6391 | 2.6846 ± 1.3191 † | **0.6640 ± 0.3397** | 0.2186 ± 0.0137 | 20.2037 |
-| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.1097 ± 0.1751 | 0.9918 ± 0.2154 | 322.7 ± 449.7 † | 16.9424 ± 22.2262 | 0.0000 ± 0.0000 | 4.7285 |
-| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.8944 ± 0.0281 | 1.5542 ± 0.7879 | 3.0298 ± 1.6540 † | 0.6797 ± 0.3435 | 0.2879 ± 0.1323 | 2.2564 |
-| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.3194 ± 0.5533 | 1.6511 ± 1.6315 | 434.0 ± 518.1 † | 22.2934 ± 25.6345 | 0.2362 ± 0.4092 | 13.2524 |
-| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.2272 ± 0.3409 | 1.7131 ± 1.7737 | 24.5290 ± 14.9104 † | 2.0300 ± 0.4837 | 0.0951 ± 0.1576 | 6.9405 |
-| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8767 ± 0.0079 | 1.3008 ± 0.6771 | 2.7276 ± 1.3936 † | **0.6640 ± 0.3397** | 0.2631 ± 0.0343 | 20.2037 |
-| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 85.1053 ± 32.3283 | 85.1053 ± 32.3283 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.7285 |
-| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.9158 ± 0.0179 | 1.9992 ± 0.8672 | 3.1646 ± 1.5519 † | 0.6797 ± 0.3435 | 0.4026 ± 0.0713 | 2.2564 |
-| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 21.8023 ± 4.9700 | 21.8576 ± 4.9102 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 6.9405 |
-| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.8683 ± 0.0167 | 1.2675 ± 0.6391 | 2.6846 ± 1.3191 † | **0.6640 ± 0.3397** | 0.2186 ± 0.0137 | 20.2037 |
-| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 92.0589 ± 36.3348 | 92.0589 ± 36.3348 † | 18.0712 ± 23.1274 | 1.0000 ± 0.0000 | 4.7285 |
-| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8989 ± 0.0173 | 2.1442 ± 0.8874 | 3.0548 ± 1.4438 † | 0.6787 ± 0.3451 | 0.5166 ± 0.0941 | 2.2564 |
-| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9992 ± 0.0008 | 22.2714 ± 4.0906 | 22.3227 ± 4.0199 † | 1.8798 ± 0.3001 | 0.9941 ± 0.0052 | 6.9405 |
-| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8686 ± 0.0111 | 1.3620 ± 0.6986 | **2.5906 ± 1.3047** † | 0.6791 ± 0.3417 | 0.3643 ± 0.0555 | 20.2037 |
-| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.2581 ± 0.4340 | 1.4772 ± 0.7653 | 316.5 ± 445.2 † | 16.9567 ± 22.2328 | 0.0129 ± 0.0224 | 4.7285 |
-| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.8339 ± 0.0384 | 1.4957 ± 0.7966 | 2.7730 ± 1.2827 † | 0.6805 ± 0.3447 | 0.3780 ± 0.0530 | 2.2564 |
-| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.2458 ± 0.4258 | 1.5103 ± 0.7905 | 429.9 ± 517.4 † | 22.3284 ± 25.6525 | 0.0676 ± 0.1170 | 13.2524 |
-| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.0767 ± 0.0671 | 1.4551 ± 0.7539 | 24.3054 ± 1.6941 † | 2.0259 ± 0.4812 | 0.0061 ± 0.0106 | 6.9405 |
-| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.9000 ± 0.0093 | 1.5031 ± 0.7710 | 2.6868 ± 1.3356 † | 0.6755 ± 0.3420 | 0.3735 ± 0.0665 | 20.2037 |
-| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.1781 ± 0.2962 | 1.3544 ± 0.6995 | 320.4 ± 447.9 † | 16.9424 ± 22.2262 | 0.0026 ± 0.0046 | 4.7285 |
-| `tr_Split+LightGBM [noise_test]` | torchregress | 0.8869 ± 0.0113 | 1.3654 ± 0.7074 | 2.8774 ± 1.4458 † | 0.6797 ± 0.3435 | 0.1246 ± 0.0484 | 2.2564 |
-| `tr_Split+TabFM [noise_test]` | torchregress | 0.2636 ± 0.4566 | 1.4177 ± 0.7421 | 431.6 ± 518.0 † | 22.2934 ± 25.6345 | 0.1081 ± 0.1872 | 13.2524 |
-| `tr_Split+TabICL [noise_test]` | torchregress | 0.0864 ± 0.0880 | 1.3977 ± 0.7283 | 25.1706 ± 7.8307 † | 2.0300 ± 0.4837 | 0.0031 ± 0.0053 | 6.9405 |
-| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.9017 ± 0.0060 | 1.4338 ± 0.7355 | 2.7602 ± 1.3527 † | **0.6640 ± 0.3397** | 0.2005 ± 0.0340 | 20.2037 |
+| `Raw+KumoTabular [noise_test]` | sdm | 1.0000 ± 0.0000 | 99.6755 ± 40.2934 | 99.6755 ± 40.2934 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.8089 |
+| `Raw+LightGBM [noise_test]` | lightgbm | 0.8369 ± 0.0263 | 1.7522 ± 0.7176 | 2.9574 ± 1.4393 † | 0.6797 ± 0.3435 | 0.3181 ± 0.0648 | 2.2440 |
+| `Raw+TabICL [noise_test]` | tabicl | 0.9994 ± 0.0010 | 22.7602 ± 3.7418 | 22.8068 ± 3.6691 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 7.0131 |
+| `Raw+TabularMLP [noise_test]` | torchregress | 0.9383 ± 0.0145 | 1.7612 ± 0.8641 | 2.7842 ± 1.3562 † | **0.6640 ± 0.3397** | 0.4388 ± 0.0936 | 19.9376 |
+| `tr_CQR+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 99.6270 ± 40.3161 | 99.6270 ± 40.3161 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.8089 |
+| `tr_CQR+LightGBM [noise_test]` | torchregress | 0.9025 ± 0.0145 | 1.9305 ± 0.8086 | 2.8950 ± 1.3844 † | 0.6797 ± 0.3435 | 0.5673 ± 0.0380 | 2.2440 |
+| `tr_CQR+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 22.7407 ± 3.7597 | 22.7875 ± 3.6866 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 7.0131 |
+| `tr_CQR+TabularMLP [noise_test]` | torchregress | 0.8681 ± 0.0156 | 1.3474 ± 0.6838 | 2.7205 ± 1.3489 † | **0.6640 ± 0.3397** | 0.2575 ± 0.0247 | 19.9376 |
+| `tr_DCP+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 91.3840 ± 36.4161 | 91.3840 ± 36.4161 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.8089 |
+| `tr_DCP+LightGBM [noise_test]` | torchregress | 0.8947 ± 0.0172 | 2.1658 ± 0.8781 | 3.0648 ± 1.4395 † | 0.6797 ± 0.3435 | 0.4780 ± 0.0955 | 2.2440 |
+| `tr_DCP+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 22.2904 ± 3.9059 | 22.3394 ± 3.8334 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 7.0131 |
+| `tr_DCP+TabularMLP [noise_test]` | torchregress | 0.8683 ± 0.0167 | 1.2675 ± 0.6391 | 2.6846 ± 1.3191 † | **0.6640 ± 0.3397** | 0.2186 ± 0.0137 | 19.9376 |
+| `tr_Mondrian+KumoTabular [noise_test]` | torchregress | 0.1097 ± 0.1751 | 0.9918 ± 0.2154 | 322.7 ± 449.7 † | 16.9424 ± 22.2262 | 0.0000 ± 0.0000 | 4.8089 |
+| `tr_Mondrian+LightGBM [noise_test]` | torchregress | 0.8944 ± 0.0281 | 1.5542 ± 0.7879 | 3.0298 ± 1.6540 † | 0.6797 ± 0.3435 | 0.2879 ± 0.1323 | 2.2440 |
+| `tr_Mondrian+TabFM [noise_test]` | torchregress | 0.3194 ± 0.5533 | 1.6511 ± 1.6315 | 434.0 ± 518.1 † | 22.2934 ± 25.6345 | 0.2362 ± 0.4092 | 13.2595 |
+| `tr_Mondrian+TabICL [noise_test]` | torchregress | 0.2272 ± 0.3409 | 1.7131 ± 1.7737 | 24.5290 ± 14.9104 † | 2.0300 ± 0.4837 | 0.0951 ± 0.1576 | 7.0131 |
+| `tr_Mondrian+TabularMLP [noise_test]` | torchregress | 0.8767 ± 0.0079 | 1.3008 ± 0.6771 | 2.7276 ± 1.3936 † | **0.6640 ± 0.3397** | 0.2631 ± 0.0343 | 19.9376 |
+| `tr_Normalized+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 85.1053 ± 32.3283 | 85.1053 ± 32.3283 † | 16.9424 ± 22.2262 | 1.0000 ± 0.0000 | 4.8089 |
+| `tr_Normalized+LightGBM [noise_test]` | torchregress | 0.9158 ± 0.0179 | 1.9992 ± 0.8672 | 3.1646 ± 1.5519 † | 0.6797 ± 0.3435 | 0.4026 ± 0.0713 | 2.2440 |
+| `tr_Normalized+TabICL [noise_test]` | torchregress | 0.9994 ± 0.0010 | 21.8023 ± 4.9700 | 21.8576 ± 4.9102 † | 2.0300 ± 0.4837 | 0.9968 ± 0.0056 | 7.0131 |
+| `tr_Normalized+TabularMLP [noise_test]` | torchregress | 0.8683 ± 0.0167 | 1.2675 ± 0.6391 | 2.6846 ± 1.3191 † | **0.6640 ± 0.3397** | 0.2186 ± 0.0137 | 19.9376 |
+| `tr_PITRecal+KumoTabular [noise_test]` | torchregress | 1.0000 ± 0.0000 | 92.0589 ± 36.3348 | 92.0589 ± 36.3348 † | 18.0712 ± 23.1274 | 1.0000 ± 0.0000 | 4.8089 |
+| `tr_PITRecal+LightGBM [noise_test]` | torchregress | 0.8989 ± 0.0173 | 2.1442 ± 0.8874 | 3.0548 ± 1.4438 † | 0.6787 ± 0.3451 | 0.5166 ± 0.0941 | 2.2440 |
+| `tr_PITRecal+TabICL [noise_test]` | torchregress | 0.9992 ± 0.0008 | 22.2714 ± 4.0906 | 22.3227 ± 4.0199 † | 1.8798 ± 0.3001 | 0.9941 ± 0.0052 | 7.0131 |
+| `tr_PITRecal+TabularMLP [noise_test]` | torchregress | 0.8686 ± 0.0111 | 1.3620 ± 0.6986 | **2.5906 ± 1.3047** † | 0.6791 ± 0.3417 | 0.3643 ± 0.0555 | 19.9376 |
+| `tr_ResidualDist+KumoTabular [noise_test]` | torchregress | 0.2581 ± 0.4340 | 1.4772 ± 0.7653 | 316.5 ± 445.2 † | 16.9567 ± 22.2328 | 0.0129 ± 0.0224 | 4.8089 |
+| `tr_ResidualDist+LightGBM [noise_test]` | torchregress | 0.8339 ± 0.0384 | 1.4957 ± 0.7966 | 2.7730 ± 1.2827 † | 0.6805 ± 0.3447 | 0.3780 ± 0.0530 | 2.2440 |
+| `tr_ResidualDist+TabFM [noise_test]` | torchregress | 0.2458 ± 0.4258 | 1.5103 ± 0.7905 | 429.9 ± 517.4 † | 22.3284 ± 25.6525 | 0.0676 ± 0.1170 | 13.2595 |
+| `tr_ResidualDist+TabICL [noise_test]` | torchregress | 0.0767 ± 0.0671 | 1.4551 ± 0.7539 | 24.3054 ± 1.6941 † | 2.0259 ± 0.4812 | 0.0061 ± 0.0106 | 7.0131 |
+| `tr_ResidualDist+TabularMLP [noise_test]` | torchregress | 0.9000 ± 0.0093 | 1.5031 ± 0.7710 | 2.6868 ± 1.3356 † | 0.6755 ± 0.3420 | 0.3735 ± 0.0665 | 19.9376 |
+| `tr_Split+KumoTabular [noise_test]` | torchregress | 0.1781 ± 0.2962 | 1.3544 ± 0.6995 | 320.4 ± 447.9 † | 16.9424 ± 22.2262 | 0.0026 ± 0.0046 | 4.8089 |
+| `tr_Split+LightGBM [noise_test]` | torchregress | 0.8869 ± 0.0113 | 1.3654 ± 0.7074 | 2.8774 ± 1.4458 † | 0.6797 ± 0.3435 | 0.1246 ± 0.0484 | 2.2440 |
+| `tr_Split+TabFM [noise_test]` | torchregress | 0.2636 ± 0.4566 | 1.4177 ± 0.7421 | 431.6 ± 518.0 † | 22.2934 ± 25.6345 | 0.1081 ± 0.1872 | 13.2595 |
+| `tr_Split+TabICL [noise_test]` | torchregress | 0.0864 ± 0.0880 | 1.3977 ± 0.7283 | 25.1706 ± 7.8307 † | 2.0300 ± 0.4837 | 0.0031 ± 0.0053 | 7.0131 |
+| `tr_Split+TabularMLP [noise_test]` | torchregress | 0.9017 ± 0.0060 | 1.4338 ± 0.7355 | 2.7602 ± 1.3527 † | **0.6640 ± 0.3397** | 0.2005 ± 0.0340 | 19.9376 |
 
 ##### fm_uq_scenarios / zurich_delays@outliers
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [outliers]` | sdm | 0.9653 ± 0.0065 | 2.5538 ± 1.0837 | 2.9770 ± 1.2988 † | **0.6496 ± 0.3280** | 0.7525 ± 0.0637 | 4.7615 |
-| `Raw+LightGBM [outliers]` | lightgbm | 0.9161 ± 0.0176 | 2.6422 ± 0.4121 | 3.4097 ± 0.8694 † | 0.6620 ± 0.3339 | 0.5995 ± 0.0821 | 2.2383 |
-| `Raw+TabICL [outliers]` | tabicl | 0.9678 ± 0.0099 | 2.6156 ± 0.8108 | 3.0686 ± 1.1418 † | 0.6558 ± 0.3281 | 0.7744 ± 0.0774 | 6.9728 |
-| `Raw+TabularMLP [outliers]` | torchregress | 0.9947 ± 0.0049 | 7.1745 ± 0.7010 | 7.4494 ± 0.4245 † | 0.6659 ± 0.3330 | 0.9500 ± 0.0420 | 13.5614 |
-| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9439 ± 0.0019 | 2.3692 ± 1.0443 | 2.8741 ± 1.2714 † | **0.6496 ± 0.3280** | 0.6797 ± 0.0424 | 4.7615 |
-| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9481 ± 0.0075 | 2.8622 ± 0.5730 | 3.4788 ± 0.9178 † | 0.6620 ± 0.3339 | 0.6607 ± 0.0947 | 2.2383 |
-| `tr_CQR+TabICL [outliers]` | torchregress | 0.9417 ± 0.0022 | 2.4340 ± 0.8093 | 2.9642 ± 1.1483 † | 0.6558 ± 0.3281 | 0.6984 ± 0.0593 | 6.9728 |
-| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9425 ± 0.0126 | 1.8992 ± 1.0162 | 2.8828 ± 1.4511 † | 0.6659 ± 0.3330 | 0.4310 ± 0.1132 | 13.5614 |
-| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9433 ± 0.0017 | 2.0346 ± 1.0670 | **2.5928 ± 1.2956** † | **0.6496 ± 0.3280** | 0.6606 ± 0.0602 | 4.7615 |
-| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9469 ± 0.0070 | 3.2774 ± 0.7954 | 3.8478 ± 1.0434 † | 0.6620 ± 0.3339 | 0.6994 ± 0.0985 | 2.2383 |
-| `tr_DCP+TabICL [outliers]` | torchregress | 0.9436 ± 0.0057 | 2.0724 ± 1.0850 | 2.6835 ± 1.3392 † | 0.6558 ± 0.3281 | 0.6543 ± 0.0531 | 6.9728 |
-| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0101 | 1.8471 ± 1.0161 | 2.8729 ± 1.4659 † | 0.6659 ± 0.3330 | 0.3940 ± 0.0856 | 13.5614 |
-| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9392 ± 0.0082 | 1.9935 ± 0.9642 | 2.8729 ± 1.3898 † | **0.6496 ± 0.3280** | 0.4719 ± 0.0365 | 4.7615 |
-| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9419 ± 0.0057 | 2.1490 ± 0.9037 | 3.0369 ± 1.3901 † | 0.6620 ± 0.3339 | 0.4844 ± 0.0689 | 2.2383 |
-| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9436 ± 0.0013 | 1.9658 ± 0.9390 | 2.7837 ± 1.2726 † | 0.6583 ± 0.3155 | 0.5139 ± 0.0582 | 13.3136 |
-| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9403 ± 0.0029 | 2.0356 ± 0.9930 | 2.9355 ± 1.3847 † | 0.6558 ± 0.3281 | 0.4700 ± 0.0475 | 6.9728 |
-| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9475 ± 0.0017 | 2.2443 ± 1.0639 | 3.0613 ± 1.4489 † | 0.6659 ± 0.3330 | 0.5420 ± 0.0649 | 13.5614 |
-| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9383 ± 0.0145 | 2.1740 ± 1.1114 | 2.9592 ± 1.4117 † | **0.6496 ± 0.3280** | 0.4994 ± 0.1082 | 4.7615 |
-| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9408 ± 0.0123 | 2.5498 ± 0.9700 | 3.3778 ± 1.3378 † | 0.6620 ± 0.3339 | 0.5423 ± 0.0461 | 2.2383 |
-| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9394 ± 0.0055 | 2.1993 ± 0.9839 | 3.0095 ± 1.3431 † | 0.6558 ± 0.3281 | 0.4907 ± 0.0675 | 6.9728 |
-| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0101 | 1.8471 ± 1.0161 | 2.8729 ± 1.4659 † | 0.6659 ± 0.3330 | 0.3940 ± 0.0856 | 13.5614 |
-| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9469 ± 0.0021 | 2.2151 ± 1.1604 | 2.7252 ± 1.3580 † | 0.6540 ± 0.3297 | 0.6981 ± 0.0603 | 4.7615 |
-| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9489 ± 0.0138 | 3.3883 ± 0.8693 | 3.8870 ± 1.0260 † | 0.6674 ± 0.3357 | 0.7827 ± 0.0808 | 2.2383 |
-| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9403 ± 0.0025 | 2.2202 ± 1.0880 | 2.7575 ± 1.3148 † | 0.6587 ± 0.3291 | 0.6912 ± 0.0077 | 6.9728 |
-| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9569 ± 0.0025 | 2.1838 ± 1.0621 | 2.8579 ± 1.3777 † | 0.6786 ± 0.3368 | 0.7690 ± 0.0070 | 13.5614 |
-| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9511 ± 0.0017 | 2.1075 ± 1.0214 | 2.8003 ± 1.3719 † | 0.6527 ± 0.3294 | 0.7554 ± 0.0239 | 4.7615 |
-| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9514 ± 0.0059 | 2.1739 ± 1.0778 | 2.8411 ± 1.3996 † | 0.6658 ± 0.3353 | 0.7669 ± 0.0132 | 2.2383 |
-| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9550 ± 0.0071 | 2.2578 ± 0.9985 | 2.9439 ± 1.3388 † | 0.6609 ± 0.3167 | 0.7779 ± 0.0769 | 13.3136 |
-| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9481 ± 0.0055 | 2.1314 ± 1.0485 | 2.8054 ± 1.3702 † | 0.6578 ± 0.3286 | 0.7493 ± 0.0097 | 6.9728 |
-| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9567 ± 0.0022 | 2.2222 ± 1.0956 | 2.8953 ± 1.4213 † | 0.6777 ± 0.3361 | 0.7584 ± 0.0219 | 13.5614 |
-| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9400 ± 0.0112 | 1.9791 ± 1.0440 | 2.9604 ± 1.4570 † | **0.6496 ± 0.3280** | 0.4042 ± 0.0894 | 4.7615 |
-| `tr_Split+LightGBM [outliers]` | torchregress | 0.9392 ± 0.0118 | 2.0088 ± 1.0688 | 3.0234 ± 1.5081 † | 0.6620 ± 0.3339 | 0.3797 ± 0.0876 | 2.2383 |
-| `tr_Split+TabFM [outliers]` | torchregress | 0.9456 ± 0.0032 | 2.0138 ± 0.9566 | 2.8728 ± 1.3335 † | 0.6583 ± 0.3155 | 0.5540 ± 0.0623 | 13.3136 |
-| `tr_Split+TabICL [outliers]` | torchregress | 0.9433 ± 0.0139 | 2.0437 ± 1.1042 | 3.0170 ± 1.4748 † | 0.6558 ± 0.3281 | 0.4235 ± 0.1129 | 6.9728 |
-| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9386 ± 0.0098 | 1.8286 ± 1.0028 | 2.8792 ± 1.4740 † | 0.6659 ± 0.3330 | 0.3789 ± 0.0754 | 13.5614 |
+| `Raw+KumoTabular [outliers]` | sdm | 0.9653 ± 0.0065 | 2.5538 ± 1.0837 | 2.9770 ± 1.2988 † | **0.6496 ± 0.3280** | 0.7525 ± 0.0637 | 4.7885 |
+| `Raw+LightGBM [outliers]` | lightgbm | 0.9161 ± 0.0176 | 2.6422 ± 0.4121 | 3.4097 ± 0.8694 † | 0.6620 ± 0.3339 | 0.5995 ± 0.0821 | 2.2320 |
+| `Raw+TabICL [outliers]` | tabicl | 0.9678 ± 0.0099 | 2.6156 ± 0.8108 | 3.0686 ± 1.1418 † | 0.6558 ± 0.3281 | 0.7744 ± 0.0774 | 6.9712 |
+| `Raw+TabularMLP [outliers]` | torchregress | 0.9947 ± 0.0049 | 7.1745 ± 0.7010 | 7.4494 ± 0.4245 † | 0.6659 ± 0.3330 | 0.9500 ± 0.0420 | 13.3116 |
+| `tr_CQR+KumoTabular [outliers]` | torchregress | 0.9439 ± 0.0019 | 2.3692 ± 1.0443 | 2.8741 ± 1.2714 † | **0.6496 ± 0.3280** | 0.6797 ± 0.0424 | 4.7885 |
+| `tr_CQR+LightGBM [outliers]` | torchregress | 0.9481 ± 0.0075 | 2.8622 ± 0.5730 | 3.4788 ± 0.9178 † | 0.6620 ± 0.3339 | 0.6607 ± 0.0947 | 2.2320 |
+| `tr_CQR+TabICL [outliers]` | torchregress | 0.9417 ± 0.0022 | 2.4340 ± 0.8093 | 2.9642 ± 1.1483 † | 0.6558 ± 0.3281 | 0.6984 ± 0.0593 | 6.9712 |
+| `tr_CQR+TabularMLP [outliers]` | torchregress | 0.9425 ± 0.0126 | 1.8992 ± 1.0162 | 2.8828 ± 1.4511 † | 0.6659 ± 0.3330 | 0.4310 ± 0.1132 | 13.3116 |
+| `tr_DCP+KumoTabular [outliers]` | torchregress | 0.9433 ± 0.0017 | 2.0346 ± 1.0670 | **2.5928 ± 1.2956** † | **0.6496 ± 0.3280** | 0.6606 ± 0.0602 | 4.7885 |
+| `tr_DCP+LightGBM [outliers]` | torchregress | 0.9469 ± 0.0070 | 3.2774 ± 0.7954 | 3.8478 ± 1.0434 † | 0.6620 ± 0.3339 | 0.6994 ± 0.0985 | 2.2320 |
+| `tr_DCP+TabICL [outliers]` | torchregress | 0.9436 ± 0.0057 | 2.0724 ± 1.0850 | 2.6835 ± 1.3392 † | 0.6558 ± 0.3281 | 0.6543 ± 0.0531 | 6.9712 |
+| `tr_DCP+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0101 | 1.8471 ± 1.0161 | 2.8729 ± 1.4659 † | 0.6659 ± 0.3330 | 0.3940 ± 0.0856 | 13.3116 |
+| `tr_Mondrian+KumoTabular [outliers]` | torchregress | 0.9392 ± 0.0082 | 1.9935 ± 0.9642 | 2.8729 ± 1.3898 † | **0.6496 ± 0.3280** | 0.4719 ± 0.0365 | 4.7885 |
+| `tr_Mondrian+LightGBM [outliers]` | torchregress | 0.9419 ± 0.0057 | 2.1490 ± 0.9037 | 3.0369 ± 1.3901 † | 0.6620 ± 0.3339 | 0.4844 ± 0.0689 | 2.2320 |
+| `tr_Mondrian+TabFM [outliers]` | torchregress | 0.9436 ± 0.0013 | 1.9658 ± 0.9390 | 2.7837 ± 1.2726 † | 0.6583 ± 0.3155 | 0.5139 ± 0.0582 | 13.2807 |
+| `tr_Mondrian+TabICL [outliers]` | torchregress | 0.9403 ± 0.0029 | 2.0356 ± 0.9930 | 2.9355 ± 1.3847 † | 0.6558 ± 0.3281 | 0.4700 ± 0.0475 | 6.9712 |
+| `tr_Mondrian+TabularMLP [outliers]` | torchregress | 0.9475 ± 0.0017 | 2.2443 ± 1.0639 | 3.0613 ± 1.4489 † | 0.6659 ± 0.3330 | 0.5420 ± 0.0649 | 13.3116 |
+| `tr_Normalized+KumoTabular [outliers]` | torchregress | 0.9383 ± 0.0145 | 2.1740 ± 1.1114 | 2.9592 ± 1.4117 † | **0.6496 ± 0.3280** | 0.4994 ± 0.1082 | 4.7885 |
+| `tr_Normalized+LightGBM [outliers]` | torchregress | 0.9408 ± 0.0123 | 2.5498 ± 0.9700 | 3.3778 ± 1.3378 † | 0.6620 ± 0.3339 | 0.5423 ± 0.0461 | 2.2320 |
+| `tr_Normalized+TabICL [outliers]` | torchregress | 0.9394 ± 0.0055 | 2.1993 ± 0.9839 | 3.0095 ± 1.3431 † | 0.6558 ± 0.3281 | 0.4907 ± 0.0675 | 6.9712 |
+| `tr_Normalized+TabularMLP [outliers]` | torchregress | 0.9397 ± 0.0101 | 1.8471 ± 1.0161 | 2.8729 ± 1.4659 † | 0.6659 ± 0.3330 | 0.3940 ± 0.0856 | 13.3116 |
+| `tr_PITRecal+KumoTabular [outliers]` | torchregress | 0.9469 ± 0.0021 | 2.2151 ± 1.1604 | 2.7252 ± 1.3580 † | 0.6540 ± 0.3297 | 0.6981 ± 0.0603 | 4.7885 |
+| `tr_PITRecal+LightGBM [outliers]` | torchregress | 0.9489 ± 0.0138 | 3.3883 ± 0.8693 | 3.8870 ± 1.0260 † | 0.6674 ± 0.3357 | 0.7827 ± 0.0808 | 2.2320 |
+| `tr_PITRecal+TabICL [outliers]` | torchregress | 0.9403 ± 0.0025 | 2.2202 ± 1.0880 | 2.7575 ± 1.3148 † | 0.6587 ± 0.3291 | 0.6912 ± 0.0077 | 6.9712 |
+| `tr_PITRecal+TabularMLP [outliers]` | torchregress | 0.9569 ± 0.0025 | 2.1838 ± 1.0621 | 2.8579 ± 1.3777 † | 0.6786 ± 0.3368 | 0.7690 ± 0.0070 | 13.3116 |
+| `tr_ResidualDist+KumoTabular [outliers]` | torchregress | 0.9511 ± 0.0017 | 2.1075 ± 1.0214 | 2.8003 ± 1.3719 † | 0.6527 ± 0.3294 | 0.7554 ± 0.0239 | 4.7885 |
+| `tr_ResidualDist+LightGBM [outliers]` | torchregress | 0.9514 ± 0.0059 | 2.1739 ± 1.0778 | 2.8411 ± 1.3996 † | 0.6658 ± 0.3353 | 0.7669 ± 0.0132 | 2.2320 |
+| `tr_ResidualDist+TabFM [outliers]` | torchregress | 0.9550 ± 0.0071 | 2.2578 ± 0.9985 | 2.9439 ± 1.3388 † | 0.6609 ± 0.3167 | 0.7779 ± 0.0769 | 13.2807 |
+| `tr_ResidualDist+TabICL [outliers]` | torchregress | 0.9481 ± 0.0055 | 2.1314 ± 1.0485 | 2.8054 ± 1.3702 † | 0.6578 ± 0.3286 | 0.7493 ± 0.0097 | 6.9712 |
+| `tr_ResidualDist+TabularMLP [outliers]` | torchregress | 0.9567 ± 0.0022 | 2.2222 ± 1.0956 | 2.8953 ± 1.4213 † | 0.6777 ± 0.3361 | 0.7584 ± 0.0219 | 13.3116 |
+| `tr_Split+KumoTabular [outliers]` | torchregress | 0.9400 ± 0.0112 | 1.9791 ± 1.0440 | 2.9604 ± 1.4570 † | **0.6496 ± 0.3280** | 0.4042 ± 0.0894 | 4.7885 |
+| `tr_Split+LightGBM [outliers]` | torchregress | 0.9392 ± 0.0118 | 2.0088 ± 1.0688 | 3.0234 ± 1.5081 † | 0.6620 ± 0.3339 | 0.3797 ± 0.0876 | 2.2320 |
+| `tr_Split+TabFM [outliers]` | torchregress | 0.9456 ± 0.0032 | 2.0138 ± 0.9566 | 2.8728 ± 1.3335 † | 0.6583 ± 0.3155 | 0.5540 ± 0.0623 | 13.2807 |
+| `tr_Split+TabICL [outliers]` | torchregress | 0.9433 ± 0.0139 | 2.0437 ± 1.1042 | 3.0170 ± 1.4748 † | 0.6558 ± 0.3281 | 0.4235 ± 0.1129 | 6.9712 |
+| `tr_Split+TabularMLP [outliers]` | torchregress | 0.9386 ± 0.0098 | 1.8286 ± 1.0028 | 2.8792 ± 1.4740 † | 0.6659 ± 0.3330 | 0.3789 ± 0.0754 | 13.3116 |
 
 ##### fm_uq_scenarios / zurich_delays@shift
 
 | Method | Library | Coverage90 | Width | IntervalScore | RMSE | WorstDecileCoverage | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Raw+KumoTabular [shift]` | sdm | 0.9008 ± 0.0033 | 1.5037 ± 0.8203 | **2.7001 ± 0.5977** † | 1.2612 ± 0.7608 | 0.4494 ± 0.1062 | 4.7446 |
-| `Raw+LightGBM [shift]` | lightgbm | 0.8397 ± 0.0055 | 1.1950 ± 0.6479 | 2.9624 ± 0.8381 † | 1.2778 ± 0.7474 | 0.2343 ± 0.0942 | 2.2334 |
-| `Raw+TabICL [shift]` | tabicl | 0.8950 ± 0.0096 | 1.4604 ± 0.8451 | 2.7095 ± 0.6003 † | 1.2519 ± 0.7690 | 0.4127 ± 0.0197 | 6.9448 |
-| `Raw+TabularMLP [shift]` | torchregress | 0.9297 ± 0.0079 | 1.8688 ± 1.0455 | 3.1165 ± 0.9076 † | 1.2538 ± 0.7657 | 0.4727 ± 0.0576 | 19.3335 |
-| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9008 ± 0.0046 | 1.5020 ± 0.8128 | 2.7002 ± 0.5972 † | 1.2612 ± 0.7608 | 0.4397 ± 0.1221 | 4.7446 |
-| `tr_CQR+LightGBM [shift]` | torchregress | 0.9106 ± 0.0163 | 1.4278 ± 0.7497 | 2.9195 ± 0.8054 † | 1.2778 ± 0.7474 | 0.3928 ± 0.0627 | 2.2334 |
-| `tr_CQR+TabICL [shift]` | torchregress | 0.9067 ± 0.0079 | 1.5169 ± 0.8644 | 2.7099 ± 0.6024 † | 1.2519 ± 0.7690 | 0.4556 ± 0.0242 | 6.9448 |
-| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8897 ± 0.0284 | 1.6300 ± 0.8866 | 3.1001 ± 0.9258 † | 1.2538 ± 0.7657 | 0.4031 ± 0.0466 | 19.3335 |
-| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8992 ± 0.0058 | 1.4923 ± 0.8022 | 2.7049 ± 0.6000 † | 1.2612 ± 0.7608 | 0.4425 ± 0.1338 | 4.7446 |
-| `tr_DCP+LightGBM [shift]` | torchregress | 0.9047 ± 0.0108 | 1.5768 ± 0.8350 | 2.9087 ± 0.7880 † | 1.2778 ± 0.7474 | 0.4949 ± 0.0586 | 2.2334 |
-| `tr_DCP+TabICL [shift]` | torchregress | 0.9058 ± 0.0074 | 1.5420 ± 0.8807 | 2.7114 ± 0.6025 † | 1.2519 ± 0.7690 | 0.4620 ± 0.0420 | 6.9448 |
-| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8967 ± 0.0274 | 1.5442 ± 0.8086 | 3.0535 ± 0.8795 † | 1.2538 ± 0.7657 | 0.3686 ± 0.0471 | 19.3335 |
-| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9056 ± 0.0079 | 1.7124 ± 1.0500 | 3.2954 ± 1.0822 † | 1.2612 ± 0.7608 | 0.3404 ± 0.1486 | 4.7446 |
-| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9064 ± 0.0096 | 1.6250 ± 0.9130 | 3.3741 ± 1.1151 † | 1.2778 ± 0.7474 | 0.3169 ± 0.1326 | 2.2334 |
-| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9067 ± 0.0025 | 1.5372 ± 0.8629 | 3.0229 ± 0.8530 † | **1.2334 ± 0.7834** | 0.3966 ± 0.1018 | 13.2982 |
-| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9056 ± 0.0064 | 1.7099 ± 1.0336 | 3.2859 ± 1.0424 † | 1.2519 ± 0.7690 | 0.3374 ± 0.1269 | 6.9448 |
-| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9042 ± 0.0138 | 1.5165 ± 0.8622 | 3.0888 ± 0.9030 † | 1.2538 ± 0.7657 | 0.3565 ± 0.1044 | 19.3335 |
-| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.8992 ± 0.0175 | 1.5235 ± 0.8168 | 3.0962 ± 0.8806 † | 1.2612 ± 0.7608 | 0.3304 ± 0.0636 | 4.7446 |
-| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9081 ± 0.0200 | 1.5325 ± 0.7929 | 3.2434 ± 1.0364 † | 1.2778 ± 0.7474 | 0.2893 ± 0.0669 | 2.2334 |
-| `tr_Normalized+TabICL [shift]` | torchregress | 0.9047 ± 0.0135 | 1.5668 ± 0.8358 | 3.1007 ± 0.8545 † | 1.2519 ± 0.7690 | 0.3246 ± 0.0310 | 6.9448 |
-| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8967 ± 0.0274 | 1.5442 ± 0.8086 | 3.0535 ± 0.8795 † | 1.2538 ± 0.7657 | 0.3686 ± 0.0471 | 19.3335 |
-| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8967 ± 0.0073 | 1.4757 ± 0.7591 | 2.7125 ± 0.6195 † | 1.2603 ± 0.7624 | 0.4709 ± 0.0884 | 4.7446 |
-| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.9022 ± 0.0082 | 1.5438 ± 0.7799 | 2.9095 ± 0.7925 † | 1.2777 ± 0.7488 | 0.4957 ± 0.0515 | 2.2334 |
-| `tr_PITRecal+TabICL [shift]` | torchregress | 0.9033 ± 0.0044 | 1.5668 ± 0.8466 | 2.7126 ± 0.6018 † | 1.2440 ± 0.7777 | 0.4879 ± 0.0722 | 6.9448 |
-| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8964 ± 0.0092 | 1.6784 ± 0.8905 | 2.9251 ± 0.7449 † | 1.2716 ± 0.7499 | 0.4793 ± 0.0815 | 19.3335 |
-| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8994 ± 0.0235 | 1.5196 ± 0.7338 | 3.1130 ± 0.9370 † | 1.2612 ± 0.7612 | 0.4730 ± 0.0299 | 4.7446 |
-| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9072 ± 0.0214 | 1.5672 ± 0.7498 | 3.1281 ± 0.9221 † | 1.2784 ± 0.7475 | 0.4904 ± 0.0566 | 2.2334 |
-| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9042 ± 0.0325 | 1.5496 ± 0.7127 | 3.1115 ± 0.9127 † | 1.2376 ± 0.7801 | 0.4813 ± 0.0369 | 13.2982 |
-| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9058 ± 0.0219 | 1.5500 ± 0.7415 | 3.0830 ± 0.8944 † | 1.2497 ± 0.7714 | 0.5083 ± 0.0506 | 6.9448 |
-| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9075 ± 0.0257 | 1.5691 ± 0.7470 | 3.1314 ± 0.9254 † | 1.2580 ± 0.7620 | 0.4814 ± 0.0465 | 19.3335 |
-| `tr_Split+KumoTabular [shift]` | torchregress | 0.9083 ± 0.0191 | 1.4569 ± 0.6904 | 3.3753 ± 1.1096 † | 1.2612 ± 0.7608 | 0.1650 ± 0.0502 | 4.7446 |
-| `tr_Split+LightGBM [shift]` | torchregress | 0.9067 ± 0.0177 | 1.4710 ± 0.7285 | 3.4435 ± 1.1647 † | 1.2778 ± 0.7474 | 0.1199 ± 0.0577 | 2.2334 |
-| `tr_Split+TabFM [shift]` | torchregress | 0.9075 ± 0.0246 | 1.4847 ± 0.6709 | 3.1547 ± 0.9242 † | **1.2334 ± 0.7834** | 0.3067 ± 0.0642 | 13.2982 |
-| `tr_Split+TabICL [shift]` | torchregress | 0.9067 ± 0.0202 | 1.4916 ± 0.7108 | 3.3887 ± 1.0711 † | 1.2519 ± 0.7690 | 0.1327 ± 0.0500 | 6.9448 |
-| `tr_Split+TabularMLP [shift]` | torchregress | 0.9075 ± 0.0290 | 1.4580 ± 0.6786 | 3.1967 ± 0.9788 † | 1.2538 ± 0.7657 | 0.2822 ± 0.0232 | 19.3335 |
-| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9108 ± 0.0065 | 1.5377 ± 0.8135 | 2.7050 ± 0.6000 † | 1.2612 ± 0.7608 | 0.4585 ± 0.1289 | 4.7446 |
-| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9139 ± 0.0114 | 1.4459 ± 0.7623 | 2.9133 ± 0.7954 † | 1.2778 ± 0.7474 | 0.3996 ± 0.0523 | 2.2334 |
-| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.9122 ± 0.0034 | 1.5354 ± 0.8462 | 2.7140 ± 0.6045 † | 1.2519 ± 0.7690 | 0.4531 ± 0.0047 | 6.9448 |
-| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9050 ± 0.0210 | 1.6900 ± 0.9251 | 3.0882 ± 0.8993 † | 1.2538 ± 0.7657 | 0.4178 ± 0.0454 | 19.3335 |
-| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9072 ± 0.0104 | 1.4822 ± 0.7868 | 3.3619 ± 1.0987 † | 1.2612 ± 0.7608 | 0.1615 ± 0.0945 | 4.7446 |
-| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9061 ± 0.0106 | 1.4865 ± 0.8332 | 3.4297 ± 1.1547 † | 1.2778 ± 0.7474 | 0.1358 ± 0.1096 | 2.2334 |
-| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9078 ± 0.0135 | 1.4874 ± 0.7622 | 3.1368 ± 0.9129 † | **1.2334 ± 0.7834** | 0.3150 ± 0.0967 | 13.2982 |
-| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9064 ± 0.0089 | 1.4957 ± 0.8153 | 3.3698 ± 1.0583 † | 1.2519 ± 0.7690 | 0.1435 ± 0.1216 | 6.9448 |
-| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9056 ± 0.0139 | 1.4806 ± 0.7824 | 3.1804 ± 0.9648 † | 1.2538 ± 0.7657 | 0.2874 ± 0.0889 | 19.3335 |
+| `Raw+KumoTabular [shift]` | sdm | 0.9008 ± 0.0033 | 1.5037 ± 0.8203 | **2.7001 ± 0.5977** † | 1.2612 ± 0.7608 | 0.4494 ± 0.1062 | 4.7713 |
+| `Raw+LightGBM [shift]` | lightgbm | 0.8397 ± 0.0055 | 1.1950 ± 0.6479 | 2.9624 ± 0.8381 † | 1.2778 ± 0.7474 | 0.2343 ± 0.0942 | 2.3808 |
+| `Raw+TabICL [shift]` | tabicl | 0.8950 ± 0.0096 | 1.4604 ± 0.8451 | 2.7095 ± 0.6003 † | 1.2519 ± 0.7690 | 0.4127 ± 0.0197 | 7.0263 |
+| `Raw+TabularMLP [shift]` | torchregress | 0.9297 ± 0.0079 | 1.8688 ± 1.0455 | 3.1165 ± 0.9076 † | 1.2538 ± 0.7657 | 0.4727 ± 0.0576 | 19.5825 |
+| `tr_CQR+KumoTabular [shift]` | torchregress | 0.9008 ± 0.0046 | 1.5020 ± 0.8128 | 2.7002 ± 0.5972 † | 1.2612 ± 0.7608 | 0.4397 ± 0.1221 | 4.7713 |
+| `tr_CQR+LightGBM [shift]` | torchregress | 0.9106 ± 0.0163 | 1.4278 ± 0.7497 | 2.9195 ± 0.8054 † | 1.2778 ± 0.7474 | 0.3928 ± 0.0627 | 2.3808 |
+| `tr_CQR+TabICL [shift]` | torchregress | 0.9067 ± 0.0079 | 1.5169 ± 0.8644 | 2.7099 ± 0.6024 † | 1.2519 ± 0.7690 | 0.4556 ± 0.0242 | 7.0263 |
+| `tr_CQR+TabularMLP [shift]` | torchregress | 0.8897 ± 0.0284 | 1.6300 ± 0.8866 | 3.1001 ± 0.9258 † | 1.2538 ± 0.7657 | 0.4031 ± 0.0466 | 19.5825 |
+| `tr_DCP+KumoTabular [shift]` | torchregress | 0.8992 ± 0.0058 | 1.4923 ± 0.8022 | 2.7049 ± 0.6000 † | 1.2612 ± 0.7608 | 0.4425 ± 0.1338 | 4.7713 |
+| `tr_DCP+LightGBM [shift]` | torchregress | 0.9047 ± 0.0108 | 1.5768 ± 0.8350 | 2.9087 ± 0.7880 † | 1.2778 ± 0.7474 | 0.4949 ± 0.0586 | 2.3808 |
+| `tr_DCP+TabICL [shift]` | torchregress | 0.9058 ± 0.0074 | 1.5420 ± 0.8807 | 2.7114 ± 0.6025 † | 1.2519 ± 0.7690 | 0.4620 ± 0.0420 | 7.0263 |
+| `tr_DCP+TabularMLP [shift]` | torchregress | 0.8967 ± 0.0274 | 1.5442 ± 0.8086 | 3.0535 ± 0.8795 † | 1.2538 ± 0.7657 | 0.3686 ± 0.0471 | 19.5825 |
+| `tr_Mondrian+KumoTabular [shift]` | torchregress | 0.9056 ± 0.0079 | 1.7124 ± 1.0500 | 3.2954 ± 1.0822 † | 1.2612 ± 0.7608 | 0.3404 ± 0.1486 | 4.7713 |
+| `tr_Mondrian+LightGBM [shift]` | torchregress | 0.9064 ± 0.0096 | 1.6250 ± 0.9130 | 3.3741 ± 1.1151 † | 1.2778 ± 0.7474 | 0.3169 ± 0.1326 | 2.3808 |
+| `tr_Mondrian+TabFM [shift]` | torchregress | 0.9067 ± 0.0025 | 1.5372 ± 0.8629 | 3.0229 ± 0.8530 † | **1.2334 ± 0.7834** | 0.3966 ± 0.1018 | 13.2622 |
+| `tr_Mondrian+TabICL [shift]` | torchregress | 0.9056 ± 0.0064 | 1.7099 ± 1.0336 | 3.2859 ± 1.0424 † | 1.2519 ± 0.7690 | 0.3374 ± 0.1269 | 7.0263 |
+| `tr_Mondrian+TabularMLP [shift]` | torchregress | 0.9042 ± 0.0138 | 1.5165 ± 0.8622 | 3.0888 ± 0.9030 † | 1.2538 ± 0.7657 | 0.3565 ± 0.1044 | 19.5825 |
+| `tr_Normalized+KumoTabular [shift]` | torchregress | 0.8992 ± 0.0175 | 1.5235 ± 0.8168 | 3.0962 ± 0.8806 † | 1.2612 ± 0.7608 | 0.3304 ± 0.0636 | 4.7713 |
+| `tr_Normalized+LightGBM [shift]` | torchregress | 0.9081 ± 0.0200 | 1.5325 ± 0.7929 | 3.2434 ± 1.0364 † | 1.2778 ± 0.7474 | 0.2893 ± 0.0669 | 2.3808 |
+| `tr_Normalized+TabICL [shift]` | torchregress | 0.9047 ± 0.0135 | 1.5668 ± 0.8358 | 3.1007 ± 0.8545 † | 1.2519 ± 0.7690 | 0.3246 ± 0.0310 | 7.0263 |
+| `tr_Normalized+TabularMLP [shift]` | torchregress | 0.8967 ± 0.0274 | 1.5442 ± 0.8086 | 3.0535 ± 0.8795 † | 1.2538 ± 0.7657 | 0.3686 ± 0.0471 | 19.5825 |
+| `tr_PITRecal+KumoTabular [shift]` | torchregress | 0.8967 ± 0.0073 | 1.4757 ± 0.7591 | 2.7125 ± 0.6195 † | 1.2603 ± 0.7624 | 0.4709 ± 0.0884 | 4.7713 |
+| `tr_PITRecal+LightGBM [shift]` | torchregress | 0.9022 ± 0.0082 | 1.5438 ± 0.7799 | 2.9095 ± 0.7925 † | 1.2777 ± 0.7488 | 0.4957 ± 0.0515 | 2.3808 |
+| `tr_PITRecal+TabICL [shift]` | torchregress | 0.9033 ± 0.0044 | 1.5668 ± 0.8466 | 2.7126 ± 0.6018 † | 1.2440 ± 0.7777 | 0.4879 ± 0.0722 | 7.0263 |
+| `tr_PITRecal+TabularMLP [shift]` | torchregress | 0.8964 ± 0.0092 | 1.6784 ± 0.8905 | 2.9251 ± 0.7449 † | 1.2716 ± 0.7499 | 0.4793 ± 0.0815 | 19.5825 |
+| `tr_ResidualDist+KumoTabular [shift]` | torchregress | 0.8994 ± 0.0235 | 1.5196 ± 0.7338 | 3.1130 ± 0.9370 † | 1.2612 ± 0.7612 | 0.4730 ± 0.0299 | 4.7713 |
+| `tr_ResidualDist+LightGBM [shift]` | torchregress | 0.9072 ± 0.0214 | 1.5672 ± 0.7498 | 3.1281 ± 0.9221 † | 1.2784 ± 0.7475 | 0.4904 ± 0.0566 | 2.3808 |
+| `tr_ResidualDist+TabFM [shift]` | torchregress | 0.9042 ± 0.0325 | 1.5496 ± 0.7127 | 3.1115 ± 0.9127 † | 1.2376 ± 0.7801 | 0.4813 ± 0.0369 | 13.2622 |
+| `tr_ResidualDist+TabICL [shift]` | torchregress | 0.9058 ± 0.0219 | 1.5500 ± 0.7415 | 3.0830 ± 0.8944 † | 1.2497 ± 0.7714 | 0.5083 ± 0.0506 | 7.0263 |
+| `tr_ResidualDist+TabularMLP [shift]` | torchregress | 0.9075 ± 0.0257 | 1.5691 ± 0.7470 | 3.1314 ± 0.9254 † | 1.2580 ± 0.7620 | 0.4814 ± 0.0465 | 19.5825 |
+| `tr_Split+KumoTabular [shift]` | torchregress | 0.9083 ± 0.0191 | 1.4569 ± 0.6904 | 3.3753 ± 1.1096 † | 1.2612 ± 0.7608 | 0.1650 ± 0.0502 | 4.7713 |
+| `tr_Split+LightGBM [shift]` | torchregress | 0.9067 ± 0.0177 | 1.4710 ± 0.7285 | 3.4435 ± 1.1647 † | 1.2778 ± 0.7474 | 0.1199 ± 0.0577 | 2.3808 |
+| `tr_Split+TabFM [shift]` | torchregress | 0.9075 ± 0.0246 | 1.4847 ± 0.6709 | 3.1547 ± 0.9242 † | **1.2334 ± 0.7834** | 0.3067 ± 0.0642 | 13.2622 |
+| `tr_Split+TabICL [shift]` | torchregress | 0.9067 ± 0.0202 | 1.4916 ± 0.7108 | 3.3887 ± 1.0711 † | 1.2519 ± 0.7690 | 0.1327 ± 0.0500 | 7.0263 |
+| `tr_Split+TabularMLP [shift]` | torchregress | 0.9075 ± 0.0290 | 1.4580 ± 0.6786 | 3.1967 ± 0.9788 † | 1.2538 ± 0.7657 | 0.2822 ± 0.0232 | 19.5825 |
+| `tr_WeightedCQR+KumoTabular [shift]` | torchregress | 0.9108 ± 0.0065 | 1.5377 ± 0.8135 | 2.7050 ± 0.6000 † | 1.2612 ± 0.7608 | 0.4585 ± 0.1289 | 4.7713 |
+| `tr_WeightedCQR+LightGBM [shift]` | torchregress | 0.9139 ± 0.0114 | 1.4459 ± 0.7623 | 2.9133 ± 0.7954 † | 1.2778 ± 0.7474 | 0.3996 ± 0.0523 | 2.3808 |
+| `tr_WeightedCQR+TabICL [shift]` | torchregress | 0.9122 ± 0.0034 | 1.5354 ± 0.8462 | 2.7140 ± 0.6045 † | 1.2519 ± 0.7690 | 0.4531 ± 0.0047 | 7.0263 |
+| `tr_WeightedCQR+TabularMLP [shift]` | torchregress | 0.9050 ± 0.0210 | 1.6900 ± 0.9251 | 3.0882 ± 0.8993 † | 1.2538 ± 0.7657 | 0.4178 ± 0.0454 | 19.5825 |
+| `tr_WeightedSplit+KumoTabular [shift]` | torchregress | 0.9072 ± 0.0104 | 1.4822 ± 0.7868 | 3.3619 ± 1.0987 † | 1.2612 ± 0.7608 | 0.1615 ± 0.0945 | 4.7713 |
+| `tr_WeightedSplit+LightGBM [shift]` | torchregress | 0.9061 ± 0.0106 | 1.4865 ± 0.8332 | 3.4297 ± 1.1547 † | 1.2778 ± 0.7474 | 0.1358 ± 0.1096 | 2.3808 |
+| `tr_WeightedSplit+TabFM [shift]` | torchregress | 0.9078 ± 0.0135 | 1.4874 ± 0.7622 | 3.1368 ± 0.9129 † | **1.2334 ± 0.7834** | 0.3150 ± 0.0967 | 13.2622 |
+| `tr_WeightedSplit+TabICL [shift]` | torchregress | 0.9064 ± 0.0089 | 1.4957 ± 0.8153 | 3.3698 ± 1.0583 † | 1.2519 ± 0.7690 | 0.1435 ± 0.1216 | 7.0263 |
+| `tr_WeightedSplit+TabularMLP [shift]` | torchregress | 0.9056 ± 0.0139 | 1.4806 ± 0.7824 | 3.1804 ± 0.9648 † | 1.2538 ± 0.7657 | 0.2874 ± 0.0889 | 19.5825 |
 
 #### foundation_model (fm)
 
@@ -2879,181 +2789,186 @@ Group `image`; 5 dataset(s). Columns: RMSE ↓, MAE ↓, R2 ↑, NLL ↓, CRPS �
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+Barron` | torchregress | 16.1743 ± 0.3816 | 13.7731 ± 0.6362 | 0.1949 ± 0.0382 | - | - | - | - | - | - | - | 3.0667 |
-| `CNN+BetaNLL` | torchregress | 17.0727 ± 0.1951 | 15.2731 ± 0.1095 | 0.1032 ± 0.0205 | 4.2697 ± 0.0200 | 10.0298 ± 0.1314 | 0.9375 ± 0.0433 | 57.1338 ± 3.4342 | 59.4206 ± 2.0890 | 0.0102 ± 0.0009 | 0.1563 ± 0.0174 | 2.8504 |
-| `CNN+CRPS` | torchregress | 16.6921 ± 0.1553 | 14.9153 ± 0.1832 | 0.1428 ± 0.0159 | 4.2611 ± 0.0043 | 9.8143 ± 0.1430 | 0.9292 ± 0.0921 | 58.5143 ± 12.6334 | 62.2556 ± 7.0702 | 0.0109 ± 0.0015 | 0.1467 ± 0.0446 | 3.2339 |
-| `CNN+Evidential` | torchregress | 18.2498 ± 0.5020 | 16.3841 ± 0.3179 | -0.0251 ± 0.0563 | - | - | 1.0000 ± 0.0000 | 873.3 ± 16.9 | 873.3 ± 16.9 | 0.0012 ± 0.0002 | 0.4229 ± 0.0005 | 3.4643 |
-| `CNN+FaithfulGaussian` | torchregress | 15.6860 ± 0.3147 | 14.0030 ± 0.3344 | 0.2429 ± 0.0304 | 20.7503 ± 1.0164 | 3.588e+08 ± 2.404e+08 | 1.0000 ± 0.0000 | 5.051e+09 ± 3.384e+09 | 5.051e+09 ± 3.384e+09 | 1.036e-08 ± 1.301e-08 | 0.4937 ± 0.0000 | 2.9609 |
-| `CNN+GaussianNLL` | torchregress | 16.8909 ± 0.0887 | 15.2255 ± 0.1201 | 0.1223 ± 0.0092 | **4.2584 ± 0.0192** | 9.9283 ± 0.0732 | 0.9500 ± 0.0451 | 57.3337 ± 7.8456 | 59.0314 ± 6.3880 | 0.0103 ± 0.0010 | **0.1302 ± 0.0195** | 3.2645 |
-| `CNN+Huber` | torchregress | 15.7968 ± 0.7835 | 13.6747 ± 0.8403 | 0.2311 ± 0.0754 | - | - | - | - | - | - | - | 2.4570 |
-| `CNN+MC_Dropout` | torchregress | 17.3061 ± 0.3214 | 15.5390 ± 0.0969 | 0.0784 ± 0.0344 | 5.7308 ± 0.3824 | 11.9128 ± 0.1988 | 0.3500 ± 0.0696 | 25.3348 ± 2.1248 | 121.9 ± 9.0 | 0.0319 ± 0.0062 | 0.3312 ± 0.0250 | 2.4834 |
-| `CNN+MDN_K2` | torchregress | 16.1423 ± 0.1011 | 14.3391 ± 0.1726 | 0.1984 ± 0.0100 | - | - | 0.8833 ± 0.0260 | 48.6769 ± 2.6688 | 55.4524 ± 1.0488 | 0.0140 ± 0.0018 | 0.1419 ± 0.0086 | 3.0460 |
-| `CNN+MDN_K3` | torchregress | 16.6097 ± 0.2600 | 14.7026 ± 0.0699 | 0.1512 ± 0.0265 | - | - | 0.8750 ± 0.0250 | 47.6161 ± 2.7469 | 56.7661 ± 2.6079 | 0.0115 ± 0.0004 | 0.1880 ± 0.0567 | 3.0853 |
-| `CNN+MDN_K5` | torchregress | 16.2482 ± 0.3868 | 14.5317 ± 0.3854 | 0.1875 ± 0.0388 | - | - | 0.8708 ± 0.0289 | 47.4590 ± 1.2634 | 55.4838 ± 1.3962 | 0.0124 ± 0.0031 | 0.1510 ± 0.0309 | 3.1089 |
-| `CNN+MultiQuantile` | torchregress | 16.3036 ± 0.3413 | 14.4869 ± 0.3404 | 0.1821 ± 0.0340 | - | - | 0.8583 ± 0.0289 | 44.5163 ± 2.2695 | **53.9359 ± 2.5214** | 0.0109 ± 0.0002 | 0.1359 ± 0.0334 | 2.6111 |
-| `CNN+NF_Ensemble_K2` | torchregress | 51.4817 ± 0.2967 | 48.2185 ± 0.3162 | -7.1535 ± 0.0939 | - | - | 0.0000 ± 0.0000 | 3.1211 ± 0.3404 | 937.6 ± 5.6 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 24.0046 |
-| `CNN+NormalizingFlow` | torchregress | 51.5351 ± 0.1880 | 48.2769 ± 0.2009 | -7.1703 ± 0.0596 | - | - | 0.0000 ± 0.0000 | 3.0546 ± 0.4557 | 937.8 ± 7.8 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 12.0021 |
-| `CNN+ObservedStdNLL` | torchregress | 25.5074 ± 12.1244 † | 22.8560 ± 10.6191 | -1.3030 ± 2.1638 | 4.6141 ± 0.4424 | 15.1149 ± 7.1227 | 0.9167 ± 0.0191 | 81.7154 ± 44.2908 | 87.1950 ± 44.2368 | 0.0077 ± 0.0033 | 0.2911 ± 0.2313 | 2.7869 |
-| `CNN+PoissonGaussian` | torchregress | 15.1306 ± 3.1476 † | 12.3690 ± 2.6643 | 0.2754 ± 0.3106 | - | - | - | - | - | - | - | 3.1545 |
-| `CNN+SLS` | torchregress | 49.7994 ± 0.2106 | 46.4209 ± 0.2259 | -6.6293 ± 0.0645 | - | - | 0.9417 ± 0.0629 | 146.1 ± 28.1 | 151.5 ± 23.1 | 0.0038 ± 0.0016 | 0.6349 ± 0.0225 | 5.6714 |
-| `CNN+StudentT` | torchregress | 18.6545 ± 2.4705 † | 15.6027 ± 1.1409 | -0.0830 ± 0.2855 | - | - | - | - | - | - | - | 2.4756 |
-| `ResNet+Evidential` | torchregress | 10.6576 ± 0.5335 † | **8.7741 ± 0.3402** | 0.6500 ± 0.0350 | - | - | 1.0000 ± 0.0000 | 144.8 ± 25.4 | 144.8 ± 25.4 | 0.0063 ± 0.0031 | 0.2578 ± 0.0228 | 8.3239 |
-| `ResNet+GaussianNLL` | torchregress | 11.5590 ± 0.1189 | 9.2728 ± 0.1304 | 0.5889 ± 0.0085 | 18.1356 ± 14.0770 | **8.1181 ± 0.3932** | 0.2792 ± 0.0629 | 8.2488 ± 3.1526 | 125.3 ± 20.7 | 0.0149 ± 0.0029 | 0.4944 ± 0.0922 | 7.8533 |
-| `ResNet+MDN_K3` | torchregress | **10.3245 ± 0.3889** | 8.7968 ± 0.3854 | **0.6718 ± 0.0246** | - | - | 0.1708 ± 0.0505 | 7.2764 ± 2.7019 | 119.3 ± 11.5 | 0.0257 ± 0.0136 | 0.4208 ± 0.0753 | 8.0988 |
-| `ResNet+MultiQuantile` | torchregress | 11.9684 ± 1.4284 † | 9.6154 ± 1.1106 | 0.5552 ± 0.1088 | - | - | 0.3375 ± 0.0650 | 9.8478 ± 2.1725 | 121.4 ± 7.4 | 0.0481 ± 0.0268 | 0.4894 ± 0.0685 | 7.4817 |
-| `ResNet+NormalizingFlow` | torchregress | 51.4462 ± 0.3021 | 48.1804 ± 0.3178 | -7.1423 ± 0.0955 | - | - | 0.0000 ± 0.0000 | 3.2758 ± 0.2448 | 936.1 ± 7.7 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 14.8496 |
-| `sklearn_GBR` | scikit-learn | 11.2159 ± 0.0667 | 8.8822 ± 0.0203 | 0.6130 ± 0.0046 | - | - | - | - | - | - | - | 11.3635 |
-| `sklearn_RF` | scikit-learn | 11.8732 ± 0.1130 | 9.7340 ± 0.1168 | 0.5663 ± 0.0082 | - | - | - | - | - | - | - | 2.0396 |
-| `timm_resnet18+GaussianNLL` | timm | 11.9945 ± 0.4188 | 9.5675 ± 0.2319 | 0.5571 ± 0.0310 | 14.8417 ± 2.6449 | 8.3968 ± 0.2304 | 0.2542 ± 0.0832 | 7.7618 ± 1.0902 | 130.8 ± 6.6 | 0.0192 ± 0.0060 | 0.4649 ± 0.0248 | 7.7255 |
-| `torch_uncertainty` | torch-uncertainty | 21.9184 ± 5.9441 † | 18.8448 ± 3.6834 | -0.5504 ± 0.8643 | 4.5153 ± 0.2597 | 12.9405 ± 3.3356 | 0.9000 ± 0.0331 | 68.9046 ± 22.9918 | 78.0991 ± 26.5875 | 0.0078 ± 0.0037 | 0.2422 ± 0.1491 | 8.2521 |
+| `CNN+Barron` | torchregress | 16.1743 ± 0.3816 | 13.7731 ± 0.6362 | 0.1949 ± 0.0382 | - | - | - | - | - | - | - | 3.1508 |
+| `CNN+BetaNLL` | torchregress | 17.0727 ± 0.1951 | 15.2731 ± 0.1095 | 0.1032 ± 0.0205 | 4.2697 ± 0.0200 | 10.0298 ± 0.1314 | 0.9375 ± 0.0433 | 57.1338 ± 3.4342 | 59.4206 ± 2.0890 | 0.0102 ± 0.0009 | 0.1563 ± 0.0174 | 2.9720 |
+| `CNN+CRPS` | torchregress | 16.6921 ± 0.1553 | 14.9153 ± 0.1832 | 0.1428 ± 0.0159 | 4.2611 ± 0.0043 | 9.8143 ± 0.1430 | 0.9292 ± 0.0921 | 58.5143 ± 12.6334 | 62.2556 ± 7.0702 | 0.0109 ± 0.0015 | 0.1467 ± 0.0446 | 3.2312 |
+| `CNN+Evidential` | torchregress | 18.2498 ± 0.5020 | 16.3841 ± 0.3179 | -0.0251 ± 0.0563 | - | - | 1.0000 ± 0.0000 | 873.3 ± 16.9 | 873.3 ± 16.9 | 0.0012 ± 0.0002 | 0.4229 ± 0.0005 | 3.5688 |
+| `CNN+FaithfulGaussian` | torchregress | 15.6860 ± 0.3147 | 14.0030 ± 0.3344 | 0.2429 ± 0.0304 | 20.7503 ± 1.0164 | 3.588e+08 ± 2.404e+08 | 1.0000 ± 0.0000 | 5.051e+09 ± 3.384e+09 | 5.051e+09 ± 3.384e+09 | 1.036e-08 ± 1.301e-08 | 0.4937 ± 0.0000 | 3.0231 |
+| `CNN+GaussianNLL` | torchregress | 16.8909 ± 0.0887 | 15.2255 ± 0.1201 | 0.1223 ± 0.0092 | **4.2584 ± 0.0192** | 9.9283 ± 0.0732 | 0.9500 ± 0.0451 | 57.3337 ± 7.8456 | 59.0314 ± 6.3880 | 0.0103 ± 0.0010 | **0.1302 ± 0.0195** | 3.3819 |
+| `CNN+Huber` | torchregress | 15.7968 ± 0.7835 | 13.6747 ± 0.8403 | 0.2311 ± 0.0754 | - | - | - | - | - | - | - | 2.4998 |
+| `CNN+MC_Dropout` | torchregress | 17.3061 ± 0.3214 | 15.5390 ± 0.0969 | 0.0784 ± 0.0344 | 5.7308 ± 0.3824 | 11.9128 ± 0.1988 | 0.3500 ± 0.0696 | 25.3348 ± 2.1248 | 121.9 ± 9.0 | 0.0319 ± 0.0062 | 0.3312 ± 0.0250 | 2.5761 |
+| `CNN+MDN_K2` | torchregress | 16.1423 ± 0.1011 | 14.3391 ± 0.1726 | 0.1984 ± 0.0100 | - | - | 0.8833 ± 0.0260 | 48.6769 ± 2.6688 | 55.4524 ± 1.0488 | 0.0140 ± 0.0018 | 0.1419 ± 0.0086 | 3.1813 |
+| `CNN+MDN_K3` | torchregress | 16.6097 ± 0.2600 | 14.7026 ± 0.0699 | 0.1512 ± 0.0265 | - | - | 0.8750 ± 0.0250 | 47.6161 ± 2.7469 | 56.7661 ± 2.6079 | 0.0115 ± 0.0004 | 0.1880 ± 0.0567 | 3.2084 |
+| `CNN+MDN_K5` | torchregress | 16.2482 ± 0.3868 | 14.5317 ± 0.3854 | 0.1875 ± 0.0388 | - | - | 0.8708 ± 0.0289 | 47.4590 ± 1.2634 | 55.4838 ± 1.3962 | 0.0124 ± 0.0031 | 0.1510 ± 0.0309 | 3.2076 |
+| `CNN+MultiQuantile` | torchregress | 16.3036 ± 0.3413 | 14.4869 ± 0.3404 | 0.1821 ± 0.0340 | - | - | 0.8583 ± 0.0289 | 44.5163 ± 2.2695 | **53.9359 ± 2.5214** | 0.0109 ± 0.0002 | 0.1359 ± 0.0334 | 2.6843 |
+| `CNN+NF_Ensemble_K2` | torchregress | 51.4817 ± 0.2967 | 48.2185 ± 0.3162 | -7.1535 ± 0.0939 | - | - | 0.0000 ± 0.0000 | 3.1211 ± 0.3404 | 937.6 ± 5.6 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 24.8658 |
+| `CNN+NormalizingFlow` | torchregress | 51.5351 ± 0.1880 | 48.2769 ± 0.2009 | -7.1703 ± 0.0596 | - | - | 0.0000 ± 0.0000 | 3.0546 ± 0.4557 | 937.8 ± 7.8 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 12.3485 |
+| `CNN+ObservedStdNLL` | torchregress | 25.5074 ± 12.1244 † | 22.8560 ± 10.6191 | -1.3030 ± 2.1638 | 4.6141 ± 0.4424 | 15.1149 ± 7.1227 | 0.9167 ± 0.0191 | 81.7154 ± 44.2908 | 87.1950 ± 44.2368 | 0.0077 ± 0.0033 | 0.2911 ± 0.2313 | 2.9585 |
+| `CNN+PoissonGaussian` | torchregress | 15.1306 ± 3.1476 † | 12.3690 ± 2.6643 | 0.2754 ± 0.3106 | - | - | - | - | - | - | - | 3.2578 |
+| `CNN+RankNContrast` | torchregress | 11.2275 ± 0.1463 (n=2) | 9.0292 ± 0.1408 (n=2) | 0.6122 ± 0.0101 (n=2) | - | - | - | - | - | - | - | 3.4642 |
+| `CNN+SLS` | torchregress | 49.7994 ± 0.2106 | 46.4209 ± 0.2259 | -6.6293 ± 0.0645 | - | - | 0.9417 ± 0.0629 | 146.1 ± 28.1 | 151.5 ± 23.1 | 0.0038 ± 0.0016 | 0.6349 ± 0.0225 | 5.8359 |
+| `CNN+StudentT` | torchregress | 18.6545 ± 2.4705 † | 15.6027 ± 1.1409 | -0.0830 ± 0.2855 | - | - | - | - | - | - | - | 2.5084 |
+| `ResNet+Evidential` | torchregress | 10.6576 ± 0.5335 † | **8.7741 ± 0.3402** | 0.6500 ± 0.0350 | - | - | 1.0000 ± 0.0000 | 144.8 ± 25.4 | 144.8 ± 25.4 | 0.0063 ± 0.0031 | 0.2578 ± 0.0228 | 8.6913 |
+| `ResNet+GaussianNLL` | torchregress | 11.5590 ± 0.1189 | 9.2728 ± 0.1304 | 0.5889 ± 0.0085 | 18.1356 ± 14.0770 | **8.1181 ± 0.3932** | 0.2792 ± 0.0629 | 8.2488 ± 3.1526 | 125.3 ± 20.7 | 0.0149 ± 0.0029 | 0.4944 ± 0.0922 | 8.0007 |
+| `ResNet+MDN_K3` | torchregress | **10.3245 ± 0.3889** | 8.7968 ± 0.3854 | **0.6718 ± 0.0246** | - | - | 0.1708 ± 0.0505 | 7.2764 ± 2.7019 | 119.3 ± 11.5 | 0.0257 ± 0.0136 | 0.4208 ± 0.0753 | 8.3359 |
+| `ResNet+MultiQuantile` | torchregress | 11.9684 ± 1.4284 † | 9.6154 ± 1.1106 | 0.5552 ± 0.1088 | - | - | 0.3375 ± 0.0650 | 9.8478 ± 2.1725 | 121.4 ± 7.4 | 0.0481 ± 0.0268 | 0.4894 ± 0.0685 | 8.2086 |
+| `ResNet+NormalizingFlow` | torchregress | 51.4462 ± 0.3021 | 48.1804 ± 0.3178 | -7.1423 ± 0.0955 | - | - | 0.0000 ± 0.0000 | 3.2758 ± 0.2448 | 936.1 ± 7.7 | **0.0000 ± 0.0000** | 0.9937 ± 0.0000 | 15.4865 |
+| `sklearn_GBR` | scikit-learn | 11.2159 ± 0.0667 | 8.8822 ± 0.0203 | 0.6130 ± 0.0046 | - | - | - | - | - | - | - | 11.0088 |
+| `sklearn_RF` | scikit-learn | 11.8732 ± 0.1130 | 9.7340 ± 0.1168 | 0.5663 ± 0.0082 | - | - | - | - | - | - | - | 2.1249 |
+| `timm_resnet18+GaussianNLL` | timm | 11.9945 ± 0.4188 | 9.5675 ± 0.2319 | 0.5571 ± 0.0310 | 14.8417 ± 2.6449 | 8.3968 ± 0.2304 | 0.2542 ± 0.0832 | 7.7618 ± 1.0902 | 130.8 ± 6.6 | 0.0192 ± 0.0060 | 0.4649 ± 0.0248 | 8.5301 |
+| `torch_uncertainty` | torch-uncertainty | 21.9184 ± 5.9441 † | 18.8448 ± 3.6834 | -0.5504 ± 0.8643 | 4.5153 ± 0.2597 | 12.9405 ± 3.3356 | 0.9000 ± 0.0331 | 68.9046 ± 22.9918 | 78.0991 ± 26.5875 | 0.0078 ± 0.0037 | 0.2422 ± 0.1491 | 9.4733 |
 
 Failed / skipped:
 
-- `CNN+RankNContrast` (failed, seed 0, 1, 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
+- `CNN+RankNContrast` (failed, seed 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
 
 ##### age_regression / ixi_brainage_tiny
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+Barron` | torchregress | 14.9707 ± 0.2459 | 13.1097 ± 0.1100 | 0.0492 ± 0.0314 | - | - | - | - | - | - | - | 0.6050 |
-| `CNN+BetaNLL` | torchregress | 38.9250 ± 0.9751 | 35.8137 ± 1.0560 | -5.4291 ± 0.3220 | 5.0895 ± 0.0804 | 22.8398 ± 0.6371 | 1.0000 ± 0.0000 | 142.4 ± 35.9 | 142.4 ± 35.9 | non-finite (3) | 0.6010 ± 0.0209 | 0.4928 |
-| `CNN+CRPS` | torchregress | 15.0358 ± 0.1435 | 13.2202 ± 0.0941 | 0.0411 ± 0.0183 | **4.1726 ± 0.0484** | **8.8711 ± 0.0913** | 1.0000 ± 0.0000 | 60.8092 ± 9.3295 | 60.8092 ± 9.3295 | non-finite (3) | **0.1334 ± 0.0072** | 0.6268 |
-| `CNN+Evidential` | torchregress | 15.5933 ± 0.6261 | 13.7720 ± 0.4260 | -0.0324 ± 0.0835 | - | - | 1.0000 ± 0.0000 | 665.1 ± 30.1 | 665.1 ± 30.1 | non-finite (3) | 0.4061 ± 0.0113 | 0.7234 |
-| `CNN+FaithfulGaussian` | torchregress | 15.2554 ± 0.2712 | 13.3544 ± 0.0894 | 0.0127 ± 0.0350 | 24.3849 ± 1.1466 | 5.828e+09 ± 5.310e+09 | 1.0000 ± 0.0000 | 8.205e+10 ± 7.476e+10 | 8.205e+10 ± 7.476e+10 | non-finite (3) | 0.4583 ± 0.0000 | 0.5624 |
-| `CNN+GaussianNLL` | torchregress | 37.9748 ± 1.1347 | 34.7818 ± 1.2344 | -5.1201 ± 0.3654 | 5.1164 ± 0.0443 | 22.2952 ± 0.6794 | 1.0000 ± 0.0000 | 168.8 ± 13.8 | 168.8 ± 13.8 | non-finite (3) | 0.5688 ± 0.0143 | 1.1021 |
-| `CNN+Huber` | torchregress | 14.9705 ± 0.2461 | 13.1094 ± 0.1101 | 0.0493 ± 0.0314 | - | - | - | - | - | - | - | 0.4875 |
-| `CNN+MC_Dropout` | torchregress | 14.8684 ± 0.8270 † | 12.9842 ± 0.7897 | 0.0604 ± 0.1060 | 4.3523 ± 0.1433 | 9.2908 ± 0.6748 | 0.5556 ± 0.0481 | 30.9955 ± 1.1020 | 64.8087 ± 10.5303 | non-finite (3) | 0.2528 ± 0.0674 | 0.5109 |
-| `CNN+MDN_K2` | torchregress | 14.7180 ± 0.3865 | 13.0142 ± 0.4462 | 0.0808 ± 0.0486 | - | - | 1.0000 ± 0.0000 | 49.5728 ± 6.8186 | 49.5728 ± 6.8186 | non-finite (3) | 0.1610 ± 0.0246 | 0.6194 |
-| `CNN+MDN_K3` | torchregress | 14.9648 ± 0.3253 | 13.2622 ± 0.2661 | 0.0499 ± 0.0415 | - | - | 0.9722 ± 0.0481 | 54.9855 ± 16.8572 | 55.0796 ± 16.7542 | non-finite (3) | 0.1793 ± 0.0223 | 0.5848 |
-| `CNN+MDN_K5` | torchregress | 14.7241 ± 0.5577 | 13.0763 ± 0.4903 | 0.0796 ± 0.0703 | - | - | 1.0000 ± 0.0000 | 54.8033 ± 4.9413 | 54.8033 ± 4.9413 | non-finite (3) | 0.1385 ± 0.0380 | 0.6109 |
-| `CNN+MultiQuantile` | torchregress | 16.2141 ± 0.8928 † | 14.0697 ± 0.5516 | -0.1173 ± 0.1215 | - | - | 0.9444 ± 0.0962 | 48.4556 ± 1.2598 | **49.5034 ± 1.1469** | non-finite (3) | 0.1680 ± 0.0555 | 0.5166 |
-| `CNN+NF_Ensemble_K2` | torchregress | 48.2945 ± 0.3004 | 45.7858 ± 0.3144 | -8.8927 ± 0.1229 | - | - | 0.0000 ± 0.0000 | 3.1027 ± 0.3203 | 889.2 ± 5.4 | non-finite (3) | 0.9583 ± 0.0000 | 4.8101 |
-| `CNN+NormalizingFlow` | torchregress | 48.3506 ± 0.1862 | 45.8497 ± 0.1927 | -8.9156 ± 0.0764 | - | - | 0.0000 ± 0.0000 | 3.0354 ± 0.4160 | 889.4 ± 7.2 | non-finite (3) | 0.9583 ± 0.0000 | 2.4876 |
-| `CNN+ObservedStdNLL` | torchregress | 38.9662 ± 2.2890 † | 35.8395 ± 2.4859 | -5.4548 ± 0.7486 | 12.1381 ± 0.8898 | 22102.6 ± 14328.4 | 1.0000 ± 0.0000 | 3.112e+05 ± 2.017e+05 | 3.112e+05 ± 2.017e+05 | non-finite (3) | 0.4584 ± 0.0001 | 0.5535 |
-| `CNN+PoissonGaussian` | torchregress | 14.2163 ± 0.7762 † | 12.3386 ± 0.5666 | 0.1411 ± 0.0946 | - | - | - | - | - | - | - | 0.6674 |
-| `CNN+SLS` | torchregress | 46.7031 ± 0.1774 | 44.1067 ± 0.1879 | -8.2513 ± 0.0703 | - | - | 0.9444 ± 0.0962 | 152.7 ± 45.4 | 155.5 ± 42.7 | non-finite (3) | 0.6201 ± 0.0433 | 1.5386 |
-| `CNN+StudentT` | torchregress | 15.0353 ± 0.3037 | 13.2068 ± 0.1587 | 0.0409 ± 0.0390 | - | - | - | - | - | - | - | 0.4931 |
-| `ResNet+Evidential` | torchregress | 25.0034 ± 3.4208 † | 18.3474 ± 2.2907 | -1.6847 ± 0.7519 | - | - | 1.0000 ± 0.0000 | 194.0 ± 67.0 | 194.0 ± 67.0 | non-finite (3) | 0.2382 ± 0.0692 | 1.7024 |
-| `ResNet+GaussianNLL` | torchregress | 28.1474 ± 2.0627 † | 21.9773 ± 1.7854 | -2.3724 ± 0.4992 | 5.8543 ± 2.1097 | 15.6497 ± 0.8003 | 0.6667 ± 0.1667 | 62.6353 ± 17.1314 | 135.7 ± 21.7 | non-finite (3) | 0.4243 ± 0.0860 | 1.6526 |
-| `ResNet+MDN_K3` | torchregress | 22.1403 ± 11.3290 † | 18.7263 ± 9.9004 | -1.4420 ± 1.9166 | - | - | 0.4444 ± 0.4811 | 32.2124 ± 28.5705 | 263.7 ± 174.0 | non-finite (3) | 0.5239 ± 0.3144 | 1.6495 |
-| `ResNet+MultiQuantile` | torchregress | 24.9998 ± 2.9957 † | 20.7151 ± 1.8655 | -1.6762 ± 0.6237 | - | - | 0.0833 ± 0.0833 | 4.0322 ± 0.2880 | 381.3 ± 36.5 | non-finite (3) | 0.5972 ± 0.1273 | 1.5729 |
-| `ResNet+NormalizingFlow` | torchregress | 48.3044 ± 0.3314 | 45.7858 ± 0.3627 | -8.8968 ± 0.1357 | - | - | 0.0000 ± 0.0000 | 3.2314 ± 0.3131 | 888.5 ± 9.3 | non-finite (3) | 0.9583 ± 0.0000 | 3.5160 |
-| `sklearn_GBR` | scikit-learn | **11.9908 ± 0.1539** | **8.8381 ± 0.2005** | **0.3901 ± 0.0157** | - | - | - | - | - | - | - | 0.4972 |
-| `sklearn_RF` | scikit-learn | 12.7916 ± 0.5027 | 10.7386 ± 0.4842 | 0.3053 ± 0.0551 | - | - | - | - | - | - | - | 0.1833 |
-| `timm_resnet18+GaussianNLL` | timm | 19.3738 ± 2.5944 † | 16.8319 ± 1.2601 | -0.6110 ± 0.4424 | 6.0104 ± 0.6572 | 52.1871 ± 34.7206 | 1.0000 ± 0.0000 | 720.5 ± 496.0 | 720.5 ± 496.0 | non-finite (3) | 0.4102 ± 0.0323 | 1.6365 |
-| `torch_uncertainty` | torch-uncertainty | 37.5054 ± 2.1668 † | 34.2524 ± 2.3570 | -4.9795 ± 0.7004 | 12.0427 ± 1.1930 | 22933.5 ± 16382.7 | 1.0000 ± 0.0000 | 3.229e+05 ± 2.306e+05 | 3.229e+05 ± 2.306e+05 | non-finite (3) | 0.4584 ± 0.0001 | 1.4951 |
+| `CNN+Barron` | torchregress | 14.9707 ± 0.2459 | 13.1097 ± 0.1100 | 0.0492 ± 0.0314 | - | - | - | - | - | - | - | 0.5935 |
+| `CNN+BetaNLL` | torchregress | 38.9250 ± 0.9751 | 35.8137 ± 1.0560 | -5.4291 ± 0.3220 | 5.0895 ± 0.0804 | 22.8398 ± 0.6371 | 1.0000 ± 0.0000 | 142.4 ± 35.9 | 142.4 ± 35.9 | non-finite (3) | 0.6010 ± 0.0209 | 0.5087 |
+| `CNN+CRPS` | torchregress | 15.0358 ± 0.1435 | 13.2202 ± 0.0941 | 0.0411 ± 0.0183 | **4.1726 ± 0.0484** | **8.8711 ± 0.0913** | 1.0000 ± 0.0000 | 60.8092 ± 9.3295 | 60.8092 ± 9.3295 | non-finite (3) | **0.1334 ± 0.0072** | 0.6195 |
+| `CNN+Evidential` | torchregress | 15.5933 ± 0.6261 | 13.7720 ± 0.4260 | -0.0324 ± 0.0835 | - | - | 1.0000 ± 0.0000 | 665.1 ± 30.1 | 665.1 ± 30.1 | non-finite (3) | 0.4061 ± 0.0113 | 0.6885 |
+| `CNN+FaithfulGaussian` | torchregress | 15.2554 ± 0.2712 | 13.3544 ± 0.0894 | 0.0127 ± 0.0350 | 24.3849 ± 1.1466 | 5.828e+09 ± 5.310e+09 | 1.0000 ± 0.0000 | 8.205e+10 ± 7.476e+10 | 8.205e+10 ± 7.476e+10 | non-finite (3) | 0.4583 ± 0.0000 | 0.5506 |
+| `CNN+GaussianNLL` | torchregress | 37.9748 ± 1.1347 | 34.7818 ± 1.2344 | -5.1201 ± 0.3654 | 5.1164 ± 0.0443 | 22.2952 ± 0.6794 | 1.0000 ± 0.0000 | 168.8 ± 13.8 | 168.8 ± 13.8 | non-finite (3) | 0.5688 ± 0.0143 | 1.1078 |
+| `CNN+Huber` | torchregress | 14.9705 ± 0.2461 | 13.1094 ± 0.1101 | 0.0493 ± 0.0314 | - | - | - | - | - | - | - | 0.4766 |
+| `CNN+MC_Dropout` | torchregress | 14.8684 ± 0.8270 † | 12.9842 ± 0.7897 | 0.0604 ± 0.1060 | 4.3523 ± 0.1433 | 9.2908 ± 0.6748 | 0.5556 ± 0.0481 | 30.9955 ± 1.1020 | 64.8087 ± 10.5303 | non-finite (3) | 0.2528 ± 0.0674 | 0.4976 |
+| `CNN+MDN_K2` | torchregress | 14.7180 ± 0.3865 | 13.0142 ± 0.4462 | 0.0808 ± 0.0486 | - | - | 1.0000 ± 0.0000 | 49.5728 ± 6.8186 | 49.5728 ± 6.8186 | non-finite (3) | 0.1610 ± 0.0246 | 0.6109 |
+| `CNN+MDN_K3` | torchregress | 14.9648 ± 0.3253 | 13.2622 ± 0.2661 | 0.0499 ± 0.0415 | - | - | 0.9722 ± 0.0481 | 54.9855 ± 16.8572 | 55.0796 ± 16.7542 | non-finite (3) | 0.1793 ± 0.0223 | 0.5857 |
+| `CNN+MDN_K5` | torchregress | 14.7241 ± 0.5577 | 13.0763 ± 0.4903 | 0.0796 ± 0.0703 | - | - | 1.0000 ± 0.0000 | 54.8033 ± 4.9413 | 54.8033 ± 4.9413 | non-finite (3) | 0.1385 ± 0.0380 | 0.6075 |
+| `CNN+MultiQuantile` | torchregress | 16.2141 ± 0.8928 † | 14.0697 ± 0.5516 | -0.1173 ± 0.1215 | - | - | 0.9444 ± 0.0962 | 48.4556 ± 1.2598 | **49.5034 ± 1.1469** | non-finite (3) | 0.1680 ± 0.0555 | 0.5028 |
+| `CNN+NF_Ensemble_K2` | torchregress | 48.2945 ± 0.3004 | 45.7858 ± 0.3144 | -8.8927 ± 0.1229 | - | - | 0.0000 ± 0.0000 | 3.1027 ± 0.3203 | 889.2 ± 5.4 | non-finite (3) | 0.9583 ± 0.0000 | 4.8487 |
+| `CNN+NormalizingFlow` | torchregress | 48.3506 ± 0.1862 | 45.8497 ± 0.1927 | -8.9156 ± 0.0764 | - | - | 0.0000 ± 0.0000 | 3.0354 ± 0.4160 | 889.4 ± 7.2 | non-finite (3) | 0.9583 ± 0.0000 | 2.4407 |
+| `CNN+ObservedStdNLL` | torchregress | 38.9662 ± 2.2890 † | 35.8395 ± 2.4859 | -5.4548 ± 0.7486 | 12.1381 ± 0.8898 | 22102.6 ± 14328.4 | 1.0000 ± 0.0000 | 3.112e+05 ± 2.017e+05 | 3.112e+05 ± 2.017e+05 | non-finite (3) | 0.4584 ± 0.0001 | 0.5397 |
+| `CNN+PoissonGaussian` | torchregress | 14.2163 ± 0.7762 † | 12.3386 ± 0.5666 | 0.1411 ± 0.0946 | - | - | - | - | - | - | - | 0.6490 |
+| `CNN+RankNContrast` | torchregress | 13.6284 ± 1.1470 (n=2) † | 10.6046 ± 2.4769 (n=2) | 0.2094 ± 0.1326 (n=2) | - | - | - | - | - | - | - | 0.6248 |
+| `CNN+SLS` | torchregress | 46.7031 ± 0.1774 | 44.1067 ± 0.1879 | -8.2513 ± 0.0703 | - | - | 0.9444 ± 0.0962 | 152.7 ± 45.4 | 155.5 ± 42.7 | non-finite (3) | 0.6201 ± 0.0433 | 1.3906 |
+| `CNN+StudentT` | torchregress | 15.0353 ± 0.3037 | 13.2068 ± 0.1587 | 0.0409 ± 0.0390 | - | - | - | - | - | - | - | 0.4818 |
+| `ResNet+Evidential` | torchregress | 25.0034 ± 3.4208 † | 18.3474 ± 2.2907 | -1.6847 ± 0.7519 | - | - | 1.0000 ± 0.0000 | 194.0 ± 67.0 | 194.0 ± 67.0 | non-finite (3) | 0.2382 ± 0.0692 | 1.7127 |
+| `ResNet+GaussianNLL` | torchregress | 28.1474 ± 2.0627 † | 21.9773 ± 1.7854 | -2.3724 ± 0.4992 | 5.8543 ± 2.1097 | 15.6497 ± 0.8003 | 0.6667 ± 0.1667 | 62.6353 ± 17.1314 | 135.7 ± 21.7 | non-finite (3) | 0.4243 ± 0.0860 | 1.4486 |
+| `ResNet+MDN_K3` | torchregress | 22.1403 ± 11.3290 † | 18.7263 ± 9.9004 | -1.4420 ± 1.9166 | - | - | 0.4444 ± 0.4811 | 32.2124 ± 28.5705 | 263.7 ± 174.0 | non-finite (3) | 0.5239 ± 0.3144 | 1.7982 |
+| `ResNet+MultiQuantile` | torchregress | 24.9998 ± 2.9957 † | 20.7151 ± 1.8655 | -1.6762 ± 0.6237 | - | - | 0.0833 ± 0.0833 | 4.0322 ± 0.2880 | 381.3 ± 36.5 | non-finite (3) | 0.5972 ± 0.1273 | 1.5691 |
+| `ResNet+NormalizingFlow` | torchregress | 48.3044 ± 0.3314 | 45.7858 ± 0.3627 | -8.8968 ± 0.1357 | - | - | 0.0000 ± 0.0000 | 3.2314 ± 0.3131 | 888.5 ± 9.3 | non-finite (3) | 0.9583 ± 0.0000 | 3.3371 |
+| `sklearn_GBR` | scikit-learn | **11.9908 ± 0.1539** | **8.8381 ± 0.2005** | **0.3901 ± 0.0157** | - | - | - | - | - | - | - | 0.4884 |
+| `sklearn_RF` | scikit-learn | 12.7916 ± 0.5027 | 10.7386 ± 0.4842 | 0.3053 ± 0.0551 | - | - | - | - | - | - | - | 0.2224 |
+| `timm_resnet18+GaussianNLL` | timm | 19.3738 ± 2.5944 † | 16.8319 ± 1.2601 | -0.6110 ± 0.4424 | 6.0104 ± 0.6572 | 52.1871 ± 34.7206 | 1.0000 ± 0.0000 | 720.5 ± 496.0 | 720.5 ± 496.0 | non-finite (3) | 0.4102 ± 0.0323 | 1.5921 |
+| `torch_uncertainty` | torch-uncertainty | 37.5054 ± 2.1668 † | 34.2524 ± 2.3570 | -4.9795 ± 0.7004 | 12.0427 ± 1.1930 | 22933.5 ± 16382.7 | 1.0000 ± 0.0000 | 3.229e+05 ± 2.306e+05 | 3.229e+05 ± 2.306e+05 | non-finite (3) | 0.4584 ± 0.0001 | 1.3311 |
 
 Failed / skipped:
 
-- `CNN+RankNContrast` (failed, seed 0, 1, 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
+- `CNN+RankNContrast` (failed, seed 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
 
 ##### age_regression / synthetic_image_regression
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+Barron` | torchregress | 0.0535 ± 0.0004 | 0.0427 ± 0.0004 | 0.9475 ± 0.0008 | - | - | - | - | - | - | - | 6.5960 |
-| `CNN+BetaNLL` | torchregress | 0.0541 ± 0.0016 | 0.0433 ± 0.0010 | 0.9463 ± 0.0031 | **-1.4949 ± 0.0310** | **0.0305 ± 0.0009** | 0.8889 ± 0.0291 | 0.1764 ± 0.0074 | **0.2242 ± 0.0057** | 0.0046 ± 0.0004 | 0.0888 ± 0.0350 | 6.2538 |
-| `CNN+CRPS` | torchregress | 0.0551 ± 0.0021 | 0.0439 ± 0.0018 | 0.9442 ± 0.0043 | -1.4808 ± 0.0343 | 0.0310 ± 0.0012 | 0.8978 ± 0.0192 | 0.1789 ± 0.0068 | 0.2309 ± 0.0065 | 0.0033 ± 0.0004 | 0.0577 ± 0.0195 | 6.7227 |
-| `CNN+Evidential` | torchregress | 0.0537 ± 0.0008 | 0.0427 ± 0.0006 | 0.9470 ± 0.0016 | - | - | 0.1644 ± 0.0135 | 0.0226 ± 0.0005 | 0.6691 ± 0.0085 | 0.0187 ± 0.0144 | 0.7993 ± 0.0241 | 7.6739 |
-| `CNN+FaithfulGaussian` | torchregress | 0.0554 ± 0.0019 | 0.0440 ± 0.0015 | 0.9437 ± 0.0038 | -1.4732 ± 0.0308 | 0.0312 ± 0.0011 | 0.8956 ± 0.0241 | 0.1782 ± 0.0166 | 0.2296 ± 0.0026 | 0.0032 ± 0.0004 | 0.1076 ± 0.0561 | 6.0589 |
-| `CNN+GaussianNLL` | torchregress | 0.0572 ± 0.0036 † | 0.0457 ± 0.0025 | 0.9399 ± 0.0076 | -1.4404 ± 0.0479 | 0.0323 ± 0.0019 | 0.8878 ± 0.0448 | 0.1759 ± 0.0249 | 0.2352 ± 0.0109 | 0.0042 ± 0.0011 | 0.0773 ± 0.0097 | 6.4006 |
-| `CNN+Huber` | torchregress | 0.0535 ± 0.0004 | 0.0428 ± 0.0005 | 0.9474 ± 0.0008 | - | - | - | - | - | - | - | 5.2707 |
-| `CNN+MC_Dropout` | torchregress | 0.0569 ± 0.0025 | 0.0447 ± 0.0023 | 0.9405 ± 0.0054 | -0.0226 ± 0.3730 | 0.0339 ± 0.0019 | 0.6311 ± 0.0375 | 0.1022 ± 0.0063 | 0.3489 ± 0.0322 | 0.0221 ± 0.0047 | 0.2117 ± 0.0379 | 5.1772 |
-| `CNN+MDN_K2` | torchregress | **0.0533 ± 0.0018** | **0.0426 ± 0.0013** | **0.9479 ± 0.0035** | - | - | 0.8778 ± 0.0214 | 0.1638 ± 0.0146 | 0.2277 ± 0.0081 | 0.0049 ± 0.0006 | 0.0984 ± 0.0688 | 6.6436 |
-| `CNN+MDN_K3` | torchregress | 0.0559 ± 0.0010 | 0.0446 ± 0.0014 | 0.9427 ± 0.0020 | - | - | 0.8622 ± 0.0252 | 0.1628 ± 0.0128 | 0.2424 ± 0.0086 | 0.0056 ± 0.0015 | 0.0894 ± 0.0611 | 6.4349 |
-| `CNN+MDN_K5` | torchregress | 0.0565 ± 0.0012 | 0.0448 ± 0.0007 | 0.9414 ± 0.0025 | - | - | 0.8356 ± 0.0168 | 0.1616 ± 0.0044 | 0.2519 ± 0.0130 | 0.0039 ± 0.0008 | 0.1619 ± 0.0461 | 6.3888 |
-| `CNN+MultiQuantile` | torchregress | 0.0550 ± 0.0010 | 0.0435 ± 0.0006 | 0.9445 ± 0.0020 | - | - | 0.8744 ± 0.0340 | 0.1737 ± 0.0044 | 0.2394 ± 0.0089 | 0.0056 ± 0.0012 | 0.1084 ± 0.0126 | 5.5968 |
-| `CNN+NF_Ensemble_K2` | torchregress | 0.0554 ± 0.0041 † | 0.0446 ± 0.0033 | 0.9436 ± 0.0084 | - | - | 0.8622 ± 0.0269 | 0.1662 ± 0.0121 | 0.2346 ± 0.0200 | 0.0061 ± 0.0020 | 0.1319 ± 0.0911 | 52.6007 |
-| `CNN+NormalizingFlow` | torchregress | 0.0600 ± 0.0068 † | 0.0481 ± 0.0054 | 0.9333 ± 0.0151 | - | - | 0.8444 ± 0.0429 | 0.1740 ± 0.0015 | 0.2592 ± 0.0344 | 0.0038 ± 0.0007 | 0.1759 ± 0.1120 | 26.4497 |
-| `CNN+ObservedStdNLL` | torchregress | 0.0546 ± 0.0010 | 0.0436 ± 0.0007 | 0.9453 ± 0.0020 | -1.4831 ± 0.0203 | 0.0308 ± 0.0006 | 0.8978 ± 0.0315 | 0.1823 ± 0.0188 | 0.2305 ± 0.0072 | 0.0041 ± 0.0006 | 0.1210 ± 0.0156 | 5.5664 |
-| `CNN+PoissonGaussian` | torchregress | 0.2336 ± 0.0000 | 0.1920 ± 0.0000 | -0.0013 ± 0.0000 | - | - | - | - | - | - | - | 6.3032 |
-| `CNN+SLS` | torchregress | 0.0565 ± 0.0052 † | 0.0454 ± 0.0043 | 0.9410 ± 0.0109 | - | - | 0.8711 ± 0.0267 | 0.1747 ± 0.0019 | 0.2318 ± 0.0180 | 0.0049 ± 0.0025 | 0.1944 ± 0.0675 | 12.0873 |
-| `CNN+StudentT` | torchregress | 0.0541 ± 0.0007 | 0.0434 ± 0.0005 | 0.9463 ± 0.0014 | - | - | - | - | - | - | - | 5.2550 |
-| `ResNet+Evidential` | torchregress | 0.0697 ± 0.0046 † | 0.0555 ± 0.0021 | 0.9105 ± 0.0119 | - | - | 0.1356 ± 0.0425 | 0.0476 ± 0.0205 | 0.8839 ± 0.0441 | 0.0256 ± 0.0194 | 0.8070 ± 0.0569 | 17.6215 |
-| `ResNet+GaussianNLL` | torchregress | 0.0779 ± 0.0187 † | 0.0553 ± 0.0035 | 0.8844 ± 0.0570 | -1.1572 ± 0.0178 | 0.0395 ± 0.0020 | 0.7778 ± 0.0051 | 0.1778 ± 0.0220 | 0.3140 ± 0.0143 | 0.0047 ± 0.0014 | 0.1865 ± 0.0592 | 16.5235 |
-| `ResNet+MDN_K3` | torchregress | 0.1548 ± 0.0618 † | 0.0638 ± 0.0074 | 0.5133 ± 0.3109 | - | - | 0.7856 ± 0.0762 | 0.3704 ± 0.1647 | 0.4937 ± 0.1673 | 0.0043 ± 0.0012 | 0.1357 ± 0.0474 | 16.9053 |
-| `ResNet+MultiQuantile` | torchregress | 0.0714 ± 0.0101 † | 0.0554 ± 0.0054 | 0.9051 ± 0.0272 | - | - | 0.7511 ± 0.0255 | 0.1702 ± 0.0012 | 0.3172 ± 0.0176 | 0.0130 ± 0.0058 | 0.1638 ± 0.0409 | 15.9760 |
-| `ResNet+NormalizingFlow` | torchregress | 0.0665 ± 0.0014 | 0.0534 ± 0.0011 | 0.9188 ± 0.0035 | - | - | 0.6678 ± 0.0460 | 0.1359 ± 0.0140 | 0.3644 ± 0.0257 | 0.0052 ± 0.0012 | 0.1757 ± 0.0171 | 32.8294 |
-| `sklearn_GBR` | scikit-learn | 0.0569 ± 0.0002 | 0.0458 ± 0.0002 | 0.9406 ± 0.0004 | - | - | - | - | - | - | - | 15.3565 |
-| `sklearn_RF` | scikit-learn | 0.0565 ± 0.0001 | 0.0453 ± 0.0001 | 0.9414 ± 0.0001 | - | - | - | - | - | - | - | 2.4455 |
-| `timm_resnet18+GaussianNLL` | timm | 0.0679 ± 0.0027 | 0.0543 ± 0.0022 | 0.9154 ± 0.0068 | -1.0695 ± 0.1686 | 0.0392 ± 0.0023 | 0.7478 ± 0.0473 | 0.1659 ± 0.0074 | 0.3188 ± 0.0393 | 0.0048 ± 0.0016 | 0.1603 ± 0.0923 | 16.7903 |
-| `torch_uncertainty` | torch-uncertainty | 0.2333 ± 0.0001 | 0.1918 ± 0.0000 | 8.399e-04 ± 6.505e-04 | -0.0365 ± 0.0004 | 0.1334 ± 0.0000 | 0.8878 ± 0.0019 | 0.7702 ± 0.0012 | 0.9043 ± 0.0005 | **0.0023 ± 0.0001** | **0.0434 ± 0.0004** | 6.6787 |
+| `CNN+Barron` | torchregress | 0.0535 ± 0.0004 | 0.0427 ± 0.0004 | 0.9475 ± 0.0008 | - | - | - | - | - | - | - | 6.8569 |
+| `CNN+BetaNLL` | torchregress | 0.0541 ± 0.0016 | 0.0433 ± 0.0010 | 0.9463 ± 0.0031 | **-1.4949 ± 0.0310** | **0.0305 ± 0.0009** | 0.8889 ± 0.0291 | 0.1764 ± 0.0074 | **0.2242 ± 0.0057** | 0.0046 ± 0.0004 | 0.0888 ± 0.0350 | 6.2844 |
+| `CNN+CRPS` | torchregress | 0.0551 ± 0.0021 | 0.0439 ± 0.0018 | 0.9442 ± 0.0043 | -1.4808 ± 0.0343 | 0.0310 ± 0.0012 | 0.8978 ± 0.0192 | 0.1789 ± 0.0068 | 0.2309 ± 0.0065 | 0.0033 ± 0.0004 | 0.0577 ± 0.0195 | 6.8408 |
+| `CNN+Evidential` | torchregress | 0.0537 ± 0.0008 | 0.0427 ± 0.0006 | 0.9470 ± 0.0016 | - | - | 0.1644 ± 0.0135 | 0.0226 ± 0.0005 | 0.6691 ± 0.0085 | 0.0187 ± 0.0144 | 0.7993 ± 0.0241 | 7.6929 |
+| `CNN+FaithfulGaussian` | torchregress | 0.0554 ± 0.0019 | 0.0440 ± 0.0015 | 0.9437 ± 0.0038 | -1.4732 ± 0.0308 | 0.0312 ± 0.0011 | 0.8956 ± 0.0241 | 0.1782 ± 0.0166 | 0.2296 ± 0.0026 | 0.0032 ± 0.0004 | 0.1076 ± 0.0561 | 6.2472 |
+| `CNN+GaussianNLL` | torchregress | 0.0572 ± 0.0036 † | 0.0457 ± 0.0025 | 0.9399 ± 0.0076 | -1.4404 ± 0.0479 | 0.0323 ± 0.0019 | 0.8878 ± 0.0448 | 0.1759 ± 0.0249 | 0.2352 ± 0.0109 | 0.0042 ± 0.0011 | 0.0773 ± 0.0097 | 6.4567 |
+| `CNN+Huber` | torchregress | 0.0535 ± 0.0004 | 0.0428 ± 0.0005 | 0.9474 ± 0.0008 | - | - | - | - | - | - | - | 5.3930 |
+| `CNN+MC_Dropout` | torchregress | 0.0569 ± 0.0025 | 0.0447 ± 0.0023 | 0.9405 ± 0.0054 | -0.0226 ± 0.3730 | 0.0339 ± 0.0019 | 0.6311 ± 0.0375 | 0.1022 ± 0.0063 | 0.3489 ± 0.0322 | 0.0221 ± 0.0047 | 0.2117 ± 0.0379 | 5.3808 |
+| `CNN+MDN_K2` | torchregress | **0.0533 ± 0.0018** | **0.0426 ± 0.0013** | **0.9479 ± 0.0035** | - | - | 0.8778 ± 0.0214 | 0.1638 ± 0.0146 | 0.2277 ± 0.0081 | 0.0049 ± 0.0006 | 0.0984 ± 0.0688 | 6.7136 |
+| `CNN+MDN_K3` | torchregress | 0.0559 ± 0.0010 | 0.0446 ± 0.0014 | 0.9427 ± 0.0020 | - | - | 0.8622 ± 0.0252 | 0.1628 ± 0.0128 | 0.2424 ± 0.0086 | 0.0056 ± 0.0015 | 0.0894 ± 0.0611 | 6.6861 |
+| `CNN+MDN_K5` | torchregress | 0.0565 ± 0.0012 | 0.0448 ± 0.0007 | 0.9414 ± 0.0025 | - | - | 0.8356 ± 0.0168 | 0.1616 ± 0.0044 | 0.2519 ± 0.0130 | 0.0039 ± 0.0008 | 0.1619 ± 0.0461 | 6.6643 |
+| `CNN+MultiQuantile` | torchregress | 0.0550 ± 0.0010 | 0.0435 ± 0.0006 | 0.9445 ± 0.0020 | - | - | 0.8744 ± 0.0340 | 0.1737 ± 0.0044 | 0.2394 ± 0.0089 | 0.0056 ± 0.0012 | 0.1084 ± 0.0126 | 5.7671 |
+| `CNN+NF_Ensemble_K2` | torchregress | 0.0554 ± 0.0041 † | 0.0446 ± 0.0033 | 0.9436 ± 0.0084 | - | - | 0.8622 ± 0.0269 | 0.1662 ± 0.0121 | 0.2346 ± 0.0200 | 0.0061 ± 0.0020 | 0.1319 ± 0.0911 | 53.7526 |
+| `CNN+NormalizingFlow` | torchregress | 0.0600 ± 0.0068 † | 0.0481 ± 0.0054 | 0.9333 ± 0.0151 | - | - | 0.8444 ± 0.0429 | 0.1740 ± 0.0015 | 0.2592 ± 0.0344 | 0.0038 ± 0.0007 | 0.1759 ± 0.1120 | 27.1459 |
+| `CNN+ObservedStdNLL` | torchregress | 0.0546 ± 0.0010 | 0.0436 ± 0.0007 | 0.9453 ± 0.0020 | -1.4831 ± 0.0203 | 0.0308 ± 0.0006 | 0.8978 ± 0.0315 | 0.1823 ± 0.0188 | 0.2305 ± 0.0072 | 0.0041 ± 0.0006 | 0.1210 ± 0.0156 | 5.5173 |
+| `CNN+PoissonGaussian` | torchregress | 0.2336 ± 0.0000 | 0.1920 ± 0.0000 | -0.0013 ± 0.0000 | - | - | - | - | - | - | - | 5.8653 |
+| `CNN+RankNContrast` | torchregress | 0.0545 ± 0.0004 (n=2) | 0.0443 ± 0.0001 (n=2) | 0.9454 ± 0.0009 (n=2) | - | - | - | - | - | - | - | 7.2560 |
+| `CNN+SLS` | torchregress | 0.0565 ± 0.0052 † | 0.0454 ± 0.0043 | 0.9410 ± 0.0109 | - | - | 0.8711 ± 0.0267 | 0.1747 ± 0.0019 | 0.2318 ± 0.0180 | 0.0049 ± 0.0025 | 0.1944 ± 0.0675 | 12.1395 |
+| `CNN+StudentT` | torchregress | 0.0541 ± 0.0007 | 0.0434 ± 0.0005 | 0.9463 ± 0.0014 | - | - | - | - | - | - | - | 5.3227 |
+| `ResNet+Evidential` | torchregress | 0.0697 ± 0.0046 † | 0.0555 ± 0.0021 | 0.9105 ± 0.0119 | - | - | 0.1356 ± 0.0425 | 0.0476 ± 0.0205 | 0.8839 ± 0.0441 | 0.0256 ± 0.0194 | 0.8070 ± 0.0569 | 18.2711 |
+| `ResNet+GaussianNLL` | torchregress | 0.0779 ± 0.0187 † | 0.0553 ± 0.0035 | 0.8844 ± 0.0570 | -1.1572 ± 0.0178 | 0.0395 ± 0.0020 | 0.7778 ± 0.0051 | 0.1778 ± 0.0220 | 0.3140 ± 0.0143 | 0.0047 ± 0.0014 | 0.1865 ± 0.0592 | 16.8418 |
+| `ResNet+MDN_K3` | torchregress | 0.1548 ± 0.0618 † | 0.0638 ± 0.0074 | 0.5133 ± 0.3109 | - | - | 0.7856 ± 0.0762 | 0.3704 ± 0.1647 | 0.4937 ± 0.1673 | 0.0043 ± 0.0012 | 0.1357 ± 0.0474 | 17.3494 |
+| `ResNet+MultiQuantile` | torchregress | 0.0714 ± 0.0101 † | 0.0554 ± 0.0054 | 0.9051 ± 0.0272 | - | - | 0.7511 ± 0.0255 | 0.1702 ± 0.0012 | 0.3172 ± 0.0176 | 0.0130 ± 0.0058 | 0.1638 ± 0.0409 | 16.5903 |
+| `ResNet+NormalizingFlow` | torchregress | 0.0665 ± 0.0014 | 0.0534 ± 0.0011 | 0.9188 ± 0.0035 | - | - | 0.6678 ± 0.0460 | 0.1359 ± 0.0140 | 0.3644 ± 0.0257 | 0.0052 ± 0.0012 | 0.1757 ± 0.0171 | 33.5415 |
+| `sklearn_GBR` | scikit-learn | 0.0569 ± 0.0002 | 0.0458 ± 0.0002 | 0.9406 ± 0.0004 | - | - | - | - | - | - | - | 15.0920 |
+| `sklearn_RF` | scikit-learn | 0.0565 ± 0.0001 | 0.0453 ± 0.0001 | 0.9414 ± 0.0001 | - | - | - | - | - | - | - | 2.5364 |
+| `timm_resnet18+GaussianNLL` | timm | 0.0679 ± 0.0027 | 0.0543 ± 0.0022 | 0.9154 ± 0.0068 | -1.0695 ± 0.1686 | 0.0392 ± 0.0023 | 0.7478 ± 0.0473 | 0.1659 ± 0.0074 | 0.3188 ± 0.0393 | 0.0048 ± 0.0016 | 0.1603 ± 0.0923 | 17.0090 |
+| `torch_uncertainty` | torch-uncertainty | 0.2333 ± 0.0001 | 0.1918 ± 0.0000 | 8.399e-04 ± 6.505e-04 | -0.0365 ± 0.0004 | 0.1334 ± 0.0000 | 0.8878 ± 0.0019 | 0.7702 ± 0.0012 | 0.9043 ± 0.0005 | **0.0023 ± 0.0001** | **0.0434 ± 0.0004** | 6.6101 |
 
 Failed / skipped:
 
-- `CNN+RankNContrast` (failed, seed 0, 1, 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
+- `CNN+RankNContrast` (failed, seed 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
 
 ##### age_regression / udacity_steering
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+Barron` | torchregress | 0.2333 ± 0.0210 † | 0.1590 ± 0.0149 | 0.5317 ± 0.0858 | - | - | - | - | - | - | - | 15.9631 |
-| `CNN+BetaNLL` | torchregress | 0.2752 ± 0.0202 † | 0.1863 ± 0.0027 | 0.3493 ± 0.0969 | 0.1043 ± 0.1824 | 0.1370 ± 0.0046 | 0.7858 ± 0.0802 | 0.6589 ± 0.1082 | 1.1770 ± 0.1056 | 0.0053 ± 0.0023 | 0.1844 ± 0.0408 | 13.9432 |
-| `CNN+CRPS` | torchregress | 0.2550 ± 0.0129 † | 0.1683 ± 0.0080 | 0.4426 ± 0.0563 | 0.1605 ± 0.1954 | 0.1244 ± 0.0065 | 0.8133 ± 0.0313 | 0.5862 ± 0.0770 | 1.1183 ± 0.0427 | **0.0053 ± 0.0010** | 0.1794 ± 0.0293 | 15.4858 |
-| `CNN+Evidential` | torchregress | 0.2804 ± 0.0054 | 0.1820 ± 0.0023 | 0.3266 ± 0.0258 | - | - | 0.2692 ± 0.0808 | 0.1494 ± 0.0253 | 2.5377 ± 0.1742 | 0.0082 ± 0.0031 | 0.4179 ± 0.0565 | 18.0387 |
-| `CNN+FaithfulGaussian` | torchregress | 0.3241 ± 0.0175 † | 0.2105 ± 0.0191 | 0.0991 ± 0.0981 | 0.0648 ± 0.1542 | 0.1591 ± 0.0136 | 0.8550 ± 0.0254 | 0.8702 ± 0.1180 | 1.3774 ± 0.1812 | 0.0083 ± 0.0012 | 0.2039 ± 0.0620 | 14.3345 |
-| `CNN+GaussianNLL` | torchregress | 0.3268 ± 0.0086 | 0.1971 ± 0.0052 | 0.0854 ± 0.0483 | 0.0473 ± 0.1677 | 0.1533 ± 0.0053 | 0.8667 ± 0.0339 | 0.8771 ± 0.1566 | 1.3295 ± 0.0211 | 0.0083 ± 0.0013 | 0.1683 ± 0.0465 | 14.1645 |
-| `CNN+Huber` | torchregress | **0.2313 ± 0.0159** † | 0.1561 ± 0.0114 | **0.5404 ± 0.0640** | - | - | - | - | - | - | - | 12.6265 |
-| `CNN+MC_Dropout` | torchregress | 0.2598 ± 0.0147 † | 0.1702 ± 0.0149 | 0.4210 ± 0.0650 | 8.0719 ± 3.1654 | 0.1441 ± 0.0118 | 0.4508 ± 0.0767 | 0.1949 ± 0.0178 | 2.0468 ± 0.1596 | 0.0214 ± 0.0082 | 0.3487 ± 0.1153 | 12.7731 |
-| `CNN+MDN_K2` | torchregress | 0.3346 ± 0.0389 † | 0.2012 ± 0.0239 | 0.0331 ± 0.2198 | - | - | 0.8658 ± 0.0635 | 0.9492 ± 0.1363 | 1.4491 ± 0.1822 | 0.0065 ± 0.0028 | 0.2727 ± 0.1004 | 15.7987 |
-| `CNN+MDN_K3` | torchregress | 0.3422 ± 0.0024 | 0.2002 ± 0.0084 | -0.0026 ± 0.0142 | - | - | 0.8908 ± 0.0118 | 1.0575 ± 0.1730 | 1.6219 ± 0.2093 | 0.0102 ± 0.0019 | 0.2706 ± 0.0526 | 15.4051 |
-| `CNN+MDN_K5` | torchregress | 0.3434 ± 0.0008 | 0.2003 ± 0.0101 | -0.0093 ± 0.0049 | - | - | 0.8933 ± 0.0128 | 1.1814 ± 0.1572 | 1.6937 ± 0.2105 | 0.0109 ± 0.0041 | 0.2717 ± 0.0456 | 15.0972 |
-| `CNN+MultiQuantile` | torchregress | 0.2818 ± 0.0041 | 0.1691 ± 0.0035 | 0.3200 ± 0.0197 | - | - | 0.8808 ± 0.0029 | 0.7319 ± 0.0355 | **0.9984 ± 0.0210** | 0.0069 ± 0.0016 | **0.1552 ± 0.0681** | 14.1059 |
-| `CNN+NF_Ensemble_K2` | torchregress | 0.3441 ± 0.0018 | 0.2009 ± 0.0034 | -0.0135 ± 0.0107 | - | - | 0.8792 ± 0.0210 | 1.1910 ± 0.0950 | 1.8652 ± 0.0466 | 0.0130 ± 0.0006 | 0.2773 ± 0.0298 | 122.4 |
-| `CNN+NormalizingFlow` | torchregress | 0.3434 ± 0.0028 | 0.2089 ± 0.0140 | -0.0093 ± 0.0163 | - | - | 0.8958 ± 0.0181 | 1.3266 ± 0.0731 | 1.7380 ± 0.0330 | 0.0119 ± 0.0008 | 0.3595 ± 0.1256 | 61.2300 |
-| `CNN+ObservedStdNLL` | torchregress | 0.3285 ± 0.0138 | 0.1958 ± 0.0040 | 0.0749 ± 0.0776 | **3.454e-04 ± 6.722e-02** | 0.1555 ± 0.0054 | 0.8567 ± 0.0123 | 0.8620 ± 0.0201 | 1.3648 ± 0.1250 | 0.0065 ± 0.0015 | 0.2284 ± 0.0459 | 14.9585 |
-| `CNN+PoissonGaussian` | torchregress | 0.3437 ± 0.0000 | 0.1856 ± 0.0000 | -0.0112 ± 0.0000 | - | - | - | - | - | - | - | 15.2215 |
-| `CNN+SLS` | torchregress | 0.3279 ± 0.0261 † | 0.1981 ± 0.0129 | 0.0757 ± 0.1431 | - | - | 0.5750 ± 0.2699 | 0.3503 ± 0.4335 | 2.6056 ± 1.2484 | 0.0311 ± 0.0283 | 0.3495 ± 0.1493 | 26.6094 |
-| `CNN+StudentT` | torchregress | 0.2326 ± 0.0221 † | 0.1585 ± 0.0149 | 0.5339 ± 0.0883 | - | - | - | - | - | - | - | 12.9956 |
-| `ResNet+Evidential` | torchregress | 0.2395 ± 0.0226 † | 0.1589 ± 0.0282 | 0.5061 ± 0.0950 | - | - | 0.1458 ± 0.1190 | 0.0318 ± 0.0011 | 2.9109 ± 0.5543 | 0.0207 ± 0.0126 | 0.5775 ± 0.1864 | 42.0476 |
-| `ResNet+GaussianNLL` | torchregress | 0.2408 ± 0.0101 | 0.1621 ± 0.0141 | 0.5031 ± 0.0416 | 0.3541 ± 0.7815 | 0.1233 ± 0.0081 | 0.7333 ± 0.1767 | 0.4705 ± 0.1589 | 1.1766 ± 0.1699 | 0.0077 ± 0.0010 | 0.3426 ± 0.1400 | 39.1768 |
-| `ResNet+MDN_K3` | torchregress | 0.2633 ± 0.0351 † | 0.1771 ± 0.0343 | 0.3997 ± 0.1521 | - | - | 0.6450 ± 0.2431 | 0.4496 ± 0.0483 | 1.3414 ± 0.2348 | 0.0079 ± 0.0025 | 0.3591 ± 0.1960 | 40.8047 |
-| `ResNet+MultiQuantile` | torchregress | 0.2702 ± 0.0372 † | 0.1946 ± 0.0358 | 0.3669 ± 0.1653 | - | - | 0.7708 ± 0.1130 | 0.4374 ± 0.1958 | 1.3103 ± 0.3217 | 0.0168 ± 0.0049 | 0.2229 ± 0.0683 | 38.7718 |
-| `ResNet+NormalizingFlow` | torchregress | 0.2427 ± 0.0233 † | 0.1514 ± 0.0178 | 0.4926 ± 0.0987 | - | - | 0.8325 ± 0.0391 | 0.4846 ± 0.1028 | 1.0308 ± 0.1721 | 0.0063 ± 0.0019 | 0.2555 ± 0.1208 | 76.7137 |
-| `sklearn_GBR` | scikit-learn | 0.2534 ± 0.0013 | 0.1610 ± 0.0009 | 0.4502 ± 0.0057 | - | - | - | - | - | - | - | 369.2 |
-| `sklearn_RF` | scikit-learn | 0.2505 ± 0.0021 | 0.1576 ± 0.0014 | 0.4630 ± 0.0091 | - | - | - | - | - | - | - | 69.2894 |
-| `timm_resnet18+GaussianNLL` | timm | 0.2442 ± 0.0123 † | **0.1503 ± 0.0042** | 0.4888 ± 0.0519 | 2.1897 ± 1.8886 | **0.1192 ± 0.0044** | 0.7033 ± 0.0659 | 0.3082 ± 0.0567 | 1.4162 ± 0.1402 | 0.0071 ± 0.0013 | 0.2261 ± 0.0946 | 39.3160 |
-| `torch_uncertainty` | torch-uncertainty | 0.3447 ± 0.0013 | 0.1925 ± 0.0041 | -0.0174 ± 0.0078 | 0.3505 ± 0.0064 | 0.1796 ± 0.0012 | 0.8817 ± 0.0038 | 1.1265 ± 0.0434 | 1.8198 ± 0.0115 | 0.0084 ± 0.0001 | 0.3315 ± 0.0123 | 37.8887 |
+| `CNN+Barron` | torchregress | 0.2333 ± 0.0210 † | 0.1590 ± 0.0149 | 0.5317 ± 0.0858 | - | - | - | - | - | - | - | 15.4596 |
+| `CNN+BetaNLL` | torchregress | 0.2752 ± 0.0202 † | 0.1863 ± 0.0027 | 0.3493 ± 0.0969 | 0.1043 ± 0.1824 | 0.1370 ± 0.0046 | 0.7858 ± 0.0802 | 0.6589 ± 0.1082 | 1.1770 ± 0.1056 | 0.0053 ± 0.0023 | 0.1844 ± 0.0408 | 13.6261 |
+| `CNN+CRPS` | torchregress | 0.2550 ± 0.0129 † | 0.1683 ± 0.0080 | 0.4426 ± 0.0563 | 0.1605 ± 0.1954 | 0.1244 ± 0.0065 | 0.8133 ± 0.0313 | 0.5862 ± 0.0770 | 1.1183 ± 0.0427 | **0.0053 ± 0.0010** | 0.1794 ± 0.0293 | 15.2819 |
+| `CNN+Evidential` | torchregress | 0.2804 ± 0.0054 | 0.1820 ± 0.0023 | 0.3266 ± 0.0258 | - | - | 0.2692 ± 0.0808 | 0.1494 ± 0.0253 | 2.5377 ± 0.1742 | 0.0082 ± 0.0031 | 0.4179 ± 0.0565 | 17.8411 |
+| `CNN+FaithfulGaussian` | torchregress | 0.3241 ± 0.0175 † | 0.2105 ± 0.0191 | 0.0991 ± 0.0981 | 0.0648 ± 0.1542 | 0.1591 ± 0.0136 | 0.8550 ± 0.0254 | 0.8702 ± 0.1180 | 1.3774 ± 0.1812 | 0.0083 ± 0.0012 | 0.2039 ± 0.0620 | 14.1808 |
+| `CNN+GaussianNLL` | torchregress | 0.3268 ± 0.0086 | 0.1971 ± 0.0052 | 0.0854 ± 0.0483 | 0.0473 ± 0.1677 | 0.1533 ± 0.0053 | 0.8667 ± 0.0339 | 0.8771 ± 0.1566 | 1.3295 ± 0.0211 | 0.0083 ± 0.0013 | 0.1683 ± 0.0465 | 13.4685 |
+| `CNN+Huber` | torchregress | **0.2313 ± 0.0159** † | 0.1561 ± 0.0114 | **0.5404 ± 0.0640** | - | - | - | - | - | - | - | 12.6597 |
+| `CNN+MC_Dropout` | torchregress | 0.2598 ± 0.0147 † | 0.1702 ± 0.0149 | 0.4210 ± 0.0650 | 8.0719 ± 3.1654 | 0.1441 ± 0.0118 | 0.4508 ± 0.0767 | 0.1949 ± 0.0178 | 2.0468 ± 0.1596 | 0.0214 ± 0.0082 | 0.3487 ± 0.1153 | 12.3979 |
+| `CNN+MDN_K2` | torchregress | 0.3346 ± 0.0389 † | 0.2012 ± 0.0239 | 0.0331 ± 0.2198 | - | - | 0.8658 ± 0.0635 | 0.9492 ± 0.1363 | 1.4491 ± 0.1822 | 0.0065 ± 0.0028 | 0.2727 ± 0.1004 | 15.5648 |
+| `CNN+MDN_K3` | torchregress | 0.3422 ± 0.0024 | 0.2002 ± 0.0084 | -0.0026 ± 0.0142 | - | - | 0.8908 ± 0.0118 | 1.0575 ± 0.1730 | 1.6219 ± 0.2093 | 0.0102 ± 0.0019 | 0.2706 ± 0.0526 | 15.4252 |
+| `CNN+MDN_K5` | torchregress | 0.3434 ± 0.0008 | 0.2003 ± 0.0101 | -0.0093 ± 0.0049 | - | - | 0.8933 ± 0.0128 | 1.1814 ± 0.1572 | 1.6937 ± 0.2105 | 0.0109 ± 0.0041 | 0.2717 ± 0.0456 | 15.6661 |
+| `CNN+MultiQuantile` | torchregress | 0.2818 ± 0.0041 | 0.1691 ± 0.0035 | 0.3200 ± 0.0197 | - | - | 0.8808 ± 0.0029 | 0.7319 ± 0.0355 | **0.9984 ± 0.0210** | 0.0069 ± 0.0016 | **0.1552 ± 0.0681** | 13.1631 |
+| `CNN+NF_Ensemble_K2` | torchregress | 0.3441 ± 0.0018 | 0.2009 ± 0.0034 | -0.0135 ± 0.0107 | - | - | 0.8792 ± 0.0210 | 1.1910 ± 0.0950 | 1.8652 ± 0.0466 | 0.0130 ± 0.0006 | 0.2773 ± 0.0298 | 122.6 |
+| `CNN+NormalizingFlow` | torchregress | 0.3434 ± 0.0028 | 0.2089 ± 0.0140 | -0.0093 ± 0.0163 | - | - | 0.8958 ± 0.0181 | 1.3266 ± 0.0731 | 1.7380 ± 0.0330 | 0.0119 ± 0.0008 | 0.3595 ± 0.1256 | 61.6751 |
+| `CNN+ObservedStdNLL` | torchregress | 0.3285 ± 0.0138 | 0.1958 ± 0.0040 | 0.0749 ± 0.0776 | **3.454e-04 ± 6.722e-02** | 0.1555 ± 0.0054 | 0.8567 ± 0.0123 | 0.8620 ± 0.0201 | 1.3648 ± 0.1250 | 0.0065 ± 0.0015 | 0.2284 ± 0.0459 | 15.0359 |
+| `CNN+PoissonGaussian` | torchregress | 0.3437 ± 0.0000 | 0.1856 ± 0.0000 | -0.0112 ± 0.0000 | - | - | - | - | - | - | - | 14.7972 |
+| `CNN+RankNContrast` | torchregress | 0.2480 ± 0.0162 (n=2) † | 0.1696 ± 0.0058 (n=2) | 0.4726 ± 0.0686 (n=2) | - | - | - | - | - | - | - | 16.1449 |
+| `CNN+SLS` | torchregress | 0.3279 ± 0.0261 † | 0.1981 ± 0.0129 | 0.0757 ± 0.1431 | - | - | 0.5750 ± 0.2699 | 0.3503 ± 0.4335 | 2.6056 ± 1.2484 | 0.0311 ± 0.0283 | 0.3495 ± 0.1493 | 26.1934 |
+| `CNN+StudentT` | torchregress | 0.2326 ± 0.0221 † | 0.1585 ± 0.0149 | 0.5339 ± 0.0883 | - | - | - | - | - | - | - | 12.6273 |
+| `ResNet+Evidential` | torchregress | 0.2395 ± 0.0226 † | 0.1589 ± 0.0282 | 0.5061 ± 0.0950 | - | - | 0.1458 ± 0.1190 | 0.0318 ± 0.0011 | 2.9109 ± 0.5543 | 0.0207 ± 0.0126 | 0.5775 ± 0.1864 | 41.4255 |
+| `ResNet+GaussianNLL` | torchregress | 0.2408 ± 0.0101 | 0.1621 ± 0.0141 | 0.5031 ± 0.0416 | 0.3541 ± 0.7815 | 0.1233 ± 0.0081 | 0.7333 ± 0.1767 | 0.4705 ± 0.1589 | 1.1766 ± 0.1699 | 0.0077 ± 0.0010 | 0.3426 ± 0.1400 | 39.0117 |
+| `ResNet+MDN_K3` | torchregress | 0.2633 ± 0.0351 † | 0.1771 ± 0.0343 | 0.3997 ± 0.1521 | - | - | 0.6450 ± 0.2431 | 0.4496 ± 0.0483 | 1.3414 ± 0.2348 | 0.0079 ± 0.0025 | 0.3591 ± 0.1960 | 40.3109 |
+| `ResNet+MultiQuantile` | torchregress | 0.2702 ± 0.0372 † | 0.1946 ± 0.0358 | 0.3669 ± 0.1653 | - | - | 0.7708 ± 0.1130 | 0.4374 ± 0.1958 | 1.3103 ± 0.3217 | 0.0168 ± 0.0049 | 0.2229 ± 0.0683 | 38.8114 |
+| `ResNet+NormalizingFlow` | torchregress | 0.2427 ± 0.0233 † | 0.1514 ± 0.0178 | 0.4926 ± 0.0987 | - | - | 0.8325 ± 0.0391 | 0.4846 ± 0.1028 | 1.0308 ± 0.1721 | 0.0063 ± 0.0019 | 0.2555 ± 0.1208 | 75.9609 |
+| `sklearn_GBR` | scikit-learn | 0.2534 ± 0.0013 | 0.1610 ± 0.0009 | 0.4502 ± 0.0057 | - | - | - | - | - | - | - | 366.8 |
+| `sklearn_RF` | scikit-learn | 0.2505 ± 0.0021 | 0.1576 ± 0.0014 | 0.4630 ± 0.0091 | - | - | - | - | - | - | - | 69.4792 |
+| `timm_resnet18+GaussianNLL` | timm | 0.2442 ± 0.0123 † | **0.1503 ± 0.0042** | 0.4888 ± 0.0519 | 2.1897 ± 1.8886 | **0.1192 ± 0.0044** | 0.7033 ± 0.0659 | 0.3082 ± 0.0567 | 1.4162 ± 0.1402 | 0.0071 ± 0.0013 | 0.2261 ± 0.0946 | 39.1250 |
+| `torch_uncertainty` | torch-uncertainty | 0.3447 ± 0.0013 | 0.1925 ± 0.0041 | -0.0174 ± 0.0078 | 0.3505 ± 0.0064 | 0.1796 ± 0.0012 | 0.8817 ± 0.0038 | 1.1265 ± 0.0434 | 1.8198 ± 0.0115 | 0.0084 ± 0.0001 | 0.3315 ± 0.0123 | 38.1426 |
 
 Failed / skipped:
 
-- `CNN+RankNContrast` (failed, seed 0, 1, 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
+- `CNN+RankNContrast` (failed, seed 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
 
 ##### age_regression / udacity_steering_tiny
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+Barron` | torchregress | 0.2861 ± 0.0034 | 0.1782 ± 0.0135 | 0.2854 ± 0.0169 | - | - | - | - | - | - | - | 1.7616 |
-| `CNN+BetaNLL` | torchregress | 0.3340 ± 0.0111 | 0.2055 ± 0.0059 | 0.0258 ± 0.0654 | 0.4900 ± 0.1159 | 0.1686 ± 0.0059 | 0.9000 ± 0.0250 | 1.0599 ± 0.1132 | **1.5721 ± 0.1035** | 0.0285 ± 0.0040 | 0.1974 ± 0.0757 | 1.5487 |
-| `CNN+CRPS` | torchregress | 0.3170 ± 0.0193 † | 0.2035 ± 0.0062 | 0.1208 ± 0.1069 | 0.4120 ± 0.0305 | 0.1641 ± 0.0141 | 0.8667 ± 0.0289 | 0.9296 ± 0.1176 | 1.6438 ± 0.1373 | 0.0258 ± 0.0028 | **0.1767 ± 0.0379** | 1.8620 |
-| `CNN+Evidential` | torchregress | 0.3208 ± 0.0071 | 0.2098 ± 0.0110 | 0.1015 ± 0.0394 | - | - | 0.4167 ± 0.0144 | 0.4200 ± 0.1138 | 2.8581 ± 0.1216 | 0.0518 ± 0.0246 | 0.3370 ± 0.0723 | 2.0705 |
-| `CNN+FaithfulGaussian` | torchregress | 0.3404 ± 0.0029 | 0.2052 ± 0.0097 | -0.0114 ± 0.0173 | 0.7587 ± 0.4860 | 0.1718 ± 0.0037 | 0.8833 ± 0.0382 | 1.0474 ± 0.1262 | 1.6120 ± 0.0503 | 0.0344 ± 0.0045 | 0.2017 ± 0.0380 | 1.6622 |
-| `CNN+GaussianNLL` | torchregress | 0.3354 ± 0.0028 | 0.2109 ± 0.0096 | 0.0181 ± 0.0167 | 0.5483 ± 0.0628 | 0.1741 ± 0.0007 | 0.9000 ± 0.0250 | 1.1087 ± 0.0599 | 1.6089 ± 0.0370 | 0.0305 ± 0.0060 | 0.2260 ± 0.0582 | 2.1016 |
-| `CNN+Huber` | torchregress | 0.2845 ± 0.0051 | 0.1807 ± 0.0093 | 0.2934 ± 0.0254 | - | - | - | - | - | - | - | 1.4207 |
-| `CNN+MC_Dropout` | torchregress | 0.3011 ± 0.0149 | 0.1831 ± 0.0088 | 0.2074 ± 0.0784 | 7.6701 ± 1.4590 | **0.1540 ± 0.0080** | 0.5333 ± 0.0629 | 0.2392 ± 0.0167 | 2.1790 ± 0.1729 | 0.0514 ± 0.0233 | 0.2708 ± 0.0520 | 1.4557 |
-| `CNN+MDN_K2` | torchregress | 0.3401 ± 0.0192 † | 0.2170 ± 0.0267 | -0.0117 ± 0.1149 | - | - | 0.9083 ± 0.0144 | 1.2283 ± 0.1668 | 1.6941 ± 0.1264 | 0.0235 ± 0.0021 | 0.2344 ± 0.0695 | 1.8268 |
-| `CNN+MDN_K3` | torchregress | 0.3410 ± 0.0083 | 0.2078 ± 0.0085 | -0.0156 ± 0.0498 | - | - | 0.8417 ± 0.0382 | 1.0423 ± 0.1528 | 1.7982 ± 0.0458 | 0.0269 ± 0.0039 | 0.2375 ± 0.0583 | 1.7628 |
-| `CNN+MDN_K5` | torchregress | 0.3379 ± 0.0025 | 0.2008 ± 0.0064 | 0.0037 ± 0.0149 | - | - | 0.9000 ± 0.0250 | 1.2582 ± 0.1153 | 1.7200 ± 0.1435 | 0.0285 ± 0.0021 | 0.2237 ± 0.0684 | 1.6677 |
-| `CNN+MultiQuantile` | torchregress | 0.3411 ± 0.0009 | 0.1925 ± 0.0002 | -0.0157 ± 0.0051 | - | - | 0.9667 ± 0.0144 | 1.3200 ± 0.0497 | 1.6332 ± 0.0568 | 0.0229 ± 0.0008 | 0.2347 ± 0.0055 | 1.5231 |
-| `CNN+NF_Ensemble_K2` | torchregress | 0.3445 ± 0.0049 | 0.2051 ± 0.0048 | -0.0360 ± 0.0292 | - | - | 0.9083 ± 0.0144 | 1.3857 ± 0.0858 | 1.7886 ± 0.1189 | 0.0296 ± 0.0057 | 0.2411 ± 0.0667 | 14.5901 |
-| `CNN+NormalizingFlow` | torchregress | 0.3454 ± 0.0046 | 0.2063 ± 0.0044 | -0.0413 ± 0.0280 | - | - | 0.7250 ± 0.1090 | 0.6192 ± 0.3226 | 2.3654 ± 0.4150 | 0.0491 ± 0.0127 | 0.3112 ± 0.1487 | 7.3820 |
-| `CNN+ObservedStdNLL` | torchregress | 0.3335 ± 0.0063 | 0.2093 ± 0.0063 | 0.0292 ± 0.0366 | **0.3281 ± 0.0710** | 0.1741 ± 0.0019 | 0.9417 ± 0.0144 | 1.2681 ± 0.0789 | 1.6030 ± 0.0314 | 0.0222 ± 0.0034 | 0.2292 ± 0.0194 | 1.5370 |
-| `CNN+PoissonGaussian` | torchregress | 0.3433 ± 0.0000 | 0.1925 ± 0.0000 | -0.0289 ± 0.0000 | - | - | - | - | - | - | - | 1.8487 |
-| `CNN+SLS` | torchregress | 0.3469 ± 0.0142 | 0.2120 ± 0.0162 | -0.0515 ± 0.0871 | - | - | 0.8917 ± 0.0144 | 1.2556 ± 0.0911 | 1.8222 ± 0.1052 | 0.0330 ± 0.0095 | 0.2783 ± 0.0487 | 3.5429 |
-| `CNN+StudentT` | torchregress | 0.2855 ± 0.0065 | 0.1760 ± 0.0148 | 0.2884 ± 0.0322 | - | - | - | - | - | - | - | 1.4423 |
-| `ResNet+Evidential` | torchregress | 0.3226 ± 0.0166 † | 0.2089 ± 0.0267 | 0.0901 ± 0.0932 | - | - | 0.2167 ± 0.0382 | 0.0997 ± 0.0198 | 3.4577 ± 0.5373 | 0.0360 ± 0.0192 | 0.4333 ± 0.1114 | 4.9187 |
-| `ResNet+GaussianNLL` | torchregress | 0.3319 ± 0.0420 † | 0.2130 ± 0.0237 | 0.0281 ± 0.2500 | 1.6939 ± 0.6771 | 0.1675 ± 0.0173 | 0.6917 ± 0.1233 | 0.4230 ± 0.0779 | 1.9512 ± 0.2060 | 0.0355 ± 0.0185 | 0.1969 ± 0.1194 | 4.7017 |
-| `ResNet+MDN_K3` | torchregress | 0.5421 ± 0.4425 † | 0.3071 ± 0.2318 | -2.7043 ± 5.1732 | - | - | 0.7333 ± 0.1588 | 1.0831 ± 0.9166 | 2.3091 ± 1.2914 | **0.0146 ± 0.0073** | 0.2961 ± 0.1822 | 4.7530 |
-| `ResNet+MultiQuantile` | torchregress | 0.3273 ± 0.0235 † | 0.2051 ± 0.0124 | 0.0616 ± 0.1359 | - | - | 0.5917 ± 0.1283 | 0.3075 ± 0.0673 | 2.4298 ± 0.2316 | 0.0321 ± 0.0155 | 0.2372 ± 0.1000 | 4.5524 |
-| `ResNet+NormalizingFlow` | torchregress | 0.3712 ± 0.0580 † | 0.2447 ± 0.0401 | -0.2225 ± 0.3651 | - | - | 0.6583 ± 0.1258 | 0.5887 ± 0.2591 | 2.0272 ± 0.4934 | 0.0247 ± 0.0073 | 0.2424 ± 0.0325 | 9.0324 |
-| `sklearn_GBR` | scikit-learn | 0.2874 ± 0.0016 | 0.1845 ± 0.0014 | 0.2789 ± 0.0082 | - | - | - | - | - | - | - | 9.3040 |
-| `sklearn_RF` | scikit-learn | **0.2801 ± 0.0058** | **0.1742 ± 0.0038** | **0.3148 ± 0.0286** | - | - | - | - | - | - | - | 1.6280 |
-| `timm_resnet18+GaussianNLL` | timm | 0.3159 ± 0.0141 | 0.2190 ± 0.0222 | 0.1280 ± 0.0766 | 5.8408 ± 1.8613 | 0.1741 ± 0.0176 | 0.5833 ± 0.0144 | 0.4223 ± 0.1051 | 2.0699 ± 0.2680 | 0.0333 ± 0.0074 | 0.2626 ± 0.0381 | 4.6222 |
-| `torch_uncertainty` | torch-uncertainty | 0.3397 ± 0.0009 | 0.2029 ± 0.0037 | -0.0072 ± 0.0055 | 0.3433 ± 0.0045 | 0.1808 ± 0.0005 | 0.9000 ± 0.0000 | 1.2259 ± 0.0203 | 1.7577 ± 0.0115 | 0.0210 ± 0.0009 | 0.2320 ± 0.0065 | 2.3557 |
+| `CNN+Barron` | torchregress | 0.2861 ± 0.0034 | 0.1782 ± 0.0135 | 0.2854 ± 0.0169 | - | - | - | - | - | - | - | 1.3752 |
+| `CNN+BetaNLL` | torchregress | 0.3340 ± 0.0111 | 0.2055 ± 0.0059 | 0.0258 ± 0.0654 | 0.4900 ± 0.1159 | 0.1686 ± 0.0059 | 0.9000 ± 0.0250 | 1.0599 ± 0.1132 | **1.5721 ± 0.1035** | 0.0285 ± 0.0040 | 0.1974 ± 0.0757 | 1.6045 |
+| `CNN+CRPS` | torchregress | 0.3170 ± 0.0193 † | 0.2035 ± 0.0062 | 0.1208 ± 0.1069 | 0.4120 ± 0.0305 | 0.1641 ± 0.0141 | 0.8667 ± 0.0289 | 0.9296 ± 0.1176 | 1.6438 ± 0.1373 | 0.0258 ± 0.0028 | **0.1767 ± 0.0379** | 1.8218 |
+| `CNN+Evidential` | torchregress | 0.3208 ± 0.0071 | 0.2098 ± 0.0110 | 0.1015 ± 0.0394 | - | - | 0.4167 ± 0.0144 | 0.4200 ± 0.1138 | 2.8581 ± 0.1216 | 0.0518 ± 0.0246 | 0.3370 ± 0.0723 | 2.0579 |
+| `CNN+FaithfulGaussian` | torchregress | 0.3404 ± 0.0029 | 0.2052 ± 0.0097 | -0.0114 ± 0.0173 | 0.7587 ± 0.4860 | 0.1718 ± 0.0037 | 0.8833 ± 0.0382 | 1.0474 ± 0.1262 | 1.6120 ± 0.0503 | 0.0344 ± 0.0045 | 0.2017 ± 0.0380 | 1.6579 |
+| `CNN+GaussianNLL` | torchregress | 0.3354 ± 0.0028 | 0.2109 ± 0.0096 | 0.0181 ± 0.0167 | 0.5483 ± 0.0628 | 0.1741 ± 0.0007 | 0.9000 ± 0.0250 | 1.1087 ± 0.0599 | 1.6089 ± 0.0370 | 0.0305 ± 0.0060 | 0.2260 ± 0.0582 | 2.2304 |
+| `CNN+Huber` | torchregress | 0.2845 ± 0.0051 | 0.1807 ± 0.0093 | 0.2934 ± 0.0254 | - | - | - | - | - | - | - | 1.0489 |
+| `CNN+MC_Dropout` | torchregress | 0.3011 ± 0.0149 | 0.1831 ± 0.0088 | 0.2074 ± 0.0784 | 7.6701 ± 1.4590 | **0.1540 ± 0.0080** | 0.5333 ± 0.0629 | 0.2392 ± 0.0167 | 2.1790 ± 0.1729 | 0.0514 ± 0.0233 | 0.2708 ± 0.0520 | 0.9185 |
+| `CNN+MDN_K2` | torchregress | 0.3401 ± 0.0192 † | 0.2170 ± 0.0267 | -0.0117 ± 0.1149 | - | - | 0.9083 ± 0.0144 | 1.2283 ± 0.1668 | 1.6941 ± 0.1264 | 0.0235 ± 0.0021 | 0.2344 ± 0.0695 | 1.7602 |
+| `CNN+MDN_K3` | torchregress | 0.3410 ± 0.0083 | 0.2078 ± 0.0085 | -0.0156 ± 0.0498 | - | - | 0.8417 ± 0.0382 | 1.0423 ± 0.1528 | 1.7982 ± 0.0458 | 0.0269 ± 0.0039 | 0.2375 ± 0.0583 | 1.6894 |
+| `CNN+MDN_K5` | torchregress | 0.3379 ± 0.0025 | 0.2008 ± 0.0064 | 0.0037 ± 0.0149 | - | - | 0.9000 ± 0.0250 | 1.2582 ± 0.1153 | 1.7200 ± 0.1435 | 0.0285 ± 0.0021 | 0.2237 ± 0.0684 | 1.8523 |
+| `CNN+MultiQuantile` | torchregress | 0.3411 ± 0.0009 | 0.1925 ± 0.0002 | -0.0157 ± 0.0051 | - | - | 0.9667 ± 0.0144 | 1.3200 ± 0.0497 | 1.6332 ± 0.0568 | 0.0229 ± 0.0008 | 0.2347 ± 0.0055 | 1.3272 |
+| `CNN+NF_Ensemble_K2` | torchregress | 0.3445 ± 0.0049 | 0.2051 ± 0.0048 | -0.0360 ± 0.0292 | - | - | 0.9083 ± 0.0144 | 1.3857 ± 0.0858 | 1.7886 ± 0.1189 | 0.0296 ± 0.0057 | 0.2411 ± 0.0667 | 14.4528 |
+| `CNN+NormalizingFlow` | torchregress | 0.3454 ± 0.0046 | 0.2063 ± 0.0044 | -0.0413 ± 0.0280 | - | - | 0.7250 ± 0.1090 | 0.6192 ± 0.3226 | 2.3654 ± 0.4150 | 0.0491 ± 0.0127 | 0.3112 ± 0.1487 | 7.3360 |
+| `CNN+ObservedStdNLL` | torchregress | 0.3335 ± 0.0063 | 0.2093 ± 0.0063 | 0.0292 ± 0.0366 | **0.3281 ± 0.0710** | 0.1741 ± 0.0019 | 0.9417 ± 0.0144 | 1.2681 ± 0.0789 | 1.6030 ± 0.0314 | 0.0222 ± 0.0034 | 0.2292 ± 0.0194 | 1.5070 |
+| `CNN+PoissonGaussian` | torchregress | 0.3433 ± 0.0000 | 0.1925 ± 0.0000 | -0.0289 ± 0.0000 | - | - | - | - | - | - | - | 1.8573 |
+| `CNN+RankNContrast` | torchregress | 0.2906 ± 0.0273 (n=2) † | 0.1977 ± 0.0170 (n=2) | 0.2596 ± 0.1386 (n=2) | - | - | - | - | - | - | - | 1.5238 |
+| `CNN+SLS` | torchregress | 0.3469 ± 0.0142 | 0.2120 ± 0.0162 | -0.0515 ± 0.0871 | - | - | 0.8917 ± 0.0144 | 1.2556 ± 0.0911 | 1.8222 ± 0.1052 | 0.0330 ± 0.0095 | 0.2783 ± 0.0487 | 3.5930 |
+| `CNN+StudentT` | torchregress | 0.2855 ± 0.0065 | 0.1760 ± 0.0148 | 0.2884 ± 0.0322 | - | - | - | - | - | - | - | 1.3421 |
+| `ResNet+Evidential` | torchregress | 0.3226 ± 0.0166 † | 0.2089 ± 0.0267 | 0.0901 ± 0.0932 | - | - | 0.2167 ± 0.0382 | 0.0997 ± 0.0198 | 3.4577 ± 0.5373 | 0.0360 ± 0.0192 | 0.4333 ± 0.1114 | 4.9794 |
+| `ResNet+GaussianNLL` | torchregress | 0.3319 ± 0.0420 † | 0.2130 ± 0.0237 | 0.0281 ± 0.2500 | 1.6939 ± 0.6771 | 0.1675 ± 0.0173 | 0.6917 ± 0.1233 | 0.4230 ± 0.0779 | 1.9512 ± 0.2060 | 0.0355 ± 0.0185 | 0.1969 ± 0.1194 | 4.6312 |
+| `ResNet+MDN_K3` | torchregress | 0.5421 ± 0.4425 † | 0.3071 ± 0.2318 | -2.7043 ± 5.1732 | - | - | 0.7333 ± 0.1588 | 1.0831 ± 0.9166 | 2.3091 ± 1.2914 | **0.0146 ± 0.0073** | 0.2961 ± 0.1822 | 4.6584 |
+| `ResNet+MultiQuantile` | torchregress | 0.3273 ± 0.0235 † | 0.2051 ± 0.0124 | 0.0616 ± 0.1359 | - | - | 0.5917 ± 0.1283 | 0.3075 ± 0.0673 | 2.4298 ± 0.2316 | 0.0321 ± 0.0155 | 0.2372 ± 0.1000 | 4.4983 |
+| `ResNet+NormalizingFlow` | torchregress | 0.3712 ± 0.0580 † | 0.2447 ± 0.0401 | -0.2225 ± 0.3651 | - | - | 0.6583 ± 0.1258 | 0.5887 ± 0.2591 | 2.0272 ± 0.4934 | 0.0247 ± 0.0073 | 0.2424 ± 0.0325 | 9.0664 |
+| `sklearn_GBR` | scikit-learn | 0.2874 ± 0.0016 | 0.1845 ± 0.0014 | 0.2789 ± 0.0082 | - | - | - | - | - | - | - | 9.5993 |
+| `sklearn_RF` | scikit-learn | **0.2801 ± 0.0058** | **0.1742 ± 0.0038** | **0.3148 ± 0.0286** | - | - | - | - | - | - | - | 1.7137 |
+| `timm_resnet18+GaussianNLL` | timm | 0.3159 ± 0.0141 | 0.2190 ± 0.0222 | 0.1280 ± 0.0766 | 5.8408 ± 1.8613 | 0.1741 ± 0.0176 | 0.5833 ± 0.0144 | 0.4223 ± 0.1051 | 2.0699 ± 0.2680 | 0.0333 ± 0.0074 | 0.2626 ± 0.0381 | 4.5656 |
+| `torch_uncertainty` | torch-uncertainty | 0.3397 ± 0.0009 | 0.2029 ± 0.0037 | -0.0072 ± 0.0055 | 0.3433 ± 0.0045 | 0.1808 ± 0.0005 | 0.9000 ± 0.0000 | 1.2259 ± 0.0203 | 1.7577 ± 0.0115 | 0.0210 ± 0.0009 | 0.2320 ± 0.0065 | 2.3515 |
 
 Failed / skipped:
 
-- `CNN+RankNContrast` (failed, seed 0, 1, 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
+- `CNN+RankNContrast` (failed, seed 2): failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso…
 
 #### cell_counting (image)
 
@@ -3300,43 +3215,42 @@ Group `image`; 3 dataset(s). Columns: NLL ↓, CRPS ↓, ES ↓, Cov90_marg ·, 
 
 | Method | Library | NLL | CRPS | ES | Cov90_marg | Cov90_joint | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `sbi_MAF` | sbi | 1.5196 ± 0.0191 | 0.6471 ± 0.0081 | 0.6471 ± 0.0081 | 0.8750 ± 0.0331 | 0.8875 ± 0.0500 | 0.1500 ± 0.0238 | 2.3693 |
-| `sbi_MDN` | sbi | 1.5082 ± 0.0013 | 0.6489 ± 0.0034 | 0.6489 ± 0.0034 | 0.9167 ± 0.0315 | 0.9250 ± 0.0125 | 0.1617 ± 0.0166 | 1.1794 |
-| `sbi_NSF` | sbi | 1.3963 ± 0.0287 | 0.6303 ± 0.0079 | 0.6303 ± 0.0079 | 0.9042 ± 0.0072 | 0.9000 ± 0.0125 | 0.1067 ± 0.0289 | 4.7315 |
-| `sbi_zuko_MAF` | sbi | 1.4069 ± 0.1835 † | 0.5787 ± 0.1151 | 0.5787 ± 0.1151 | 0.8750 ± 0.0331 | 0.9000 ± 0.0250 | 0.1242 ± 0.0600 | 2.0159 |
-| `sbi_zuko_NSF` | sbi | **1.2435 ± 0.3060** † | **0.5480 ± 0.1430** | **0.5480 ± 0.1430** | 0.8750 ± 0.0451 | 0.8625 ± 0.0451 | 0.1158 ± 0.0326 | 8.6729 |
-| `torchregress_MAF` | torchregress | 1.5087 ± 0.0010 | 0.6415 ± 0.0036 | 0.6415 ± 0.0036 | 0.9042 ± 0.0382 | 0.9292 ± 0.0072 | 0.1542 ± 0.0029 | 1.1000 |
-| `torchregress_MDN` | torchregress | 1.3932 ± 0.0105 | 0.6355 ± 0.0096 | 0.6355 ± 0.0096 | 0.8292 ± 0.0382 | 0.8417 ± 0.0144 | 0.1108 ± 0.0243 | 2.2029 |
-| `torchregress_NSF` | torchregress | 1.2656 ± 0.2684 † | 0.5642 ± 0.1149 | 0.5642 ± 0.1149 | 0.8792 ± 0.0260 | 0.8958 ± 0.0315 | **0.0875 ± 0.0565** | 8.2649 |
+| `sbi_MAF` | sbi | 1.5196 ± 0.0191 | 0.6471 ± 0.0081 | 0.6471 ± 0.0081 | 0.8750 ± 0.0331 | 0.8875 ± 0.0500 | 0.1500 ± 0.0238 | 2.5635 |
+| `sbi_MDN` | sbi | 1.5082 ± 0.0013 | 0.6489 ± 0.0034 | 0.6489 ± 0.0034 | 0.9167 ± 0.0315 | 0.9250 ± 0.0125 | 0.1617 ± 0.0166 | 1.1227 |
+| `sbi_NSF` | sbi | 1.3963 ± 0.0287 | 0.6303 ± 0.0079 | 0.6303 ± 0.0079 | 0.9042 ± 0.0072 | 0.9000 ± 0.0125 | 0.1067 ± 0.0289 | 4.9926 |
+| `sbi_zuko_MAF` | sbi | 1.4069 ± 0.1835 † | 0.5787 ± 0.1151 | 0.5787 ± 0.1151 | 0.8750 ± 0.0331 | 0.9000 ± 0.0250 | 0.1242 ± 0.0600 | 2.0635 |
+| `sbi_zuko_NSF` | sbi | **1.2435 ± 0.3060** † | **0.5480 ± 0.1430** | **0.5480 ± 0.1430** | 0.8750 ± 0.0451 | 0.8625 ± 0.0451 | 0.1158 ± 0.0326 | 8.8243 |
+| `torchregress_MAF` | torchregress | 1.5087 ± 0.0010 | 0.6415 ± 0.0036 | 0.6415 ± 0.0036 | 0.9042 ± 0.0382 | 0.9292 ± 0.0072 | 0.1542 ± 0.0029 | 1.1734 |
+| `torchregress_MDN` | torchregress | 1.3932 ± 0.0105 | 0.6355 ± 0.0096 | 0.6355 ± 0.0096 | 0.8292 ± 0.0382 | 0.8417 ± 0.0144 | 0.1108 ± 0.0243 | 2.0247 |
+| `torchregress_NSF` | torchregress | 1.2656 ± 0.2684 † | 0.5642 ± 0.1149 | 0.5642 ± 0.1149 | 0.8792 ± 0.0260 | 0.8958 ± 0.0315 | **0.0875 ± 0.0565** | 8.0151 |
 
 ##### image_density_parity / synthetic_image_keypoint
 
 | Method | Library | NLL | CRPS | ES | Cov90_marg | Cov90_joint | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `sbi_MAF` | sbi | 11.3783 ± 0.0073 | 0.5892 ± 0.0009 | 1.9739 ± 0.0030 | 0.9237 ± 0.0050 | 0.9896 ± 0.0036 | 0.1014 ± 0.0012 | 3.8224 |
-| `sbi_MDN` | sbi | 11.3806 ± 0.0049 | 0.5898 ± 0.0003 | 1.9765 ± 0.0012 | 0.9227 ± 0.0055 | 0.9813 ± 0.0108 | 0.1012 ± 0.0027 | 1.8593 |
-| `sbi_NSF` | sbi | 10.5001 ± 0.0471 | 0.5817 ± 0.0013 | 1.9674 ± 0.0032 | 0.8914 ± 0.0016 | 0.9375 ± 0.0165 | 0.0741 ± 0.0002 | 12.2575 |
-| `sbi_zuko_MAF` | sbi | 9.7852 ± 2.7926 † | **0.5546 ± 0.0613** | **1.8704 ± 0.1813** | 0.9094 ± 0.0068 | 0.9667 ± 0.0191 | 0.1012 ± 0.0090 | 6.9326 |
-| `torchregress_MAF` | torchregress | 11.3877 ± 0.0048 | 0.5894 ± 0.0003 | 1.9738 ± 0.0006 | 0.9201 ± 0.0051 | 0.9792 ± 0.0072 | 0.1031 ± 0.0018 | 2.3852 |
-| `torchregress_MDN` | torchregress | 11.4285 ± 0.0174 | 0.5892 ± 0.0008 | 1.9762 ± 0.0022 | 0.9297 ± 0.0089 | 0.9854 ± 0.0072 | 0.0960 ± 0.0030 | 2.2790 |
-| `torchregress_NSF` | torchregress | **9.1681 ± 2.0979** † | 0.5553 ± 0.0482 | 1.8907 ± 0.1415 | 0.8826 ± 0.0063 | 0.8812 ± 0.0563 | **0.0682 ± 0.0060** | 20.2246 |
+| `sbi_MAF` | sbi | 11.3783 ± 0.0073 | 0.5892 ± 0.0009 | 1.9739 ± 0.0030 | 0.9237 ± 0.0050 | 0.9896 ± 0.0036 | 0.1014 ± 0.0012 | 4.1632 |
+| `sbi_MDN` | sbi | 11.3806 ± 0.0049 | 0.5898 ± 0.0003 | 1.9765 ± 0.0012 | 0.9227 ± 0.0055 | 0.9813 ± 0.0108 | 0.1012 ± 0.0027 | 1.7571 |
+| `sbi_NSF` | sbi | 10.5001 ± 0.0471 | 0.5817 ± 0.0013 | 1.9674 ± 0.0032 | 0.8914 ± 0.0016 | 0.9375 ± 0.0165 | 0.0741 ± 0.0002 | 12.5502 |
+| `sbi_zuko_MAF` | sbi | 9.7852 ± 2.7926 † | 0.5546 ± 0.0613 | **1.8704 ± 0.1813** | 0.9094 ± 0.0068 | 0.9667 ± 0.0191 | 0.1012 ± 0.0090 | 7.0468 |
+| `sbi_zuko_NSF` ‡ | sbi | **8.9837 ± 2.4428** † | **0.5513 ± 0.0568** | 1.8830 ± 0.1596 | 0.8753 ± 0.0253 | 0.8396 ± 0.1105 | 0.0720 ± 0.0071 | 15.8391 |
+| `torchregress_MAF` | torchregress | 11.3877 ± 0.0048 | 0.5894 ± 0.0003 | 1.9738 ± 0.0006 | 0.9201 ± 0.0051 | 0.9792 ± 0.0072 | 0.1031 ± 0.0018 | 2.5158 |
+| `torchregress_MDN` | torchregress | 11.4285 ± 0.0174 | 0.5892 ± 0.0008 | 1.9762 ± 0.0022 | 0.9297 ± 0.0089 | 0.9854 ± 0.0072 | 0.0960 ± 0.0030 | 2.0279 |
+| `torchregress_NSF` | torchregress | 9.1681 ± 2.0979 † | 0.5553 ± 0.0482 | 1.8907 ± 0.1415 | 0.8826 ± 0.0063 | 0.8812 ± 0.0563 | **0.0682 ± 0.0060** | 20.2455 |
 
-Failed / skipped:
-
-- `sbi_zuko_NSF` (failed, seed 0, 1, 2): failed: RuntimeError: NVML_SUCCESS == r INTERNAL ASSERT FAILED at "/home/conda/feedstock_root/build_artifacts/libtorch_…
+‡ ran on CPU after a CUDA failure (cpu retry).
 
 ##### image_density_parity / udacity_steering
 
 | Method | Library | NLL | CRPS | ES | Cov90_marg | Cov90_joint | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `sbi_MAF` | sbi | 1.2557 ± 0.2189 † | 0.4899 ± 0.0113 | 0.4899 ± 0.0113 | 0.8733 ± 0.0072 | 0.8742 ± 0.0088 | 0.1917 ± 0.0161 | 18.2734 |
-| `sbi_MDN` | sbi | 6.708e-04 ± 7.133e-02 † | 0.4772 ± 0.0108 | 0.4772 ± 0.0108 | 0.9033 ± 0.0038 | 0.9025 ± 0.0156 | 0.2075 ± 0.0869 | 28.5879 |
-| `sbi_NSF` | sbi | **-0.5954 ± 0.8103** † | 0.5037 ± 0.0078 | 0.5037 ± 0.0078 | 0.7892 ± 0.0426 | 0.7375 ± 0.0548 | 0.2333 ± 0.0555 | 27.3174 |
-| `sbi_zuko_MAF` | sbi | 104.0 ± 87.5 † | **0.4582 ± 0.0350** | **0.4582 ± 0.0350** | 0.8467 ± 0.0104 | 0.8483 ± 0.0115 | **0.1625 ± 0.0261** | 22.9243 |
-| `sbi_zuko_NSF` | sbi | -0.4968 ± 0.1572 † | 0.4942 ± 0.0012 | 0.4942 ± 0.0012 | 0.8667 ± 0.0118 | 0.8692 ± 0.0255 | 0.3217 ± 0.0213 | 31.1521 |
-| `torchregress_MAF` | torchregress | 9.4583 ± 13.8870 † | 0.4676 ± 0.0450 | 0.4676 ± 0.0450 | 0.8708 ± 0.0339 | 0.8717 ± 0.0332 | 0.1800 ± 0.0467 | 19.2669 |
-| `torchregress_MDN` | torchregress | 0.1382 ± 0.3248 † | 0.4871 ± 0.0027 | 0.4871 ± 0.0027 | 0.8950 ± 0.0066 | 0.8925 ± 0.0090 | 0.2517 ± 0.0138 | 22.0923 |
-| `torchregress_NSF` | torchregress | -0.5144 ± 0.2620 † | 0.4955 ± 0.0040 | 0.4955 ± 0.0040 | 0.8758 ± 0.0191 | 0.8533 ± 0.0419 | 0.2675 ± 0.1083 | 32.7184 |
+| `sbi_MAF` | sbi | 1.2557 ± 0.2189 † | 0.4899 ± 0.0113 | 0.4899 ± 0.0113 | 0.8733 ± 0.0072 | 0.8742 ± 0.0088 | 0.1917 ± 0.0161 | 18.2260 |
+| `sbi_MDN` | sbi | 6.708e-04 ± 7.133e-02 † | 0.4772 ± 0.0108 | 0.4772 ± 0.0108 | 0.9033 ± 0.0038 | 0.9025 ± 0.0156 | 0.2075 ± 0.0869 | 28.4836 |
+| `sbi_NSF` | sbi | **-0.5954 ± 0.8103** † | 0.5037 ± 0.0078 | 0.5037 ± 0.0078 | 0.7892 ± 0.0426 | 0.7375 ± 0.0548 | 0.2333 ± 0.0555 | 27.8378 |
+| `sbi_zuko_MAF` | sbi | 104.0 ± 87.5 † | **0.4582 ± 0.0350** | **0.4582 ± 0.0350** | 0.8467 ± 0.0104 | 0.8483 ± 0.0115 | **0.1625 ± 0.0261** | 23.1557 |
+| `sbi_zuko_NSF` | sbi | -0.4968 ± 0.1572 † | 0.4942 ± 0.0012 | 0.4942 ± 0.0012 | 0.8667 ± 0.0118 | 0.8692 ± 0.0255 | 0.3217 ± 0.0213 | 31.2054 |
+| `torchregress_MAF` | torchregress | 9.4583 ± 13.8870 † | 0.4676 ± 0.0450 | 0.4676 ± 0.0450 | 0.8708 ± 0.0339 | 0.8717 ± 0.0332 | 0.1800 ± 0.0467 | 19.0888 |
+| `torchregress_MDN` | torchregress | 0.1382 ± 0.3248 † | 0.4871 ± 0.0027 | 0.4871 ± 0.0027 | 0.8950 ± 0.0066 | 0.8925 ± 0.0090 | 0.2517 ± 0.0138 | 22.4874 |
+| `torchregress_NSF` | torchregress | -0.5144 ± 0.2620 † | 0.4955 ± 0.0040 | 0.4955 ± 0.0040 | 0.8758 ± 0.0191 | 0.8533 ± 0.0419 | 0.2675 ± 0.1083 | 33.1797 |
 
 #### image_ensembles_uq (image)
 
@@ -3449,18 +3363,15 @@ Group `image`; 1 dataset(s). Columns: RMSE ↓, MAE ↓, R2 ↑, NLL ↓, CRPS �
 
 | Method | Library | RMSE | MAE | R2 | NLL | CRPS | Coverage | Width | IntervalScore | ECE | PIT_KS | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `CNN+LowRankGaussian` | torchregress | 0.1952 ± 0.0077 | 0.1700 ± 0.0066 | 0.0654 ± 0.0731 | -0.2118 ± 0.0411 | 0.1138 ± 0.0046 | 0.9451 ± 0.0131 | 0.6542 ± 0.0289 | 0.6841 ± 0.0228 | 0.0041 ± 0.0004 | 0.0846 ± 0.0056 | 9.7518 |
-| `CNN+MSE` | torchregress | 0.1957 ± 0.0040 | 0.1711 ± 0.0035 | 0.0614 ± 0.0387 | - | - | - | - | - | - | - | 4.8643 |
-| `CNN+MultivariateGaussian` | torchregress | 0.1920 ± 0.0023 | 0.1659 ± 0.0050 | 0.0970 ± 0.0214 | **-0.2354 ± 0.0159** | **0.1115 ± 0.0022** | 0.9451 ± 0.0114 | 0.6294 ± 0.0094 | **0.6698 ± 0.0313** | 0.0040 ± 0.0010 | 0.1006 ± 0.0111 | 14.1022 |
-| `CNN+NF` | torchregress | 0.2041 ± 0.0028 | 0.1767 ± 0.0017 | -0.0203 ± 0.0275 | - | - | 0.8758 ± 0.0328 | 0.6087 ± 0.0235 | 0.6985 ± 0.0152 | 0.0035 ± 0.0007 | **0.0368 ± 0.0176** | 24.9762 |
-| `ResNet+LowRankGaussian` | torchregress | 0.2050 ± 0.0088 | 0.1653 ± 0.0078 | -0.0301 ± 0.0895 | 0.5970 ± 0.2146 | 0.1436 ± 0.0171 | 0.8461 ± 0.0753 | 1.1607 ± 0.4028 | 1.5232 ± 0.2362 | 0.0054 ± 0.0020 | 0.1042 ± 0.0542 | 19.1008 |
-| `ResNet+MultivariateGaussian` | torchregress | 0.2423 ± 0.0352 † | 0.1780 ± 0.0235 | -0.4585 ± 0.4082 | 0.0943 ± 0.0771 | 0.1341 ± 0.0173 | 0.8560 ± 0.1296 | 0.9157 ± 0.3424 | 1.1733 ± 0.1609 | **0.0028 ± 0.0002** | 0.1235 ± 0.0390 | 22.7140 |
-| `sklearn_RF` | scikit-learn | **0.1894 ± 0.0004** | **0.1629 ± 0.0003** | **0.1211 ± 0.0036** | - | - | - | - | - | - | - | 5.3693 |
-
-Failed / skipped:
-
-- `CNN+GaussianNLL` (failed, seed 0, 1, 2): failed: TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory…
-- `ResNet+GaussianNLL` (failed, seed 0, 1, 2): failed: TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory…
+| `CNN+GaussianNLL` | torchregress | 0.1922 ± 0.0064 | 0.1675 ± 0.0056 | 0.0947 ± 0.0604 | -0.2250 ± 0.0301 | 0.1122 ± 0.0038 | 0.9451 ± 0.0100 | 0.6453 ± 0.0213 | 0.6744 ± 0.0106 | 0.0041 ± 0.0003 | 0.0749 ± 0.0117 | 5.4885 |
+| `CNN+LowRankGaussian` | torchregress | 0.1952 ± 0.0077 | 0.1700 ± 0.0066 | 0.0654 ± 0.0731 | -0.2118 ± 0.0411 | 0.1138 ± 0.0046 | 0.9451 ± 0.0131 | 0.6542 ± 0.0289 | 0.6841 ± 0.0228 | 0.0041 ± 0.0004 | 0.0846 ± 0.0056 | 10.4425 |
+| `CNN+MSE` | torchregress | 0.1957 ± 0.0040 | 0.1711 ± 0.0035 | 0.0614 ± 0.0387 | - | - | - | - | - | - | - | 4.8988 |
+| `CNN+MultivariateGaussian` | torchregress | 0.1920 ± 0.0023 | 0.1659 ± 0.0050 | 0.0970 ± 0.0214 | **-0.2354 ± 0.0159** | **0.1115 ± 0.0022** | 0.9451 ± 0.0114 | 0.6294 ± 0.0094 | **0.6698 ± 0.0313** | 0.0040 ± 0.0010 | 0.1006 ± 0.0111 | 14.3865 |
+| `CNN+NF` | torchregress | 0.2041 ± 0.0028 | 0.1767 ± 0.0017 | -0.0203 ± 0.0275 | - | - | 0.8758 ± 0.0328 | 0.6087 ± 0.0235 | 0.6985 ± 0.0152 | 0.0035 ± 0.0007 | **0.0368 ± 0.0176** | 24.9161 |
+| `ResNet+GaussianNLL` | torchregress | 0.2071 ± 0.0013 | 0.1659 ± 0.0004 | -0.0503 ± 0.0136 | 3.4335 ± 1.1370 | 0.1341 ± 0.0028 | 0.4526 ± 0.0485 | 0.2725 ± 0.0378 | 1.6717 ± 0.1274 | 0.0046 ± 0.0002 | 0.2604 ± 0.0167 | 15.5534 |
+| `ResNet+LowRankGaussian` | torchregress | 0.2050 ± 0.0088 | 0.1653 ± 0.0078 | -0.0301 ± 0.0895 | 0.5970 ± 0.2146 | 0.1436 ± 0.0171 | 0.8461 ± 0.0753 | 1.1607 ± 0.4028 | 1.5232 ± 0.2362 | 0.0054 ± 0.0020 | 0.1042 ± 0.0542 | 19.8028 |
+| `ResNet+MultivariateGaussian` | torchregress | 0.2423 ± 0.0352 † | 0.1780 ± 0.0235 | -0.4585 ± 0.4082 | 0.0943 ± 0.0771 | 0.1341 ± 0.0173 | 0.8560 ± 0.1296 | 0.9157 ± 0.3424 | 1.1733 ± 0.1609 | **0.0028 ± 0.0002** | 0.1235 ± 0.0390 | 23.2301 |
+| `sklearn_RF` | scikit-learn | **0.1894 ± 0.0004** | **0.1629 ± 0.0003** | **0.1211 ± 0.0036** | - | - | - | - | - | - | - | 5.4227 |
 
 ### Group `sbi`
 
@@ -3514,29 +3425,29 @@ Group `sbi`; 5 dataset(s). Columns: C2ST ↓, RefLogProb ↑, MeanRMSE ↓, SBC_
 
 | Method | Library | C2ST | RefLogProb | MeanRMSE | SBC_Coverage95 | TARP_ATC | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `pzflow_NSF` | pzflow | 0.8591 ± 0.0074 | - | 1.0855 ± 0.1714 | 0.9273 ± 0.0023 | -0.0056 ± 0.0184 | 85.8979 |
-| `sbi_FMPE` | sbi | 0.8388 ± 0.0190 | -5.1805 ± 0.2875 | 1.0991 ± 0.1830 | 0.9127 ± 0.0076 | -0.0274 ± 0.0075 | 44.7988 |
-| `sbi_NPE` | sbi | 0.8514 ± 0.0182 | -5.4277 ± 0.2926 | 1.2247 ± 0.0817 | 0.9440 ± 0.0020 | **0.0013 ± 0.0113** | 89.4797 |
-| `sbi_NPE_MAF` | sbi | 0.9292 ± 0.0344 | -7.0640 ± 0.6146 | 1.0748 ± 0.0449 | 0.9087 ± 0.0083 | -0.0629 ± 0.0323 | 38.8177 |
-| `sbi_NPE_MDN` | sbi | 0.8716 ± 0.0411 | -6.0776 ± 0.7335 | 0.9831 ± 0.3514 | 0.9080 ± 0.0122 | -0.0163 ± 0.0098 | 49.4763 |
-| `sbi_NPSE` | sbi | **0.7904 ± 0.0035** | -4.9718 ± 0.1679 | **0.8385 ± 0.1044** | 0.9213 ± 0.0081 | -0.0253 ± 0.0107 | 91.4137 |
-| `torchregress_MAF` | torchregress | 0.9166 ± 0.0046 | -6.3620 ± 0.1696 | 1.0100 ± 0.2634 | 0.9533 ± 0.0153 | -0.0123 ± 0.0292 | 19.0401 |
-| `torchregress_MDN` | torchregress | 0.8971 ± 0.0441 | -6.7439 ± 0.9806 | 1.2191 ± 0.3324 | 0.9473 ± 0.0058 | 0.0153 ± 0.0303 | 11.9859 |
-| `torchregress_NSF` | torchregress | 0.8047 ± 0.0224 | **-4.8872 ± 0.6058** | 0.8948 ± 0.1996 | 0.9500 ± 0.0087 | 0.0061 ± 0.0026 | 51.1311 |
+| `pzflow_NSF` | pzflow | 0.8591 ± 0.0074 | - | 1.0855 ± 0.1714 | 0.9273 ± 0.0023 | -0.0056 ± 0.0184 | 89.9899 |
+| `sbi_FMPE` | sbi | 0.8388 ± 0.0190 | -5.1805 ± 0.2875 | 1.0991 ± 0.1830 | 0.9127 ± 0.0076 | -0.0274 ± 0.0075 | 47.4761 |
+| `sbi_NPE` | sbi | 0.8514 ± 0.0182 | -5.4277 ± 0.2926 | 1.2247 ± 0.0817 | 0.9440 ± 0.0020 | **0.0013 ± 0.0113** | 96.8431 |
+| `sbi_NPE_MAF` | sbi | 0.9292 ± 0.0344 | -7.0640 ± 0.6146 | 1.0748 ± 0.0449 | 0.9087 ± 0.0083 | -0.0629 ± 0.0323 | 44.0248 |
+| `sbi_NPE_MDN` | sbi | 0.8716 ± 0.0411 | -6.0776 ± 0.7335 | 0.9831 ± 0.3514 | 0.9080 ± 0.0122 | -0.0163 ± 0.0098 | 53.1287 |
+| `sbi_NPSE` | sbi | **0.7904 ± 0.0035** | **-4.9718 ± 0.1679** | **0.8385 ± 0.1044** | 0.9213 ± 0.0081 | -0.0253 ± 0.0107 | 104.3 |
+| `torchregress_MAF` | torchregress | 0.9223 ± 0.0069 | -6.6819 ± 0.3859 | 1.0425 ± 0.3100 | 0.9580 ± 0.0159 | -0.0197 ± 0.0195 | 60.2791 |
+| `torchregress_MDN` | torchregress | 0.8947 ± 0.0404 | -6.8253 ± 1.0968 | 1.1837 ± 0.2710 | 0.9527 ± 0.0081 | 0.0108 ± 0.0293 | 33.5061 |
+| `torchregress_NSF` | torchregress | 0.8231 ± 0.0465 † | -4.9903 ± 0.7575 | 0.8784 ± 0.1856 | 0.9407 ± 0.0225 | -0.0047 ± 0.0168 | 156.4 |
 
 ##### sbi_parity / sbibm_twomoons
 
 | Method | Library | C2ST | RefLogProb | MeanRMSE | SBC_Coverage95 | TARP_ATC | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `pzflow_NSF` | pzflow | 0.5167 ± 0.0170 | - | 0.0425 ± 0.0162 | 0.9500 ± 0.0132 | -0.0196 ± 0.0069 | 27.3200 |
-| `sbi_FMPE` | sbi | 0.6273 ± 0.0447 † | 2.5716 ± 0.1662 | 0.0386 ± 0.0101 | 0.9600 ± 0.0350 | -0.0306 ± 0.0071 | 24.6127 |
-| `sbi_NPE` | sbi | **0.4982 ± 0.0049** | **3.4799 ± 0.0204** | 0.0187 ± 0.0026 | 0.9383 ± 0.0029 | -0.0116 ± 0.0152 | 67.4755 |
-| `sbi_NPE_MAF` | sbi | 0.6285 ± 0.0777 † | 2.8318 ± 0.4924 | 0.0241 ± 0.0114 | 0.9583 ± 0.0153 | -0.0292 ± 0.0192 | 28.4913 |
-| `sbi_NPE_MDN` | sbi | 0.5338 ± 0.0462 † | 2.6585 ± 0.2098 | 0.0419 ± 0.0243 | 0.9600 ± 0.0132 | -0.0475 ± 0.0103 | 13.2864 |
-| `sbi_NPSE` | sbi | 0.5305 ± 0.0247 | 3.1439 ± 0.1865 | 0.0441 ± 0.0501 | 0.9450 ± 0.0427 | -0.0241 ± 0.0118 | 47.2402 |
-| `torchregress_MAF` | torchregress | 0.5889 ± 0.0704 † | 2.9173 ± 0.3063 | 0.0180 ± 0.0044 | 0.9700 ± 0.0132 | -0.0116 ± 0.0132 | 18.1221 |
-| `torchregress_MDN` | torchregress | 0.6861 ± 0.2181 † | 1.7621 ± 1.3203 | 0.0269 ± 0.0180 | 1.0000 ± 0.0000 | -0.0220 ± 0.0327 | 8.0581 |
-| `torchregress_NSF` | torchregress | 0.5885 ± 0.0594 † | 3.0157 ± 0.2460 | **0.0161 ± 0.0041** | 0.9533 ± 0.0225 | **-0.0027 ± 0.0280** | 47.2139 |
+| `pzflow_NSF` | pzflow | 0.5167 ± 0.0170 | - | 0.0425 ± 0.0162 | 0.9500 ± 0.0132 | -0.0196 ± 0.0069 | 27.7084 |
+| `sbi_FMPE` | sbi | 0.6273 ± 0.0447 † | 2.5716 ± 0.1662 | 0.0386 ± 0.0101 | 0.9600 ± 0.0350 | -0.0306 ± 0.0071 | 26.7819 |
+| `sbi_NPE` | sbi | **0.4982 ± 0.0049** | **3.4799 ± 0.0204** | 0.0187 ± 0.0026 | 0.9383 ± 0.0029 | -0.0116 ± 0.0152 | 70.7990 |
+| `sbi_NPE_MAF` | sbi | 0.6285 ± 0.0777 † | 2.8318 ± 0.4924 | 0.0241 ± 0.0114 | 0.9583 ± 0.0153 | -0.0292 ± 0.0192 | 30.7633 |
+| `sbi_NPE_MDN` | sbi | 0.5338 ± 0.0462 † | 2.6585 ± 0.2098 | 0.0419 ± 0.0243 | 0.9600 ± 0.0132 | -0.0475 ± 0.0103 | 15.2950 |
+| `sbi_NPSE` | sbi | 0.5305 ± 0.0247 | 3.1439 ± 0.1865 | 0.0441 ± 0.0501 | 0.9450 ± 0.0427 | -0.0241 ± 0.0118 | 52.3864 |
+| `torchregress_MAF` | torchregress | 0.6375 ± 0.0757 † | 2.6613 ± 0.3547 | 0.0288 ± 0.0155 | 0.9617 ± 0.0275 | -0.0089 ± 0.0095 | 59.5911 |
+| `torchregress_MDN` | torchregress | 0.6854 ± 0.2186 † | 1.7761 ± 1.3322 | 0.0262 ± 0.0187 | 0.9983 ± 0.0029 | -0.0109 ± 0.0401 | 30.4270 |
+| `torchregress_NSF` | torchregress | 0.5731 ± 0.0774 † | 3.0567 ± 0.3101 | **0.0161 ± 0.0041** | 0.9550 ± 0.0250 | **-0.0016 ± 0.0272** | 149.8 |
 
 ### Group `tabular`
 
@@ -4831,57 +4742,57 @@ Group `tabular`; 3 dataset(s). Columns: RMSE ↓, WeightRMSE ↓, TargetMAE ↓,
 
 | Method | Library | RMSE | WeightRMSE | TargetMAE | ShiftCoverage | ShiftWidth | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `BBSE` | torchregress | **0.5843 ± 0.0075** | 0.1725 ± 0.0063 | 0.5493 ± 0.0121 | - | - | 1.3402 |
-| `DomainClassifier` | sklearn | **0.5843 ± 0.0075** | 0.8611 ± 0.0722 | 0.5539 ± 0.0327 | - | - | 1.1389 |
-| `GaussShiftCorrect` | torchregress | 0.9802 ± 0.0435 | - | 0.7972 ± 0.0201 | 0.4069 ± 0.0110 | - | 1.0565 |
-| `LibDomainClassifier` | torchregress | **0.5843 ± 0.0075** | 0.4443 ± 0.0104 | 0.5006 ± 0.0093 | - | - | 1.1400 |
-| `Oracle` | torchregress | **0.5843 ± 0.0075** | **0.0000 ± 0.0000** | 0.5788 ± 0.0121 | - | - | 1.1960 |
-| `ShiftFactoredTransport` | torchregress | **0.5843 ± 0.0075** | - | **0.4940 ± 0.0103** | 0.8907 ± 0.0057 | 2.1165 ± 0.0415 | 0.8848 |
-| `ShiftFactoredTransport+Conformal` | torchregress | **0.5843 ± 0.0075** | - | **0.4940 ± 0.0103** | 0.8907 ± 0.0057 | 2.1165 ± 0.0415 | 0.8904 |
-| `SplitCP` | torchregress | **0.5843 ± 0.0075** | - | - | 0.8711 ± 0.0071 | 1.5535 ± 0.0032 | 0.8905 |
-| `TT_BBSE` | torchregress | **0.5843 ± 0.0075** | 0.2062 ± 0.0649 | 0.5747 ± 0.0172 | - | - | 0.8917 |
-| `TT_EM` | torchregress | **0.5843 ± 0.0075** | 0.2553 ± 0.0651 | 0.5679 ± 0.0106 | - | - | 0.8875 |
-| `Unweighted` | torchregress | **0.5843 ± 0.0075** | 0.4202 ± 0.0060 | 0.4940 ± 0.0103 | - | - | 1.3566 |
-| `WeightedCP` | torchregress | **0.5843 ± 0.0075** | - | - | 0.8704 ± 0.0071 | **1.5453 ± 0.0003** | 0.8891 |
+| `BBSE` | torchregress | **0.5822 ± 0.0065** | 0.1666 ± 0.0154 | 0.5462 ± 0.0161 | - | - | 3.9614 |
+| `DomainClassifier` | sklearn | **0.5822 ± 0.0065** | 0.8611 ± 0.0722 | 0.5315 ± 0.0204 | - | - | 4.5079 |
+| `GaussShiftCorrect` | torchregress | 0.9267 ± 0.0848 † | - | 0.7557 ± 0.0718 | 0.4322 ± 0.0450 | - | 4.6566 |
+| `LibDomainClassifier` | torchregress | **0.5822 ± 0.0065** | 0.4592 ± 0.0207 | 0.4967 ± 0.0137 | - | - | 4.7698 |
+| `Oracle` | torchregress | **0.5822 ± 0.0065** | **0.0000 ± 0.0000** | 0.5722 ± 0.0198 | - | - | 3.1030 |
+| `ShiftFactoredTransport` | torchregress | **0.5822 ± 0.0065** | - | 0.4921 ± 0.0128 | 0.8940 ± 0.0077 | 2.1250 ± 0.0267 | 4.7702 |
+| `ShiftFactoredTransport+Conformal` | torchregress | **0.5822 ± 0.0065** | - | 0.4921 ± 0.0128 | 0.8940 ± 0.0077 | 2.1250 ± 0.0267 | 4.5380 |
+| `SplitCP` | torchregress | **0.5822 ± 0.0065** | - | - | 0.8658 ± 0.0038 | 1.5425 ± 0.0181 | 4.7024 |
+| `TT_BBSE` | torchregress | **0.5822 ± 0.0065** | 0.2014 ± 0.0718 | 0.5669 ± 0.0170 | - | - | 3.3129 |
+| `TT_EM` | torchregress | **0.5822 ± 0.0065** | 0.2863 ± 0.0231 | 0.5623 ± 0.0194 | - | - | 4.7973 |
+| `Unweighted` | torchregress | **0.5822 ± 0.0065** | 0.4202 ± 0.0060 | **0.4921 ± 0.0129** | - | - | 4.9516 |
+| `WeightedCP` | torchregress | **0.5822 ± 0.0065** | - | - | 0.8644 ± 0.0047 | **1.5333 ± 0.0212** | 2.4639 |
 
 ##### label_shift / diabetes
 
 | Method | Library | RMSE | WeightRMSE | TargetMAE | ShiftCoverage | ShiftWidth | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `BBSE` | torchregress | **53.1870 ± 1.2101** | 0.6788 ± 0.0410 | 40.8783 ± 3.7147 | - | - | 0.1304 |
-| `DomainClassifier` | sklearn | **53.1870 ± 1.2101** | 0.5654 ± 0.0191 | 45.0889 ± 2.9452 | - | - | 0.1266 |
-| `GaussShiftCorrect` | torchregress | 55.7949 ± 2.3020 | - | 47.5132 ± 2.3729 | 0.5815 ± 0.0753 | - | 0.1272 |
-| `LibDomainClassifier` | torchregress | **53.1870 ± 1.2101** | 0.4737 ± 0.0285 | 45.8590 ± 3.1176 | - | - | 0.1280 |
-| `Oracle` | torchregress | **53.1870 ± 1.2101** | **0.0000 ± 0.0000** | 48.7844 ± 2.0356 | - | - | 0.1267 |
-| `ShiftFactoredTransport` | torchregress | **53.1870 ± 1.2101** | - | 45.5403 ± 2.9426 | 0.8847 ± 0.0313 | 183.4 ± 4.5 | 0.1288 |
-| `ShiftFactoredTransport+Conformal` | torchregress | **53.1870 ± 1.2101** | - | 45.5403 ± 2.9426 | 0.9098 ± 0.0075 | 191.1 ± 3.2 | 0.1271 |
-| `SplitCP` | torchregress | **53.1870 ± 1.2101** | - | - | 0.8070 ± 0.0657 | **151.3 ± 5.6** | 0.1303 |
-| `TT_BBSE` | torchregress | **53.1870 ± 1.2101** | 1.3640 ± 0.2502 | 38.1207 ± 3.8550 | - | - | 0.1276 |
-| `TT_EM` | torchregress | **53.1870 ± 1.2101** | 0.9990 ± 0.0074 | **36.9141 ± 2.9630** | - | - | 0.1273 |
-| `Unweighted` | torchregress | **53.1870 ± 1.2101** | 0.3926 ± 0.0242 | 45.5496 ± 2.9498 | - | - | 0.1383 |
-| `WeightedCP` | torchregress | **53.1870 ± 1.2101** | - | - | 0.8346 ± 0.0451 | 158.7 ± 4.1 | 0.1276 |
+| `BBSE` | torchregress | **53.1711 ± 1.2134** | 0.6727 ± 0.0509 | 40.8996 ± 3.7102 | - | - | 0.4550 |
+| `DomainClassifier` | sklearn | **53.1711 ± 1.2134** | 0.5654 ± 0.0191 | 44.8636 ± 3.0665 | - | - | 0.4591 |
+| `GaussShiftCorrect` | torchregress | 55.4757 ± 2.6471 | - | 47.2317 ± 2.5297 | 0.5739 ± 0.0674 | - | 0.4574 |
+| `LibDomainClassifier` | torchregress | **53.1711 ± 1.2134** | 0.4745 ± 0.0295 | 45.7811 ± 3.1368 | - | - | 0.4598 |
+| `Oracle` | torchregress | **53.1711 ± 1.2134** | **0.0000 ± 0.0000** | 48.4396 ± 2.1216 | - | - | 0.4535 |
+| `ShiftFactoredTransport` | torchregress | **53.1711 ± 1.2134** | - | 45.3274 ± 3.0516 | 0.9023 ± 0.0075 | 184.0 ± 3.8 | 0.4573 |
+| `ShiftFactoredTransport+Conformal` | torchregress | **53.1711 ± 1.2134** | - | 45.3274 ± 3.0516 | 0.9223 ± 0.0157 | 190.6 ± 3.4 | 0.4529 |
+| `SplitCP` | torchregress | **53.1711 ± 1.2134** | - | - | 0.8020 ± 0.0682 | **149.9 ± 7.9** | 0.4635 |
+| `TT_BBSE` | torchregress | **53.1711 ± 1.2134** | 1.3887 ± 0.2481 | 37.9370 ± 3.6946 | - | - | 0.4600 |
+| `TT_EM` | torchregress | **53.1711 ± 1.2134** | 0.9914 ± 0.0177 | **36.8412 ± 2.9386** | - | - | 0.4569 |
+| `Unweighted` | torchregress | **53.1711 ± 1.2134** | 0.3926 ± 0.0242 | 45.3378 ± 3.0588 | - | - | 0.5474 |
+| `WeightedCP` | torchregress | **53.1711 ± 1.2134** | - | - | 0.8296 ± 0.0459 | 158.1 ± 4.1 | 0.4633 |
 
 ##### label_shift / folktables_income
 
 | Method | Library | RMSE | WeightRMSE | TargetMAE | ShiftCoverage | ShiftWidth | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `BBSE` | torchregress | **80208.4 ± 3081.8** | 0.2030 ± 0.0683 | 67863.1 ± 5688.9 | - | - | 4.4637 |
-| `DomainClassifier` | sklearn | **80208.4 ± 3081.8** | 5.9586 ± 2.4917 | **52009.0 ± 526.2** | - | - | 4.7758 |
-| `GaussShiftCorrect` | torchregress | 1.554e+05 ± 6.670e+03 | - | 1.097e+05 ± 5.411e+03 | 0.2146 ± 0.0219 | - | 4.7310 |
-| `LibDomainClassifier` | torchregress | **80208.4 ± 3081.8** | 0.4135 ± 0.0012 | 55884.6 ± 1889.3 | - | - | 4.7579 |
-| `Oracle` | torchregress | **80208.4 ± 3081.8** | **0.0000 ± 0.0000** | 76152.4 ± 1954.6 | - | - | 4.8377 |
-| `ShiftFactoredTransport` | torchregress | **80208.4 ± 3081.8** | - | 55870.5 ± 1925.9 | 0.8931 ± 0.0054 | 2.590e+05 ± 1.928e+03 | 4.7550 |
-| `ShiftFactoredTransport+Conformal` | torchregress | **80208.4 ± 3081.8** | - | 55870.5 ± 1925.9 | 0.8931 ± 0.0054 | 2.590e+05 ± 1.928e+03 | 4.6683 |
-| `SplitCP` | torchregress | **80208.4 ± 3081.8** | - | - | 0.8276 ± 0.0248 | **1.200e+05 ± 3.604e+03** | 4.7731 |
-| `TT_EM` | torchregress | **80208.4 ± 3081.8** | 0.6289 ± 0.0824 | 89945.6 ± 6809.1 | - | - | 4.6039 |
-| `Unweighted` | torchregress | **80208.4 ± 3081.8** | 0.4135 ± 0.0012 | 55884.6 ± 1889.3 | - | - | 4.4012 |
-| `WeightedCP` | torchregress | **80208.4 ± 3081.8** | - | - | 0.8280 ± 0.0246 | 1.203e+05 ± 3.748e+03 | 4.6822 |
+| `BBSE` | torchregress | **80119.7 ± 3158.9** | 0.1765 ± 0.0235 | 69478.8 ± 3965.8 | - | - | 18.9002 |
+| `DomainClassifier` | sklearn | **80119.7 ± 3158.9** | 5.9586 ± 2.4917 | **49799.5 ± 4214.0** | - | - | 18.8039 |
+| `GaussShiftCorrect` | torchregress | 1.517e+05 ± 1.286e+04 † | - | 1.087e+05 ± 6.998e+03 | 0.2151 ± 0.0211 | - | 18.7035 |
+| `LibDomainClassifier` | torchregress | **80119.7 ± 3158.9** | 0.4135 ± 0.0012 | 55932.3 ± 1872.6 | - | - | 18.9492 |
+| `Oracle` | torchregress | **80119.7 ± 3158.9** | **0.0000 ± 0.0000** | 75891.8 ± 1748.2 | - | - | 18.6953 |
+| `ShiftFactoredTransport` | torchregress | **80119.7 ± 3158.9** | - | 55929.1 ± 1905.2 | 0.8941 ± 0.0061 | 2.577e+05 ± 3.161e+03 | 9.9289 |
+| `ShiftFactoredTransport+Conformal` | torchregress | **80119.7 ± 3158.9** | - | 55929.1 ± 1905.2 | 0.8941 ± 0.0061 | 2.577e+05 ± 3.161e+03 | 18.6553 |
+| `SplitCP` | torchregress | **80119.7 ± 3158.9** | - | - | 0.8256 ± 0.0215 | **1.200e+05 ± 3.496e+03** | 19.1250 |
+| `TT_EM` | torchregress | **80119.7 ± 3158.9** | 0.6326 ± 0.0787 | 91164.3 ± 5832.8 | - | - | 11.5360 |
+| `Unweighted` | torchregress | **80119.7 ± 3158.9** | 0.4135 ± 0.0012 | 55932.3 ± 1872.6 | - | - | 15.2404 |
+| `WeightedCP` | torchregress | **80119.7 ± 3158.9** | - | - | 0.8259 ± 0.0212 | 1.203e+05 ± 3.772e+03 | 19.0208 |
 
 Failed / skipped:
 
 - `TT_BBSE` (failed, seed 1): failed: ValueError: confusion matrix ill-conditioned (cond=1.24e+17)
+- `TT_BBSE` (failed, seed 0): failed: ValueError: confusion matrix ill-conditioned (cond=1.46e+17)
 - `TT_BBSE` (failed, seed 2): failed: ValueError: confusion matrix ill-conditioned (cond=2.39e+16)
-- `TT_BBSE` (failed, seed 0): failed: ValueError: confusion matrix ill-conditioned (cond=5.13e+16)
 
 #### likelihoods (tabular)
 
@@ -5007,136 +4918,144 @@ Group `tabular`; 5 dataset(s). Columns: JointCoverage ·, IntervalScore ↓, Ene
 
 | Method | Library | JointCoverage | IntervalScore | EnergyScore | VariogramScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `GaussianNLL` | torchregress | 0.9048 ± 0.0263 | 95.7645 ± 2.2602 | 18.8665 ± 0.6136 | 13.8792 ± 0.5104 | 0.3897 |
-| `HeteroEnsembleCov` | torchregress | 0.9192 ± 0.0025 | 103.4 ± 2.6 | 19.4978 ± 0.2196 | 15.9648 ± 0.4340 | 0.9597 |
-| `LowRankGaussian` | torchregress | 0.6508 ± 0.1825 | 74.0862 ± 17.3248 † | 14.0474 ± 1.9469 | 0.4098 ± 0.0112 | 1.2470 |
-| `MDN` | torchregress | 0.9076 ± 0.0050 | 100.6 ± 11.1 † | 20.5051 ± 0.4526 | 0.4082 ± 0.0034 | 0.4400 |
-| `MVScore` | torchregress | 0.9192 ± 0.0218 | 64.7671 ± 5.8503 † | - | - | 0.8172 |
-| `MultiQuantile` | torchregress | 0.7013 ± 0.0087 | **17.6895 ± 0.5327** | - | - | 0.2149 |
-| `MultiTargetCP` | torchregress | 0.8687 ± 0.0304 | 20.1413 ± 0.7496 | - | - | 0.2619 |
-| `MultivariateGaussian` | torchregress | 0.4387 ± 0.1256 | 105.8 ± 31.1 † | 15.6205 ± 2.5247 | 0.5130 ± 0.0594 | 0.7800 |
-| `MultivariateGaussian+Conformal` | torchregress | 0.9177 ± 0.0198 | 69.7466 ± 4.9744 † | - | - | 0.3491 |
-| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9177 ± 0.0198 | 69.2710 ± 4.7121 † | - | - | 0.3512 |
-| `NF_Ensemble_K10` | torchregress | 0.0000 ± 0.0000 | 450.8 ± 0.4 | 33.2469 ± 0.0420 | 0.6548 ± 0.0051 | 33.3866 |
-| `NF_Ensemble_K2` | torchregress | 0.0000 ± 0.0000 | 453.8 ± 2.5 | 33.3967 ± 0.1408 | 0.6582 ± 0.0598 | 8.6722 |
-| `NF_Ensemble_K20` | torchregress | 0.0000 ± 0.0000 | 451.1 ± 0.2 | 33.2571 ± 0.0121 | 0.6608 ± 0.0021 | 58.4020 |
-| `NF_Ensemble_K5` | torchregress | 0.0000 ± 0.0000 | 450.3 ± 1.3 | 33.2606 ± 0.0883 | 0.6423 ± 0.0060 | 14.2646 |
-| `NormalizingFlow` | torchregress | 0.0000 ± 0.0000 | 454.4 ± 1.0 | 33.3748 ± 0.1150 | 0.6451 ± 0.0721 | 4.2511 |
-| `SLS` | torchregress | 0.9942 ± 0.0100 | 51.9910 ± 3.4806 † | - | - | 2.7373 |
-| `SLS+SLSConformal` | torchregress | 1.0000 ± 0.0000 | 62.3837 ± 11.3992 † | - | - | 2.1062 |
-| `SLS_earlystop` | torchregress | 1.0000 ± 0.0000 | 82.4662 ± 5.8906 † | - | - | 0.9627 |
-| `SLS_lowrank` | torchregress | 0.3896 ± 0.0327 | 84.1079 ± 8.4242 † | - | - | 2.8242 |
-| `SLS_lowrank+SLSConformal` | torchregress | 0.9827 ± 0.0043 | 49.9644 ± 6.2486 † | - | - | 2.2222 |
-| `TICovariance` | torchregress | 0.8167 ± 0.0090 | 50.8009 ± 4.9766 † | 9.6901 ± 0.4157 | **0.3464 ± 0.0065** | 2.5300 |
-| `WassersteinBound` | torchregress | 0.7518 ± 0.0066 | 19.9299 ± 0.8288 | **3.2751 ± 0.0820** | 0.4564 ± 0.0052 | 0.6914 |
+| `GaussianNLL` | torchregress | 0.9048 ± 0.0263 | 95.6460 ± 2.4222 | 18.8546 ± 0.6289 | 13.8381 ± 0.5803 | 1.2624 |
+| `HeteroEnsembleCov` | torchregress | 0.9192 ± 0.0025 | 103.4 ± 2.6 | 19.4978 ± 0.2196 | 15.9648 ± 0.4340 | 3.6212 |
+| `LowRankGaussian` | torchregress | 0.6537 ± 0.1800 | 73.8210 ± 17.2148 † | 14.0022 ± 1.9294 | 0.4106 ± 0.0120 | 3.0682 |
+| `MDN` | torchregress | 0.9076 ± 0.0050 | 100.4 ± 11.0 † | 20.4847 ± 0.4760 | 0.4035 ± 0.0050 | 1.7112 |
+| `MVScore` | torchregress | 0.9192 ± 0.0218 | 64.7623 ± 5.8554 † | - | - | 2.2194 |
+| `MultiQuantile` | torchregress | 0.7013 ± 0.0087 | **17.7773 ± 0.5649** | - | - | 0.9788 |
+| `MultiTargetCP` | torchregress | 0.8543 ± 0.0529 | 20.2374 ± 0.7722 | - | - | 0.8082 |
+| `MultivariateGaussian` | torchregress | 0.4387 ± 0.1256 | 106.0 ± 31.1 † | 15.6358 ± 2.5138 | 0.5131 ± 0.0594 | 2.2910 |
+| `MultivariateGaussian+Conformal` | torchregress | 0.9177 ± 0.0198 | 69.5329 ± 4.9936 † | - | - | 1.4919 |
+| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9177 ± 0.0198 | 69.0608 ± 4.7269 † | - | - | 1.4278 |
+| `NF_Ensemble_K10` | torchregress | 0.0000 ± 0.0000 | 450.8 ± 0.4 | 33.2460 ± 0.0406 | 0.6559 ± 0.0037 | 92.5574 |
+| `NF_Ensemble_K2` | torchregress | 0.0000 ± 0.0000 | 453.8 ± 2.5 | 33.3990 ± 0.1415 | 0.6592 ± 0.0584 | 19.3328 |
+| `NF_Ensemble_K20` | torchregress | 0.0000 ± 0.0000 | 451.1 ± 0.2 | 33.2621 ± 0.0117 | 0.6599 ± 0.0037 | 176.5 |
+| `NF_Ensemble_K5` | torchregress | 0.0000 ± 0.0000 | 450.3 ± 1.3 | 33.2609 ± 0.0889 | 0.6417 ± 0.0070 | 42.7859 |
+| `NormalizingFlow` | torchregress | 0.0000 ± 0.0000 | 454.4 ± 1.0 | 33.3788 ± 0.1212 | 0.6468 ± 0.0712 | 9.6689 |
+| `SLS` | torchregress | 0.9928 ± 0.0090 | 49.7921 ± 7.1789 † | - | - | 9.0804 |
+| `SLS+SLSConformal` | torchregress | 1.0000 ± 0.0000 | 62.1556 ± 11.6162 † | - | - | 6.9074 |
+| `SLS_earlystop` | torchregress | 1.0000 ± 0.0000 | 86.3195 ± 0.7911 | - | - | 2.8220 |
+| `SLS_lowrank` | torchregress | 0.3997 ± 0.0214 | 83.8032 ± 7.9039 † | - | - | 9.3554 |
+| `SLS_lowrank+SLSConformal` | torchregress | 0.9870 ± 0.0087 | 47.6517 ± 5.0992 † | - | - | 7.2275 |
+| `TICovariance` | torchregress | 0.7691 ± 0.0738 | 56.9468 ± 7.0357 † | 10.6033 ± 1.5415 | **0.3696 ± 0.0464** | 7.3712 |
+| `WassersteinBound` | torchregress | 0.7518 ± 0.0066 | 19.9288 ± 0.8285 | **3.2751 ± 0.0820** | 0.4565 ± 0.0053 | 1.6439 |
 
 ##### multivariate_intervals / synthetic_multivariate
 
 | Method | Library | JointCoverage | IntervalScore | EnergyScore | VariogramScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `GaussianNLL` | torchregress | 0.6506 ± 0.0100 | 0.9795 ± 0.0229 | 0.2594 ± 0.0049 | 0.0998 ± 0.0027 | 1.0340 |
-| `HeteroEnsembleCov` | torchregress | 0.7311 ± 0.0025 | 0.9529 ± 0.0045 | 0.2557 ± 0.0021 | 0.0978 ± 0.0014 | 3.3619 |
-| `LowRankGaussian` | torchregress | 0.6506 ± 0.0266 | 1.0181 ± 0.0286 | 0.2696 ± 0.0087 | 0.1061 ± 0.0046 | 2.5818 |
-| `MDN` | torchregress | 0.6383 ± 0.0017 | 1.0354 ± 0.0434 | 0.2682 ± 0.0102 | 0.1037 ± 0.0066 | 1.0679 |
-| `MVScore` | torchregress | 0.9261 ± 0.0155 | 1.1743 ± 0.0332 | - | - | 2.0953 |
-| `MultiQuantile` | torchregress | 0.4494 ± 0.0125 | 1.1253 ± 0.0510 | - | - | 0.6091 |
-| `MultiTargetCP` | torchregress | 0.6472 ± 0.0478 | 0.9759 ± 0.0082 | - | - | 0.6186 |
-| `MultivariateGaussian` | torchregress | 0.6650 ± 0.0073 | 1.0316 ± 0.0270 | 0.2735 ± 0.0089 | 0.1067 ± 0.0039 | 2.3690 |
-| `MultivariateGaussian+Conformal` | torchregress | 0.9722 ± 0.0127 | 1.4559 ± 0.1385 † | - | - | 0.9221 |
-| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9733 ± 0.0109 | 1.4196 ± 0.1273 † | - | - | 0.9294 |
-| `NF_Ensemble_K10` | torchregress | 0.7017 ± 0.0060 | 0.9339 ± 0.0027 | 0.2531 ± 0.0003 | 0.0969 ± 0.0001 | 86.4344 |
-| `NF_Ensemble_K2` | torchregress | 0.6167 ± 0.0076 | 0.9903 ± 0.0121 | 0.2620 ± 0.0006 | 0.1025 ± 0.0005 | 19.2351 |
-| `NF_Ensemble_K20` | torchregress | 0.7156 ± 0.0019 | **0.9255 ± 0.0011** | **0.2512 ± 0.0006** | **0.0955 ± 0.0003** | 128.2 |
-| `NF_Ensemble_K5` | torchregress | 0.6633 ± 0.0117 | 0.9525 ± 0.0067 | 0.2563 ± 0.0010 | 0.0987 ± 0.0004 | 44.8843 |
-| `NormalizingFlow` | torchregress | 0.5444 ± 0.0095 | 1.0818 ± 0.0433 | 0.2741 ± 0.0018 | 0.1091 ± 0.0017 | 11.8277 |
-| `SLS` | torchregress | 0.7522 ± 0.0461 | 1.1218 ± 0.0328 | - | - | 9.5740 |
-| `SLS+SLSConformal` | torchregress | 0.9678 ± 0.0075 | 1.5483 ± 0.0613 | - | - | 6.1504 |
-| `SLS_earlystop` | torchregress | 0.9678 ± 0.0010 | 1.8912 ± 0.1899 † | - | - | 1.7114 |
-| `SLS_lowrank` | torchregress | 0.7206 ± 0.0407 | 1.1187 ± 0.0222 | - | - | 10.6459 |
-| `SLS_lowrank+SLSConformal` | torchregress | 0.9650 ± 0.0017 | 1.5905 ± 0.0870 † | - | - | 6.1285 |
-| `TICovariance` | torchregress | 0.9983 ± 0.0017 | 1.9677 ± 0.0089 | 0.3779 ± 0.0062 | 0.1896 ± 0.0049 | 9.3857 |
-| `WassersteinBound` | torchregress | 0.9822 ± 0.0051 | 1.4271 ± 0.0027 | 0.2960 ± 0.0031 | 0.1329 ± 0.0024 | 1.6081 |
+| `GaussianNLL` | torchregress | 0.6511 ± 0.0092 | 0.9747 ± 0.0172 | 0.2583 ± 0.0043 | 0.0995 ± 0.0027 | 2.9635 |
+| `HeteroEnsembleCov` | torchregress | 0.7311 ± 0.0025 | 0.9528 ± 0.0045 | 0.2557 ± 0.0020 | 0.0978 ± 0.0015 | 9.5287 |
+| `LowRankGaussian` | torchregress | 0.6667 ± 0.0029 | 1.0123 ± 0.0304 | 0.2694 ± 0.0089 | 0.1064 ± 0.0043 | 7.1312 |
+| `MDN` | torchregress | 0.6411 ± 0.0035 | 1.0338 ± 0.0407 | 0.2676 ± 0.0091 | 0.1032 ± 0.0058 | 4.2362 |
+| `MVScore` | torchregress | 0.9256 ± 0.0158 | 1.1662 ± 0.0413 | - | - | 5.8973 |
+| `MultiQuantile` | torchregress | 0.4550 ± 0.0161 | 1.1187 ± 0.0399 | - | - | 2.4595 |
+| `MultiTargetCP` | torchregress | 0.6461 ± 0.0476 | 0.9791 ± 0.0078 | - | - | 2.0075 |
+| `MultivariateGaussian` | torchregress | 0.6689 ± 0.0140 | 1.0271 ± 0.0345 | 0.2724 ± 0.0107 | 0.1061 ± 0.0049 | 6.3557 |
+| `MultivariateGaussian+Conformal` | torchregress | 0.9717 ± 0.0136 | 1.4688 ± 0.1162 † | - | - | 4.0443 |
+| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9728 ± 0.0118 | 1.4374 ± 0.0968 † | - | - | 4.0625 |
+| `NF_Ensemble_K10` | torchregress | 0.7022 ± 0.0051 | 0.9339 ± 0.0027 | 0.2536 ± 0.0013 | 0.0974 ± 0.0009 | 212.0 |
+| `NF_Ensemble_K2` | torchregress | 0.6144 ± 0.0054 | 0.9858 ± 0.0189 | 0.2606 ± 0.0019 | 0.1016 ± 0.0016 | 44.7521 |
+| `NF_Ensemble_K20` ‡ | torchregress | 0.7156 ± 0.0019 | **0.9255 ± 0.0011** | **0.2512 ± 0.0006** | **0.0955 ± 0.0003** | 139.9 |
+| `NF_Ensemble_K5` | torchregress | 0.6639 ± 0.0125 | 0.9532 ± 0.0055 | 0.2563 ± 0.0010 | 0.0986 ± 0.0005 | 110.7 |
+| `NormalizingFlow` | torchregress | 0.5422 ± 0.0111 | 1.0800 ± 0.0444 | 0.2737 ± 0.0023 | 0.1096 ± 0.0013 | 24.4827 |
+| `SLS` | torchregress | 0.7178 ± 0.0151 | 1.1327 ± 0.0231 | - | - | 24.1097 |
+| `SLS+SLSConformal` | torchregress | 0.9661 ± 0.0079 | 1.5380 ± 0.0761 | - | - | 17.8508 |
+| `SLS_earlystop` | torchregress | 0.9700 ± 0.0029 | 1.8750 ± 0.1631 † | - | - | 4.7636 |
+| `SLS_lowrank` | torchregress | 0.7217 ± 0.0421 | 1.1300 ± 0.0287 | - | - | 24.1378 |
+| `SLS_lowrank+SLSConformal` | torchregress | 0.9700 ± 0.0088 | 1.6213 ± 0.0837 † | - | - | 17.8752 |
+| `TICovariance` | torchregress | 0.9983 ± 0.0017 | 1.9602 ± 0.0180 | 0.3739 ± 0.0130 | 0.1884 ± 0.0069 | 20.1137 |
+| `WassersteinBound` | torchregress | 0.9822 ± 0.0051 | 1.4271 ± 0.0027 | 0.2960 ± 0.0031 | 0.1329 ± 0.0024 | 3.9819 |
+
+‡ ran on CPU after a CUDA failure (cpu retry).
 
 ##### multivariate_intervals / synthetic_mv_bimodal
 
 | Method | Library | JointCoverage | IntervalScore | EnergyScore | VariogramScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `GaussianNLL` | torchregress | 0.7389 ± 0.0067 | 6.0679 ± 0.0112 | 1.9551 ± 0.0028 | 1.4797 ± 0.0090 | 0.9294 |
-| `HeteroEnsembleCov` | torchregress | 0.7433 ± 0.0017 | 6.0157 ± 0.0061 | 1.9508 ± 0.0023 | 1.4773 ± 0.0025 | 3.1799 |
-| `LowRankGaussian` | torchregress | 0.7450 ± 0.0058 | 6.0993 ± 0.0254 | 1.8628 ± 0.0036 | 1.3645 ± 0.0057 | 2.9540 |
-| `MDN` | torchregress | 0.6594 ± 0.0144 | 5.9498 ± 0.0223 | **1.8296 ± 0.0016** | **1.3365 ± 0.0030** | 1.2733 |
-| `MVScore` | torchregress | 0.9894 ± 0.0054 | 8.0721 ± 0.2290 | - | - | 2.5486 |
-| `MultiQuantile` | torchregress | 0.4844 ± 0.0222 | 6.5117 ± 0.1014 | - | - | 0.6747 |
-| `MultiTargetCP` | torchregress | 0.6861 ± 0.0208 | 6.0818 ± 0.0217 | - | - | 0.6750 |
-| `MultivariateGaussian` | torchregress | 0.7522 ± 0.0125 | 6.0892 ± 0.0344 | 1.8612 ± 0.0061 | 1.3593 ± 0.0026 | 2.1419 |
-| `MultivariateGaussian+Conformal` | torchregress | 0.9978 ± 0.0025 | 8.7501 ± 0.2533 | - | - | 1.1058 |
-| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9989 ± 0.0010 | 8.7239 ± 0.3242 | - | - | 1.1161 |
-| `NF_Ensemble_K10` | torchregress | 0.6283 ± 0.0073 | 5.9802 ± 0.0039 | 1.8328 ± 0.0019 | 1.3395 ± 0.0013 | 61.2559 |
-| `NF_Ensemble_K2` | torchregress | 0.6144 ± 0.0107 | 6.1040 ± 0.0204 | 1.8484 ± 0.0073 | 1.3506 ± 0.0077 | 21.7627 |
-| `NF_Ensemble_K20` | torchregress | 0.6394 ± 0.0019 | **5.9479 ± 0.0045** | 1.8339 ± 0.0025 | 1.3447 ± 0.0064 | 143.3 |
-| `NF_Ensemble_K5` | torchregress | 0.6217 ± 0.0100 | 6.0224 ± 0.0010 | 1.8405 ± 0.0042 | 1.3450 ± 0.0045 | 36.4746 |
-| `NormalizingFlow` | torchregress | 0.5889 ± 0.0294 | 6.2316 ± 0.0354 | 1.8695 ± 0.0022 | 1.3666 ± 0.0017 | 10.4726 |
-| `SLS` | torchregress | 0.8678 ± 0.0214 | 6.5810 ± 0.0422 | - | - | 11.6353 |
-| `SLS+SLSConformal` | torchregress | 0.9944 ± 0.0010 | 9.8852 ± 0.2112 | - | - | 7.2480 |
-| `SLS_earlystop` | torchregress | 0.9839 ± 0.0010 | 7.8748 ± 0.4071 † | - | - | 2.0429 |
-| `SLS_lowrank` | torchregress | 0.8761 ± 0.0334 | 6.6953 ± 0.0915 | - | - | 9.6831 |
-| `SLS_lowrank+SLSConformal` | torchregress | 0.9933 ± 0.0060 | 10.2270 ± 0.8461 † | - | - | 6.8331 |
-| `TICovariance` | torchregress | 0.7283 ± 0.0132 | 6.9068 ± 0.0459 | 1.9686 ± 0.0072 | 1.4836 ± 0.0249 | 10.4912 |
-| `WassersteinBound` | torchregress | 0.7089 ± 0.0095 | 6.0797 ± 0.0435 | 1.9629 ± 0.0074 | 1.4825 ± 0.0091 | 1.6823 |
+| `GaussianNLL` | torchregress | 0.7367 ± 0.0104 | 6.0732 ± 0.0024 | 1.9559 ± 0.0014 | 1.4810 ± 0.0068 | 2.7969 |
+| `HeteroEnsembleCov` | torchregress | 0.7433 ± 0.0017 | 6.0157 ± 0.0061 | 1.9508 ± 0.0023 | 1.4773 ± 0.0025 | 10.3322 |
+| `LowRankGaussian` | torchregress | 0.7444 ± 0.0063 | 6.0951 ± 0.0181 | 1.8624 ± 0.0033 | 1.3627 ± 0.0085 | 7.8471 |
+| `MDN` | torchregress | 0.6589 ± 0.0146 | 5.9522 ± 0.0203 | **1.8297 ± 0.0018** | **1.3363 ± 0.0034** | 4.4008 |
+| `MVScore` | torchregress | 0.9883 ± 0.0044 | 8.1079 ± 0.2705 | - | - | 6.3653 |
+| `MultiQuantile` | torchregress | 0.4783 ± 0.0117 | 6.5292 ± 0.0751 | - | - | 2.6965 |
+| `MultiTargetCP` | torchregress | 0.6783 ± 0.0117 | 6.0905 ± 0.0154 | - | - | 1.9719 |
+| `MultivariateGaussian` | torchregress | 0.7506 ± 0.0129 | 6.0928 ± 0.0392 | 1.8623 ± 0.0064 | 1.3599 ± 0.0035 | 6.3575 |
+| `MultivariateGaussian+Conformal` | torchregress | 0.9967 ± 0.0029 | 8.7843 ± 0.3114 | - | - | 4.1667 |
+| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9989 ± 0.0010 | 8.7208 ± 0.3188 | - | - | 4.2265 |
+| `NF_Ensemble_K10` | torchregress | 0.6289 ± 0.0079 | 5.9791 ± 0.0020 | 1.8312 ± 0.0016 | 1.3407 ± 0.0032 | 212.0 |
+| `NF_Ensemble_K2` | torchregress | 0.6111 ± 0.0051 | 6.0984 ± 0.0294 | 1.8508 ± 0.0078 | 1.3558 ± 0.0087 | 45.1447 |
+| `NF_Ensemble_K20` ‡ | torchregress | 0.6394 ± 0.0019 | **5.9479 ± 0.0045** | 1.8339 ± 0.0025 | 1.3447 ± 0.0064 | 150.7 |
+| `NF_Ensemble_K5` | torchregress | 0.6172 ± 0.0051 | 6.0291 ± 0.0117 | 1.8440 ± 0.0070 | 1.3528 ± 0.0138 | 105.8 |
+| `NormalizingFlow` | torchregress | 0.5867 ± 0.0275 | 6.2071 ± 0.0597 | 1.8672 ± 0.0054 | 1.3678 ± 0.0035 | 23.6254 |
+| `SLS` | torchregress | 0.8794 ± 0.0343 | 6.6515 ± 0.1008 | - | - | 24.5556 |
+| `SLS+SLSConformal` | torchregress | 0.9933 ± 0.0017 | 9.9587 ± 0.1315 | - | - | 18.6768 |
+| `SLS_earlystop` | torchregress | 0.9872 ± 0.0054 | 7.8353 ± 0.3517 | - | - | 5.5297 |
+| `SLS_lowrank` | torchregress | 0.8683 ± 0.0265 | 6.6817 ± 0.1069 | - | - | 24.1719 |
+| `SLS_lowrank+SLSConformal` | torchregress | 0.9928 ± 0.0067 | 10.0103 ± 0.9983 † | - | - | 18.6345 |
+| `TICovariance` | torchregress | 0.7228 ± 0.0100 | 6.9133 ± 0.0396 | 1.9729 ± 0.0120 | 1.4826 ± 0.0231 | 23.3740 |
+| `WassersteinBound` | torchregress | 0.7089 ± 0.0095 | 6.0797 ± 0.0435 | 1.9629 ± 0.0074 | 1.4825 ± 0.0091 | 4.0031 |
+
+‡ ran on CPU after a CUDA failure (cpu retry).
 
 ##### multivariate_intervals / synthetic_mv_gaussian
 
 | Method | Library | JointCoverage | IntervalScore | EnergyScore | VariogramScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `GaussianNLL` | torchregress | 0.6639 ± 0.0069 | 4.4683 ± 0.0288 | 1.1873 ± 0.0055 | 0.5738 ± 0.0028 | 0.8834 |
-| `HeteroEnsembleCov` | torchregress | 0.6667 ± 0.0044 | 4.4148 ± 0.0126 | 1.1774 ± 0.0016 | 0.5688 ± 0.0003 | 2.2873 |
-| `LowRankGaussian` | torchregress | 0.6783 ± 0.0130 | 4.4141 ± 0.0643 | 1.1680 ± 0.0077 | 0.5500 ± 0.0044 | 2.5214 |
-| `MDN` | torchregress | 0.6789 ± 0.0077 | 4.4660 ± 0.0550 | **1.1672 ± 0.0064** | **0.5467 ± 0.0046** | 1.0610 |
-| `MVScore` | torchregress | 0.9394 ± 0.0111 | 4.9139 ± 0.0757 | - | - | 2.0966 |
-| `MultiQuantile` | torchregress | 0.5072 ± 0.0075 | 4.9382 ± 0.0764 | - | - | 0.5257 |
-| `MultiTargetCP` | torchregress | 0.6928 ± 0.0082 | 4.4031 ± 0.0309 | - | - | 0.6191 |
-| `MultivariateGaussian` | torchregress | 0.6717 ± 0.0144 | **4.3770 ± 0.0091** | 1.1678 ± 0.0033 | 0.5482 ± 0.0023 | 2.0280 |
-| `MultivariateGaussian+Conformal` | torchregress | 0.9711 ± 0.0111 | 5.5682 ± 0.1932 | - | - | 0.9234 |
-| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9722 ± 0.0102 | 5.5155 ± 0.1536 | - | - | 0.9300 |
-| `NF_Ensemble_K10` | torchregress | 0.6678 ± 0.0010 | 4.4507 ± 0.0065 | 1.1762 ± 0.0029 | 0.5468 ± 0.0002 | 65.3850 |
-| `NF_Ensemble_K2` | torchregress | 0.6411 ± 0.0095 | 4.5366 ± 0.0445 | 1.1858 ± 0.0080 | 0.5544 ± 0.0059 | 13.0981 |
-| `NF_Ensemble_K20` | torchregress | 0.6694 ± 0.0019 | 4.4199 ± 0.0038 | 1.1738 ± 0.0019 | 0.5487 ± 0.0008 | 144.1 |
-| `NF_Ensemble_K5` | torchregress | 0.6600 ± 0.0029 | 4.5050 ± 0.0191 | 1.1814 ± 0.0037 | 0.5502 ± 0.0013 | 30.3452 |
-| `NormalizingFlow` | torchregress | 0.6117 ± 0.0067 | 4.6918 ± 0.0126 | 1.2003 ± 0.0038 | 0.5654 ± 0.0072 | 10.3336 |
-| `SLS` | torchregress | 0.8011 ± 0.0069 | 4.7966 ± 0.0380 | - | - | 8.7433 |
-| `SLS+SLSConformal` | torchregress | 0.9939 ± 0.0035 | 8.1389 ± 0.5914 † | - | - | 5.2375 |
-| `SLS_earlystop` | torchregress | 0.9517 ± 0.0017 | 5.2089 ± 0.0962 | - | - | 2.0640 |
-| `SLS_lowrank` | torchregress | 0.8028 ± 0.0077 | 4.7939 ± 0.1185 | - | - | 8.3024 |
-| `SLS_lowrank+SLSConformal` | torchregress | 0.9883 ± 0.0050 | 7.7383 ± 0.0845 | - | - | 5.3133 |
-| `TICovariance` | torchregress | 0.6633 ± 0.0044 | 4.6328 ± 0.0293 | 1.2134 ± 0.0017 | 0.5701 ± 0.0045 | 6.6297 |
-| `WassersteinBound` | torchregress | 0.6844 ± 0.0079 | 4.4035 ± 0.0031 | 1.1865 ± 0.0019 | 0.5782 ± 0.0043 | 1.5696 |
+| `GaussianNLL` | torchregress | 0.6667 ± 0.0050 | 4.4719 ± 0.0234 | 1.1875 ± 0.0051 | 0.5745 ± 0.0021 | 3.0174 |
+| `HeteroEnsembleCov` | torchregress | 0.6667 ± 0.0044 | 4.4148 ± 0.0127 | 1.1774 ± 0.0016 | 0.5687 ± 0.0003 | 9.0409 |
+| `LowRankGaussian` | torchregress | 0.6750 ± 0.0073 | 4.4165 ± 0.0606 | 1.1683 ± 0.0074 | 0.5501 ± 0.0042 | 7.7466 |
+| `MDN` | torchregress | 0.6822 ± 0.0117 | 4.4669 ± 0.0537 | **1.1661 ± 0.0083** | **0.5455 ± 0.0048** | 4.2556 |
+| `MVScore` | torchregress | 0.9389 ± 0.0106 | 4.9113 ± 0.0726 | - | - | 6.2570 |
+| `MultiQuantile` | torchregress | 0.5111 ± 0.0139 | 4.9221 ± 0.1022 | - | - | 2.4331 |
+| `MultiTargetCP` | torchregress | 0.6922 ± 0.0092 | 4.3998 ± 0.0253 | - | - | 2.0375 |
+| `MultivariateGaussian` | torchregress | 0.6767 ± 0.0058 | **4.3792 ± 0.0066** | 1.1677 ± 0.0034 | 0.5493 ± 0.0041 | 6.1686 |
+| `MultivariateGaussian+Conformal` | torchregress | 0.9706 ± 0.0118 | 5.5614 ± 0.2033 | - | - | 4.0568 |
+| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9706 ± 0.0125 | 5.4715 ± 0.2130 | - | - | 4.0607 |
+| `NF_Ensemble_K10` | torchregress | 0.6700 ± 0.0044 | 4.4476 ± 0.0119 | 1.1785 ± 0.0028 | 0.5476 ± 0.0012 | 207.3 |
+| `NF_Ensemble_K2` | torchregress | 0.6472 ± 0.0077 | 4.5287 ± 0.0500 | 1.1862 ± 0.0078 | 0.5551 ± 0.0054 | 41.5085 |
+| `NF_Ensemble_K20` ‡ | torchregress | 0.6694 ± 0.0019 | 4.4199 ± 0.0038 | 1.1738 ± 0.0019 | 0.5487 ± 0.0008 | 148.1 |
+| `NF_Ensemble_K5` | torchregress | 0.6583 ± 0.0058 | 4.5041 ± 0.0205 | 1.1828 ± 0.0031 | 0.5512 ± 0.0031 | 103.8 |
+| `NormalizingFlow` | torchregress | 0.6150 ± 0.0088 | 4.6798 ± 0.0259 | 1.2021 ± 0.0068 | 0.5660 ± 0.0081 | 25.8836 |
+| `SLS` | torchregress | 0.7928 ± 0.0142 | 4.7871 ± 0.0369 | - | - | 23.6943 |
+| `SLS+SLSConformal` | torchregress | 0.9950 ± 0.0017 | 8.1930 ± 0.5582 † | - | - | 17.4627 |
+| `SLS_earlystop` | torchregress | 0.9522 ± 0.0019 | 5.2147 ± 0.1060 | - | - | 5.2042 |
+| `SLS_lowrank` | torchregress | 0.8050 ± 0.0067 | 4.8286 ± 0.0772 | - | - | 22.9767 |
+| `SLS_lowrank+SLSConformal` | torchregress | 0.9878 ± 0.0042 | 7.7703 ± 0.1236 | - | - | 16.5971 |
+| `TICovariance` | torchregress | 0.6639 ± 0.0048 | 4.6201 ± 0.0513 | 1.2104 ± 0.0069 | 0.5705 ± 0.0039 | 18.1597 |
+| `WassersteinBound` | torchregress | 0.6844 ± 0.0079 | 4.4035 ± 0.0031 | 1.1865 ± 0.0019 | 0.5782 ± 0.0043 | 3.8873 |
+
+‡ ran on CPU after a CUDA failure (cpu retry).
 
 ##### multivariate_intervals / synthetic_mv_nongaussian
 
 | Method | Library | JointCoverage | IntervalScore | EnergyScore | VariogramScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `GaussianNLL` | torchregress | 0.7622 ± 0.0035 | 4.1209 ± 0.0144 | 1.1363 ± 0.0015 | 0.5715 ± 0.0014 | 0.8986 |
-| `HeteroEnsembleCov` | torchregress | 0.7867 ± 0.0076 | 4.0989 ± 0.0168 | 1.1286 ± 0.0018 | 0.5693 ± 0.0016 | 2.8442 |
-| `LowRankGaussian` | torchregress | 0.7389 ± 0.0079 | 4.1571 ± 0.0296 | 1.1378 ± 0.0025 | 0.5775 ± 0.0048 | 2.3970 |
-| `MDN` | torchregress | 0.7072 ± 0.0410 | 3.9418 ± 0.0446 | 1.1195 ± 0.0039 | 0.5681 ± 0.0042 | 1.0802 |
-| `MVScore` | torchregress | 0.9233 ± 0.0044 | 5.0468 ± 0.0966 | - | - | 1.9853 |
-| `MultiQuantile` | torchregress | 0.4750 ± 0.0217 | 4.2003 ± 0.0177 | - | - | 0.5328 |
-| `MultiTargetCP` | torchregress | 0.6911 ± 0.0051 | 4.0656 ± 0.0178 | - | - | 0.6117 |
-| `MultivariateGaussian` | torchregress | 0.7711 ± 0.0134 | 4.1288 ± 0.0225 | 1.1339 ± 0.0062 | 0.5752 ± 0.0051 | 1.9580 |
-| `MultivariateGaussian+Conformal` | torchregress | 0.9483 ± 0.0076 | 5.6914 ± 0.0712 | - | - | 0.9377 |
-| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9478 ± 0.0038 | 5.6404 ± 0.0972 | - | - | 0.9378 |
-| `NF_Ensemble_K10` | torchregress | 0.6617 ± 0.0017 | **3.8620 ± 0.0049** | 1.1107 ± 0.0013 | 0.5601 ± 0.0014 | 63.8300 |
-| `NF_Ensemble_K2` | torchregress | 0.6167 ± 0.0083 | 3.9315 ± 0.0265 | 1.1173 ± 0.0023 | 0.5642 ± 0.0033 | 12.3780 |
-| `NF_Ensemble_K20` | torchregress | 0.6694 ± 0.0038 | 3.8625 ± 0.0038 | **1.1085 ± 0.0015** | **0.5597 ± 0.0009** | 143.0 |
-| `NF_Ensemble_K5` | torchregress | 0.6461 ± 0.0038 | 3.8852 ± 0.0092 | 1.1087 ± 0.0014 | 0.5625 ± 0.0016 | 33.1073 |
-| `NormalizingFlow` | torchregress | 0.5850 ± 0.0073 | 4.0018 ± 0.0301 | 1.1248 ± 0.0051 | 0.5660 ± 0.0015 | 9.9284 |
-| `SLS` | torchregress | 0.8461 ± 0.0102 | 4.5425 ± 0.0512 | - | - | 11.1649 |
-| `SLS+SLSConformal` | torchregress | 0.9822 ± 0.0054 | 8.2030 ± 0.7676 † | - | - | 7.2523 |
-| `SLS_earlystop` | torchregress | 0.9317 ± 0.0104 | 5.5355 ± 0.3011 † | - | - | 2.0358 |
-| `SLS_lowrank` | torchregress | 0.8211 ± 0.0243 | 4.5820 ± 0.0366 | - | - | 9.9936 |
-| `SLS_lowrank+SLSConformal` | torchregress | 0.9756 ± 0.0111 | 8.1940 ± 0.5427 † | - | - | 5.9139 |
-| `TICovariance` | torchregress | 0.7911 ± 0.0019 | 4.1168 ± 0.0267 | 1.1425 ± 0.0068 | 0.5727 ± 0.0038 | 7.9853 |
-| `WassersteinBound` | torchregress | 0.8178 ± 0.0051 | 4.1053 ± 0.0075 | 1.1325 ± 0.0044 | 0.5668 ± 0.0023 | 1.4918 |
+| `GaussianNLL` | torchregress | 0.7622 ± 0.0035 | 4.1165 ± 0.0074 | 1.1376 ± 0.0017 | 0.5728 ± 0.0031 | 2.8208 |
+| `HeteroEnsembleCov` | torchregress | 0.7867 ± 0.0076 | 4.0989 ± 0.0168 | 1.1286 ± 0.0018 | 0.5693 ± 0.0016 | 9.9327 |
+| `LowRankGaussian` | torchregress | 0.7428 ± 0.0134 | 4.1618 ± 0.0214 | 1.1375 ± 0.0030 | 0.5784 ± 0.0049 | 7.1971 |
+| `MDN` | torchregress | 0.7089 ± 0.0436 | 3.9459 ± 0.0516 | 1.1201 ± 0.0046 | 0.5676 ± 0.0035 | 4.3999 |
+| `MVScore` | torchregress | 0.9244 ± 0.0063 | 5.0315 ± 0.0745 | - | - | 5.9630 |
+| `MultiQuantile` | torchregress | 0.4672 ± 0.0195 | 4.2072 ± 0.0067 | - | - | 2.5301 |
+| `MultiTargetCP` | torchregress | 0.6883 ± 0.0093 | 4.0632 ± 0.0207 | - | - | 1.9745 |
+| `MultivariateGaussian` | torchregress | 0.7711 ± 0.0134 | 4.1204 ± 0.0215 | 1.1353 ± 0.0062 | 0.5763 ± 0.0038 | 6.1804 |
+| `MultivariateGaussian+Conformal` | torchregress | 0.9483 ± 0.0076 | 5.7112 ± 0.1053 | - | - | 4.1982 |
+| `MultivariateGaussian+LevelSetCP` | torchregress | 0.9478 ± 0.0038 | 5.6581 ± 0.1248 | - | - | 4.1859 |
+| `NF_Ensemble_K10` | torchregress | 0.6572 ± 0.0092 | 3.8661 ± 0.0100 | 1.1094 ± 0.0035 | **0.5585 ± 0.0014** | 212.0 |
+| `NF_Ensemble_K2` | torchregress | 0.6144 ± 0.0092 | 3.9280 ± 0.0238 | 1.1163 ± 0.0028 | 0.5643 ± 0.0032 | 41.2747 |
+| `NF_Ensemble_K20` ‡ | torchregress | 0.6694 ± 0.0038 | **3.8625 ± 0.0038** | 1.1085 ± 0.0015 | 0.5597 ± 0.0009 | 153.5 |
+| `NF_Ensemble_K5` | torchregress | 0.6378 ± 0.0129 | 3.8811 ± 0.0030 | **1.1060 ± 0.0034** | 0.5610 ± 0.0042 | 106.1 |
+| `NormalizingFlow` | torchregress | 0.5789 ± 0.0102 | 3.9875 ± 0.0215 | 1.1255 ± 0.0062 | 0.5672 ± 0.0029 | 23.5810 |
+| `SLS` | torchregress | 0.8539 ± 0.0184 | 4.5815 ± 0.0212 | - | - | 25.9433 |
+| `SLS+SLSConformal` | torchregress | 0.9856 ± 0.0048 | 8.5573 ± 0.1896 | - | - | 18.6435 |
+| `SLS_earlystop` | torchregress | 0.9306 ± 0.0100 | 5.3277 ± 0.1755 | - | - | 7.3762 |
+| `SLS_lowrank` | torchregress | 0.8256 ± 0.0296 | 4.5652 ± 0.0605 | - | - | 24.2750 |
+| `SLS_lowrank+SLSConformal` | torchregress | 0.9744 ± 0.0092 | 8.1383 ± 0.4990 † | - | - | 18.0067 |
+| `TICovariance` | torchregress | 0.7961 ± 0.0079 | 4.1162 ± 0.0275 | 1.1392 ± 0.0097 | 0.5713 ± 0.0058 | 20.7426 |
+| `WassersteinBound` | torchregress | 0.8178 ± 0.0051 | 4.1053 ± 0.0075 | 1.1325 ± 0.0044 | 0.5668 ± 0.0023 | 3.8021 |
+
+‡ ran on CPU after a CUDA failure (cpu retry).
 
 #### ordinal (tabular)
 
@@ -5146,25 +5065,25 @@ Group `tabular`; 2 dataset(s). Columns: MAE ↓, Accuracy ↑, QWK ↑, ClassMAE
 
 | Method | Library | MAE | Accuracy | QWK | ClassMAE | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `CORAL` | torchregress | 1.5226 ± 0.0063 | 0.2564 ± 0.0022 | 0.7143 ± 0.0034 | 1.5226 ± 0.0063 | 19.1584 |
-| `CumulativeLink` | torchregress | 1.4714 ± 0.0046 | 0.2708 ± 0.0032 | 0.7227 ± 0.0006 | 1.4714 ± 0.0046 | 14.7369 |
-| `CumulativeLinkEnsemble` | torchregress | **1.4358 ± 0.0045** | 0.2454 ± 0.0019 | 0.7254 ± 0.0020 | **1.4358 ± 0.0045** | 54.2916 |
-| `DiscreteWasserstein1` | torchregress | 1.6376 ± 0.0788 | 0.1845 ± 0.0090 | 0.6414 ± 0.0408 | 1.6376 ± 0.0788 | 15.9725 |
-| `MSE` | torchregress | 3.7202 ± 0.0022 | 0.1218 ± 0.0032 | 0.0181 ± 0.0022 | 3.7202 ± 0.0022 | 7.0604 |
-| `OrdinalCrossEntropy` | torchregress | 1.5926 ± 0.0185 | 0.2773 ± 0.0043 | 0.6993 ± 0.0065 | 1.5926 ± 0.0185 | 13.6396 |
-| `statsmodels_OrderedModel` | statsmodels | 1.5238 ± 0.0000 | **0.2778 ± 0.0000** | **0.7300 ± 0.0000** | 1.5238 ± 0.0000 | 25.8078 |
+| `CORAL` | torchregress | 1.5194 ± 0.0107 | 0.2549 ± 0.0023 | 0.7152 ± 0.0046 | 1.5194 ± 0.0107 | 70.8022 |
+| `CumulativeLink` | torchregress | 1.4660 ± 0.0060 | 0.2705 ± 0.0031 | 0.7224 ± 0.0005 | 1.4660 ± 0.0060 | 47.9532 |
+| `CumulativeLinkEnsemble` | torchregress | **1.4361 ± 0.0042** | 0.2449 ± 0.0011 | 0.7252 ± 0.0020 | **1.4361 ± 0.0042** | 178.2 |
+| `DiscreteWasserstein1` | torchregress | 1.6371 ± 0.0779 | 0.1842 ± 0.0094 | 0.6424 ± 0.0391 | 1.6371 ± 0.0779 | 52.0280 |
+| `MSE` | torchregress | 3.7199 ± 0.0025 | 0.1238 ± 0.0054 | 0.0205 ± 0.0044 | 3.7199 ± 0.0025 | 21.4428 |
+| `OrdinalCrossEntropy` | torchregress | 1.5956 ± 0.0134 | 0.2763 ± 0.0034 | 0.6981 ± 0.0047 | 1.5956 ± 0.0134 | 52.6119 |
+| `statsmodels_OrderedModel` | statsmodels | 1.5238 ± 0.0000 | **0.2778 ± 0.0000** | **0.7300 ± 0.0000** | 1.5238 ± 0.0000 | 28.3223 |
 
 ##### ordinal / synthetic_ordinal
 
 | Method | Library | MAE | Accuracy | QWK | ClassMAE | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `CORAL` | torchregress | 0.2900 ± 0.0164 † | 0.7133 ± 0.0142 | 0.9255 ± 0.0048 | 0.2900 ± 0.0164 | 2.4940 |
-| `CumulativeLink` | torchregress | 0.2642 ± 0.0095 | 0.7367 ± 0.0104 | 0.9322 ± 0.0024 | 0.2642 ± 0.0095 | 2.3021 |
-| `CumulativeLinkEnsemble` | torchregress | 0.2550 ± 0.0109 | 0.7450 ± 0.0109 | 0.9349 ± 0.0028 | 0.2550 ± 0.0109 | 7.6384 |
-| `DiscreteWasserstein1` | torchregress | 0.3283 ± 0.0794 † | 0.6742 ± 0.0794 | 0.9076 ± 0.0311 | 0.3283 ± 0.0794 | 2.6979 |
-| `MSE` | torchregress | 1.2675 ± 0.0025 | 0.3250 ± 0.0025 | 0.2121 ± 0.0028 | 1.2675 ± 0.0025 | 0.5972 |
-| `OrdinalCrossEntropy` | torchregress | 0.2850 ± 0.0025 | 0.7175 ± 0.0050 | 0.9255 ± 0.0011 | 0.2850 ± 0.0025 | 1.7072 |
-| `statsmodels_OrderedModel` | statsmodels | **0.2500 ± 0.0000** | **0.7500 ± 0.0000** | **0.9357 ± 0.0000** | **0.2500 ± 0.0000** | 0.1277 |
+| `CORAL` | torchregress | 0.2900 ± 0.0164 † | 0.7125 ± 0.0156 | 0.9260 ± 0.0041 | 0.2900 ± 0.0164 | 7.9677 |
+| `CumulativeLink` | torchregress | 0.2692 ± 0.0101 | 0.7333 ± 0.0104 | 0.9298 ± 0.0030 | 0.2692 ± 0.0101 | 6.0535 |
+| `CumulativeLinkEnsemble` | torchregress | 0.2550 ± 0.0109 | 0.7450 ± 0.0109 | 0.9349 ± 0.0028 | 0.2550 ± 0.0109 | 20.2976 |
+| `DiscreteWasserstein1` | torchregress | 0.3300 ± 0.0823 † | 0.6725 ± 0.0823 | 0.9069 ± 0.0323 | 0.3300 ± 0.0823 | 6.5143 |
+| `MSE` | torchregress | 1.2675 ± 0.0025 | 0.3250 ± 0.0025 | 0.2121 ± 0.0028 | 1.2675 ± 0.0025 | 2.2684 |
+| `OrdinalCrossEntropy` | torchregress | 0.2892 ± 0.0052 | 0.7125 ± 0.0050 | 0.9252 ± 0.0013 | 0.2892 ± 0.0052 | 5.8899 |
+| `statsmodels_OrderedModel` | statsmodels | **0.2500 ± 0.0000** | **0.7500 ± 0.0000** | **0.9357 ± 0.0000** | **0.2500 ± 0.0000** | 0.1587 |
 
 #### orthogonal_inference (tabular)
 
@@ -6083,46 +6002,46 @@ Group `tabular`; 3 dataset(s). Columns: RMSE ↓, Coverage ·, Width ·, Interva
 
 | Method | Library | RMSE | Coverage | Width | IntervalScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `FeatureNorm` | torchregress | 0.6579 ± 0.0075 | 0.8876 ± 0.0108 | 1.8388 ± 0.0361 | 2.7433 ± 0.1606 | 1.9357 |
-| `JointTTA` | torchregress | 0.6235 ± 0.0232 | 0.9004 ± 0.0044 | 1.6245 ± 0.0518 | 2.5707 ± 0.1664 | 1.3434 |
-| `JointTTA_LabelShiftEM` | torchregress | 0.6235 ± 0.0232 | 0.9002 ± 0.0030 | 1.6241 ± 0.0318 | 2.5696 ± 0.1661 | 1.2307 |
-| `JointTTA_OTScore` | torchregress | 0.6235 ± 0.0232 | 0.9022 ± 0.0028 | 1.6304 ± 0.0360 | 2.5696 ± 0.1664 | 1.4786 |
-| `SemiConformal` | torchregress | 0.6235 ± 0.0232 | 0.9011 ± 0.0037 | 1.6322 ± 0.0590 | 2.5442 ± 0.1796 | 1.2112 |
-| `ShiftFactoredTransport` | torchregress | **0.6038 ± 0.0264** | 0.9513 ± 0.0077 | 2.0840 ± 0.1637 | 2.6465 ± 0.2157 | 1.5431 |
-| `ShiftFactoredTransport+Conformal` | torchregress | 0.6236 ± 0.0232 | 0.9447 ± 0.0031 | 2.0540 ± 0.0636 | 2.6649 ± 0.1572 | 1.2418 |
-| `ShiftInflator` | torchregress | 0.6038 ± 0.0264 | 0.9838 ± 0.0025 | 3.4942 ± 0.2695 | 3.6938 ± 0.3705 | 1.5729 |
-| `Static` | torchregress | 0.6038 ± 0.0264 | 0.9104 ± 0.0062 | 1.6752 ± 0.1270 | **2.5117 ± 0.1837** | 1.9720 |
-| `SubspaceAlign` | torchregress | 0.6211 ± 0.0216 | 0.8991 ± 0.0102 | 1.7381 ± 0.0380 | 2.6533 ± 0.2097 | 1.7272 |
+| `FeatureNorm` | torchregress | 0.6688 ± 0.0140 | 0.8933 ± 0.0134 | 1.8675 ± 0.0840 | 2.7735 ± 0.1355 | 6.6454 |
+| `JointTTA` | torchregress | 0.6233 ± 0.0236 | 0.8993 ± 0.0052 | 1.6226 ± 0.0546 | 2.5879 ± 0.1449 | 5.3245 |
+| `JointTTA_LabelShiftEM` | torchregress | 0.6233 ± 0.0236 | 0.8998 ± 0.0032 | 1.6264 ± 0.0283 | 2.5862 ± 0.1452 | 5.2291 |
+| `JointTTA_OTScore` | torchregress | 0.6233 ± 0.0236 | 0.9013 ± 0.0040 | 1.6253 ± 0.0443 | 2.5869 ± 0.1447 | 5.4511 |
+| `SemiConformal` | torchregress | 0.6233 ± 0.0236 | 0.9009 ± 0.0038 | 1.6334 ± 0.0572 | 2.5610 ± 0.1644 | 5.4652 |
+| `ShiftFactoredTransport` | torchregress | **0.6096 ± 0.0173** | 0.9529 ± 0.0051 | 2.1134 ± 0.1229 | 2.6595 ± 0.1981 | 6.5790 |
+| `ShiftFactoredTransport+Conformal` | torchregress | 0.6233 ± 0.0236 | 0.9420 ± 0.0050 | 2.0355 ± 0.0949 | 2.6700 ± 0.1496 | 5.0306 |
+| `ShiftInflator` | torchregress | 0.6097 ± 0.0173 | 0.9851 ± 0.0027 | 3.5394 ± 0.2083 | 3.7388 ± 0.3123 | 6.4228 |
+| `Static` | torchregress | 0.6097 ± 0.0173 | 0.9133 ± 0.0013 | 1.7004 ± 0.0928 | **2.5203 ± 0.1724** | 7.0280 |
+| `SubspaceAlign` | torchregress | 0.6303 ± 0.0270 | 0.8998 ± 0.0091 | 1.7457 ± 0.0386 | 2.6629 ± 0.2027 | 6.3632 |
 
 ##### test_time_adaptation / diabetes
 
 | Method | Library | RMSE | Coverage | Width | IntervalScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `FeatureNorm` | torchregress | 57.4755 ± 3.8166 † | 0.7794 ± 0.0528 | 136.4 ± 5.6 | 270.0 ± 32.5 | 0.1802 |
-| `JointTTA` | torchregress | 54.3521 ± 5.7887 † | 0.8847 ± 0.0347 | 183.3 ± 22.0 | 228.5 ± 16.2 | 0.1466 |
-| `JointTTA_LabelShiftEM` | torchregress | 54.3521 ± 5.7887 † | 0.9073 ± 0.0304 | 200.5 ± 6.3 | 228.2 ± 15.8 | 0.1454 |
-| `JointTTA_OTScore` | torchregress | 54.3521 ± 5.7887 † | 0.9474 ± 0.0725 | 239.7 ± 39.8 | 259.1 ± 11.3 | 0.1454 |
-| `SemiConformal` | torchregress | 54.3521 ± 5.7887 † | 0.9449 ± 0.0657 | 239.2 ± 37.3 | 257.9 ± 11.6 | 0.1403 |
-| `ShiftFactoredTransport` | torchregress | 53.5804 ± 6.9521 † | 0.8446 ± 0.0441 | 162.3 ± 14.6 | **216.7 ± 23.6** | 0.1788 |
-| `ShiftFactoredTransport+Conformal` | torchregress | 54.3495 ± 5.7917 † | 0.8446 ± 0.0157 | 158.0 ± 14.4 | 230.2 ± 16.1 | 0.1463 |
-| `ShiftInflator` | torchregress | **53.5779 ± 6.9450** † | 0.9950 ± 0.0043 | 272.0 ± 25.0 | 272.5 ± 24.8 | 0.1788 |
-| `Static` | torchregress | **53.5779 ± 6.9450** † | 0.7694 ± 0.0730 | 134.0 ± 12.1 | 239.3 ± 30.9 | 0.1906 |
-| `SubspaceAlign` | torchregress | 57.6317 ± 2.6251 | 0.7845 ± 0.0489 | 137.2 ± 4.0 | 270.4 ± 23.7 | 0.1828 |
+| `FeatureNorm` | torchregress | 57.6529 ± 3.8396 † | 0.7769 ± 0.0533 | 136.8 ± 5.1 | 271.5 ± 33.2 | 0.5941 |
+| `JointTTA` | torchregress | 54.4385 ± 5.7427 † | 0.8922 ± 0.0304 | 187.0 ± 15.6 | 226.5 ± 18.2 | 0.5003 |
+| `JointTTA_LabelShiftEM` | torchregress | 54.4385 ± 5.7427 † | 0.9148 ± 0.0386 | 202.9 ± 10.3 | 228.7 ± 15.4 | 0.5029 |
+| `JointTTA_OTScore` | torchregress | 54.4385 ± 5.7427 † | 0.9424 ± 0.0674 | 236.0 ± 36.0 | 255.8 ± 7.5 | 0.5005 |
+| `SemiConformal` | torchregress | 54.4385 ± 5.7427 † | 0.9398 ± 0.0597 | 235.5 ± 33.1 | 254.6 ± 7.2 | 0.4933 |
+| `ShiftFactoredTransport` | torchregress | 53.5793 ± 6.9526 † | 0.8446 ± 0.0441 | 162.8 ± 14.0 | **217.5 ± 22.9** | 0.5577 |
+| `ShiftFactoredTransport+Conformal` | torchregress | 54.4366 ± 5.7451 † | 0.8446 ± 0.0157 | 158.1 ± 14.4 | 228.9 ± 17.4 | 0.5011 |
+| `ShiftInflator` | torchregress | **53.5767 ± 6.9455** † | 0.9975 ± 0.0043 | 272.7 ± 24.0 | 273.1 ± 23.9 | 0.5507 |
+| `Static` | torchregress | **53.5767 ± 6.9455** † | 0.7769 ± 0.0639 | 134.4 ± 11.6 | 239.6 ± 30.9 | 0.7325 |
+| `SubspaceAlign` | torchregress | 57.8139 ± 2.6855 | 0.7895 ± 0.0493 | 137.5 ± 3.6 | 272.2 ± 24.7 | 0.5996 |
 
 ##### test_time_adaptation / folktables_income
 
 | Method | Library | RMSE | Coverage | Width | IntervalScore | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `FeatureNorm` | torchregress | **75944.6 ± 6260.5** † | 0.8337 ± 0.0554 | 3.066e+05 ± 2.971e+05 | 4.620e+05 ± 2.661e+05 | 6.3020 |
-| `JointTTA` | torchregress | 76395.9 ± 6401.8 † | 0.8802 ± 0.0087 | 1.831e+05 ± 2.012e+04 | 3.101e+05 ± 3.445e+04 | 5.2076 |
-| `JointTTA_LabelShiftEM` | torchregress | 76395.9 ± 6401.8 † | 0.8806 ± 0.0100 | 1.833e+05 ± 1.876e+04 | 3.101e+05 ± 3.399e+04 | 6.1575 |
-| `JointTTA_OTScore` | torchregress | 76395.9 ± 6401.8 † | 0.8795 ± 0.0084 | 1.828e+05 ± 2.039e+04 | **3.100e+05 ± 3.453e+04** | 5.3815 |
-| `SemiConformal` | torchregress | 76395.9 ± 6401.8 † | 0.8804 ± 0.0071 | 1.838e+05 ± 2.342e+04 | 3.102e+05 ± 3.556e+04 | 5.6632 |
-| `ShiftFactoredTransport` | torchregress | 76491.9 ± 5470.4 † | 0.9247 ± 0.0306 | 2.393e+09 ± 4.145e+09 | 2.393e+09 ± 4.145e+09 | 6.2451 |
-| `ShiftFactoredTransport+Conformal` | torchregress | 76418.3 ± 6437.3 † | 0.9087 ± 0.0220 | 1.945e+05 ± 1.347e+04 | 3.136e+05 ± 3.335e+04 | 5.1784 |
-| `ShiftInflator` | torchregress | 76384.1 ± 5405.5 † | 0.9588 ± 0.0209 | 5.983e+09 ± 1.036e+10 | 5.983e+09 ± 1.036e+10 | 6.4244 |
-| `Static` | torchregress | 76384.1 ± 5405.5 † | 0.8342 ± 0.0555 | 1.197e+09 ± 2.072e+09 | 1.197e+09 ± 2.072e+09 | 6.6654 |
-| `SubspaceAlign` | torchregress | 76704.8 ± 5701.8 † | 0.8298 ± 0.0597 | 1.221e+09 ± 2.114e+09 | 1.221e+09 ± 2.114e+09 | 6.2419 |
+| `FeatureNorm` | torchregress | **76201.5 ± 6072.2** † | 0.8284 ± 0.0526 | 3.044e+05 ± 2.989e+05 | 4.670e+05 ± 2.609e+05 | 26.3435 |
+| `JointTTA` | torchregress | 76815.6 ± 6081.3 † | 0.8841 ± 0.0140 | 1.849e+05 ± 1.823e+04 | 3.130e+05 ± 3.107e+04 | 20.9733 |
+| `JointTTA_LabelShiftEM` | torchregress | 76815.6 ± 6081.3 † | 0.8852 ± 0.0165 | 1.854e+05 ± 1.660e+04 | 3.133e+05 ± 3.048e+04 | 21.1412 |
+| `JointTTA_OTScore` | torchregress | 76815.6 ± 6081.3 † | 0.8833 ± 0.0141 | 1.846e+05 ± 1.857e+04 | **3.130e+05 ± 3.117e+04** | 21.4033 |
+| `SemiConformal` | torchregress | 76815.6 ± 6081.3 † | 0.8844 ± 0.0115 | 1.857e+05 ± 2.111e+04 | 3.132e+05 ± 3.207e+04 | 21.6359 |
+| `ShiftFactoredTransport` | torchregress | 76701.4 ± 5275.2 † | 0.9197 ± 0.0300 | 2.393e+09 ± 4.145e+09 | 2.393e+09 ± 4.145e+09 | 25.9114 |
+| `ShiftFactoredTransport+Conformal` | torchregress | 76847.4 ± 6109.2 † | 0.9062 ± 0.0185 | 1.905e+05 ± 1.456e+04 | 3.143e+05 ± 3.279e+04 | 20.8318 |
+| `ShiftInflator` | torchregress | 76599.2 ± 5201.6 † | 0.9543 ± 0.0200 | 5.983e+09 ± 1.036e+10 | 5.983e+09 ± 1.036e+10 | 26.7852 |
+| `Static` | torchregress | 76599.2 ± 5201.6 † | 0.8243 ± 0.0535 | 1.197e+09 ± 2.072e+09 | 1.197e+09 ± 2.072e+09 | 27.0484 |
+| `SubspaceAlign` | torchregress | 76883.5 ± 5529.8 † | 0.8206 ± 0.0561 | 1.221e+09 ± 2.114e+09 | 1.221e+09 ± 2.114e+09 | 26.1009 |
 
 #### tweedie (tabular)
 
@@ -6132,14 +6051,14 @@ Group `tabular`; 2 dataset(s). Columns: RMSE ↓, R2 ↑, TweedieDeviance ↓, Z
 
 | Method | Library | RMSE | R2 | TweedieDeviance | ZeroFracPred | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `BoxCox` | torchregress | 0.2429 ± 0.0000 | -0.0508 ± 0.0002 | non-finite (3) | 0.9973 ± 0.0003 | 6.2291 |
-| `CompoundPoisson` | torchregress | 0.9905 ± 0.6059 † | -20.8309 ± 17.6735 | 187.2 ± 211.0 | 0.3498 ± 0.0189 | 9.8061 |
-| `CompoundPoisson_Linear` | torchregress | **0.2361 ± 0.0000** | **0.0072 ± 0.0000** | **1.4131 ± 0.0000** | 0.0000 ± 0.0000 | 0.0236 |
-| `LogT` | torchregress | 0.2429 ± 0.0000 | -0.0508 ± 0.0002 | non-finite (3) | 0.9973 ± 0.0003 | 6.2380 |
-| `SqrtT` | torchregress | 0.2455 ± 0.0020 | -0.0737 ± 0.0172 | non-finite (3) | 0.3036 ± 0.0067 | 6.1235 |
-| `Tweedie` | torchregress | 0.9905 ± 0.6059 † | -20.8309 ± 17.6735 | 187.2 ± 211.0 | 0.3498 ± 0.0189 | 10.2344 |
-| `Tweedie_Linear` | torchregress | **0.2361 ± 0.0000** | **0.0072 ± 0.0000** | **1.4131 ± 0.0000** | 0.0000 ± 0.0000 | 0.0307 |
-| `statsmodels_GLM` | statsmodels | 0.2361 ± 0.0000 | 0.0071 ± 0.0000 | 1.4133 ± 0.0000 | 0.0000 ± 0.0000 | 0.4928 |
+| `BoxCox` | torchregress | 0.2429 ± 0.0000 | -0.0508 ± 0.0002 | non-finite (3) | 0.9968 ± 0.0006 | 23.8155 |
+| `CompoundPoisson` | torchregress | 0.2369 ± 0.0002 | 2.188e-04 ± 1.631e-03 | 1.4417 ± 0.0224 | 2.222e-04 ± 3.849e-04 | 6.1226 |
+| `CompoundPoisson_Linear` | torchregress | **0.2361 ± 0.0000** | **0.0072 ± 0.0000** | **1.4131 ± 0.0000** | 0.0000 ± 0.0000 | 0.0440 |
+| `LogT` | torchregress | 0.2429 ± 0.0000 | -0.0508 ± 0.0002 | non-finite (3) | 0.9968 ± 0.0006 | 24.4401 |
+| `SqrtT` | torchregress | 0.2456 ± 0.0020 | -0.0740 ± 0.0172 | non-finite (3) | 0.2966 ± 0.0117 | 24.1277 |
+| `Tweedie` | torchregress | 0.2369 ± 0.0002 | 2.188e-04 ± 1.631e-03 | 1.4417 ± 0.0224 | 2.222e-04 ± 3.849e-04 | 6.1732 |
+| `Tweedie_Linear` | torchregress | **0.2361 ± 0.0000** | **0.0072 ± 0.0000** | **1.4131 ± 0.0000** | 0.0000 ± 0.0000 | 0.1908 |
+| `statsmodels_GLM` | statsmodels | 0.2361 ± 0.0000 | 0.0071 ± 0.0000 | 1.4133 ± 0.0000 | 0.0000 ± 0.0000 | 0.5293 |
 
 Failed / skipped:
 
@@ -6151,14 +6070,14 @@ Failed / skipped:
 
 | Method | Library | RMSE | R2 | TweedieDeviance | ZeroFracPred | train_s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `BoxCox` | torchregress | 1.2690 ± 0.0224 | 0.4060 ± 0.0211 | 2.3987 ± 0.1515 | 0.0000 ± 0.0000 | 0.7694 |
-| `CompoundPoisson` | torchregress | 1.1621 ± 0.0099 | 0.5020 ± 0.0085 | 0.7452 ± 0.0099 | 0.0000 ± 0.0000 | 0.8856 |
-| `CompoundPoisson_Linear` | torchregress | 1.1060 ± 0.0000 | 0.5489 ± 0.0000 | **0.7174 ± 0.0000** | 0.0000 ± 0.0000 | 0.0064 |
-| `LogT` | torchregress | 1.2690 ± 0.0224 | 0.4060 ± 0.0211 | 2.3987 ± 0.1515 | 0.0000 ± 0.0000 | 0.7626 |
-| `SqrtT` | torchregress | 1.1654 ± 0.0083 | 0.4991 ± 0.0071 | 0.8198 ± 0.0186 | 0.0000 ± 0.0000 | 0.7713 |
-| `Tweedie` | torchregress | 1.1621 ± 0.0099 | 0.5020 ± 0.0085 | 0.7452 ± 0.0099 | 0.0000 ± 0.0000 | 0.8999 |
-| `Tweedie_Linear` | torchregress | 1.1060 ± 0.0000 | 0.5489 ± 0.0000 | **0.7174 ± 0.0000** | 0.0000 ± 0.0000 | 0.0146 |
-| `statsmodels_GLM` | statsmodels | **1.1060 ± 0.0000** | **0.5489 ± 0.0000** | 0.7174 ± 0.0000 | 0.0000 ± 0.0000 | 0.0087 |
+| `BoxCox` | torchregress | 1.2631 ± 0.0126 | 0.4117 ± 0.0117 | 2.3327 ± 0.0584 | 0.0000 ± 0.0000 | 2.5475 |
+| `CompoundPoisson` | torchregress | 1.1557 ± 0.0036 | 0.5075 ± 0.0031 | 0.7387 ± 0.0020 | 0.0000 ± 0.0000 | 2.4411 |
+| `CompoundPoisson_Linear` | torchregress | 1.1060 ± 0.0000 | 0.5489 ± 0.0000 | **0.7174 ± 0.0000** | 0.0000 ± 0.0000 | 0.0121 |
+| `LogT` | torchregress | 1.2631 ± 0.0126 | 0.4117 ± 0.0117 | 2.3327 ± 0.0584 | 0.0000 ± 0.0000 | 2.5337 |
+| `SqrtT` | torchregress | 1.1717 ± 0.0186 | 0.4937 ± 0.0161 | 0.8291 ± 0.0280 | 0.0000 ± 0.0000 | 2.6480 |
+| `Tweedie` | torchregress | 1.1557 ± 0.0036 | 0.5075 ± 0.0031 | 0.7387 ± 0.0020 | 0.0000 ± 0.0000 | 2.3237 |
+| `Tweedie_Linear` | torchregress | 1.1060 ± 0.0000 | 0.5489 ± 0.0000 | **0.7174 ± 0.0000** | 0.0000 ± 0.0000 | 0.1291 |
+| `statsmodels_GLM` | statsmodels | **1.1060 ± 0.0000** | **0.5489 ± 0.0000** | 0.7174 ± 0.0000 | 0.0000 ± 0.0000 | 0.0122 |
 
 Failed / skipped:
 
@@ -6915,11 +6834,11 @@ Group `tabular_big`; 2 dataset(s). Columns: NLL ↓, RMSE ↓, CRPS ↓ (↓ low
 
 ## Seed spread
 
-Cells marked † have a relative standard deviation (std / |mean|) above 5% on the suite's seed-spread metric: rank them with error bars only. 1847 cells flagged.
+Cells marked † have a relative standard deviation (std / |mean|) above 5% on the suite's seed-spread metric: rank them with error bars only. 1848 cells flagged.
 
 | Suite | Flagged cells |
 | --- | ---: |
-| `age_regression` | 45 |
+| `age_regression` | 48 |
 | `bayesian_linear` | 5 |
 | `causal` | 1 |
 | `cell_counting` | 18 |
@@ -6936,24 +6855,24 @@ Cells marked † have a relative standard deviation (std / |mean|) above 5% on t
 | `fm_multitarget` | 26 |
 | `fm_uq_scenarios` | 1298 |
 | `image_conformal` | 6 |
-| `image_density_parity` | 13 |
+| `image_density_parity` | 14 |
 | `image_ensembles_uq` | 1 |
 | `image_robust` | 10 |
 | `keypoint_regression` | 1 |
+| `label_shift` | 2 |
 | `likelihoods` | 21 |
 | `missing_data` | 4 |
-| `multivariate_intervals` | 22 |
+| `multivariate_intervals` | 18 |
 | `ordinal` | 2 |
 | `orthogonal_inference` | 13 |
 | `pzflow_parity` | 3 |
 | `r2c_conformal` | 3 |
 | `robust_regression` | 6 |
-| `sbi_parity` | 9 |
+| `sbi_parity` | 10 |
 | `semi_supervised` | 12 |
 | `sklearn_baselines` | 6 |
 | `stress_matrix` | 4 |
 | `test_time_adaptation` | 19 |
-| `tweedie` | 2 |
 | `uq` | 2 |
 | `uq_layer` | 46 |
 
@@ -6989,17 +6908,14 @@ Largest 25:
 
 ## Appendix A: failure and skip ledger
 
-39 failed and 99 skipped rows (dataset (seeds)).
+20 failed and 99 skipped rows (dataset (seeds)).
 
 | Status | Suite | Method | Dataset (seeds) | Rows | Reason |
 | --- | --- | --- | --- | ---: | --- |
-| failed | `age_regression` | `CNN+RankNContrast` | ixi_brainage (0,1,2); ixi_brainage_tiny (0,1,2); synthetic_image_regression (0,1,2); udacity_steering (0,1,2); udacity_steering_tiny (0,1,2) | 15 | failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso… |
-| failed | `image_density_parity` | `sbi_zuko_NSF` | synthetic_image_keypoint (0,1,2) | 3 | failed: RuntimeError: NVML_SUCCESS == r INTERNAL ASSERT FAILED at "/home/conda/feedstock_root/build_artifacts/libtorch_… |
-| failed | `keypoint_regression` | `CNN+GaussianNLL` | synthetic_image_keypoint (0,1,2) | 3 | failed: TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory… |
-| failed | `keypoint_regression` | `ResNet+GaussianNLL` | synthetic_image_keypoint (0,1,2) | 3 | failed: TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory… |
+| failed | `age_regression` | `CNN+RankNContrast` | ixi_brainage (2); ixi_brainage_tiny (2); synthetic_image_regression (2); udacity_steering (2); udacity_steering_tiny (2) | 5 | failed: RuntimeError: Expected all tensors to be on the same device, but got b is on cuda:0, different from other tenso… |
 | failed | `label_shift` | `TT_BBSE` | folktables_income (1) | 1 | failed: ValueError: confusion matrix ill-conditioned (cond=1.24e+17) |
+| failed | `label_shift` | `TT_BBSE` | folktables_income (0) | 1 | failed: ValueError: confusion matrix ill-conditioned (cond=1.46e+17) |
 | failed | `label_shift` | `TT_BBSE` | folktables_income (2) | 1 | failed: ValueError: confusion matrix ill-conditioned (cond=2.39e+16) |
-| failed | `label_shift` | `TT_BBSE` | folktables_income (0) | 1 | failed: ValueError: confusion matrix ill-conditioned (cond=5.13e+16) |
 | failed | `pzflow_parity` | `normflows_NSF` | energy_efficiency (0,1,2); pzflow_galaxies (0,1,2); synthetic_cond_gaussian (0,1,2); synthetic_cond_nongaussian (0,1,2) | 12 | known-bad: normflows_NSF pzflow_parity #broadcast error on 1-D tabular inputs |
 | skipped | `eiv` | `TLS` | synthetic_eiv_nonlinear_veryhighnoise (0,1,2) | 3 | skipped: TLS ill-conditioned: \|V[-1]\|=0.00197, sigma_min([X\|y])/sigma_min(X)=0.9999 (collinear features / noise-domi… |
 | skipped | `eiv` | `TLS` | photoz_eiv (0,1,2) | 3 | skipped: TLS ill-conditioned: \|V[-1]\|=0.0113, sigma_min([X\|y])/sigma_min(X)=0.9970 (collinear features / noise-domin… |
@@ -7053,6 +6969,7 @@ First non-empty note per (suite, method) among ok rows, truncated.
 | `CNN+NormalizingFlow` | torchregress | 4-layer CNN context + zuko NSF normalizing flow |
 | `CNN+ObservedStdNLL` | torchregress | 4-layer CNN + NoisyTarget NLL on observed rater std (APPA-REAL aleatoric gold) |
 | `CNN+PoissonGaussian` | torchregress | 4-layer CNN + Poisson-Gaussian imaging-noise NLL (log-lambda head, point) |
+| `CNN+RankNContrast` | torchregress | CNN encoder trained with RankNContrastLoss (32-d features), then a least-squares linear probe (point prediction) |
 | `CNN+SLS` | torchregress | 4-layer CNN context + SLS min-volume level-set regions (tau=0.9) |
 | `CNN+StudentT` | torchregress | 4-layer CNN + Student-t NLL (heavy-tailed) |
 | `ResNet+Evidential` | torchregress | ResNet18 backbone + NIG evidential regression |
@@ -7495,10 +7412,12 @@ First non-empty note per (suite, method) among ok rows, truncated.
 
 | Method | Library | Description |
 | --- | --- | --- |
+| `CNN+GaussianNLL` | torchregress | CNN + diagonal Gaussian NLL (2D outputs per dim) |
 | `CNN+LowRankGaussian` | torchregress | CNN + low-rank (r=1) + diag Gaussian (3D head, scalable MV) |
 | `CNN+MSE` | torchregress | CNN + MSE on (N,D) targets (point baseline) |
 | `CNN+MultivariateGaussian` | torchregress | CNN + full-covariance Gaussian via Cholesky params |
 | `CNN+NF` | torchregress | CNN context + zuko NSF flow on D-dim targets |
+| `ResNet+GaussianNLL` | torchregress | ResNet18 + diagonal Gaussian NLL |
 | `ResNet+LowRankGaussian` | torchregress | ResNet18 + low-rank (r=1) + diag Gaussian |
 | `ResNet+MultivariateGaussian` | torchregress | ResNet18 + full-covariance Gaussian |
 | `sklearn_RF` | scikit-learn | RandomForest on flattened pixels, multi-output (point only) |
