@@ -10,16 +10,13 @@ from suites.tabular.pz_challenge import PZChallengeSuite, _build_features
 def test_metadata() -> None:
     suite = PZChallengeSuite()
     assert suite.name == "pz_challenge"
-    assert suite.methods() == [
-        "MSE_MLP",
-        "GaussianNLL_MLP",
-        "MDN_K3",
-        "Quantile_MLP",
-        "NormalizingFlow",
-        "TabM_MSE",
-        "TabM_GaussianNLL",
-        "TabM_SplitCP",
-    ]
+    expected = {
+        "MSE_MLP", "GaussianNLL_MLP", "MDN_K3", "Quantile_MLP",
+        "NormalizingFlow", "TabM_MSE", "TabM_GaussianNLL", "TabM_SplitCP",
+        "SplitCP_MLP", "CQR_MLP", "MondrianCP_MLP", "Evidential",
+        "BetaNLL_MLP", "InputNoiseAug_MLP", "DensityWeighted_MLP", "BMC_MLP",
+    }
+    assert expected <= set(suite.methods())
     assert "pz_challenge_cardinal_10yr" in suite.supported_datasets
     assert suite.library_version("TabM_MSE")
 
@@ -70,7 +67,7 @@ def test_loader_and_smoke(tmp_path, monkeypatch) -> None:
         config=HarnessConfig(seed=0, epochs=2, smoke=True),
         splits=splits,
     )
-    assert len(rows) == 8
+    assert len(rows) == len(PZChallengeSuite().methods())
     for row in rows:
         assert "Notes" in row
         if "failed" not in str(row.get("Notes", "")):

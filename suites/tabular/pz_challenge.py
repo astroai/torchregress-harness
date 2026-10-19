@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from harness.core import set_harness_seed
@@ -47,8 +48,45 @@ _METHODS = [
     "TabM_MSE",
     "TabM_GaussianNLL",
     "TabM_SplitCP",
+    "SplitCP_MLP",
+    "CQR_MLP",
+    "MondrianCP_MLP",
+    "Evidential",
+    "BetaNLL_MLP",
+    "InputNoiseAug_MLP",
+    "DensityWeighted_MLP",
+    "BMC_MLP",
 ]
 _QUANTILES = (0.05, 0.16, 0.5, 0.84, 0.95)
+_ALPHA = 0.10
+
+
+def _split_train_cal(n: int, seed: int, frac: float = 0.15) -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(n)
+    n_cal = max(50, int(round(frac * n)))
+    return np.sort(idx[n_cal:]), np.sort(idx[:n_cal])
+
+
+def _i_band(raw: np.ndarray) -> np.ndarray:
+    i = np.asarray(raw, dtype=np.float64)[:, 3]
+    return np.where(np.isfinite(i), i, 30.0)
+
+
+def _feature_noise(raw: np.ndarray) -> np.ndarray:
+    """Per-feature Gaussian noise scale propagated from band magnitude errors."""
+    raw = np.asarray(raw, dtype=np.float64)
+    errs = raw[:, _BANDS:]
+    band = np.nanmedian(np.where(np.isfinite(errs) & (errs > 0), errs, np.nan), axis=0)
+    band = np.where(np.isfinite(band), band, 0.05)
+    sigma = np.empty(_N_FEATURES, dtype=np.float64)
+    sigma[:9] = band
+    sigma[9:18] = 0.1 * band
+    sigma[18:27] = 0.01
+    sigma[27:35] = 2.0 * np.mean(band)
+    sigma[35] = band[3]
+    sigma[36] = 0.01
+    return np.clip(sigma, 0.01, 0.3).astype(np.float32)
 
 
 def _build_features(raw: np.ndarray) -> np.ndarray:
@@ -159,6 +197,12 @@ class PZChallengeSuite(HarnessRunner):
             "pz_challenge_taskset3_flagship_10yr",
             "pz_challenge_taskset4_cardinal_10yr",
             "pz_challenge_taskset4_flagship_10yr",
+            "pz_challenge_taskset2_cardinal_1yr",
+            "pz_challenge_taskset2_flagship_1yr",
+            "pz_challenge_taskset3_cardinal_1yr",
+            "pz_challenge_taskset3_flagship_1yr",
+            "pz_challenge_taskset4_cardinal_1yr",
+            "pz_challenge_taskset4_flagship_1yr",
         ]
 
     def methods(self) -> list[str]:
@@ -188,6 +232,14 @@ class PZChallengeSuite(HarnessRunner):
             "TabM_MSE": "official TabM (k=8, 2 blocks, width 256), point MSE",
             "TabM_GaussianNLL": "TabM with mean/logvar heads, Gaussian NLL",
             "TabM_SplitCP": "TabM point predictions + split-conformal residual intervals",
+            "SplitCP_MLP": "point MLP + split-conformal absolute-residual intervals",
+            "CQR_MLP": "multi-quantile MLP + CQR calibration",
+            "MondrianCP_MLP": "split CP with Mondrian groups on i-band magnitude",
+            "Evidential": "NIG evidential MLP; Student-t predictive intervals",
+            "BetaNLL_MLP": "beta-NLL weighted Gaussian MLP",
+            "InputNoiseAug_MLP": "EIV-style input-noise augmentation from per-band magnitude errors",
+            "DensityWeighted_MLP": "label-density weighted MSE (imbalanced targets)",
+            "BMC_MLP": "noise-adaptive Balanced MSE (BMC) for imbalanced targets",
         }
         return notes.get(method, "")
 
@@ -265,6 +317,155 @@ class PZChallengeSuite(HarnessRunner):
             _train_one(model, loss_fn, X_t, y_t, config, loss_params=list(flow.parameters()))
             model.eval()
             return {"type": "flow", "model": model, "flow": loss_fn}
+        if method in {"SplitCP_MLP", "CQR_MLP", "MondrianCP_MLP"}:
+            from torchregress.losses import CQR as CQRCalibrator
+            from torchregress.losses import SplitConformal
+
+            tr, cal = _split_train_cal(len(X), int(config.seed))
+            X_tr, y_tr = X_t[tr], y_t[tr]
+            if method == "SplitCP_MLP":
+                model = _MLP(in_dim, hidden, 1).to(current_device())
+                _train_one(
+                    model,
+                    nn.MSELoss(),
+                    X_tr,
+                    y_tr,
+                    config,
+                    batch_size=max(1024, int(config.batch_size)),
+                )
+                model.eval()
+                with torch.no_grad():
+                    pred_cal = model(X_t[cal]).reshape(-1)
+                cp = SplitConformal(alpha=_ALPHA)
+                cp.calibrate(pred_cal, y_t[cal].reshape(-1))
+                return {"type": "split_cp_mlp", "model": model, "cp": cp}
+            if method == "CQR_MLP":
+                from torchregress.losses import MultiQuantileLoss
+
+                model = _MLP(in_dim, hidden, len(_QUANTILES)).to(current_device())
+                _train_one(
+                    model,
+                    MultiQuantileLoss(quantiles=_QUANTILES),
+                    X_tr,
+                    y_tr,
+                    config,
+                    batch_size=max(1024, int(config.batch_size)),
+                )
+                model.eval()
+                with torch.no_grad():
+                    q_cal = model(X_t[cal])[:, [0, -1]]
+                cqr = CQRCalibrator(alpha=_ALPHA)
+                cqr.calibrate(q_cal, y_t[cal].reshape(-1))
+                return {"type": "cqr", "model": model, "cqr": cqr}
+            # Mondrian split CP: groups are i-band magnitude quartiles.
+            model = _MLP(in_dim, hidden, 1).to(current_device())
+            _train_one(
+                model,
+                nn.MSELoss(),
+                X_tr,
+                y_tr,
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            raw_train = np.asarray(splits["X_train"], dtype=np.float64)
+            raw_cal = _i_band(raw_train[cal])
+            bins = np.quantile(_i_band(raw_train), [0.25, 0.5, 0.75])
+            groups_cal = np.digitize(raw_cal, bins)
+            with torch.no_grad():
+                pred_cal = model(X_t[cal]).reshape(-1)
+            cp = SplitConformal(alpha=_ALPHA)
+            cp.calibrate(
+                pred_cal,
+                y_t[cal].reshape(-1),
+                groups=torch.as_tensor(groups_cal, device=current_device()),
+            )
+            return {"type": "mondrian", "model": model, "cp": cp, "bins": bins}
+        if method == "Evidential":
+            from torchregress.losses import EvidentialRegressionLoss
+
+            loss_fn = EvidentialRegressionLoss()
+            model = _MLP(in_dim, hidden, 4).to(current_device())
+            _train_one(
+                model,
+                loss_fn,
+                X_t,
+                y_t,
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            return {"type": "evidential", "model": model, "loss_fn": loss_fn}
+        if method == "BetaNLL_MLP":
+            from torchregress.losses import BetaNLLLoss
+
+            model = _MLP(in_dim, hidden, 2).to(current_device())
+            _train_one(
+                model,
+                BetaNLLLoss(beta=0.5),
+                X_t,
+                y_t,
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            return {"type": "gaussian", "model": model}
+        if method == "InputNoiseAug_MLP":
+            from torchregress.losses import InputNoiseAugmentationLoss, WeightedMSELoss
+
+            model = _MLP(in_dim, hidden, 1).to(current_device())
+            sigma = _feature_noise(np.asarray(splits["X_train"], dtype=np.float64))
+            sigma = sigma / np.maximum(np.asarray(scaler.std).reshape(-1), 1e-6)
+            loss_fn = InputNoiseAugmentationLoss(
+                model,
+                WeightedMSELoss(),
+                sigma_x=torch.as_tensor(sigma, device=current_device()),
+                n_samples=4,
+            )
+            opt = torch.optim.Adam(model.parameters(), lr=config.lr)
+            bs = min(max(1024, int(config.batch_size)), len(X_t))
+            for _ in range(int(config.epochs)):
+                perm = torch.randperm(len(X_t), device=current_device())
+                for start in range(0, len(X_t), bs):
+                    idx = perm[start : start + bs]
+                    opt.zero_grad(set_to_none=True)
+                    loss = loss_fn(X_t[idx], y_t[idx])
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            return {"type": "point", "model": model}
+        if method == "DensityWeighted_MLP":
+            from torchregress.losses import DensityWeightedLoss
+
+            loss_fn = DensityWeightedLoss(base_loss="mse")
+            loss_fn.fit_density(y_t.detach().cpu())
+            model = _MLP(in_dim, hidden, 1).to(current_device())
+            _train_one(
+                model,
+                loss_fn,
+                X_t,
+                y_t,
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            return {"type": "point", "model": model}
+        if method == "BMC_MLP":
+            from torchregress.losses import BalancedMSEBMC
+
+            sigma_bmc = max(0.05, 0.15 * float(y_t.detach().std().clamp_min(1e-6)))
+            loss_fn = BalancedMSEBMC(sigma=sigma_bmc).fit(y_t.detach().cpu())
+            model = _MLP(in_dim, hidden, 1).to(current_device())
+            _train_one(
+                model,
+                loss_fn,
+                X_t,
+                y_t,
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            return {"type": "point", "model": model}
         if method in {"TabM_MSE", "TabM_GaussianNLL", "TabM_SplitCP"}:
             nll = method == "TabM_GaussianNLL"
             model = _tabm_model(in_dim, d_out=2 if nll else 1).to(current_device())
@@ -297,6 +498,7 @@ class PZChallengeSuite(HarnessRunner):
         self, method: str, model_state: dict[str, Any], X_test: np.ndarray, config: HarnessConfig
     ) -> dict[str, np.ndarray]:
         feats = _build_features(X_test)
+        X_test_raw = X_test
         # Feature scaler is fitted per method in fit(); recompute from the
         # training split is impossible here, so use the robust global column
         # normalization stored on the state.
@@ -346,6 +548,56 @@ class PZChallengeSuite(HarnessRunner):
                 pred = model(X_t).mean(dim=1).reshape(-1).cpu().numpy()
             q = float(model_state["q"])
             return {"y_pred": pred, "lower": pred - q, "upper": pred + q}
+        if kind == "split_cp_mlp":
+            with torch.no_grad():
+                pred = model(X_t).reshape(-1)
+            lo, hi = model_state["cp"].predict_interval(pred)
+            return {
+                "y_pred": pred.cpu().numpy(),
+                "lower": lo.cpu().numpy(),
+                "upper": hi.cpu().numpy(),
+            }
+        if kind == "cqr":
+            with torch.no_grad():
+                q = model(X_t)
+            lo, hi = model_state["cqr"].predict_interval(q[:, [0, -1]])
+            return {
+                "y_pred": q[:, 2].cpu().numpy(),
+                "lower": lo.cpu().numpy(),
+                "upper": hi.cpu().numpy(),
+            }
+        if kind == "mondrian":
+            with torch.no_grad():
+                pred = model(X_t).reshape(-1)
+            raw_test = np.asarray(X_test_raw)
+            groups = np.digitize(_i_band(raw_test), model_state["bins"])
+            lo, hi = model_state["cp"].predict_interval(
+                pred, groups=torch.as_tensor(groups, device=current_device())
+            )
+            return {
+                "y_pred": pred.cpu().numpy(),
+                "lower": lo.cpu().numpy(),
+                "upper": hi.cpu().numpy(),
+            }
+        if kind == "evidential":
+            loss_fn = model_state["loss_fn"]
+            with torch.no_grad():
+                raw = model(X_t)
+                gamma = raw[:, 0:1]
+                nu = F.softplus(raw[:, 1:2]) + 0.01
+                alpha = F.softplus(raw[:, 2:3]) + 1.01
+                beta = F.softplus(raw[:, 3:4]) + 0.01
+                params = torch.cat([gamma, nu, alpha, beta], dim=1)
+                lo, hi = loss_fn.predict_interval(params, confidence=0.90)
+                mean = gamma.reshape(-1).cpu().numpy()
+                std = torch.sqrt(beta.reshape(-1) / (alpha.reshape(-1) - 1.0))
+            return {
+                "y_pred": mean,
+                "mean": mean,
+                "std": std.cpu().numpy(),
+                "lower": lo.reshape(-1).cpu().numpy(),
+                "upper": hi.reshape(-1).cpu().numpy(),
+            }
         if kind == "quantile":
             with torch.no_grad():
                 pred = model(X_t).cpu().numpy()
@@ -413,4 +665,23 @@ class PZChallengeSuite(HarnessRunner):
         metrics["SigmaNMAD"] = float(1.4826 * np.median(np.abs(delta - med)))
         metrics["OutlierFraction15"] = float(np.mean(np.abs(delta) > 0.15))
         metrics["BiasZ"] = float(med)
+        if "quantile_values" in pred and "quantile_levels" in pred:
+            qv = np.asarray(pred["quantile_values"], dtype=np.float64)
+            levels = np.asarray(pred["quantile_levels"], dtype=np.float64)
+            i16 = int(np.argmin(np.abs(levels - 0.16)))
+            i84 = int(np.argmin(np.abs(levels - 0.84)))
+            lo68, hi68 = qv[:, i16], qv[:, i84]
+            metrics["Coverage68"] = float(np.mean((z >= lo68) & (z <= hi68)))
+            metrics["Width68"] = float(np.mean(hi68 - lo68))
+        elif "samples" in pred:
+            sm = np.asarray(pred["samples"], dtype=np.float64)
+            lo68, hi68 = np.quantile(sm, 0.16, axis=1), np.quantile(sm, 0.84, axis=1)
+            metrics["Coverage68"] = float(np.mean((z >= lo68) & (z <= hi68)))
+            metrics["Width68"] = float(np.mean(hi68 - lo68))
+        elif "mean" in pred and "std" in pred:
+            m = np.asarray(pred["mean"], dtype=np.float64)
+            sd = np.asarray(pred["std"], dtype=np.float64)
+            z68 = 0.994457883209753
+            metrics["Coverage68"] = float(np.mean(np.abs(z - m) <= z68 * sd))
+            metrics["Width68"] = float(np.mean(2.0 * z68 * sd))
         return metrics
