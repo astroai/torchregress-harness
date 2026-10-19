@@ -349,6 +349,9 @@ class PZChallengeSuite(HarnessRunner):
         if kind == "quantile":
             with torch.no_grad():
                 pred = model(X_t).cpu().numpy()
+            # Independent quantile heads can cross on some rows; enforce the
+            # monotone quantile function before forming the 5/95% interval.
+            pred = np.sort(pred, axis=1)
             levels = model_state["levels"]
             mid = int(np.argmin(np.abs(levels - 0.5)))
             return {
