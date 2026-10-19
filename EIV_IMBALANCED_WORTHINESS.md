@@ -13,7 +13,7 @@ not only the noisy-X RMSE, is the decision metric.
 
 | setting | best measured | MSE baseline | what to use |
 |---|---:|---:|---|
-| linear, moderate noise | TLS/ODR | 0.249 | `TLS`/`Science ODR` or `TLS_Init+FunctionalEIV`; `RC+GaussianNLL` for uncertainty |
+| linear, moderate noise | TLS/ODR | 0.249 | `TLS`/`SciPy ODR` or `TLS_Init+FunctionalEIV`; `RC+GaussianNLL` for uncertainty |
 | linear, high noise | `EnsembleEIV` 0.780 | 0.794 | `EnsembleEIV`, `RC`, or `MSE_NoisyPredict` |
 | linear, very high noise | `EnsembleEIV` 0.974 | 0.994 | `EnsembleEIV`; EIV functional/structural still help attenuation but not RMSE |
 | nonlinear | `InputNoiseMDN` 0.824 | 0.843 | input-noise MC / MDN / binned-PDF; do **not** use linear TLS/ODR |
