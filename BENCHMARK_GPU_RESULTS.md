@@ -377,13 +377,14 @@ The hung fleet jobs were relaunched with a bounded `JOB_TIMEOUT` (45–90 min),
 `JOB_RETRIES=1` and a retry delay. The release script now retries each job once
 and continues after a timeout instead of blocking its shard.
 
-- **EIV run `release_20261018_1746`** — 10/12 completed: all six synthetic
-  `eiv` designs, all three `eiv_estimators` designs and `flow_eiv`.
-  `photoz_eiv`/`galaxiesml_eiv` were relaunched separately
-  (`release_20261018_2203`). Headline: TLS/ODR win the low-noise linear
-  designs; at high noise `EnsembleEIV` is best; on nonlinear designs the linear
-  EIV losses are not appropriate and input-noise MC/MDN are stronger. Full
-  recommendations: [`EIV_IMBALANCED_WORTHINESS.md`](EIV_IMBALANCED_WORTHINESS.md).
+- **EIV run `release_20261018_1746`** — all six synthetic `eiv` designs, all
+  three `eiv_estimators` designs and `flow_eiv` completed. `photoz_eiv`
+  completed in the relaunch (`release_20261018_2203`): `NoiseAware` wins
+  (RMSE 0.063) over MSE 0.124 and the classic EIV/ODR/SIMEX variants, a useful
+  caution that real photometric noise is not a clean linear-EIV problem.
+  `galaxiesml_eiv` was still downloading its 3 GB HDF5 corpus and is not
+  claimed. Full recommendations:
+  [`EIV_IMBALANCED_WORTHINESS.md`](EIV_IMBALANCED_WORTHINESS.md).
 - **Image run `release_20261018_1747`** — 27/31 artifacts. The heavy NYU/KITTI
   and Shanghai crowd jobs now complete or return cleanly; all rows report
   device=cuda.
