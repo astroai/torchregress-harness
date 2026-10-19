@@ -73,6 +73,10 @@ class SplitMetadata(TypedDict, total=False):
     _pz_taskset: int
     _pz_simulation: str
     _pz_scenario: str
+    ra_train: np.ndarray
+    ra_test: np.ndarray
+    dec_train: np.ndarray
+    dec_test: np.ndarray
     _alpha: float
     _calibration_fraction: float
     _dense_output: bool
@@ -1098,13 +1102,16 @@ def _load_pz_challenge(
             axis=1,
         )
         z = np.asarray(f["redshift"][:], dtype=np.float64)
+        ra = np.asarray(f["ra"][:], dtype=np.float64)
+        dec = np.asarray(f["dec"][:], dtype=np.float64)
 
     keep = np.isfinite(z) & (z > 0.0) & (z < 7.0)
-    mags, errs, z = mags[keep], errs[keep], z[keep]
+    mags, errs, z, ra, dec = mags[keep], errs[keep], z[keep], ra[keep], dec[keep]
     rng = np.random.default_rng(seed)
     if n_samples < len(z):
         idx = np.sort(rng.choice(len(z), int(n_samples), replace=False))
         mags, errs, z = mags[idx], errs[idx], z[idx]
+        ra, dec = ra[idx], dec[idx]
 
     n = len(z)
     n_test = max(1, int(round(n * test_size)))
@@ -1120,6 +1127,10 @@ def _load_pz_challenge(
         "_pz_taskset": taskset,
         "_pz_simulation": simulation,
         "_pz_scenario": scenario,
+        "ra_train": ra[train_idx],
+        "ra_test": ra[test_idx],
+        "dec_train": dec[train_idx],
+        "dec_test": dec[test_idx],
     }
 
 
