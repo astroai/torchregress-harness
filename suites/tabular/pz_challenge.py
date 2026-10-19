@@ -111,7 +111,7 @@ def _train_tabm(
                 # [B, k, 2] -> independent Gaussian NLL per member.
                 b, k, _ = out.shape
                 mean = out[..., 0].reshape(-1)
-                logvar = out[..., 1].reshape(-1)
+                logvar = out[..., 1].reshape(-1).clamp(-20.0, 20.0)
                 target = y[idx].reshape(-1, 1).expand(-1, k).reshape(-1)
                 loss = 0.5 * (logvar + (target - mean).square() / logvar.exp()).mean()
             else:
@@ -321,7 +321,7 @@ class PZChallengeSuite(HarnessRunner):
             with torch.no_grad():
                 out = model(X_t)  # [N,k,2]
             mean = out[..., 0].mean(dim=1).cpu().numpy()
-            var = out[..., 1].exp().mean(dim=1).cpu().numpy()
+            var = out[..., 1].clamp(-20.0, 20.0).exp().mean(dim=1).cpu().numpy()
             std = np.sqrt(np.maximum(var, 1e-12))
             z90 = 1.6448536269514722
             return {
