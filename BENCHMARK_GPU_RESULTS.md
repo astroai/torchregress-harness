@@ -410,14 +410,14 @@ labels are not public), `device=cuda`, `EPOCHS=60`.
 | cardinal 1yr | MSE_MLP | 0.0415 | — | — | — | 0.0177 | 0.0031 |
 | cardinal 1yr | NormalizingFlow | 0.0399 | **−2.190** | **0.0166** | 0.855 | **0.0147** | 0.0021 |
 | cardinal 1yr | TabM_MSE | 0.0394 | — | — | — | 0.0159 | 0.0029 |
+| cardinal 1yr | TabM_GaussianNLL | 0.0504 | −2.142 | 0.0193 | 0.924 | 0.0159 | 0.0057 |
 | flagship 1yr | MSE_MLP | 0.0408 | — | — | — | 0.0196 | 0.0021 |
 | flagship 1yr | NormalizingFlow | 0.0401 | **−2.082** | **0.0187** | 0.867 | 0.0167 | 0.0021 |
 | flagship 1yr | TabM_MSE | **0.0400** | — | — | — | 0.0177 | 0.0023 |
 
-The TabM Gaussian-NLL row on cardinal 1yr hit numerical overflow
-(`log_variance` → NaN) in the first pass; the suite now clamps the log-variance
-to [−20, 20], and that row was rerun separately. No NaN row is reported as a
-result.
+The TabM Gaussian-NLL row on cardinal 1yr initially hit numerical overflow
+(`log_variance` → NaN); the suite now clamps the log-variance to [−20, 20], and
+the rerun reported the valid row above. No NaN row is reported as a result.
 
 The NSF gives the best point RMSE, NLL, CRPS and sigma_NMAD on both 10yr
 simulations, but costs ~45 min on 100k; TabM is ~30 s and nearly as accurate
