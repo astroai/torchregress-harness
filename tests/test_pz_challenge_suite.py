@@ -13,7 +13,7 @@ def test_metadata() -> None:
     expected = {
         "MSE_MLP", "GaussianNLL_MLP", "MDN_K3", "Quantile_MLP",
         "NormalizingFlow", "TabM_MSE", "TabM_GaussianNLL", "TabM_SplitCP",
-        "SplitCP_MLP", "CQR_MLP", "MondrianCP_MLP", "Evidential",
+        "SplitCP_MLP", "CQR_MLP", "MondrianCP_MLP", "CVPlus_MLP", "LocalCP_MLP", "NormalizedCP_MLP", "Evidential",
         "BetaNLL_MLP", "InputNoiseAug_MLP", "DensityWeighted_MLP", "BMC_MLP",
     }
     assert expected <= set(suite.methods())
@@ -59,6 +59,8 @@ def test_loader_and_smoke(tmp_path, monkeypatch) -> None:
             f[f"mag_{band}_{survey}"] = rng.normal(20 + i, 1, n)
             f[f"mag_{band}_{survey}_err"] = rng.uniform(0.02, 0.2, n)
         f["redshift"] = rng.uniform(0.01, 2.5, n)
+        f["ra"] = rng.uniform(0, 10, n)
+        f["dec"] = rng.uniform(-2, 2, n)
     monkeypatch.setenv("TORCHREGRESS_PZ_CHALLENGE_DIR", str(tmp_path))
     splits = load_dataset("pz_challenge_cardinal_10yr", n_samples=180, seed=0)
     assert splits["X_train"].shape[1] == 18

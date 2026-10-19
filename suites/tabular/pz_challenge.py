@@ -51,6 +51,9 @@ _METHODS = [
     "SplitCP_MLP",
     "CQR_MLP",
     "MondrianCP_MLP",
+    "CVPlus_MLP",
+    "LocalCP_MLP",
+    "NormalizedCP_MLP",
     "Evidential",
     "BetaNLL_MLP",
     "InputNoiseAug_MLP",
@@ -235,6 +238,9 @@ class PZChallengeSuite(HarnessRunner):
             "SplitCP_MLP": "point MLP + split-conformal absolute-residual intervals",
             "CQR_MLP": "multi-quantile MLP + CQR calibration",
             "MondrianCP_MLP": "split CP with Mondrian groups on i-band magnitude",
+            "CVPlus_MLP": "3-fold CV+ (Barber et al. 2021) point MLP intervals",
+            "LocalCP_MLP": "locally weighted split CP (LVD) on MLP residuals",
+            "NormalizedCP_MLP": "split CP normalized by Gaussian predictive std",
             "Evidential": "NIG evidential MLP; Student-t predictive intervals",
             "BetaNLL_MLP": "beta-NLL weighted Gaussian MLP",
             "InputNoiseAug_MLP": "EIV-style input-noise augmentation from per-band magnitude errors",
@@ -381,6 +387,73 @@ class PZChallengeSuite(HarnessRunner):
                 groups=torch.as_tensor(groups_cal, device=current_device()),
             )
             return {"type": "mondrian", "model": model, "cp": cp, "bins": bins}
+        if method == "CVPlus_MLP":
+            from torchregress.losses import CVPlus
+
+            rng = np.random.default_rng(int(config.seed))
+            order = rng.permutation(len(X))
+            folds = np.array_split(order, 3)
+            models, oof = [], np.zeros(len(X), dtype=np.float64)
+            fold_ids = np.zeros(len(X), dtype=np.int64)
+            for fold, held in enumerate(folds):
+                keep_idx = np.setdiff1d(order, held, assume_unique=False)
+                model = _MLP(in_dim, hidden, 1).to(current_device())
+                _train_one(
+                    model,
+                    nn.MSELoss(),
+                    X_t[keep_idx],
+                    y_t[keep_idx],
+                    config,
+                    batch_size=max(1024, int(config.batch_size)),
+                )
+                model.eval()
+                with torch.no_grad():
+                    oof[held] = model(X_t[held]).reshape(-1).cpu().numpy()
+                fold_ids[held] = fold
+                models.append(model)
+            cp = CVPlus(alpha=_ALPHA)
+            cp.calibrate_ensemble(
+                torch.as_tensor(oof, dtype=torch.float32).reshape(-1, 1),
+                y_t.detach().cpu().reshape(-1, 1),
+                torch.as_tensor(fold_ids),
+            )
+            return {"type": "cvplus", "models": models, "cp": cp}
+        if method in {"LocalCP_MLP", "NormalizedCP_MLP"}:
+            from torchregress.losses import LocalConformal, SplitConformal
+
+            tr, cal = _split_train_cal(len(X), int(config.seed))
+            if method == "LocalCP_MLP":
+                model = _MLP(in_dim, hidden, 1).to(current_device())
+                _train_one(
+                    model,
+                    nn.MSELoss(),
+                    X_t[tr],
+                    y_t[tr],
+                    config,
+                    batch_size=max(1024, int(config.batch_size)),
+                )
+                model.eval()
+                with torch.no_grad():
+                    pred_cal = model(X_t[cal]).reshape(-1)
+                cp = LocalConformal(alpha=_ALPHA, bandwidth=2.0)
+                cp.calibrate(pred_cal, y_t[cal].reshape(-1), x=X_t[cal])
+                return {"type": "localcp", "model": model, "cp": cp}
+            from torchregress.losses import GaussianNLLLoss
+
+            model = _MLP(in_dim, hidden, 2).to(current_device())
+            _train_one(
+                model,
+                GaussianNLLLoss(),
+                X_t[tr],
+                y_t[tr],
+                config,
+                batch_size=max(1024, int(config.batch_size)),
+            )
+            model.eval()
+            mean, std = _gaussian_nll_predict(model, X[cal])
+            scores = np.abs(y_t[cal].reshape(-1).cpu().numpy() - mean) / np.maximum(std, 1e-6)
+            q = float(np.quantile(scores, 1.0 - _ALPHA, method="higher"))
+            return {"type": "normalizedcp", "model": model, "q": q}
         if method == "Evidential":
             from torchregress.losses import EvidentialRegressionLoss
 
@@ -509,7 +582,7 @@ class PZChallengeSuite(HarnessRunner):
             scaler = getattr(self, "_scaler", None)
         X = scaler(feats) if scaler is not None else feats
         X_t = torch.from_numpy(np.asarray(X, dtype=np.float32)).to(current_device())
-        model = model_state["model"]
+        model = model_state.get("model")
         kind = model_state["type"]
         if kind == "point":
             with torch.no_grad():
@@ -598,6 +671,37 @@ class PZChallengeSuite(HarnessRunner):
                 "lower": lo.reshape(-1).cpu().numpy(),
                 "upper": hi.reshape(-1).cpu().numpy(),
             }
+        if kind == "cvplus":
+            members = []
+            with torch.no_grad():
+                for model in model_state["models"]:
+                    members.append(model(X_t).reshape(-1))
+            stack = torch.stack(members, dim=0)
+            lo, hi = model_state["cp"].predict_interval(stack.unsqueeze(-1))
+            return {
+                "y_pred": stack.mean(dim=0).cpu().numpy(),
+                "lower": lo.reshape(-1).cpu().numpy(),
+                "upper": hi.reshape(-1).cpu().numpy(),
+            }
+        if kind == "localcp":
+            with torch.no_grad():
+                pred = model(X_t).reshape(-1)
+            lo, hi = model_state["cp"].predict_interval(pred, x=X_t)
+            return {
+                "y_pred": pred.cpu().numpy(),
+                "lower": lo.cpu().numpy(),
+                "upper": hi.cpu().numpy(),
+            }
+        if kind == "normalizedcp":
+            mean, std = _gaussian_nll_predict(model, np.asarray(X, dtype=np.float32))
+            q = float(model_state["q"])
+            return {
+                "y_pred": mean,
+                "mean": mean,
+                "std": std,
+                "lower": mean - q * std,
+                "upper": mean + q * std,
+            }
         if kind == "quantile":
             with torch.no_grad():
                 pred = model(X_t).cpu().numpy()
@@ -685,3 +789,28 @@ class PZChallengeSuite(HarnessRunner):
             metrics["Coverage68"] = float(np.mean(np.abs(z - m) <= z68 * sd))
             metrics["Width68"] = float(np.mean(2.0 * z68 * sd))
         return metrics
+
+
+class PZCPExtendedSuite(PZChallengeSuite):
+    """All torchregress conformal variants on every PZ challenge dataset."""
+
+    @property
+    def name(self) -> str:
+        return "pz_cp"
+
+    @property
+    def description(self) -> str:
+        return (
+            "PZ challenge conformal-prediction comparison: split, CQR, Mondrian, "
+            "CV+, local (LVD) and normalized CP across all challenge datasets."
+        )
+
+    def methods(self) -> list[str]:
+        return [
+            "SplitCP_MLP",
+            "CQR_MLP",
+            "MondrianCP_MLP",
+            "CVPlus_MLP",
+            "LocalCP_MLP",
+            "NormalizedCP_MLP",
+        ]
