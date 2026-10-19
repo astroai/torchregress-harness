@@ -153,6 +153,12 @@ class PZChallengeSuite(HarnessRunner):
             "pz_challenge_flagship_10yr",
             "pz_challenge_cardinal_1yr",
             "pz_challenge_flagship_1yr",
+            "pz_challenge_taskset2_cardinal_10yr",
+            "pz_challenge_taskset2_flagship_10yr",
+            "pz_challenge_taskset3_cardinal_10yr",
+            "pz_challenge_taskset3_flagship_10yr",
+            "pz_challenge_taskset4_cardinal_10yr",
+            "pz_challenge_taskset4_flagship_10yr",
         ]
 
     def methods(self) -> list[str]:

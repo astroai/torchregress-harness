@@ -6240,6 +6240,66 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             _load_pz_challenge, taskset=1, simulation="flagship", scenario="1yr"
         ),
     ),
+    "pz_challenge_taskset2_cardinal_10yr": DatasetInfo(
+        name="pz_challenge_taskset2_cardinal_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 2 (Cardinal, 10yr): spectroscopic-selection emulation.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=2, simulation="cardinal", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_taskset2_flagship_10yr": DatasetInfo(
+        name="pz_challenge_taskset2_flagship_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 2 (Flagship, 10yr): spectroscopic-selection emulation.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=2, simulation="flagship", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_taskset3_cardinal_10yr": DatasetInfo(
+        name="pz_challenge_taskset3_cardinal_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 3 (Cardinal, 10yr): narrowband/COSMOS selection.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=3, simulation="cardinal", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_taskset3_flagship_10yr": DatasetInfo(
+        name="pz_challenge_taskset3_flagship_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 3 (Flagship, 10yr): narrowband/COSMOS selection.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=3, simulation="flagship", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_taskset4_cardinal_10yr": DatasetInfo(
+        name="pz_challenge_taskset4_cardinal_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 4 (Cardinal, 10yr): blends + selection.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=4, simulation="cardinal", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_taskset4_flagship_10yr": DatasetInfo(
+        name="pz_challenge_taskset4_flagship_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 4 (Flagship, 10yr): blends + selection.",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=4, simulation="flagship", scenario="10yr"
+        ),
+    ),
     # --- Synthetic tabular ---
     "synthetic_hetero": DatasetInfo(
         name="synthetic_hetero",
