@@ -576,6 +576,27 @@ class PZChallengeSuite(HarnessRunner):
     def predict(
         self, method: str, model_state: dict[str, Any], X_test: np.ndarray, config: HarnessConfig
     ) -> dict[str, np.ndarray]:
+        # WFD n(z) tests have 1M rows; one GPU forward would OOM even for TabM.
+        n = len(X_test)
+        chunk = 50_000
+        if n <= chunk:
+            return self._predict_impl(method, model_state, X_test, config)
+        parts = [
+            self._predict_impl(method, model_state, X_test[start : start + chunk], config)
+            for start in range(0, n, chunk)
+        ]
+        merged: dict[str, np.ndarray] = {}
+        for key in parts[0]:
+            vals = [p[key] for p in parts if key in p]
+            if not vals:
+                continue
+            arr = np.concatenate(vals, axis=0)
+            merged[key] = arr
+        return merged
+
+    def _predict_impl(
+        self, method: str, model_state: dict[str, Any], X_test: np.ndarray, config: HarnessConfig
+    ) -> dict[str, np.ndarray]:
         feats = _build_features(X_test)
         X_test_raw = X_test
         # Feature scaler is fitted per method in fit(); recompute from the
