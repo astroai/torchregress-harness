@@ -193,7 +193,7 @@ class NZChallengeSuite(PZChallengeSuite):
         config: HarnessConfig,
     ) -> dict[str, float]:
         """PPI CIs for mean redshift and tomographic-bin fractions."""
-        from torchregress.inference import PPIConfig, ppi_mean_ci
+        from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_quantile_ci
 
         rng = np.random.default_rng(int(config.seed))
         n = len(y_true)
@@ -209,6 +209,17 @@ class NZChallengeSuite(PZChallengeSuite):
             out["PPI_MeanZ_Estimate"] = float(res["estimate"])
             out["PPI_MeanZ_Coverage"] = float(res["ci_lower"] <= y_true.mean() <= res["ci_upper"])
             out["PPI_MeanZ_CIWidth"] = float(res["ci_upper"] - res["ci_lower"])
+        except Exception:
+            pass
+        try:
+            res_q = ppi_quantile_ci(
+                y_true[lab], y_mean[lab], y_mean[mask], q=0.5, config=ppi_cfg
+            )
+            out["PPI_MedianZ_Estimate"] = float(res_q["estimate"])
+            out["PPI_MedianZ_Coverage"] = float(
+                res_q["ci_lower"] <= np.median(y_true) <= res_q["ci_upper"]
+            )
+            out["PPI_MedianZ_CIWidth"] = float(res_q["ci_upper"] - res_q["ci_lower"])
         except Exception:
             pass
         cov, widths = [], []

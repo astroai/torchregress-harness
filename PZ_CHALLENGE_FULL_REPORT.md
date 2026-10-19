@@ -75,7 +75,33 @@ aggregates to n(z) and four tomographic bins.  PPI (`torchregress.inference`:
 `ppi_mean_ci`) rectifies a small labeled WFD slice plus model predictions on the
 rest of WFD for mean-z and bin fractions, with 90% CI coverage against truth.
 The existing generic `ppi` suite remains the reference implementation for
-prediction-powered mean/median/OLS.
+prediction-powered mean/median/OLS.  The n(z) suite additionally reports
+prediction-powered median-z CIs (`ppi_quantile_ci`) next to mean-z and
+bin-fraction CIs; classical (labeled-only) estimates are the baseline.
+
+### Implementation notes / findings
+
+- `DensityWeightedLoss.fit_density` used a full `query @ train.T` matrix.  At
+  the n(z) scale (and even at 100k PZ rows) this allocates 40+ GB and the process
+  is SIGKILLed.  Fixed in torchregress by chunking the query axis; this is now
+  covered by `tests/losses/test_imbalanced.py::test_kde_score_samples_chunked_large`.
+- Independent quantile heads crossed on PZ task sets 3/4; the PZ suite sorts
+  quantiles before constructing CQR/split intervals.
+- `InputNoiseAugmentationLoss` must be given a mask-aware base loss
+  (`WeightedMSELoss`, not raw `nn.MSELoss`) when the input-noise path forwards
+  masks.  This is now the PZ EIV implementation.
+- One-million-row WFD inference requires batched prediction; the PZ suite now
+  chunks test predictions at 50k.
+- The OOD benchmark initially compared scaled predictions to unscaled shifted
+  targets, producing RMSE≈1; it now applies the task-1 target scaler to every
+  shifted view.
+
+### Current benchmark scope
+
+`pz_core` / `pz_cp` / `pz_extended` cover all 16 p(z) datasets (4 task sets ×
+2 simulations × 2 scenarios); `pz_flow` covers task 1 and task 4 (8 datasets);
+`pz_ood` covers task1→task2/3/4; `pz_removal` covers task 1 and task 4; the n(z)
+suite covers tasksets 1/2 × Cardinal/Flagship × 1yr/4yr.
 
 ## Reproduction
 

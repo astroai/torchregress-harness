@@ -71,10 +71,27 @@ pixi run python tools/run_all.py --suites engression_parity \
 pixi run python tools/run_all.py --suites uq_shift \
   --datasets stress_ood,synthetic_hetero --epochs 60 \
   --output results/latest/uq_shift.json
-# LSST DESC PZ Data Challenge (task set 1, held-out official training split)
+# LSST DESC PZ Data Challenge (all task sets, held-out official training split)
 pixi run python tools/run_all.py --suites pz_challenge \
   --datasets pz_challenge_cardinal_10yr --epochs 60 \
   --output results/latest/pz_challenge.json
+# conformal variants on every PZ dataset
+pixi run python tools/run_all.py --suites pz_cp \
+  --datasets pz_challenge_cardinal_10yr --epochs 60 \
+  --output results/latest/pz_cp.json
+# paper-style training removal / selection-blend shift
+pixi run python tools/run_all.py --suites pz_removal --epochs 60 \
+  --output results/latest/pz_removal.json
+pixi run python tools/run_all.py --suites pz_ood --epochs 60 \
+  --output results/latest/pz_ood.json
+# n(z) challenge (DDF training -> WFD n(z), tomographic bins, PPI)
+pixi run python tools/run_all.py --suites nz_challenge \
+  --datasets nz_challenge_t1_cardinal_1yr --epochs 60 \
+  --output results/latest/nz_challenge.json
+# cNSF vs cINN-style flows (Ren et al. 2026)
+pixi run python tools/run_all.py --suites pz_flow \
+  --datasets pz_challenge_cardinal_10yr --epochs 60 \
+  --output results/latest/pz_flow.json
 # Astronomical flow empirical-Bayes EIV benchmark (suite-generated design)
 pixi run python tools/run_all.py --suites flow_eiv \
   --datasets synthetic_flow_eiv --epochs 60 \
