@@ -429,11 +429,14 @@ labels are not public), `device=cuda`, `EPOCHS=60`.
 | task3 flagship | TabM_MSE | 0.0295 | — | — | — | 0.0096 | 0.0007 |
 | task4 flagship | NormalizingFlow | **0.0394** | **−2.575** | **0.0125** | 0.900 | **0.0081** | 0.0022 |
 | task4 flagship | TabM_MSE | 0.0440 | — | — | — | 0.0111 | 0.0034 |
+| task4 cardinal | NormalizingFlow | 0.0654 | −2.252 | 0.0164 | 0.845 | 0.0090 | 0.0066 |
+| task4 cardinal | TabM_MSE | 0.0597 | — | — | — | 0.0121 | 0.0082 |
 
-Task set 4 cardinal is a documented blend-heavy stress case; the quantile head
-crossed its 5/95% quantiles on some rows in the first pass (the suite now sorts
-quantiles before forming intervals) and that row is being rerun. The general
-pattern holds: NSF is the best p(z)/sigma_NMAD model, TabM the fast point model.
+Task set 4 cardinal is a documented blend-heavy stress case; its quantile head
+crossed its 5/95% quantiles on some rows in the first pass. The suite now sorts
+quantiles before forming intervals and the rerun completed (quantile RMSE 0.0704,
+NLL/CRPS not defined for that head). The general pattern holds: NSF is the best
+p(z)/sigma_NMAD model, TabM the fast point model.
 
 The TabM Gaussian-NLL row on cardinal 1yr initially hit numerical overflow
 (`log_variance` → NaN); the suite now clamps the log-variance to [−20, 20], and
