@@ -371,6 +371,32 @@ BMC is the best non-DRO method on California housing worst-region error and tail
 RMSE, while GroupDRO remains best on worst-group MAE. RankSim is neutral under
 this shared-budget setting. These are single-seed results, not a ranking.
 
+## Robust relaunch of failed jobs
+
+The hung fleet jobs were relaunched with a bounded `JOB_TIMEOUT` (45–90 min),
+`JOB_RETRIES=1` and a retry delay. The release script now retries each job once
+and continues after a timeout instead of blocking its shard.
+
+- **EIV run `release_20261018_1746`** — 10/12 completed: all six synthetic
+  `eiv` designs, all three `eiv_estimators` designs and `flow_eiv`.
+  `photoz_eiv`/`galaxiesml_eiv` were relaunched separately
+  (`release_20261018_2203`). Headline: TLS/ODR win the low-noise linear
+  designs; at high noise `EnsembleEIV` is best; on nonlinear designs the linear
+  EIV losses are not appropriate and input-noise MC/MDN are stronger. Full
+  recommendations: [`EIV_IMBALANCED_WORTHINESS.md`](EIV_IMBALANCED_WORTHINESS.md).
+- **Image run `release_20261018_1747`** — 27/31 artifacts. The heavy NYU/KITTI
+  and Shanghai crowd jobs now complete or return cleanly; all rows report
+  device=cuda.
+- **SBI run `release_20261018_1747`** — 4/5; `sbibm_gaussian_linear` timed out
+  on both attempts (the same no-convergence case seen earlier), while
+  two-moons, SLCP, Gaussian-mixture and Bernoulli-GLM completed.
+- **Large-tabular run `release_20261018_1747`** — `folktables_all` timed out on
+  both attempts; `tlc_fare`/`folktables_eiv` continue under the same bounded
+  retry policy. No big-data rows are claimed until their artifacts land.
+
+The robust timeout/retry behavior is implemented in `scripts/skaha_release.sh`
+and passed through by `scripts/canfar_launch_release.sh`.
+
 ## Massive mixed sweep (partial snapshot)
 
 Run `release_20261018_1533` launched the full harness fleet on CANFAR headless
