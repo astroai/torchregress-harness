@@ -45,6 +45,7 @@ from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
 from suites.tabular.orthogonal_inference import OrthogonalInferenceSuite
 from suites.tabular.ppi import PPISuite
+from suites.tabular.pz_challenge import PZChallengeSuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
 from suites.tabular.robust_regression import RobustRegressionSuite
@@ -100,6 +101,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "engression_parity": EngressionParitySuite,
     "eiv": EIVSuite,
     "eiv_estimators": EIVEstimatorsSuite,
+    "pz_challenge": PZChallengeSuite,
     "pzflow_parity": PzflowParitySuite,
     "density_parity": DensityParitySuite,
     "image_density_parity": ImageDensityParitySuite,

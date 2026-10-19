@@ -193,6 +193,8 @@ case "$GROUP" in
     pip_install --no-deps "puncc>=0.9.3"
     pip_install "conformal-tights>=0.5.0"
     pip_install "engression>=1.1.0"  # engression_parity
+    pip_install "h5py>=3.10"  # PZ challenge loader
+    pip_install "tabm>=0.0.3"  # pz_challenge TabM baseline
     ;;
 esac
 

@@ -97,6 +97,7 @@ pip install -e ".[conformal,bayesian,foundation]"
 | Extra | Suites / methods gated |
 |---|---|
 | `engression` | `engression_parity` rows (`Engression`) when `engression` is installed; the suite otherwise emits a clean skipped row |
+| `pz` | `pz_challenge` downloads the public 281 MB archive and needs `h5py`; TabM rows need `tabm`. Without them the suite is unavailable/skipped |
 | `conformal` | MAPIE, crepes, torchcp, conformal-tights (`conformal_tights_CQR+GBR`) conformal rows; puncc (`puncc_Split+Linear`, `puncc_CQR+GBR`) when installed with `--no-deps`; the native `CQR+GBR(reference)` row needs no extra |
 | `bayesian` | BoTorch / GPyTorch Bayesian linear |
 | `tweedie` | scikit-lego Tweedie (`tweedie`) |

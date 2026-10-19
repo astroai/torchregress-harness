@@ -71,6 +71,10 @@ pixi run python tools/run_all.py --suites engression_parity \
 pixi run python tools/run_all.py --suites uq_shift \
   --datasets stress_ood,synthetic_hetero --epochs 60 \
   --output results/latest/uq_shift.json
+# LSST DESC PZ Data Challenge (task set 1, held-out official training split)
+pixi run python tools/run_all.py --suites pz_challenge \
+  --datasets pz_challenge_cardinal_10yr --epochs 60 \
+  --output results/latest/pz_challenge.json
 # Astronomical flow empirical-Bayes EIV benchmark (suite-generated design)
 pixi run python tools/run_all.py --suites flow_eiv \
   --datasets synthetic_flow_eiv --epochs 60 \

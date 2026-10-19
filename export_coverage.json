@@ -408,6 +408,7 @@
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
+          "pz_challenge",
           "semi_supervised",
           "sklearn_baselines",
           "stress_matrix",
@@ -564,6 +565,7 @@
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
+          "pz_challenge",
           "uq_shift"
         ],
         "status": "covered",
@@ -596,6 +598,7 @@
           "image_conformal",
           "multivariate_intervals",
           "photoz_imaging",
+          "pz_challenge",
           "r2c_conformal",
           "robust_regression",
           "sklearn_baselines",
@@ -680,6 +683,7 @@
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
+          "pz_challenge",
           "pzflow_parity",
           "sbi_parity"
         ],
@@ -1094,6 +1098,7 @@
           "likelihoods",
           "multivariate_intervals",
           "photoz_imaging",
+          "pz_challenge",
           "pzflow_parity",
           "sbi_parity"
         ],

@@ -103,6 +103,11 @@ distributional = [
 engression = [
     "engression>=1.1.0",
 ]
+# LSST DESC PZ Data Challenge (h5py + official TabM).
+pz = [
+    "h5py>=3.10",
+    "tabm>=0.0.3",
+]
 scoring = [
     "scoringrules>=0.11.0",
     "properscoring",
@@ -126,7 +131,7 @@ dev = [
     "ty",
 ]
 all = [
-    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,engression,test,dev]",
+    "torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,engression,pz,test,dev]",
 ]
 
 [tool.setuptools]

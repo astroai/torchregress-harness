@@ -62,7 +62,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `GEVNLLLoss` | `distributional_bins`, `likelihoods` | covered |
 | `GammaLoss` | `tweedie` | covered |
 | `GaussianCRPSLoss` | `age_regression`, `depth_estimation`, `photoz_imaging` | covered |
-| `GaussianNLLLoss` | `age_regression`, `cell_counting`, `conformal`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `eiv`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `freia_parity`, `image_calibration`, `image_conformal`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `semi_supervised`, `sklearn_baselines`, `stress_matrix`, `test_time_adaptation`, `uq`, `uq_layer`, `uq_shift` | covered |
+| `GaussianNLLLoss` | `age_regression`, `cell_counting`, `conformal`, `crowd_counting`, `depth_estimation`, `distributional_bins`, `eiv`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `freia_parity`, `image_calibration`, `image_conformal`, `keypoint_regression`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pz_challenge`, `semi_supervised`, `sklearn_baselines`, `stress_matrix`, `test_time_adaptation`, `uq`, `uq_layer`, `uq_shift` | covered |
 | `GaussianWassersteinBoundLoss` | `multivariate_intervals` | covered |
 | `InputNoiseAugmentationLoss` | `eiv`, `stress_matrix` | covered |
 | `InputNoiseBinnedPDFLoss` | `eiv` | covered |
@@ -80,10 +80,10 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `LowRankGaussianLoss` | `keypoint_regression`, `multivariate_intervals` | covered |
 | `MDNLoss` | `sbi_parity` | covered |
 | `MahalanobisFrontier` | - | allowlisted: SLS frontier component built inside SLSLoss/SLSConformal (covered) |
-| `MixtureDensityLoss` | `age_regression`, `depth_estimation`, `distributional_bins`, `eiv`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `image_density_parity`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `uq_shift` | covered |
+| `MixtureDensityLoss` | `age_regression`, `depth_estimation`, `distributional_bins`, `eiv`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `foundation_model`, `image_density_parity`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pz_challenge`, `uq_shift` | covered |
 | `MonteCarloConformal` | `distributional_bins` | covered |
 | `MultiExpectileLoss` | `robust_regression` | covered |
-| `MultiQuantileLoss` | `age_regression`, `conformal`, `constrained_outputs`, `depth_estimation`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `image_conformal`, `multivariate_intervals`, `photoz_imaging`, `r2c_conformal`, `robust_regression`, `sklearn_baselines`, `uq`, `uq_layer` | covered |
+| `MultiQuantileLoss` | `age_regression`, `conformal`, `constrained_outputs`, `depth_estimation`, `engression_parity`, `ensembles`, `fm_multitarget`, `fm_uq_scenarios`, `image_conformal`, `multivariate_intervals`, `photoz_imaging`, `pz_challenge`, `r2c_conformal`, `robust_regression`, `sklearn_baselines`, `uq`, `uq_layer` | covered |
 | `MultiTargetConformal` | `multivariate_intervals` | covered |
 | `MultivariateGaussianLoss` | `keypoint_regression`, `multivariate_intervals` | covered |
 | `MultivariateScoreConformal` | `multivariate_intervals` | covered |
@@ -92,7 +92,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `NoisyInputPredictor` | `eiv` | covered |
 | `NoisyTargetGaussianNLL` | `age_regression`, `photoz_imaging`, `stress_matrix` | covered |
 | `NonExchangeableConformalRegressor` | `conformal`, `fm_multitarget`, `fm_uq_scenarios`, `uq_layer` | covered |
-| `NormalizingFlowLoss` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
+| `NormalizingFlowLoss` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pz_challenge`, `pzflow_parity`, `sbi_parity` | covered |
 | `OrdinalCrossEntropyLoss` | `ordinal` | covered |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | covered |
 | `PoissonDevianceLoss` | `cell_counting` | covered |
@@ -146,7 +146,7 @@ An export counts once per module that lists it in `__all__` (e.g. `ExpectedCalib
 | `corrected_score_eiv_loss` | `eiv_estimators` | covered |
 | `create_contrastive_flow_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_flow_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
-| `create_flow_model` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pzflow_parity`, `sbi_parity` | covered |
+| `create_flow_model` | `age_regression`, `distributional_bins`, `engression_parity`, `fm_multitarget`, `freia_parity`, `image_density_parity`, `keypoint_regression`, `likelihood_ratio`, `likelihoods`, `multivariate_intervals`, `photoz_imaging`, `pz_challenge`, `pzflow_parity`, `sbi_parity` | covered |
 | `create_gaussian_nll` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_loss_from_config` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |
 | `create_mdn_loss` | - | allowlisted: factory/registry helper; the losses it builds are benchmarked directly |

@@ -32,6 +32,7 @@ how to install / re-pin them.
 | **timm** | `https://github.com/huggingface/pytorch-image-models` (PyPI `timm`) | PyPI latest (no git pin; `timm_resnet18` row is unpretrained) | — | timm backbone for `timm_resnet18+GaussianNLL` (image suite); version self-reported via `LibraryVersion` |
 | **lifelines** | PyPI `lifelines` | PyPI latest | — | `lifelines_LogNormalAFT` comparator (tabular censored suite) |
 | **engression** | PyPI `engression` | `1.1.0` | — | Official Engression distributional-regression package (Shen & Meinshausen, JRSS-B 2024); `engression_parity` rows, torch-based and GPU-capable |
+| **TabM** | PyPI `tabm` | `0.0.3` | — | Official TabM (ICLR 2025) point/NLL baseline for `pz_challenge`; needs `rtdl_num_embeddings` |
 | **crepes** | PyPI `crepes` | PyPI latest | — | `crepes_CQR` comparator (distributional_bins) + conformal suite |
 | **ppi-python** | PyPI `ppi-python` (`ppi_py`, Angelopoulos et al.) | `0.2.3` | — | Official PPI package: `PPI_py_Mean/Quantile` comparator rows (ppi suite) |
 | **survset** | PyPI `survset` (Drysdale 2022) | PyPI latest | — | SurvSet time-to-event repository loader (`survset_hdfail` real survival data) |

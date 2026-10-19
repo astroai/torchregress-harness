@@ -70,6 +70,9 @@ class SplitMetadata(TypedDict, total=False):
     _n_channels: int
     _scenario: str
     _source_url: str
+    _pz_taskset: int
+    _pz_simulation: str
+    _pz_scenario: str
     _alpha: float
     _calibration_fraction: float
     _dense_output: bool
@@ -1026,6 +1029,97 @@ def _load_galaxiesml_cutouts(
         "y_test": y_test.astype(np.float32),
         "sigma_image_train": sig_tr,
         "sigma_image_test": sig_te,
+    }
+
+
+PZ_CHALLENGE_URL = "https://portal.nersc.gov/cfs/lsst/PZ/data_challenge/public.tgz"
+PZ_CHALLENGE_BANDS = (
+    "u_lsst",
+    "g_lsst",
+    "r_lsst",
+    "i_lsst",
+    "z_lsst",
+    "y_lsst",
+    "Y_roman",
+    "J_roman",
+    "H_roman",
+)
+
+
+def _load_pz_challenge(
+    taskset: int = 1,
+    simulation: str = "cardinal",
+    scenario: str = "10yr",
+    n_samples: int = 100000,
+    test_size: float = 0.2,
+    seed: int = 42,
+) -> SplitsDict:
+    """LSST DESC Photometric Redshift Data Challenge (task set 1--4).
+
+    Real challenge data: 9-band magnitudes + per-band errors (6 LSST + 3
+    Roman).  The official test files have no redshifts, so this loader uses a
+    held-out split of the official *training* file (representative task set 1)
+    and reports the challenge's point/p(z) diagnostics on it.  The public
+    archive is downloaded once and only the requested HDF5 member is extracted.
+
+    Set ``TORCHREGRESS_PZ_CHALLENGE_DIR`` to an existing ``public/`` directory
+    to skip the download.  Requires ``h5py``.
+    """
+    import tarfile
+    import urllib.request
+
+    import h5py  # ty: ignore[unresolved-import]
+
+    cache = _image_cache_dir() / "pz_data_challenge"
+    local_dir = os.environ.get("TORCHREGRESS_PZ_CHALLENGE_DIR")
+    public = Path(local_dir) if local_dir else cache / "public"
+    name = f"pz_challenge_taskset_{taskset}_{simulation}_training_{scenario}.hdf5"
+    path = public / name
+    if not path.exists():
+        public.mkdir(parents=True, exist_ok=True)
+        archive = cache / "public.tgz"
+        if not archive.exists():
+            urllib.request.urlretrieve(PZ_CHALLENGE_URL, archive)
+        member = f"public/{name}"
+        with tarfile.open(archive, "r:gz") as tar:
+            src = tar.extractfile(member)
+            if src is None:
+                raise FileNotFoundError(f"{member} not found in {archive}")
+            with open(path, "wb") as dst:
+                dst.write(src.read())
+
+    with h5py.File(path, "r") as f:
+        mags = np.stack(
+            [np.asarray(f[f"mag_{band}"][:], dtype=np.float64) for band in PZ_CHALLENGE_BANDS],
+            axis=1,
+        )
+        errs = np.stack(
+            [np.asarray(f[f"mag_{band}_err"][:], dtype=np.float64) for band in PZ_CHALLENGE_BANDS],
+            axis=1,
+        )
+        z = np.asarray(f["redshift"][:], dtype=np.float64)
+
+    keep = np.isfinite(z) & (z > 0.0) & (z < 7.0)
+    mags, errs, z = mags[keep], errs[keep], z[keep]
+    rng = np.random.default_rng(seed)
+    if n_samples < len(z):
+        idx = np.sort(rng.choice(len(z), int(n_samples), replace=False))
+        mags, errs, z = mags[idx], errs[idx], z[idx]
+
+    n = len(z)
+    n_test = max(1, int(round(n * test_size)))
+    order = rng.permutation(n)
+    test_idx, train_idx = order[:n_test], order[n_test:]
+    X = np.concatenate([mags, errs], axis=1).astype(np.float32)
+    return {
+        "X_train": X[train_idx],
+        "X_test": X[test_idx],
+        "y_train": z[train_idx].astype(np.float32),
+        "y_test": z[test_idx].astype(np.float32),
+        "_source_url": PZ_CHALLENGE_URL,
+        "_pz_taskset": taskset,
+        "_pz_simulation": simulation,
+        "_pz_scenario": scenario,
     }
 
 
@@ -6099,6 +6193,52 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         n_samples=515345,
         description="OpenML YearPredictionMSD: song release year from audio features.",
         loader=_registry_loader(_load_openml_year, n_samples=10000),
+    ),
+    "pz_challenge_cardinal_10yr": DatasetInfo(
+        name="pz_challenge_cardinal_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description=(
+            "LSST DESC PZ Data Challenge task set 1 (Cardinal, 10yr): 9-band "
+            "LSST+Roman magnitudes and errors; representative training split."
+        ),
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=1, simulation="cardinal", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_flagship_10yr": DatasetInfo(
+        name="pz_challenge_flagship_10yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description=(
+            "LSST DESC PZ Data Challenge task set 1 (Flagship, 10yr): 9-band "
+            "LSST+Roman magnitudes and errors; representative training split."
+        ),
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=1, simulation="flagship", scenario="10yr"
+        ),
+    ),
+    "pz_challenge_cardinal_1yr": DatasetInfo(
+        name="pz_challenge_cardinal_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 1 (Cardinal, 1yr).",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=1, simulation="cardinal", scenario="1yr"
+        ),
+    ),
+    "pz_challenge_flagship_1yr": DatasetInfo(
+        name="pz_challenge_flagship_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=100000,
+        description="LSST DESC PZ Data Challenge task set 1 (Flagship, 1yr).",
+        loader=_registry_loader(
+            _load_pz_challenge, taskset=1, simulation="flagship", scenario="1yr"
+        ),
     ),
     # --- Synthetic tabular ---
     "synthetic_hetero": DatasetInfo(
