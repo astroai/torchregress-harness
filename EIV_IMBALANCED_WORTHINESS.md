@@ -16,6 +16,7 @@ not only the noisy-X RMSE, is the decision metric.
 | linear, moderate noise | TLS/ODR | 0.249 | `TLS`/`SciPy ODR` or `TLS_Init+FunctionalEIV`; `RC+GaussianNLL` for uncertainty |
 | linear, high noise | `EnsembleEIV` 0.780 | 0.794 | `EnsembleEIV`, `RC`, or `MSE_NoisyPredict` |
 | linear, very high noise | `EnsembleEIV` 0.974 | 0.994 | `EnsembleEIV`; EIV functional/structural still help attenuation but not RMSE |
+| real photo-z (`photoz_eiv`) | `NoiseAware` 0.063 | 0.124 | noise-aware network or plain MSE; classic EIV/ODR/SIMEX are worse and slower |
 | nonlinear | `InputNoiseMDN` 0.824 | 0.843 | input-noise MC / MDN / binned-PDF; do **not** use linear TLS/ODR |
 | nonlinear, high/very high noise | `InputNoiseMC`/`BinnedPDF` 0.831–0.839 | 0.849–0.860 | input-noise marginalization; linear EIV losses are worse |
 
@@ -40,8 +41,11 @@ Key observations:
   coverage** together. A method that improves only noisy-X RMSE may have
   learned an unphysical attenuation.
 
-Caveat: `photoz_eiv`/`galaxiesml_eiv` real-data rows were still being rerun at
-the time of writing; synthetic conclusions above are complete. The flow-EIV
+`photoz_eiv` is now complete: `NoiseAware` is best (RMSE 0.063, attenuation
+0.986), plain MSE is second (0.124), while classic EIV/ODR/SIMEX are worse and
+much slower (SIMEX ~20 min). This is a strong caution that real photometric
+noise is not a clean linear-EIV problem. `galaxiesml_eiv` was still downloading
+its 3 GB HDF5 corpus at snapshot time and is not claimed. The flow-EIV
 baseline is a documented simplified ML-EB approximation, not the paper's
 `raddest` code.
 
