@@ -81,7 +81,8 @@ class PZRemovalSuite(PZChallengeSuite):
         cfg = config or HarnessConfig()
         dataset = dataset_name or "pz_challenge_cardinal_10yr"
         if splits is None:
-            splits = load_dataset(dataset, standardize_targets=False)
+            splits = load_dataset(dataset, standardize_targets=True)
+        scaler = splits.get("_y_scaler")
         X_train = np.asarray(splits["X_train"], dtype=np.float32)
         y_train = np.asarray(splits["y_train"], dtype=np.float32).reshape(-1)
         X_test = np.asarray(splits["X_test"], dtype=np.float32)
@@ -99,6 +100,8 @@ class PZRemovalSuite(PZChallengeSuite):
                 state = child.fit(method, {"X_train": X_sub, "y_train": y_sub}, cfg)
                 fit_s = __import__("time").perf_counter() - t0
                 pred = child.predict(method, state, X_test, cfg)
+                if scaler is not None:
+                    pred["_y_scaler"] = scaler
                 metrics = child.evaluate(method, pred, y_test, cfg)
                 rows.append(
                     {
