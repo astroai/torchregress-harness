@@ -33,7 +33,12 @@ from suites.tabular.imbalanced_representation import ImbalancedRepresentationSui
 from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.ordinal import OrdinalSuite
-from suites.tabular.pz_challenge import PZChallengeSuite, PZCPExtendedSuite
+from suites.tabular.pz_challenge import (
+    PZChallengeSuite,
+    PZCoreSuite,
+    PZCPExtendedSuite,
+    PZExtendedSuite,
+)
 from suites.tabular.pz_robustness import PZOODSuite, PZRemovalSuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
@@ -64,6 +69,8 @@ ALL_SUITES = [
     MultivariateIntervalsSuite,
     PZChallengeSuite,
     PZCPExtendedSuite,
+    PZCoreSuite,
+    PZExtendedSuite,
     PZOODSuite,
     PZRemovalSuite,
     PzflowParitySuite,

@@ -42,10 +42,17 @@ from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
 from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
+from suites.tabular.nz_challenge import NZChallengeSuite
 from suites.tabular.ordinal import OrdinalSuite
 from suites.tabular.orthogonal_inference import OrthogonalInferenceSuite
 from suites.tabular.ppi import PPISuite
-from suites.tabular.pz_challenge import PZChallengeSuite, PZCPExtendedSuite
+from suites.tabular.pz_challenge import (
+    PZChallengeSuite,
+    PZCoreSuite,
+    PZCPExtendedSuite,
+    PZExtendedSuite,
+    PZFlowSuite,
+)
 from suites.tabular.pz_robustness import PZOODSuite, PZRemovalSuite
 from suites.tabular.pzflow_parity import PzflowParitySuite
 from suites.tabular.r2c_conformal import R2CConformalSuite
@@ -103,6 +110,10 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "eiv": EIVSuite,
     "eiv_estimators": EIVEstimatorsSuite,
     "pz_challenge": PZChallengeSuite,
+    "pz_core": PZCoreSuite,
+    "pz_extended": PZExtendedSuite,
+    "pz_flow": PZFlowSuite,
+    "nz_challenge": NZChallengeSuite,
     "pz_cp": PZCPExtendedSuite,
     "pz_ood": PZOODSuite,
     "pz_removal": PZRemovalSuite,

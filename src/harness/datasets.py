@@ -8,6 +8,8 @@ Every entry returns ``(X_train, X_test, y_train, y_test)`` as numpy arrays.
 from __future__ import annotations
 
 import os
+import pathlib
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, TypedDict, cast
@@ -1048,6 +1050,118 @@ PZ_CHALLENGE_BANDS = (
     "J_roman",
     "H_roman",
 )
+
+
+NZ_CHALLENGE_ENV = "TORCHREGRESS_NZ_CHALLENGE_DIR"
+NZ_CHALLENGE_URLS = {
+    1: "https://portal.nersc.gov/cfs/lsst/PZ/data_challenge/public_nz_t1.tgz",
+    2: "https://portal.nersc.gov/cfs/lsst/PZ/data_challenge/public_nz_t2.tgz",
+}
+NZ_RESERVED_URL = "https://portal.nersc.gov/cfs/lsst/PZ/data_challenge/nz_reserved.tgz"
+NZ_BANDS = [("u", "lsst"), ("g", "lsst"), ("r", "lsst"), ("i", "lsst"),
+            ("z", "lsst"), ("y", "lsst"), ("Y", "roman"), ("J", "roman"), ("H", "roman")]
+
+
+def _nz_root() -> pathlib.Path:
+    root = pathlib.Path(os.environ.get(NZ_CHALLENGE_ENV, "")).expanduser()
+    if str(root):
+        return root
+    return pathlib.Path(os.environ.get("TORCHREGRESS_CACHE_DIR", pathlib.Path.home() / ".cache")) / "nz_challenge"
+
+
+def _ensure_nz_archive(root: pathlib.Path, taskset: int) -> pathlib.Path:
+    import tarfile
+
+    root.mkdir(parents=True, exist_ok=True)
+    archive = root / f"public_nz_t{taskset}.tgz"
+    if not archive.exists():
+        urllib.request.urlretrieve(NZ_CHALLENGE_URLS[taskset], archive)
+    if not any(root.glob(f"**/nz_challenge_taskset_{taskset}_*.hdf5")):
+        with tarfile.open(archive, "r:gz") as tar:
+            tar.extractall(root)
+    return root
+
+
+def _ensure_nz_reserved(root: pathlib.Path) -> pathlib.Path:
+    import tarfile
+
+    root.mkdir(parents=True, exist_ok=True)
+    archive = root / "nz_reserved.tgz"
+    if not archive.exists():
+        urllib.request.urlretrieve(NZ_RESERVED_URL, archive)
+    if not any((root / "reserved").glob("nz_challenge_taskset_1_*.hdf5")):
+        with tarfile.open(archive, "r:gz") as tar:
+            tar.extractall(root)
+    return root
+
+
+def _load_nz_challenge(
+    taskset: int = 1,
+    simulation: str = "cardinal",
+    scenario: str = "1yr",
+    n_samples: int | None = None,
+    seed: int = 42,
+) -> SplitsDict:
+    """LSST DESC n(z) challenge: DDF truth training, WFD public photometry.
+
+    Evaluation truth for WFD comes from the post-challenge ``reserved`` archive
+    (object-id matched); this is an internal benchmark, not a challenge submission.
+    """
+    import h5py
+
+    root = _ensure_nz_archive(_nz_root(), taskset)
+    _ensure_nz_reserved(root)
+    ddf = sorted(root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_ddf_*.hdf5"))
+    if not ddf:
+        raise FileNotFoundError(f"no n(z) DDF files for taskset {taskset} {simulation} {scenario} under {root}")
+    mags, errs, z, oid = [], [], [], []
+    for path in ddf:
+        with h5py.File(path, "r") as f:
+            mags.append(np.stack([np.asarray(f[f"mag_{b}_{s}"][:], dtype=np.float64) for b, s in NZ_BANDS], axis=1))
+            errs.append(np.stack([np.asarray(f[f"mag_{b}_{s}_err"][:], dtype=np.float64) for b, s in NZ_BANDS], axis=1))
+            z.append(np.asarray(f["redshift"][:], dtype=np.float64))
+            oid.append(np.asarray(f["object_id"][:], dtype=np.float64))
+    mags = np.concatenate(mags)
+    errs = np.concatenate(errs)
+    z = np.concatenate(z)
+    oid = np.concatenate(oid)
+    keep = np.isfinite(z) & (z > 0.0) & (z < 7.0)
+    X_train = np.concatenate([mags[keep], errs[keep]], axis=1).astype(np.float32)
+    y_train = z[keep].astype(np.float32)
+
+    wfd_path = next(root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5"))
+    with h5py.File(wfd_path, "r") as f:
+        X_test = np.concatenate([
+            np.stack([np.asarray(f[f"mag_{b}_{s}"][:], dtype=np.float64) for b, s in NZ_BANDS], axis=1),
+            np.stack([np.asarray(f[f"mag_{b}_{s}_err"][:], dtype=np.float64) for b, s in NZ_BANDS], axis=1),
+        ], axis=1).astype(np.float32)
+        oid_test = np.asarray(f["object_id"][:], dtype=np.float64)
+    res_path = next(root.glob(f"**/reserved/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5"))
+    with h5py.File(res_path, "r") as f:
+        res_oid = np.asarray(f["object_id"][:], dtype=np.float64)
+        res_z = np.asarray(f["redshift"][:], dtype=np.float64)
+    order = np.argsort(res_oid)
+    sorted_oid = res_oid[order]
+    pos = np.searchsorted(sorted_oid, oid_test)
+    pos = np.clip(pos, 0, len(sorted_oid) - 1)
+    if not np.all(sorted_oid[pos] == oid_test):
+        raise ValueError("reserved n(z) object ids do not match WFD public file")
+    y_test = res_z[order][pos].astype(np.float32)
+
+    rng = np.random.default_rng(seed)
+    if n_samples is not None and int(n_samples) < len(y_train):
+        idx = np.sort(rng.choice(len(y_train), int(n_samples), replace=False))
+        X_train, y_train = X_train[idx], y_train[idx]
+    if n_samples is not None and int(n_samples) < len(y_test):
+        idx = np.sort(rng.choice(len(y_test), int(n_samples), replace=False))
+        X_test, y_test = X_test[idx], y_test[idx]
+
+    return {
+        "X_train": X_train, "X_test": X_test,
+        "y_train": y_train, "y_test": y_test,
+        "_source_url": NZ_CHALLENGE_URLS[taskset],
+        "_nz_taskset": taskset, "_nz_simulation": simulation, "_nz_scenario": scenario,
+    }
 
 
 def _load_pz_challenge(
@@ -6370,6 +6484,70 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
         loader=_registry_loader(
             _load_pz_challenge, taskset=4, simulation="flagship", scenario="1yr"
         ),
+    ),
+    "nz_challenge_t1_cardinal_1yr": DatasetInfo(
+        name="nz_challenge_t1_cardinal_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 1 (cardinal, 1yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=1, simulation="cardinal", scenario="1yr"),
+    ),
+    "nz_challenge_t1_cardinal_4yr": DatasetInfo(
+        name="nz_challenge_t1_cardinal_4yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 1 (cardinal, 4yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=1, simulation="cardinal", scenario="4yr"),
+    ),
+    "nz_challenge_t1_flagship_1yr": DatasetInfo(
+        name="nz_challenge_t1_flagship_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 1 (flagship, 1yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=1, simulation="flagship", scenario="1yr"),
+    ),
+    "nz_challenge_t1_flagship_4yr": DatasetInfo(
+        name="nz_challenge_t1_flagship_4yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 1 (flagship, 4yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=1, simulation="flagship", scenario="4yr"),
+    ),
+    "nz_challenge_t2_cardinal_1yr": DatasetInfo(
+        name="nz_challenge_t2_cardinal_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 2 (cardinal, 1yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=2, simulation="cardinal", scenario="1yr"),
+    ),
+    "nz_challenge_t2_cardinal_4yr": DatasetInfo(
+        name="nz_challenge_t2_cardinal_4yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 2 (cardinal, 4yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=2, simulation="cardinal", scenario="4yr"),
+    ),
+    "nz_challenge_t2_flagship_1yr": DatasetInfo(
+        name="nz_challenge_t2_flagship_1yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 2 (flagship, 1yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=2, simulation="flagship", scenario="1yr"),
+    ),
+    "nz_challenge_t2_flagship_4yr": DatasetInfo(
+        name="nz_challenge_t2_flagship_4yr",
+        category="tabular",
+        n_features=18,
+        n_samples=2000000,
+        description="LSST DESC n(z) challenge task set 2 (flagship, 4yr): DDF truth training, WFD target.",
+        loader=_registry_loader(_load_nz_challenge, taskset=2, simulation="flagship", scenario="4yr"),
     ),
     # --- Synthetic tabular ---
     "synthetic_hetero": DatasetInfo(

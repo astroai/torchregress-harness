@@ -232,7 +232,8 @@ class PZChallengeSuite(HarnessRunner):
             "GaussianNLL_MLP": "MLP mean+logvar head; Gaussian NLL",
             "MDN_K3": "3-component mixture density head; samples/mean/std",
             "Quantile_MLP": "5-level multi-quantile head (5/16/50/84/95%); pinball loss",
-            "NormalizingFlow": "zuko NSF conditional p(z|x), exact NLL and samples",
+            "NormalizingFlow": "zuko cNSF (neural spline flow) conditional p(z|x)",
+            "NormalizingFlow_cINN": "cINN-style conditional RealNVP coupling flow (nflow-z proxy)",
             "TabM_MSE": "official TabM (k=8, 2 blocks, width 256), point MSE",
             "TabM_GaussianNLL": "TabM with mean/logvar heads, Gaussian NLL",
             "TabM_SplitCP": "TabM point predictions + split-conformal residual intervals",
@@ -307,17 +308,18 @@ class PZChallengeSuite(HarnessRunner):
             )
             model.eval()
             return {"type": "quantile", "model": model, "levels": np.asarray(_QUANTILES)}
-        if method == "NormalizingFlow":
+        if method in {"NormalizingFlow", "NormalizingFlow_cINN"}:
             from torchregress.losses import NormalizingFlowLoss, create_flow_model
 
             context_dim = hidden
+            is_cinn = method == "NormalizingFlow_cINN"
             flow = create_flow_model(
                 n_features=1,
                 context_dim=context_dim,
-                flow_type="nsf",
-                n_transforms=3,
+                flow_type="realnvp" if is_cinn else "nsf",
+                n_transforms=4 if is_cinn else 3,
                 hidden_features=[64, 64],
-                bound=8.0,
+                **({} if is_cinn else {"bound": 8.0}),
             )
             model = _MLP(in_dim, hidden, context_dim).to(current_device())
             loss_fn = NormalizingFlowLoss(flow=flow)
@@ -361,7 +363,9 @@ class PZChallengeSuite(HarnessRunner):
                 model.eval()
                 with torch.no_grad():
                     q_cal = np.sort(model(X_t[cal]).cpu().numpy(), axis=1)
-                q_cal_t = torch.as_tensor(q_cal[:, [0, -1]], dtype=torch.float32).to(current_device())
+                q_cal_t = torch.as_tensor(q_cal[:, [0, -1]], dtype=torch.float32).to(
+                    current_device()
+                )
                 cqr = CQRCalibrator(alpha=_ALPHA)
                 cqr.calibrate(q_cal_t, y_t[cal].reshape(-1))
                 return {"type": "cqr", "model": model, "cqr": cqr}
@@ -817,3 +821,72 @@ class PZCPExtendedSuite(PZChallengeSuite):
             "LocalCP_MLP",
             "NormalizedCP_MLP",
         ]
+
+
+class PZCoreSuite(PZChallengeSuite):
+    """Original point/distributional/TabM baseline across all PZ datasets."""
+
+    @property
+    def name(self) -> str:
+        return "pz_core"
+
+    @property
+    def description(self) -> str:
+        return (
+            "PZ challenge core comparison (MSE, Gaussian NLL, MDN, quantile, NSF, "
+            "TabM point/NLL/split-CP) on all task sets and scenarios."
+        )
+
+    def methods(self) -> list[str]:
+        return [
+            "MSE_MLP",
+            "GaussianNLL_MLP",
+            "MDN_K3",
+            "Quantile_MLP",
+            "NormalizingFlow",
+            "TabM_MSE",
+            "TabM_GaussianNLL",
+            "TabM_SplitCP",
+        ]
+
+
+class PZExtendedSuite(PZChallengeSuite):
+    """Evidential, beta-NLL, EIV input-noise, density-weighted and BMC heads."""
+
+    @property
+    def name(self) -> str:
+        return "pz_extended"
+
+    @property
+    def description(self) -> str:
+        return (
+            "PZ challenge extended-head comparison: evidential NIG, beta-NLL, "
+            "error-aware input-noise augmentation, density-weighted and BMC."
+        )
+
+    def methods(self) -> list[str]:
+        return [
+            "Evidential",
+            "BetaNLL_MLP",
+            "InputNoiseAug_MLP",
+            "DensityWeighted_MLP",
+            "BMC_MLP",
+        ]
+
+
+class PZFlowSuite(PZChallengeSuite):
+    """cNSF vs cINN-style flow comparison (Ren et al. 2026, ApJ 997, 65)."""
+
+    @property
+    def name(self) -> str:
+        return "pz_flow"
+
+    @property
+    def description(self) -> str:
+        return (
+            "PZ challenge normalizing-flow comparison: zuko cNSF vs a "
+            "conditional RealNVP (cINN-style) flow, plus MDN and TabM reference."
+        )
+
+    def methods(self) -> list[str]:
+        return ["NormalizingFlow", "NormalizingFlow_cINN", "MDN_K3", "TabM_MSE"]
