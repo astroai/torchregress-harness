@@ -390,9 +390,11 @@ and continues after a timeout instead of blocking its shard.
 - **SBI run `release_20261018_1747`** — 4/5; `sbibm_gaussian_linear` timed out
   on both attempts (the same no-convergence case seen earlier), while
   two-moons, SLCP, Gaussian-mixture and Bernoulli-GLM completed.
-- **Large-tabular run `release_20261018_1747`** — `folktables_all` timed out on
-  both attempts; `tlc_fare`/`folktables_eiv` continue under the same bounded
-  retry policy. No big-data rows are claimed until their artifacts land.
+- **Large-tabular run `release_20261018_1747`** — `folktables_all` and
+  `tlc_fare` each timed out twice at 90 min; the session was stopped after
+  repeated no-output attempts, and `folktables_eiv` was not reached. No
+  big-data rows are claimed. The large-tabular group needs a dedicated
+  data-staging/sharding pass before it is scientifically comparable.
 
 The robust timeout/retry behavior is implemented in `scripts/skaha_release.sh`
 and passed through by `scripts/canfar_launch_release.sh`.
