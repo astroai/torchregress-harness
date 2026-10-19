@@ -112,6 +112,18 @@ iteration: **puncc** (software parity), then **conformal-tights** and the
 official **cqr** reference; `nonconformist` should stay out because of
 maintenance status.
 
+## 5b. LSST DESC Photometric Redshift Data Challenge
+
+The harness now loads the **official LSST DESC PZ Data Challenge** task set
+files (9-band LSST+Roman magnitudes/errors; `pz_challenge` suite).  The
+challenge test files have no public labels, so the benchmark uses a held-out
+20% split of the official training file; this is a strong internal PZ benchmark,
+not an official leaderboard submission.
+
+Methods: torchregress MSE/Gaussian NLL/MDN/quantile/NSF heads and the official
+TabM regression/NLL baselines, with challenge diagnostics (`sigma_NMAD`,
+catastrophic-outlier fraction, bias) plus NLL/CRPS/coverage/PIT.
+
 ## 6. Next-generation regression benchmarks (2026-10-18)
 
 New harness coverage from the follow-up literature review:

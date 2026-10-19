@@ -371,6 +371,45 @@ BMC is the best non-DRO method on California housing worst-region error and tail
 RMSE, while GroupDRO remains best on worst-group MAE. RankSim is neutral under
 this shared-budget setting. These are single-seed results, not a ranking.
 
+## LSST DESC PZ Data Challenge (GPU)
+
+Run `release_20261019_0003`, harness `022e73b`, torchregress `2a99f4c`.
+Official task-set-1 training files, 20% held-out split (the official test
+labels are not public), `device=cuda`, `EPOCHS=60`.
+
+**Cardinal 10yr, N=100000 (held-out 20%)**
+
+| method | RMSE | NLL | CRPS | Cov90 | sigma_NMAD | outlier>0.15 | train s |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| MSE_MLP | 0.0255 | — | — | — | 0.0119 | 0.00075 | 18 |
+| GaussianNLL_MLP | 0.0369 | −2.583 | 0.0118 | 0.900 | 0.0107 | 0.00160 | 25 |
+| MDN_K3 | 0.0311 | −2.431 | 0.0108 | 0.892 | 0.0101 | 0.00115 | 30 |
+| Quantile_MLP | 0.0302 | — | — | 0.908 | 0.0106 | 0.00095 | 24 |
+| NormalizingFlow | **0.0199** | **−2.704** | **0.00974** | 0.860 | **0.00960** | **0.00030** | 2735 |
+| TabM_MSE | 0.0236 | — | — | — | 0.0106 | 0.00060 | 31 |
+| TabM_GaussianNLL | 0.0363 | −2.668 | 0.0109 | 0.912 | 0.00985 | 0.00160 | 33 |
+| TabM_SplitCP | 0.0236 | — | — | 0.890 | 0.0106 | 0.00060 | 56 |
+
+**Flagship 10yr, N=100000**
+
+| method | RMSE | NLL | CRPS | Cov90 | sigma_NMAD | outlier>0.15 | train s |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| MSE_MLP | 0.0271 | — | — | — | 0.0118 | 0.0002 | 18 |
+| GaussianNLL_MLP | 0.0345 | −2.430 | 0.0122 | 0.889 | 0.0113 | 0.00065 | 24 |
+| MDN_K3 | 0.0322 | −2.566 | 0.0114 | 0.886 | 0.0109 | 0.00045 | 29 |
+| Quantile_MLP | 0.0282 | — | — | 0.865 | 0.0114 | 0.0002 | 23 |
+| NormalizingFlow | **0.0209** | **−2.635** | **0.0103** | 0.872 | **0.0101** | **0.0002** | 2706 |
+| TabM_MSE | 0.0261 | — | — | — | 0.0110 | 0.0002 | 31 |
+| TabM_GaussianNLL | 0.0445 | −2.539 | 0.0124 | 0.907 | 0.0111 | 0.00095 | 33 |
+| TabM_SplitCP | 0.0261 | — | — | 0.896 | 0.0110 | 0.0002 | 56 |
+
+The NSF gives the best point RMSE, NLL, CRPS and sigma_NMAD on both 10yr
+simulations, but costs ~45 min on 100k; TabM is ~30 s and nearly as accurate
+(RMSE 0.024/0.026), so it is the practical default when training time matters.
+TabM Gaussian NLL is the best fast calibrated interval row. These are
+strong internal numbers; they are **not** an official leaderboard result
+because the challenge test labels are withheld.
+
 ## Robust relaunch of failed jobs
 
 The hung fleet jobs were relaunched with a bounded `JOB_TIMEOUT` (45–90 min),
