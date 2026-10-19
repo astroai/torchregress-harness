@@ -156,13 +156,19 @@ class PZOODSuite(PZChallengeSuite):
         from harness.datasets import load_dataset
 
         cfg = config or HarnessConfig()
-        id_splits = splits or load_dataset("pz_challenge_cardinal_10yr", standardize_targets=False)
+        id_splits = splits or load_dataset("pz_challenge_cardinal_10yr", standardize_targets=True)
+        scaler = id_splits.get("_y_scaler")
         ood_names = {
             "OOD_task2": "pz_challenge_taskset2_cardinal_10yr",
             "OOD_task3": "pz_challenge_taskset3_cardinal_10yr",
             "OOD_task4": "pz_challenge_taskset4_cardinal_10yr",
         }
         ood = {k: load_dataset(v, standardize_targets=False) for k, v in ood_names.items()}
+        for view in ood.values():
+            if scaler is not None:
+                view["y_test"] = scaler.transform(
+                    np.asarray(view["y_test"], dtype=np.float64).reshape(-1, 1)
+                ).ravel().astype(np.float32)
         X_train = np.asarray(id_splits["X_train"], dtype=np.float32)
         y_train = np.asarray(id_splits["y_train"], dtype=np.float32).reshape(-1)
         rows: list[dict[str, Any]] = []
@@ -173,6 +179,8 @@ class PZOODSuite(PZChallengeSuite):
             views = {"ID_task1": id_splits, **ood}
             for scenario, view in views.items():
                 pred = child.predict(method, state, np.asarray(view["X_test"]), cfg)
+                if scaler is not None:
+                    pred["_y_scaler"] = scaler
                 metrics = child.evaluate(
                     method, pred, np.asarray(view["y_test"], dtype=np.float32), cfg
                 )
