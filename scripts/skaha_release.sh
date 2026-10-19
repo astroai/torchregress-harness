@@ -268,17 +268,45 @@ for seed in ${SEEDS//,/ }; do
       esac
     fi
     log "=== $suite / $dataset / seed $seed ==="
-    # JOB_TIMEOUT bounds one (suite, dataset, seed) job: run #5's eiv/folktables_eiv
-    # (1.5M rows) hung for 2.5 days without output and blocked its whole shard.
-    if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
-        --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
+    # JOB_TIMEOUT bounds one (suite, dataset, seed) job: past eiv/folktables_eiv
+    # runs hung for hours without output and blocked a whole shard.  A bounded
+    # timeout plus JOB_RETRIES keeps one pathological dataset from stopping the
+    # fleet; retries are deliberately sequential (same node, deterministic).
+    attempt=0
+    successes=0
+    while [ "$attempt" -le "${JOB_RETRIES:-1}" ]; do
+      attempt=$((attempt + 1))
+      if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+          --seed "$seed" --epochs "$EPOCHS" --output "$out" 2>&1 | tail -n 4; then
+        successes=1
+        break
+      fi
+      if [ "$attempt" -le "${JOB_RETRIES:-1}" ]; then
+        log "job attempt $attempt failed/timed out: $job seed $seed; retrying in 20s"
+        sleep 20
+      fi
+    done
+    if [ "$successes" = 1 ]; then
       n_ok=$((n_ok + 1))
       # GPU slices (~11 GiB, NVML denied) report CUDA OOM as an NVML assert:
       # rerun the job on cpu and take those rows from the cpu run (tools/cpu_retry.py).
       if prun python tools/cpu_retry.py needs "$out"; then
         log "CUDA OOM rows in $out: rerunning on cpu"
-        if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
-            --seed "$seed" --epochs "$EPOCHS" --device cpu --output "$out.cpu.json" 2>&1 | tail -n 2; then
+        cpu_ok=0
+        cpu_attempt=0
+        while [ "$cpu_attempt" -le "${JOB_RETRIES:-1}" ]; do
+          cpu_attempt=$((cpu_attempt + 1))
+          if timeout --kill-after=5m "${JOB_TIMEOUT:-6h}" pixi run -e "$PENV" python tools/run_all.py --suites "$suite" --datasets "$dataset" \
+              --seed "$seed" --epochs "$EPOCHS" --device cpu --output "$out.cpu.json" 2>&1 | tail -n 2; then
+            cpu_ok=1
+            break
+          fi
+          if [ "$cpu_attempt" -le "${JOB_RETRIES:-1}" ]; then
+            log "cpu retry attempt $cpu_attempt failed: $job seed $seed; retrying in 20s"
+            sleep 20
+          fi
+        done
+        if [ "$cpu_ok" = 1 ]; then
           prun python tools/cpu_retry.py merge "$out" "$out.cpu.json"
         else
           log "cpu retry failed: $job seed $seed"
@@ -286,7 +314,7 @@ for seed in ${SEEDS//,/ }; do
         rm -f "$out.cpu.json"
       fi
     else
-      n_fail=$((n_fail + 1)); log "job failed: $job seed $seed"
+      n_fail=$((n_fail + 1)); log "job failed after retries: $job seed $seed"
     fi
   done
 done

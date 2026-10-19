@@ -111,7 +111,8 @@ name_tag() { local t="${RUN_TAG#release_}"; echo "${t//_/}"; }
 ENV_ARGS=()
 set_env_args() {
   ENV_ARGS=(-e "RUN_TAG=$RUN_TAG" -e "HARNESS_REF=$HARNESS_REF" -e "LIB_REF=$LIB_REF"
-    -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS")
+    -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS"
+    -e "JOB_TIMEOUT=${JOB_TIMEOUT:-6h}" -e "JOB_RETRIES=${JOB_RETRIES:-1}")
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
   [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
   [ -n "${TABPFN_TOKEN:-}" ] && ENV_ARGS+=(-e "TABPFN_TOKEN=$TABPFN_TOKEN")
