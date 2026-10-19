@@ -125,6 +125,7 @@ set_env_args() {
   # env values and Skaha rejects some characters (a filter with spaces, '$' or
   # nested groups got HTTP 400 on 2026-10-14). skaha_release.sh decodes it.
   [ -n "${JOB_FILTER:-}" ] && ENV_ARGS+=(-e "JOB_FILTER_HEX=$(printf '%s' "$JOB_FILTER" | od -An -tx1 | tr -d ' \n')")
+  [ -n "${TORCHREGRESS_NZ_CHALLENGE_DIR:-}" ] && ENV_ARGS+=(-e "TORCHREGRESS_NZ_CHALLENGE_DIR=$TORCHREGRESS_NZ_CHALLENGE_DIR")
   return 0
 }
 DRY=()

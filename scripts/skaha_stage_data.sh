@@ -5,10 +5,11 @@
 # - Folktables ACS 2018 1-Year person files for all 50 states + PR (several GB
 #   from census.gov; folktables_eiv and the all-states likelihood datasets read
 #   them via harness.datasets._folktables_root).
+# - n(z) challenge public archives (public_nz_t1/t2 + reserved truth).
 # - TabReD regression sets (sberbank-housing, cooking-time, delivery-eta,
 #   maps-routing, weather) with the official `tabred download` (Kaggle API;
 #   uses the session user's ~/.kaggle/kaggle.json on /arc/home, never copied).
-# STAGE_WHAT=folktables,tabred (default both). Idempotent: present data is skipped.
+# STAGE_WHAT=folktables,tabred,nz (default folktables,tabred). Idempotent.
 set -uo pipefail
 ARC_PROJ="${ARC_PROJ:-/arc/projects/ots/torchregress-harness}"
 STAGED="$ARC_PROJ/datasets/staged"
@@ -17,6 +18,22 @@ mkdir -p "$DEST" "$STAGED/tabred"
 exec > >(tee -a "$STAGED/stage.log") 2>&1
 WHAT=",${STAGE_WHAT:-folktables,tabred},"
 log() { echo "[$(date +%H:%M:%S)] [stage] $*"; }
+if [[ "$WHAT" == *",nz,"* ]]; then
+  NZ_DEST="$STAGED/nz"
+  mkdir -p "$NZ_DEST"
+  for item in "public_nz_t1.tgz" "public_nz_t2.tgz" "nz_reserved.tgz"; do
+    if [ ! -s "$NZ_DEST/$item" ]; then
+      log "downloading $item"
+      curl -L --fail --retry 2 -o "$NZ_DEST/$item" "https://portal.nersc.gov/cfs/lsst/PZ/data_challenge/$item" || rc=1
+    fi
+    if [ -s "$NZ_DEST/$item" ] && [ ! -d "$NZ_DEST/$(basename "$item" .tgz)" ]; then
+      log "extracting $item"
+      tar xzf "$NZ_DEST/$item" -C "$NZ_DEST" || rc=1
+    fi
+  done
+  log "nz staged: $(du -sh "$NZ_DEST" | cut -f1)"
+fi
+
 log "staging Folktables ACS 2018 1-Year person files into $DEST"
 
 export PYTHONNOUSERSITE=1
