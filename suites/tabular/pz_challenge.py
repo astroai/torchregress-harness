@@ -1,9 +1,10 @@
 """LSST DESC Photometric Redshift Data Challenge benchmark.
 
-Task set 1 (representative training) is used with a held-out split of the
-official training file.  Nine-band LSST+Roman magnitudes/errors are augmented
-with colours and detection flags, then fed to torchregress point and
-distributional heads plus a TabM point/NLL baseline.
+All four official task sets and both simulations/scenarios are supported via
+held-out splits of the official training files (the official test labels are
+withheld).  Nine-band LSST+Roman magnitudes/errors are augmented with colours
+and detection flags, then fed to torchregress point, distributional, EIV,
+imbalanced and conformal heads plus TabM baselines.
 
 Metrics cover the challenge's point diagnostics (RMSE, MAE, bias,
 sigma_NMAD, catastrophic-outlier fraction) and predictive diagnostics
@@ -359,9 +360,10 @@ class PZChallengeSuite(HarnessRunner):
                 )
                 model.eval()
                 with torch.no_grad():
-                    q_cal = model(X_t[cal])[:, [0, -1]]
+                    q_cal = np.sort(model(X_t[cal]).cpu().numpy(), axis=1)
+                q_cal_t = torch.as_tensor(q_cal[:, [0, -1]], dtype=torch.float32).to(current_device())
                 cqr = CQRCalibrator(alpha=_ALPHA)
-                cqr.calibrate(q_cal, y_t[cal].reshape(-1))
+                cqr.calibrate(q_cal_t, y_t[cal].reshape(-1))
                 return {"type": "cqr", "model": model, "cqr": cqr}
             # Mondrian split CP: groups are i-band magnitude quartiles.
             model = _MLP(in_dim, hidden, 1).to(current_device())
@@ -632,10 +634,11 @@ class PZChallengeSuite(HarnessRunner):
             }
         if kind == "cqr":
             with torch.no_grad():
-                q = model(X_t)
-            lo, hi = model_state["cqr"].predict_interval(q[:, [0, -1]])
+                q_np = np.sort(model(X_t).cpu().numpy(), axis=1)
+                q_t = torch.as_tensor(q_np[:, [0, -1]], dtype=torch.float32).to(current_device())
+            lo, hi = model_state["cqr"].predict_interval(q_t)
             return {
-                "y_pred": q[:, 2].cpu().numpy(),
+                "y_pred": q_np[:, 2],
                 "lower": lo.cpu().numpy(),
                 "upper": hi.cpu().numpy(),
             }
