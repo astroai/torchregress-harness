@@ -13,6 +13,7 @@ sigma_NMAD, catastrophic-outlier fraction) and predictive diagnostics
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
@@ -211,7 +212,13 @@ class PZChallengeSuite(HarnessRunner):
         ]
 
     def methods(self) -> list[str]:
-        return list(_METHODS)
+        # Targeted reruns can restrict expensive methods without changing the
+        # release-wide job list (used by CANFAR single-method validation jobs).
+        requested = os.environ.get("TORCHREGRESS_PZ_METHODS", "").strip()
+        if not requested:
+            return list(_METHODS)
+        wanted = {part.strip() for part in requested.split(",") if part.strip()}
+        return [method for method in _METHODS if method in wanted]
 
     def library_name(self, method: str) -> str:
         if method.startswith("TabM"):
