@@ -65,6 +65,24 @@ Our harness implements a direct proxy comparison:
 same PZ features and training budgets.  This is not the paper's exact FrEIA
 architecture but is an apples-to-apples flow-family comparison.
 
+## PZRecipe run (2026-10-20)
+
+PZRecipe was added to `PZChallengeSuite` and run on **all 16 p(z) challenge
+datasets** (task sets 1–4, Cardinal/Flagship, 1yr/10yr), seed 0, 15 epochs, on a
+CANFAR GPU session sharded four ways (`release_20261020_1017`).  This is the
+lean two-stage FT-Transformer with the CE+CDF+RnC-N first-stage objective; the
+paper's TabM stage-2 classifier and long schedule are not reproduced.
+
+Mean over 16 datasets: RMSE **0.0636**, NLL **−1.821**, CRPS **0.0235**,
+coverage90 **0.9165**, σ_NMAD **0.0149**, train time **174 s**.  For comparison,
+the existing `NormalizingFlow` mean is RMSE 0.0480 / CRPS 0.0174 / σ_NMAD
+0.0128 at 2129 s, and `MDN_K3` is RMSE 0.0594 / CRPS 0.0199 at 22 s.  PZRecipe
+is therefore a cheap paper-structure reference, not a state-of-the-art result
+in this unsearched configuration.
+
+Full table and caveats: [`reports/pz_recipe_summary.md`](reports/pz_recipe_summary.md);
+merged artifact: [`reports/pz_recipe_all_results.json`](reports/pz_recipe_all_results.json).
+
 ## n(z), inference and PPI
 
 The n(z) archives contain 10 DDF fields with reference redshifts and a 1M-object
