@@ -580,7 +580,9 @@ class PZChallengeSuite(HarnessRunner):
         n = len(X_test)
         chunk = 50_000
         if n <= chunk:
-            return self._predict_impl(method, model_state, X_test, config)
+            out = self._predict_impl(method, model_state, X_test, config)
+            out["_raw_features"] = X_test
+            return out
         parts = [
             self._predict_impl(method, model_state, X_test[start : start + chunk], config)
             for start in range(0, n, chunk)
@@ -592,6 +594,7 @@ class PZChallengeSuite(HarnessRunner):
                 continue
             arr = np.concatenate(vals, axis=0)
             merged[key] = arr
+        merged["_raw_features"] = X_test
         return merged
 
     def _predict_impl(
@@ -797,6 +800,42 @@ class PZChallengeSuite(HarnessRunner):
         metrics["SigmaNMAD"] = float(1.4826 * np.median(np.abs(delta - med)))
         metrics["OutlierFraction15"] = float(np.mean(np.abs(delta) > 0.15))
         metrics["BiasZ"] = float(med)
+        # Paper diagnostics: PIT CvM, local photometric PIT-W1, central-68% width.
+        try:
+            from torchregress.metrics import pdf_width_68, pit_cvm, pit_local_w1
+
+            pit = metrics.get("PIT")
+            if pit is None and "samples" in pred:
+                sm = np.asarray(pred["samples"], dtype=np.float64)
+                pit = np.mean(sm <= z[:, None], axis=1)
+            if pit is None and "mean" in pred and "std" in pred:
+                from scipy.stats import norm
+
+                pit = norm.cdf(
+                    z,
+                    loc=np.asarray(pred["mean"], dtype=np.float64),
+                    scale=np.maximum(np.asarray(pred["std"], dtype=np.float64), 1e-9),
+                )
+            if pit is not None:
+                pit = np.asarray(pit, dtype=np.float64).reshape(-1)
+                metrics["PITCVM"] = float(pit_cvm(pit))
+            if "samples" in pred:
+                metrics["W68"] = float(pdf_width_68(pred["samples"], z))
+            elif "mean" in pred and "std" in pred:
+                metrics["W68"] = float(
+                    np.median(2.0 * 0.994457883209753 * np.asarray(pred["std"]) / (1.0 + z))
+                )
+            raw = pred.get("_raw_features")
+            if raw is not None and pit is not None:
+                metrics["LocalW1"] = float(
+                    pit_local_w1(
+                        _build_features(np.asarray(raw)),
+                        pit,
+                        k=min(100, max(2, len(pit) - 1)),
+                    )
+                )
+        except Exception:
+            pass
         if "quantile_values" in pred and "quantile_levels" in pred:
             qv = np.asarray(pred["quantile_values"], dtype=np.float64)
             levels = np.asarray(pred["quantile_levels"], dtype=np.float64)
