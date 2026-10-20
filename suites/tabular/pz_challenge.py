@@ -60,6 +60,7 @@ _METHODS = [
     "InputNoiseAug_MLP",
     "DensityWeighted_MLP",
     "BMC_MLP",
+    "PZRecipe",
 ]
 _QUANTILES = (0.05, 0.16, 0.5, 0.84, 0.95)
 _ALPHA = 0.10
@@ -248,6 +249,7 @@ class PZChallengeSuite(HarnessRunner):
             "InputNoiseAug_MLP": "EIV-style input-noise augmentation from per-band magnitude errors",
             "DensityWeighted_MLP": "label-density weighted MSE (imbalanced targets)",
             "BMC_MLP": "noise-adaptive Balanced MSE (BMC) for imbalanced targets",
+            "PZRecipe": "two-stage FT-Transformer: CE+CDF+RnC-N quantile-bin p(z); no stage-2 TabM",
         }
         return notes.get(method, "")
 
@@ -263,6 +265,39 @@ class PZChallengeSuite(HarnessRunner):
         in_dim = X_t.shape[1]
         hidden = _hidden_size(in_dim)
 
+        if method == "PZRecipe":
+            from torchregress.losses import PZRecipeLoss
+            from torchregress.models import PZRecipe
+
+            n_bins = 100
+            q = np.linspace(0.0, 1.0, n_bins + 2)[1:-1]
+            centers_np = np.quantile(y, q)
+            if len(np.unique(centers_np)) < n_bins:
+                centers_np = np.linspace(y.min(), y.max(), n_bins)
+            centers = torch.as_tensor(centers_np, dtype=torch.float32, device=current_device())
+            model = PZRecipe(
+                in_dim,
+                n_bins=n_bins,
+                d_token=64,
+                n_layers=2,
+                n_heads=4,
+                stage2_bins=n_bins,
+            ).to(current_device())
+            loss_fn = PZRecipeLoss(centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1)
+            opt = torch.optim.AdamW(model.parameters(), lr=min(config.lr, 5e-4), weight_decay=1e-5)
+            bs = min(max(1024, int(config.batch_size)), len(X_t))
+            for _ in range(int(config.epochs)):
+                perm = torch.randperm(len(X_t), device=current_device())
+                for start in range(0, len(X_t), bs):
+                    idx = perm[start : start + bs]
+                    opt.zero_grad(set_to_none=True)
+                    logits = model(X_t[idx], stage=1)
+                    features = model.encode(X_t[idx])
+                    loss = loss_fn(logits, y_t[idx].reshape(-1), features=features)
+                    loss.backward()
+                    opt.step()
+            model.eval()
+            return {"type": "pz_recipe", "model": model, "centers": centers}
         if method == "MSE_MLP":
             model = _MLP(in_dim, hidden, 1).to(current_device())
             _train_one(
@@ -614,6 +649,29 @@ class PZChallengeSuite(HarnessRunner):
         X_t = torch.from_numpy(np.asarray(X, dtype=np.float32)).to(current_device())
         model = model_state.get("model")
         kind = model_state["type"]
+        if kind == "pz_recipe":
+            with torch.no_grad():
+                logits = model(X_t, stage=1)
+                proba = torch.softmax(logits, dim=-1)
+                centers = model_state["centers"]
+                mean = (proba * centers).sum(dim=-1)
+                n_samples = 64 if len(X_test) > 100_000 else 256
+                bin_idx = torch.distributions.Categorical(probs=proba).sample((n_samples,)).T
+                edges = torch.empty(centers.numel() + 1, device=centers.device)
+                edges[1:-1] = (centers[:-1] + centers[1:]) / 2.0
+                edges[0] = centers[0] - (centers[1] - centers[0]) / 2.0
+                edges[-1] = centers[-1] + (centers[-1] - centers[-2]) / 2.0
+                low = edges[:-1][bin_idx]
+                high = edges[1:][bin_idx]
+                samples = (low + (high - low) * torch.rand_like(low)).cpu().numpy()
+            return {
+                "y_pred": mean.cpu().numpy(),
+                "mean": mean.cpu().numpy(),
+                "std": samples.std(axis=1),
+                "lower": np.quantile(samples, 0.05, axis=1),
+                "upper": np.quantile(samples, 0.95, axis=1),
+                "samples": samples,
+            }
         if kind == "point":
             with torch.no_grad():
                 pred = model(X_t).reshape(-1).cpu().numpy()
