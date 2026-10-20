@@ -250,6 +250,15 @@ class DensityParitySuite(HarnessRunner):
         ]
 
     def methods(self) -> list[str]:
+        requested = os.environ.get("TORCHREGRESS_DENSITY_METHODS", "").strip()
+        if requested:
+            wanted = {part.strip() for part in requested.split(",") if part.strip()}
+            return [m for m in (
+                "torchregress_NSF", "sbi_NSF", "sbi_zuko_NSF", "pzflow_NSF",
+                "torchregress_MAF", "torchregress_cINN", "torchregress_BPF",
+                "torchregress_CFM", "sbi_MAF", "sbi_zuko_MAF",
+                "torchregress_MDN", "sbi_MDN", "sbi_NPE_NSF",
+            ) if m in wanted]
         return [
             "torchregress_NSF",
             "sbi_NSF",

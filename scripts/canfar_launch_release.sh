@@ -127,6 +127,7 @@ set_env_args() {
   [ -n "${JOB_FILTER:-}" ] && ENV_ARGS+=(-e "JOB_FILTER_HEX=$(printf '%s' "$JOB_FILTER" | od -An -tx1 | tr -d ' \n')")
   [ -n "${TORCHREGRESS_NZ_CHALLENGE_DIR:-}" ] && ENV_ARGS+=(-e "TORCHREGRESS_NZ_CHALLENGE_DIR=$TORCHREGRESS_NZ_CHALLENGE_DIR")
   [ -n "${PZ_METHODS:-}" ] && ENV_ARGS+=(-e "TORCHREGRESS_PZ_METHODS=$PZ_METHODS")
+  [ -n "${DENSITY_METHODS:-}" ] && ENV_ARGS+=(-e "TORCHREGRESS_DENSITY_METHODS=$DENSITY_METHODS")
   return 0
 }
 DRY=()
