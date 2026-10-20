@@ -68,20 +68,32 @@ architecture but is an apples-to-apples flow-family comparison.
 ## PZRecipe run (2026-10-20)
 
 PZRecipe was added to `PZChallengeSuite` and run on **all 16 p(z) challenge
-datasets** (task sets 1–4, Cardinal/Flagship, 1yr/10yr), seed 0, 15 epochs, on a
-CANFAR GPU session sharded four ways (`release_20261020_1017`).  This is the
-lean two-stage FT-Transformer with the CE+CDF+RnC-N first-stage objective; the
-paper's TabM stage-2 classifier and long schedule are not reproduced.
+datasets** (task sets 1–4, Cardinal/Flagship, 1yr/10yr), **3 seeds**, **60
+epochs**, on a CANFAR GPU run sharded eight ways (`release_20261020_1127`).
+Two variants were run:
 
-Mean over 16 datasets: RMSE **0.0636**, NLL **−1.821**, CRPS **0.0235**,
-coverage90 **0.9165**, σ_NMAD **0.0149**, train time **174 s**.  For comparison,
-the existing `NormalizingFlow` mean is RMSE 0.0480 / CRPS 0.0174 / σ_NMAD
-0.0128 at 2129 s, and `MDN_K3` is RMSE 0.0594 / CRPS 0.0199 at 22 s.  PZRecipe
-is therefore a cheap paper-structure reference, not a state-of-the-art result
-in this unsearched configuration.
+- `PZRecipe`: CE+CDF+RnC-N FT-Transformer stage-1 p(z), 100 quantile bins.
+- `PZRecipe_TabM`: same stage 1, plus the paper-style TabM stage-2 classifier
+  on frozen features with 200 bins.
+
+Mean over 16 datasets × 3 seeds:
+
+| method | mean RMSE | median NLL | mean CRPS | coverage90 | σ_NMAD | train_s |
+|---|--:|--:|--:|--:|--:|--:|
+| PZRecipe | 0.0581 | −2.002 | 0.0196 | 0.8762 | 0.0131 | 693 |
+| PZRecipe_TabM | 0.0520 | −2.114 | 0.0174 | 0.8702 | 0.0119 | 733 |
+
+For comparison, existing `NormalizingFlow` mean is RMSE 0.0480 / CRPS 0.0174
+/ σ_NMAD 0.0128 at 2129 s, and `MDN_K3` is RMSE 0.0594 / CRPS 0.0199 at 22 s.
+TabM stage 2 improves RMSE, CRPS and σ_NMAD over stage 1 in **48/48**
+dataset×seed pairs, but PZRecipe remains a cheap reference rather than a
+state-of-the-art result in this unsearched configuration.  Coverage is ~0.87,
+slightly under nominal 0.90.  Binned NLL is not a continuous-density NLL; one
+task3 flagship seed has a positive-NLL edge-bin outlier (1.00 and 5.01) and is
+retained in the table.
 
 Full table and caveats: [`reports/pz_recipe_summary.md`](reports/pz_recipe_summary.md);
-merged artifact: [`reports/pz_recipe_all_results.json`](reports/pz_recipe_all_results.json).
+merged artifact: [`reports/pz_recipe_all_results_long.json`](reports/pz_recipe_all_results_long.json).
 
 ## n(z), inference and PPI
 
