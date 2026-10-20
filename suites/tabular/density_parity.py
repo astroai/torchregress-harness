@@ -60,7 +60,12 @@ N_DUMP_ROWS = 5
 # per method (tools/plot_density_parity.py draws them as corner plots).
 DUMP_ENV = "DENSITY_PARITY_DUMP_DIR"
 
-_TR_FLOWS = {"torchregress_NSF": "nsf", "torchregress_MAF": "maf"}
+_TR_FLOWS = {
+    "torchregress_NSF": "nsf",
+    "torchregress_MAF": "maf",
+    "torchregress_cINN": "realnvp",
+    "torchregress_BPF": "bpf",
+}
 _SBI_MODELS = {
     "sbi_NSF": "nsf",
     "sbi_MAF": "maf",
@@ -166,8 +171,9 @@ def _scores(
         crps_parts.append((Sb - Yb[:, None, :]).abs().mean(1) - 0.5 * spread)
     es = torch.cat(es_parts)
     crps = torch.cat(crps_parts)
+    has_lp = lp_true is not None and bool(np.all(np.isfinite(lp_true)))
     out: dict[str, float | None] = {
-        "NLL": float(-np.mean(lp_true)),
+        "NLL": float(-np.mean(lp_true)) if has_lp else None,
         "ES": float(es.mean()),
         "CRPS": float(crps.mean()),
     }
@@ -194,7 +200,7 @@ def _scores(
     grid = np.sort(pit, axis=0)
     ecdf = np.arange(1, N + 1)[:, None] / N
     out["PIT_KS"] = float(np.max(np.abs(grid - ecdf), axis=0).mean())
-    if lp_samples is not None:
+    if lp_samples is not None and has_lp:
         thr = np.quantile(lp_samples, 0.10, axis=1)
         out["Cov90_joint"] = float(np.mean(lp_true >= thr))
     else:
@@ -250,6 +256,9 @@ class DensityParitySuite(HarnessRunner):
             "sbi_zuko_NSF",
             "pzflow_NSF",
             "torchregress_MAF",
+            "torchregress_cINN",
+            "torchregress_BPF",
+            "torchregress_CFM",
             "sbi_MAF",
             "sbi_zuko_MAF",
             "torchregress_MDN",
@@ -278,6 +287,9 @@ class DensityParitySuite(HarnessRunner):
             "sbi_zuko_NSF": "sbi posterior_nn('zuko_nsf') (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "pzflow_NSF": "pzflow Flow (default bijector), conditional columns = x; pzflow's own trainer",
             "torchregress_MAF": "zuko MAF (3 transforms, 64 hidden) on shared encoder; shared trainer",
+            "torchregress_cINN": "zuko conditional affine coupling / cINN-style RealNVP on shared encoder",
+            "torchregress_BPF": "zuko Bernstein-polynomial flow on shared encoder",
+            "torchregress_CFM": "conditional flow matching (OT-CFM, 32-step Euler sampler); no exact likelihood",
             "sbi_MAF": "sbi posterior_nn('maf') = nflows MAF (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "sbi_zuko_MAF": "sbi posterior_nn('zuko_maf') (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "torchregress_MDN": "MixtureDensityLoss K=10, full covariance; shared encoder + 2x64 hidden head (as sbi MDN); shared trainer",
@@ -296,15 +308,30 @@ class DensityParitySuite(HarnessRunner):
             from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
 
             enc = self._encoder(in_dim, hidden).to(dev)
-            flow = create_flow_model(
-                n_features=out_dim,
-                context_dim=hidden,
-                flow_type=_TR_FLOWS[method],
-                n_transforms=FLOW_TRANSFORMS,
-                hidden_features=[FLOW_HIDDEN, FLOW_HIDDEN],
-            ).to(dev)
+            flow_type = _TR_FLOWS[method]
+            if flow_type == "bpf":
+                flow = create_flow_model(
+                    n_features=out_dim,
+                    context_dim=hidden,
+                    flow_type="bpf",
+                    degree=8,
+                ).to(dev)
+            else:
+                flow = create_flow_model(
+                    n_features=out_dim,
+                    context_dim=hidden,
+                    flow_type=flow_type,
+                    n_transforms=FLOW_TRANSFORMS,
+                    hidden_features=[FLOW_HIDDEN, FLOW_HIDDEN],
+                ).to(dev)
             loss = NormalizingFlowLoss(flow=flow).to(dev)
             return {"kind": "tr_flow", "modules": [enc, loss], "enc": enc, "loss": loss}
+        if method == "torchregress_CFM":
+            from torchregress.models import FlowMatchingMLP
+
+            enc = self._encoder(in_dim, hidden).to(dev)
+            velocity = FlowMatchingMLP(out_dim, hidden, hidden=(FLOW_HIDDEN, FLOW_HIDDEN)).to(dev)
+            return {"kind": "tr_cfm", "modules": [enc, velocity], "enc": enc, "velocity": velocity}
         if method == "torchregress_MDN":
             from torchregress.losses import MixtureDensityLoss
 
@@ -355,6 +382,10 @@ class DensityParitySuite(HarnessRunner):
             return lambda xb, yb: mdn._calculate_nll(
                 yb, mdn._extract_distribution_parameters(state["net"](xb))
             )
+        if k == "tr_cfm":
+            from torchregress.models import cfm_loss
+
+            return lambda xb, yb: cfm_loss(state["velocity"], state["enc"](xb), yb)
         if k == "sbi_est":
             return lambda xb, yb: state["est"].loss(yb, xb)
         raise ValueError(k)
@@ -379,6 +410,14 @@ class DensityParitySuite(HarnessRunner):
                     s = state["loss"].sample(ctx, n_samples=n_s)  # [B, S, D]
                     ctx_r = ctx.repeat_interleave(n_s, dim=0)
                     lp_s = state["loss"].log_prob(ctx_r, s.reshape(b * n_s, D)).reshape(b, n_s)
+                elif k == "tr_cfm":
+                    from torchregress.models import sample_cfm
+
+                    s = sample_cfm(
+                        state["velocity"], state["enc"](xb), n_samples=n_s, steps=32
+                    )
+                    lp = torch.full((b,), float("nan"), device=dev)
+                    lp_s = None
                 elif k == "tr_mdn":
                     mdn = state["mdn"]
                     out = state["net"](xb)
@@ -396,8 +435,11 @@ class DensityParitySuite(HarnessRunner):
                     s = s.transpose(0, 1)
                 lps.append(lp.reshape(-1).cpu().numpy())
                 samp.append(s.reshape(b, n_s, D).cpu().numpy())
-                lps_s.append(lp_s.reshape(b, n_s).cpu().numpy())
-        return np.concatenate(lps), np.concatenate(samp), np.concatenate(lps_s)
+                if lp_s is not None:
+                    lps_s.append(lp_s.reshape(b, n_s).cpu().numpy())
+        lp_out = np.concatenate(lps)
+        lp_s_out = np.concatenate(lps_s) if lps_s else None
+        return lp_out, np.concatenate(samp), lp_s_out
 
     def _pzflow(
         self, X: np.ndarray, Y: np.ndarray, Xte: np.ndarray, Yte: np.ndarray, cfg: HarnessConfig
