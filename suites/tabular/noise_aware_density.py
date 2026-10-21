@@ -337,7 +337,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
             return [model, mdn], train_loss, "mdn"
         if method.startswith("Binned"):
             edges = torch.linspace(-6.0, 6.0, 65)
-            binned = BinnedDensityLoss(edges)
+            binned = BinnedDensityLoss(edges).to(dev)
             head = nn.Linear(hidden, binned.n_bins).to(dev)
 
             class _BinnedModel(nn.Module):
