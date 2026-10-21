@@ -11,10 +11,25 @@ def test_metadata() -> None:
     suite = PZChallengeSuite()
     assert suite.name == "pz_challenge"
     expected = {
-        "MSE_MLP", "GaussianNLL_MLP", "MDN_K3", "Quantile_MLP",
-        "NormalizingFlow", "TabM_MSE", "TabM_GaussianNLL", "TabM_SplitCP",
-        "SplitCP_MLP", "CQR_MLP", "MondrianCP_MLP", "CVPlus_MLP", "LocalCP_MLP", "NormalizedCP_MLP", "Evidential",
-        "BetaNLL_MLP", "InputNoiseAug_MLP", "DensityWeighted_MLP", "BMC_MLP",
+        "MSE_MLP",
+        "GaussianNLL_MLP",
+        "MDN_K3",
+        "Quantile_MLP",
+        "NormalizingFlow",
+        "TabM_MSE",
+        "TabM_GaussianNLL",
+        "TabM_SplitCP",
+        "SplitCP_MLP",
+        "CQR_MLP",
+        "MondrianCP_MLP",
+        "CVPlus_MLP",
+        "LocalCP_MLP",
+        "NormalizedCP_MLP",
+        "Evidential",
+        "BetaNLL_MLP",
+        "InputNoiseAug_MLP",
+        "DensityWeighted_MLP",
+        "BMC_MLP",
     }
     assert expected <= set(suite.methods())
     assert "pz_challenge_cardinal_10yr" in suite.supported_datasets

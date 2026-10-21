@@ -212,9 +212,7 @@ class NZChallengeSuite(PZChallengeSuite):
         except Exception:
             pass
         try:
-            res_q = ppi_quantile_ci(
-                y_true[lab], y_mean[lab], y_mean[mask], q=0.5, config=ppi_cfg
-            )
+            res_q = ppi_quantile_ci(y_true[lab], y_mean[lab], y_mean[mask], q=0.5, config=ppi_cfg)
             out["PPI_MedianZ_Estimate"] = float(res_q["estimate"])
             out["PPI_MedianZ_Coverage"] = float(
                 res_q["ci_lower"] <= np.median(y_true) <= res_q["ci_upper"]

@@ -335,9 +335,9 @@ class PZChallengeSuite(HarnessRunner):
                 idx = perm[start : start + bs]
                 with torch.no_grad():
                     features = model.encode(X_t[idx])
-                    labels = torch.searchsorted(centers2, y_t[idx].reshape(-1)).clamp(
-                        1, stage2_bins
-                    ) - 1
+                    labels = (
+                        torch.searchsorted(centers2, y_t[idx].reshape(-1)).clamp(1, stage2_bins) - 1
+                    )
                 opt2.zero_grad(set_to_none=True)
                 out = tabm(features)  # [B, k, n_bins]
                 loss = F.cross_entropy(

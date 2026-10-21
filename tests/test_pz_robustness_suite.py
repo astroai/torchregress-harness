@@ -9,8 +9,17 @@ from suites.tabular.pz_robustness import PZOODSuite, PZRemovalSuite
 
 def _write_fixture(path, n=160, seed=0):
     h5py = pytest.importorskip("h5py")
-    bands = [("u", "lsst"), ("g", "lsst"), ("r", "lsst"), ("i", "lsst"),
-             ("z", "lsst"), ("y", "lsst"), ("Y", "roman"), ("J", "roman"), ("H", "roman")]
+    bands = [
+        ("u", "lsst"),
+        ("g", "lsst"),
+        ("r", "lsst"),
+        ("i", "lsst"),
+        ("z", "lsst"),
+        ("y", "lsst"),
+        ("Y", "roman"),
+        ("J", "roman"),
+        ("H", "roman"),
+    ]
     rng = np.random.default_rng(seed)
     with h5py.File(path, "w") as f:
         for i, (band, survey) in enumerate(bands):

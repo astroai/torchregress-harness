@@ -169,9 +169,11 @@ class PZOODSuite(PZChallengeSuite):
         ood = {k: load_dataset(v, standardize_targets=False) for k, v in ood_names.items()}
         for view in ood.values():
             if scaler is not None:
-                view["y_test"] = scaler.transform(
-                    np.asarray(view["y_test"], dtype=np.float64).reshape(-1, 1)
-                ).ravel().astype(np.float32)
+                view["y_test"] = (
+                    scaler.transform(np.asarray(view["y_test"], dtype=np.float64).reshape(-1, 1))
+                    .ravel()
+                    .astype(np.float32)
+                )
         X_train = np.asarray(id_splits["X_train"], dtype=np.float32)
         y_train = np.asarray(id_splits["y_train"], dtype=np.float32).reshape(-1)
         rows: list[dict[str, Any]] = []
