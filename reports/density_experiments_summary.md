@@ -162,16 +162,16 @@ because it isolates the cNSF vs cINN flow-family comparison.
 
 ## 9. Code map
 
-**torchregress** (sibling repository, `../torchregress/`)
-- Flows: [`losses/nflows.py`](../torchregress/src/torchregress/losses/nflows.py) (`NSF`, `MAF`, `RealNVP/cINN`, `BPF`, `NormalizingFlowLoss`, `ContrastiveFlowLoss`)
-- Noise-aware / binned: [`losses/noise_aware_density.py`](../torchregress/src/torchregress/losses/noise_aware_density.py)
-- PZRecipe: [`losses/recipe.py`](../torchregress/src/torchregress/losses/recipe.py), [`models/ft_transformer.py`](../torchregress/src/torchregress/models/ft_transformer.py), [`models/pz_recipe.py`](../torchregress/src/torchregress/models/pz_recipe.py)
-- CFM: [`models/flow_matching.py`](../torchregress/src/torchregress/models/flow_matching.py)
-- NFM: [`models/normalizing_flow_map.py`](../torchregress/src/torchregress/models/normalizing_flow_map.py)
-- Conformal: [`losses/conformal.py`](../torchregress/src/torchregress/losses/conformal.py) (`CTI`, `ConformalizedDensity`, `ContrastiveFlowConformal`)
-- WALDO: [`losses/waldo.py`](../torchregress/src/torchregress/losses/waldo.py)
-- Metrics: [`metrics/photo_z.py`](../torchregress/src/torchregress/metrics/photo_z.py), [`metrics/representation.py`](../torchregress/src/torchregress/metrics/representation.py)
-- Guides: [`docs/methods/flow_matching.md`](../torchregress/docs/methods/flow_matching.md), [`docs/methods/normalizing_flow_maps.md`](../torchregress/docs/methods/normalizing_flow_maps.md), [`docs/methods/waldo.md`](../torchregress/docs/methods/waldo.md), [`docs/losses/conformal.md`](../torchregress/docs/losses/conformal.md), [`docs/losses/photo_z_recipe.md`](../torchregress/docs/losses/photo_z_recipe.md), [`docs/guide/density_estimation_roadmap.md`](../torchregress/docs/guide/density_estimation_roadmap.md)
+**torchregress** (sibling repository, `../../torchregress/`)
+- Flows: [`losses/nflows.py`](../../torchregress/src/torchregress/losses/nflows.py) (`NSF`, `MAF`, `RealNVP/cINN`, `BPF`, `NormalizingFlowLoss`, `ContrastiveFlowLoss`)
+- Noise-aware / binned: [`losses/noise_aware_density.py`](../../torchregress/src/torchregress/losses/noise_aware_density.py)
+- PZRecipe: [`losses/recipe.py`](../../torchregress/src/torchregress/losses/recipe.py), [`models/ft_transformer.py`](../../torchregress/src/torchregress/models/ft_transformer.py), [`models/pz_recipe.py`](../../torchregress/src/torchregress/models/pz_recipe.py)
+- CFM: [`models/flow_matching.py`](../../torchregress/src/torchregress/models/flow_matching.py)
+- NFM: [`models/normalizing_flow_map.py`](../../torchregress/src/torchregress/models/normalizing_flow_map.py)
+- Conformal: [`losses/conformal.py`](../../torchregress/src/torchregress/losses/conformal.py) (`CTI`, `ConformalizedDensity`, `ContrastiveFlowConformal`)
+- WALDO: [`losses/waldo.py`](../../torchregress/src/torchregress/losses/waldo.py)
+- Metrics: [`metrics/photo_z.py`](../../torchregress/src/torchregress/metrics/photo_z.py), [`metrics/representation.py`](../../torchregress/src/torchregress/metrics/representation.py)
+- Guides: [`docs/methods/flow_matching.md`](../../torchregress/docs/methods/flow_matching.md), [`docs/methods/normalizing_flow_maps.md`](../../torchregress/docs/methods/normalizing_flow_maps.md), [`docs/methods/waldo.md`](../../torchregress/docs/methods/waldo.md), [`docs/losses/conformal.md`](../../torchregress/docs/losses/conformal.md), [`docs/losses/photo_z_recipe.md`](../../torchregress/docs/losses/photo_z_recipe.md), [`docs/guide/density_estimation_roadmap.md`](../../torchregress/docs/guide/density_estimation_roadmap.md)
 
 **torchregress-harness** (this repository)
 - Suites: [`suites/tabular/density_parity.py`](../suites/tabular/density_parity.py), [`noise_aware_density.py`](../suites/tabular/noise_aware_density.py), [`pz_challenge.py`](../suites/tabular/pz_challenge.py), [`flow_eiv.py`](../suites/tabular/flow_eiv.py), [`likelihood_ratio.py`](../suites/tabular/likelihood_ratio.py)
@@ -198,4 +198,4 @@ because it isolates the cNSF vs cINN flow-family comparison.
 ## 11. Roadmap
 
 See the torchregress roadmap in
-[`docs/guide/density_estimation_roadmap.md`](../torchregress/docs/guide/density_estimation_roadmap.md).
+[`docs/guide/density_estimation_roadmap.md`](../../torchregress/docs/guide/density_estimation_roadmap.md).
