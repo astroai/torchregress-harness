@@ -288,7 +288,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
                     Y,
                     sigma if method.endswith("_noise") else None,
                     cfg,
-                    epochs=4 * int(cfg.epochs) if method == "NFM" else None,
+                    epochs=None,
                 )
                 fit_s = perf_counter() - t0
                 t1 = perf_counter()
@@ -390,8 +390,8 @@ class NoiseAwareDensitySuite(HarnessRunner):
                 d,
                 hidden,
                 n_layers=3,
-                hidden=(128, 128),
-                arch="tarflow" if d > 1 else "coupling",
+                hidden=(64, 64),
+                arch="coupling",
                 nll_weight=1.0,
             ).to(dev)
             class _NFMModel(nn.Module):
