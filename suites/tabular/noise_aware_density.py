@@ -18,6 +18,7 @@ budget.
 
 from __future__ import annotations
 
+import os
 from time import perf_counter
 from typing import Any
 
@@ -75,8 +76,16 @@ def _make_splits(name: str, config: HarnessConfig) -> dict[str, np.ndarray]:
     }
 
 
-def _train(modules: list[nn.Module], loss_fn: Any, X: np.ndarray, Y: np.ndarray,
-           sigma: np.ndarray | None, cfg: HarnessConfig) -> float:
+def _train(
+    modules: list[nn.Module],
+    loss_fn: Any,
+    X: np.ndarray,
+    Y: np.ndarray,
+    sigma: np.ndarray | None,
+    cfg: HarnessConfig,
+    *,
+    epochs: int | None = None,
+) -> float:
     dev = current_device()
     xt = torch.as_tensor(X, dtype=torch.float32, device=dev)
     yt = torch.as_tensor(Y, dtype=torch.float32, device=dev)
@@ -85,7 +94,7 @@ def _train(modules: list[nn.Module], loss_fn: Any, X: np.ndarray, Y: np.ndarray,
     opt = torch.optim.Adam(params, lr=cfg.lr)
     n = len(xt)
     bs = min(int(cfg.batch_size), n)
-    epochs = 3 if cfg.smoke else int(cfg.epochs)
+    epochs = 3 if cfg.smoke else int(epochs if epochs is not None else cfg.epochs)
     for _ in range(epochs):
         for m in modules:
             m.train()
@@ -199,7 +208,11 @@ class NoiseAwareDensitySuite(HarnessRunner):
         return ["synthetic_na_scalar", "synthetic_na_multi"]
 
     def methods(self) -> list[str]:
-        return list(_METHODS)
+        requested = os.environ.get("TORCHREGRESS_NOISE_METHODS", "").strip()
+        if not requested:
+            return list(_METHODS)
+        wanted = {part.strip() for part in requested.split(",") if part.strip()}
+        return [method for method in _METHODS if method in wanted]
 
     def library_name(self, method: str) -> str:
         return "torchregress"
@@ -268,7 +281,15 @@ class NoiseAwareDensitySuite(HarnessRunner):
             try:
                 t0 = perf_counter()
                 modules, loss_fn, kind = self._build(method, X, Y, sigma, cfg)
-                _train(modules, loss_fn, X, Y, sigma if method.endswith("_noise") else None, cfg)
+                _train(
+                    modules,
+                    loss_fn,
+                    X,
+                    Y,
+                    sigma if method.endswith("_noise") else None,
+                    cfg,
+                    epochs=4 * int(cfg.epochs) if method == "NFM" else None,
+                )
                 fit_s = perf_counter() - t0
                 t1 = perf_counter()
                 model, base_loss = modules[0], (modules[1] if len(modules) > 1 else modules[0])
@@ -365,7 +386,14 @@ class NoiseAwareDensitySuite(HarnessRunner):
             # For evaluation, return the binned loss and the logits model.
             return [model, binned], train_loss, "binned"
         if method == "NFM":
-            nfm = NormalizingFlowMap(d, hidden, n_layers=3, hidden=(64, 64)).to(dev)
+            nfm = NormalizingFlowMap(
+                d,
+                hidden,
+                n_layers=3,
+                hidden=(128, 128),
+                arch="tarflow" if d > 1 else "coupling",
+                nll_weight=1.0,
+            ).to(dev)
             class _NFMModel(nn.Module):
                 def __init__(self):
                     super().__init__()
@@ -379,7 +407,10 @@ class NoiseAwareDensitySuite(HarnessRunner):
 
             def train_loss(xb, yb, sig):
                 del sig
-                return nfm.training_loss(model(xb), yb)
+                # Endpoint NLL is the fair density objective and fits the
+                # tabular map faster than the mixed map-matching loss at the
+                # harness budget.
+                return -nfm.log_prob(model(xb), yb).mean()
 
             return [model, nfm], train_loss, "nfm"
         if method == "CFM":
