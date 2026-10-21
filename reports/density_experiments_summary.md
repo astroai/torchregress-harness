@@ -10,7 +10,7 @@ listed at the end.
 | # | Experiment | Data | Seeds × epochs | Compute / run | Artifact |
 |:-:|:--|:--|:--|:--|:--|
 | E1 | Density-head factorial (clean/noisy × imbalance × budget) | synthetic scalar, 1 seed | 1 × 40 | **local CPU screening** | [`density_robustness.md`](density_robustness.md), `.json` |
-| E2 | Multi-target density parity: NSF/MAF/cINN/BPF/CFM/MDN | 7 real/synthetic tabular datasets | 3 × 60 | **CANFAR ≤GPU** `release_20261020_1653` | [`modern_density_results.json`](modern_density_results.json) |
+| E2 | Multi-target density parity: NSF/MAF/cINN/BPF/CFM/MDN | 7 real/synthetic tabular datasets | 3 × 60 | **CANFAR GPU** `release_20261020_1653` | [`modern_density_results.json`](modern_density_results.json) |
 | E3 | Known-label-noise densities (clean vs noise-aware NSF/MDN/binned, CFM) | 2 synthetic (scalar, 2-target) | 3 × 60 | **CANFAR GPU** `release_20261020_2032` | [`noise_aware_results.json`](noise_aware_results.json) |
 | E4 | Forward inversion + contrastive normalizing flows | synthetic EIV + SBI tasks | 3 × 60 | **CANFAR GPU** `release_20261020_1939` | [`forward_inversion_contrastive_results.json`](forward_inversion_contrastive_results.json) |
 | E5 | NFM (coupling) on known-noise targets | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261021_1003` | [`nfm_noise_results.json`](nfm_noise_results.json) |
