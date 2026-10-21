@@ -33,8 +33,10 @@ class _Net(nn.Module):
     def __init__(self, in_dim: int, out_dim: int, hidden: int = 64) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(in_dim, hidden), nn.SiLU(),
-            nn.Linear(hidden, hidden), nn.SiLU(),
+            nn.Linear(in_dim, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, hidden),
+            nn.SiLU(),
             nn.Linear(hidden, out_dim),
         )
 
@@ -42,7 +44,9 @@ class _Net(nn.Module):
         return self.net(x)
 
 
-def _data(n: int, imbalance: str, seed: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def _data(
+    n: int, imbalance: str, seed: int, rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray]:
     """Scalar target with conditional bimodality and rare bright/faint region."""
     rare = 0.03 if imbalance == "severe" else 0.15
     is_rare = rng.random(n) < rare
@@ -70,8 +74,12 @@ def _train(
     in_dim = x.shape[1]
     if method.startswith("NSF"):
         flow = create_flow_model(
-            n_features=1, context_dim=48, flow_type="nsf", n_transforms=3,
-            hidden_features=[64, 64], bound=8.0,
+            n_features=1,
+            context_dim=48,
+            flow_type="nsf",
+            n_transforms=3,
+            hidden_features=[64, 64],
+            bound=8.0,
         )
         model = _Net(in_dim, 48)
         base = NormalizingFlowLoss(flow=flow)
@@ -84,11 +92,7 @@ def _train(
         mdn = MixtureDensityLoss(n_components=5, n_features=1)
         model = _Net(in_dim, mdn.expected_output_size)
         base = mdn
-        loss_fn = (
-            NoiseAwareDensityLoss(mdn, mode="analytic")
-            if method == "MDN_noise"
-            else mdn
-        )
+        loss_fn = NoiseAwareDensityLoss(mdn, mode="analytic") if method == "MDN_noise" else mdn
         params = list(model.parameters())
     elif method.startswith("Binned"):
         edges = torch.linspace(-6.0, 6.0, 65)
@@ -118,7 +122,9 @@ def _train(
     return model, loss_fn
 
 
-def _eval(model: Any, loss_fn: Any, x: np.ndarray, y_clean: np.ndarray, sig: np.ndarray | None = None) -> dict[str, float]:
+def _eval(
+    model: Any, loss_fn: Any, x: np.ndarray, y_clean: np.ndarray, sig: np.ndarray | None = None
+) -> dict[str, float]:
     model.eval()
     # Evaluate the clean conditional density even when training used a
     # NoiseAwareDensityLoss wrapper.
@@ -142,7 +148,9 @@ def _eval(model: Any, loss_fn: Any, x: np.ndarray, y_clean: np.ndarray, sig: np.
             samples = means_s + stds_s * torch.randn_like(means_s)
         elif isinstance(loss_fn, BinnedDensityLoss):
             logits = ctx
-            y_idx = torch.searchsorted(loss_fn.bin_edges, y_t.reshape(-1)).clamp(1, loss_fn.n_bins) - 1
+            y_idx = (
+                torch.searchsorted(loss_fn.bin_edges, y_t.reshape(-1)).clamp(1, loss_fn.n_bins) - 1
+            )
             clean_nll = -torch.log_softmax(logits, -1)[torch.arange(len(y_t)), y_idx].mean().item()
             samples = loss_fn.sample(logits, n_samples=256)
         else:
@@ -195,15 +203,24 @@ def main() -> None:
                     for method in methods:
                         try:
                             model, loss_fn = _train(
-                                method, x_tr, y_tr, sigma,
+                                method,
+                                x_tr,
+                                y_tr,
+                                sigma,
                                 epochs=40,
                                 seed=seed,
                             )
                             metrics = _eval(model, loss_fn, x_test, y_test)
-                            rows.append({
-                                "seed": seed, "imbalance": imbalance, "budget": budget,
-                                "noise": noise, "method": method, **metrics,
-                            })
+                            rows.append(
+                                {
+                                    "seed": seed,
+                                    "imbalance": imbalance,
+                                    "budget": budget,
+                                    "noise": noise,
+                                    "method": method,
+                                    **metrics,
+                                }
+                            )
                             print(
                                 f"{seed} {imbalance:6s} n={budget:4d} noise={noise:.1f} "
                                 f"{method:12s} NLL={metrics['NLL']:.3f} CRPS={metrics['CRPS']:.3f}",

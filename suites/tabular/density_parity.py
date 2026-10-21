@@ -253,12 +253,25 @@ class DensityParitySuite(HarnessRunner):
         requested = os.environ.get("TORCHREGRESS_DENSITY_METHODS", "").strip()
         if requested:
             wanted = {part.strip() for part in requested.split(",") if part.strip()}
-            return [m for m in (
-                "torchregress_NSF", "sbi_NSF", "sbi_zuko_NSF", "pzflow_NSF",
-                "torchregress_MAF", "torchregress_cINN", "torchregress_BPF",
-                "torchregress_CFM", "sbi_MAF", "sbi_zuko_MAF",
-                "torchregress_MDN", "sbi_MDN", "sbi_NPE_NSF",
-            ) if m in wanted]
+            return [
+                m
+                for m in (
+                    "torchregress_NSF",
+                    "sbi_NSF",
+                    "sbi_zuko_NSF",
+                    "pzflow_NSF",
+                    "torchregress_MAF",
+                    "torchregress_cINN",
+                    "torchregress_BPF",
+                    "torchregress_CFM",
+                    "sbi_MAF",
+                    "sbi_zuko_MAF",
+                    "torchregress_MDN",
+                    "sbi_MDN",
+                    "sbi_NPE_NSF",
+                )
+                if m in wanted
+            ]
         return [
             "torchregress_NSF",
             "sbi_NSF",
@@ -445,9 +458,7 @@ class DensityParitySuite(HarnessRunner):
                 elif k == "tr_cfm":
                     from torchregress.models import sample_cfm
 
-                    s = sample_cfm(
-                        state["velocity"], state["enc"](xb), n_samples=n_s, steps=32
-                    )
+                    s = sample_cfm(state["velocity"], state["enc"](xb), n_samples=n_s, steps=32)
                     lp = torch.full((b,), float("nan"), device=dev)
                     lp_s = None
                 elif k == "tr_mdn":

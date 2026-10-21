@@ -38,9 +38,7 @@ _SMOKE_TRAIN, _SMOKE_TEST = 512, 128
 
 def _make_splits(name: str, config: HarnessConfig) -> dict[str, np.ndarray]:
     rng = np.random.default_rng(int(config.seed))
-    n_train, n_test = (
-        (_SMOKE_TRAIN, _SMOKE_TEST) if config.smoke else (_N_TRAIN, _N_TEST)
-    )
+    n_train, n_test = (_SMOKE_TRAIN, _SMOKE_TEST) if config.smoke else (_N_TRAIN, _N_TEST)
     multi = name.endswith("multi")
 
     def draw(n: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -51,12 +49,12 @@ def _make_splits(name: str, config: HarnessConfig) -> dict[str, np.ndarray]:
         )
         mode = rng.choice([-1.0, 1.0], size=(n, 1) if multi else (n,))
         if multi:
-            y = mean + mode * np.array([0.8, 0.6], dtype=np.float32) + rng.normal(
-                scale=0.35, size=(n, 2)
+            y = (
+                mean
+                + mode * np.array([0.8, 0.6], dtype=np.float32)
+                + rng.normal(scale=0.35, size=(n, 2))
             )
-            sigma = np.stack(
-                [0.10 + 0.18 * np.abs(x[:, 0]), 0.12 + 0.14 * np.abs(x[:, 1])], axis=1
-            )
+            sigma = np.stack([0.10 + 0.18 * np.abs(x[:, 0]), 0.12 + 0.14 * np.abs(x[:, 1])], axis=1)
         else:
             y = mean[:, 0] + mode * 0.8 + rng.normal(scale=0.35, size=n)
             sigma = 0.10 + 0.22 * np.abs(x[:, 0])
@@ -145,9 +143,10 @@ def _eval(
             samples = base_loss.sample(ctx, n_samples=n_s).transpose(0, 1).cpu().numpy()
         elif kind == "binned":
             logits = ctx
-            y_idx = torch.searchsorted(base_loss.bin_edges, yt.reshape(-1)).clamp(
-                1, base_loss.n_bins
-            ) - 1
+            y_idx = (
+                torch.searchsorted(base_loss.bin_edges, yt.reshape(-1)).clamp(1, base_loss.n_bins)
+                - 1
+            )
             nll = float(-torch.log_softmax(logits, -1)[torch.arange(len(yt)), y_idx].mean())
             samples = base_loss.sample(logits, n_samples=n_s)
             if samples.shape[0] == n_s:
@@ -166,7 +165,9 @@ def _eval(
     # Marginal CRPS (mean over target dimensions).
     from torchregress.metrics import crps_from_samples
 
-    crps = float(np.mean([crps_from_samples(s[:, :, d].T, y_np[:, d]) for d in range(y_np.shape[1])]))
+    crps = float(
+        np.mean([crps_from_samples(s[:, :, d].T, y_np[:, d]) for d in range(y_np.shape[1])])
+    )
     lo = np.quantile(s, 0.05, axis=1)
     hi = np.quantile(s, 0.95, axis=1)
     cov = float(np.mean((y_np >= lo) & (y_np <= hi)))
@@ -177,9 +178,7 @@ def _eval(
     pit_cvm_val = float(np.mean([pit_cvm(pit[:, d]) for d in range(pit.shape[1])]))
     rare = np.asarray(X)[:, 0] > 1.5
     rare_rmse = (
-        float(np.sqrt(np.mean((mean[rare, 0] - y_np[rare, 0]) ** 2)))
-        if rare.any()
-        else None
+        float(np.sqrt(np.mean((mean[rare, 0] - y_np[rare, 0]) ** 2))) if rare.any() else None
     )
     return {
         "NLL": nll,
@@ -241,12 +240,23 @@ class NoiseAwareDensitySuite(HarnessRunner):
     def predict(self, method: str, model_state: Any, X_test: np.ndarray, config: HarnessConfig):
         raise NotImplementedError
 
-    def evaluate(self, method: str, predictions: dict[str, np.ndarray], y_test: np.ndarray,
-                 config: HarnessConfig):
+    def evaluate(
+        self,
+        method: str,
+        predictions: dict[str, np.ndarray],
+        y_test: np.ndarray,
+        config: HarnessConfig,
+    ):
         raise NotImplementedError
 
-    def run(self, dataset_name: str = "", config: HarnessConfig | None = None,
-            splits: dict[str, np.ndarray] | None = None, *, scenario_name: str | None = None):
+    def run(
+        self,
+        dataset_name: str = "",
+        config: HarnessConfig | None = None,
+        splits: dict[str, np.ndarray] | None = None,
+        *,
+        scenario_name: str | None = None,
+    ):
         del scenario_name
         cfg = config or HarnessConfig()
         data = splits or _make_splits(dataset_name, cfg)
@@ -294,21 +304,35 @@ class NoiseAwareDensitySuite(HarnessRunner):
                 t1 = perf_counter()
                 model, base_loss = modules[0], (modules[1] if len(modules) > 1 else modules[0])
                 metrics = _eval(model, base_loss, kind, Xte, Yte, cfg)
-                rows.append({
-                    **base, **metrics, "train_s": fit_s,
-                    "eval_s": perf_counter() - t1, "Notes": self.method_notes(method),
-                })
+                rows.append(
+                    {
+                        **base,
+                        **metrics,
+                        "train_s": fit_s,
+                        "eval_s": perf_counter() - t1,
+                        "Notes": self.method_notes(method),
+                    }
+                )
             except Exception as exc:  # noqa: BLE001
-                rows.append({
-                    **base, "NLL": None, "RMSE": None, "CRPS": None,
-                    "Coverage90": None, "PITCVM": None, "RareRMSE": None,
-                    "train_s": None, "eval_s": None,
-                    "Notes": f"failed: {type(exc).__name__}: {exc}",
-                })
+                rows.append(
+                    {
+                        **base,
+                        "NLL": None,
+                        "RMSE": None,
+                        "CRPS": None,
+                        "Coverage90": None,
+                        "PITCVM": None,
+                        "RareRMSE": None,
+                        "train_s": None,
+                        "eval_s": None,
+                        "Notes": f"failed: {type(exc).__name__}: {exc}",
+                    }
+                )
         return rows
 
-    def _build(self, method: str, X: np.ndarray, Y: np.ndarray, sigma: np.ndarray,
-               cfg: HarnessConfig):
+    def _build(
+        self, method: str, X: np.ndarray, Y: np.ndarray, sigma: np.ndarray, cfg: HarnessConfig
+    ):
         from torchregress.losses import (
             BinnedDensityLoss,
             MixtureDensityLoss,
@@ -324,14 +348,17 @@ class NoiseAwareDensitySuite(HarnessRunner):
         encoder = _MLP(X.shape[1], hidden, hidden).to(dev)
         if method.startswith("NSF"):
             flow = create_flow_model(
-                n_features=d, context_dim=hidden, flow_type="nsf", n_transforms=3,
+                n_features=d,
+                context_dim=hidden,
+                flow_type="nsf",
+                n_transforms=3,
                 hidden_features=[64, 64],
             ).to(dev)
             loss_fn = NormalizingFlowLoss(flow=flow).to(dev)
             if method.endswith("_noise"):
-                loss_fn = NoiseAwareDensityLoss(
-                    loss_fn, mode="quadrature" if d == 1 else "mc"
-                ).to(dev)
+                loss_fn = NoiseAwareDensityLoss(loss_fn, mode="quadrature" if d == 1 else "mc").to(
+                    dev
+                )
 
             def train_loss(xb, yb, sig):
                 ctx = encoder(xb)
@@ -341,7 +368,9 @@ class NoiseAwareDensitySuite(HarnessRunner):
         if method.startswith("MDN"):
             mdn = MixtureDensityLoss(n_components=5, n_features=d).to(dev)
             head = nn.Linear(hidden, mdn.expected_output_size).to(dev)
-            loss_fn = NoiseAwareDensityLoss(mdn, mode="analytic") if method.endswith("_noise") else mdn
+            loss_fn = (
+                NoiseAwareDensityLoss(mdn, mode="analytic") if method.endswith("_noise") else mdn
+            )
             if method.endswith("_noise"):
                 loss_fn = loss_fn.to(dev)
 
@@ -377,12 +406,15 @@ class NoiseAwareDensitySuite(HarnessRunner):
 
             model = _BinnedModel().to(dev)
             if method.endswith("_noise"):
+
                 def train_loss(xb, yb, sig):
                     return binned(model(xb), yb, sigma=sig)
             else:
+
                 def train_loss(xb, yb, sig):
                     del sig
                     return binned(model(xb), yb)
+
             # For evaluation, return the binned loss and the logits model.
             return [model, binned], train_loss, "binned"
         if method == "NFM":
@@ -394,6 +426,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
                 arch="coupling",
                 nll_weight=1.0,
             ).to(dev)
+
             class _NFMModel(nn.Module):
                 def __init__(self):
                     super().__init__()
