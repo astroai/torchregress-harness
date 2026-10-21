@@ -92,3 +92,33 @@ fairly with the mature flows.
   evaluated on a held-out calibration split.  The library classes are the
   validated building blocks; do not claim benchmark coverage numbers for them
   yet.
+
+## 6. Conformalized ContrastiveFlow benchmark (`tools/conformal_density_bench.py`)
+
+Synthetic scalar and two-target conditional densities, shared MLP encoder,
+60 epochs, one seed.  `CTI` = marginal density level-set conformal;
+`CTI_Mondrian` = separate thresholds by calibration-target terciles; `Waldo` =
+WALDO score with full conditional covariance from samples.  Coverage is measured
+on a clean test set with nominal 90% regions.
+
+| dataset | model | test NLL | sample cov90 | CTI cov | CTI width | Mondrian cov | Waldo cov |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| scalar | NSF | 1.190 | 0.887 | 0.890 | 2.696 | 0.898 | 0.905 |
+| scalar | ContrastiveFlow | 1.161 | 0.888 | 0.905 | 2.740 | 0.910 | 0.903 |
+| multi | NSF | 1.810 | 0.880 | 0.863 | — | 0.885 | 0.903 |
+| multi | ContrastiveFlow | 1.870 | 0.870 | 0.908 | — | 0.893 | 0.908 |
+
+**ContrastiveFlowConformal works:** its marginal CTI coverage is 0.905
+(scalar) and 0.908 (multi), and the scalar density/width is comparable to the
+NSF conformal band.  Its test NLL/CRPS are slightly worse on the multi-target
+task.
+
+**Improvements found:**
+- **Mondrian (group) thresholds** lift the multi-target NSF coverage from
+  **0.863 → 0.885** and scalar ContrastiveFlow from **0.905 → 0.910** at a small
+  width cost.  This is the cheapest practical improvement.
+- **WALDO** reaches 0.903/0.908 coverage with similar width, but it is a
+  different Wald region and requires conditional moments; it is a useful
+  alternative when the density is overconfident.
+- The remaining gap is **conditional** coverage: target-tercile Mondrian is
+  coarse.  A proper test needs context/difficulty groups and repeated seeds.
