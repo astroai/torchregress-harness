@@ -122,3 +122,23 @@ task.
   alternative when the density is overconfident.
 - The remaining gap is **conditional** coverage: target-tercile Mondrian is
   coarse.  A proper test needs context/difficulty groups and repeated seeds.
+
+## 7. NFM architecture experiment: coupling vs TARFlow
+
+`NormalizingFlowMap(arch="tarflow")` adds a causal-transformer autoregressive
+layer (TARFlow-style) for low-dimensional tabular targets.  The first
+`density_parity` NFM run was skipped by a dataset download timeout; the
+self-contained noise-aware suite was used for the architecture check.
+
+| NFM variant | mean RMSE | mean CRPS | mean NLL | notes |
+|:--|--:|--:|--:|:--|
+| coupling, 3 layers, 64 hidden (60 ep) | 0.8818 | 0.5064 | 1.300 | earlier run |
+| TARFlow, 3 layers, 128 hidden (4×60 ep) | 0.9356 | 0.5533 | 1.326 | `release_20261021_1433` |
+
+TARFlow is **not better in this harness budget**; the transformer layer is much
+more expensive, and the run is noisy across seeds.  A controlled local test at
+100 epochs did give TARFlow a better NLL than a 3-layer coupling on a simple
+two-target problem, so the architecture is promising but needs a larger,
+better-tuned budget before it can replace coupling.  The harness default remains
+the cheaper coupling configuration; use `arch="tarflow"` explicitly for
+research runs.
