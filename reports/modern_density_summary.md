@@ -1,5 +1,12 @@
 # Modern conditional-density and multi-target harness results
 
+!!! warning "Compute provenance"
+    Sections 1–5 and 7 are CANFAR GPU harness runs (run tags are listed at
+    each section).  Section 6, the conformalized-ContrastiveFlow screen, was run
+    locally on CPU as a fast code/statistics check and is **provisional**: rerun
+    it on CANFAR before citing those coverage/width numbers as final.  No local
+    laptop run is used for the PZRecipe or modern-density headline tables.
+
 Runs: `release_20261020_1653` (density_parity), `release_20261020_2032` (noise_aware_density), `release_20261020_1939` (flow_eiv + likelihood_ratio).  All on CANFAR GPU with shared encoders/training budgets and 3 seeds unless noted.
 
 ## 1. Multi-target conditional densities (`density_parity`)
