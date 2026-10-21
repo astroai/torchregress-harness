@@ -268,6 +268,7 @@ class DensityParitySuite(HarnessRunner):
             "torchregress_cINN",
             "torchregress_BPF",
             "torchregress_CFM",
+            "torchregress_NFM",
             "sbi_MAF",
             "sbi_zuko_MAF",
             "torchregress_MDN",
@@ -299,6 +300,7 @@ class DensityParitySuite(HarnessRunner):
             "torchregress_cINN": "zuko conditional affine coupling / cINN-style RealNVP on shared encoder",
             "torchregress_BPF": "zuko Bernstein-polynomial flow on shared encoder",
             "torchregress_CFM": "conditional flow matching (OT-CFM, 32-step Euler sampler); no exact likelihood",
+            "torchregress_NFM": "tabular Normalizing Flow Map (time-conditioned affine coupling, exact likelihood)",
             "sbi_MAF": "sbi posterior_nn('maf') = nflows MAF (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "sbi_zuko_MAF": "sbi posterior_nn('zuko_maf') (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "torchregress_MDN": "MixtureDensityLoss K=10, full covariance; shared encoder + 2x64 hidden head (as sbi MDN); shared trainer",
@@ -335,6 +337,17 @@ class DensityParitySuite(HarnessRunner):
                 ).to(dev)
             loss = NormalizingFlowLoss(flow=flow).to(dev)
             return {"kind": "tr_flow", "modules": [enc, loss], "enc": enc, "loss": loss}
+        if method == "torchregress_NFM":
+            from torchregress.models import NormalizingFlowMap
+
+            enc = self._encoder(in_dim, hidden).to(dev)
+            nfm = NormalizingFlowMap(
+                out_dim,
+                hidden,
+                n_layers=3,
+                hidden=(FLOW_HIDDEN, FLOW_HIDDEN),
+            ).to(dev)
+            return {"kind": "tr_nfm", "modules": [enc, nfm], "enc": enc, "nfm": nfm}
         if method == "torchregress_CFM":
             from torchregress.models import FlowMatchingMLP
 
@@ -391,6 +404,9 @@ class DensityParitySuite(HarnessRunner):
             return lambda xb, yb: mdn._calculate_nll(
                 yb, mdn._extract_distribution_parameters(state["net"](xb))
             )
+        if k == "tr_nfm":
+            nfm = state["nfm"]
+            return lambda xb, yb: nfm.training_loss(state["enc"](xb), yb)
         if k == "tr_cfm":
             from torchregress.models import cfm_loss
 
@@ -419,6 +435,13 @@ class DensityParitySuite(HarnessRunner):
                     s = state["loss"].sample(ctx, n_samples=n_s)  # [B, S, D]
                     ctx_r = ctx.repeat_interleave(n_s, dim=0)
                     lp_s = state["loss"].log_prob(ctx_r, s.reshape(b * n_s, D)).reshape(b, n_s)
+                elif k == "tr_nfm":
+                    nfm = state["nfm"]
+                    ctx = state["enc"](xb)
+                    lp = nfm.log_prob(ctx, yb)
+                    s = nfm.sample(ctx, n_samples=n_s)
+                    ctx_r = ctx.repeat_interleave(n_s, dim=0)
+                    lp_s = nfm.log_prob(ctx_r, s.reshape(b * n_s, D)).reshape(b, n_s)
                 elif k == "tr_cfm":
                     from torchregress.models import sample_cfm
 
