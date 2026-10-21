@@ -1,5 +1,7 @@
 # TorchRegress — Exhaustive Capability, QA & Parity Report
 
+> Canonical density/multi-target summary: [`reports/density_experiments_summary.md`](reports/density_experiments_summary.md).
+
 **Generated:** 2026-09-03 (parity run `20260902_062837`, stress run `stress_20260902_234801`)
 **Reproducibility pins:** harness `7c15e9d+`, torchregress `e28215d`, MAPIE `6478f16c9a`, torch-uncertainty `94e511a737`, Lightning-UQ-Box `df6366e`
 **Platform:** CANFAR Skaha headless (CPU), offline env cached on `/arc` (pypi unreachable from compute nodes)

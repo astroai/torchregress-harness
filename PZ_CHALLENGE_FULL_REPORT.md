@@ -1,5 +1,7 @@
 # LSST DESC PZ Data Challenge — methods, tasks, n(z), and flow comparison
 
+> Canonical density/multi-target summary: [`reports/density_experiments_summary.md`](reports/density_experiments_summary.md).
+
 ## Scope
 
 The challenge (April–September 2026) has four p(z) task sets (tasksets 1–4),
