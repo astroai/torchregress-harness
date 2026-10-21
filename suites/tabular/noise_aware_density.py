@@ -30,7 +30,7 @@ from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size
 
-_METHODS = ["NSF", "NSF_noise", "MDN", "MDN_noise", "Binned", "Binned_noise", "CFM"]
+_METHODS = ["NSF", "NSF_noise", "MDN", "MDN_noise", "Binned", "Binned_noise", "CFM", "NFM"]
 _N_TRAIN, _N_TEST = 5000, 2000
 _SMOKE_TRAIN, _SMOKE_TEST = 512, 128
 
@@ -119,7 +119,11 @@ def _eval(
     with torch.no_grad():
         ctx = model(xt)
         n_s = 64 if cfg.smoke else 256
-        if kind == "cfm":
+        if kind == "nfm":
+            nfm = base_loss
+            nll = float(-nfm.log_prob(ctx, yt).mean())
+            samples = nfm.sample(ctx, n_samples=n_s).cpu().numpy()
+        elif kind == "cfm":
             from torchregress.models import sample_cfm
 
             samples = sample_cfm(base_loss, ctx, n_samples=n_s, steps=32).cpu().numpy()
@@ -214,6 +218,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
             "Binned": "smoothed binned-CDF head on noisy labels",
             "Binned_noise": "binned-CDF head with Gaussian-smoothed soft targets",
             "CFM": "OT-CFM (32 Euler steps) on noisy labels; sample-based metrics only",
+            "NFM": "tabular Normalizing Flow Map on noisy labels; exact density, no noise model",
         }[method]
 
     def fit(self, method: str, splits: dict[str, Any], config: HarnessConfig) -> dict[str, Any]:
@@ -290,7 +295,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
             NormalizingFlowLoss,
             create_flow_model,
         )
-        from torchregress.models import FlowMatchingMLP
+        from torchregress.models import FlowMatchingMLP, NormalizingFlowMap
 
         dev = current_device()
         hidden = _hidden_size(X.shape[1])
@@ -359,6 +364,24 @@ class NoiseAwareDensitySuite(HarnessRunner):
                     return binned(model(xb), yb)
             # For evaluation, return the binned loss and the logits model.
             return [model, binned], train_loss, "binned"
+        if method == "NFM":
+            nfm = NormalizingFlowMap(d, hidden, n_layers=3, hidden=(64, 64)).to(dev)
+            class _NFMModel(nn.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.encoder = encoder
+                    self.nfm = nfm
+
+                def forward(self, x):
+                    return self.encoder(x)
+
+            model = _NFMModel().to(dev)
+
+            def train_loss(xb, yb, sig):
+                del sig
+                return nfm.training_loss(model(xb), yb)
+
+            return [model, nfm], train_loss, "nfm"
         if method == "CFM":
             velocity = FlowMatchingMLP(d, hidden, hidden=(64, 64)).to(dev)
 
