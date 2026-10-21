@@ -1,5 +1,7 @@
 # Modern conditional-density and multi-target harness results
 
+> Canonical exhaustive index, code map, and roadmap: [`density_experiments_summary.md`](density_experiments_summary.md).
+
 !!! warning "Compute provenance"
     Sections 1–5 and 7 are CANFAR GPU harness runs (run tags are listed at
     each section).  Section 6, the conformalized-ContrastiveFlow screen, was run
