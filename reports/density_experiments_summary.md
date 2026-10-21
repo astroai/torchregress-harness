@@ -25,6 +25,15 @@ listed at the end.
 for code/statistics checks but not a final ranking.  All production-style tables
 use CANFAR GPU artifacts and three seeds.
 
+### E1 screening takeaways
+
+The full 48-row factorial table is in [`density_robustness.md`](density_robustness.md).
+Key patterns: at budget 1000 and zero noise, MDN has the best NLL
+(1.002 vs NSF 1.123); at noise 0.3, `MDN_noise` reaches 1.043 while
+`NSF_noise` can degrade (1.277).  Binned heads are the most stable under severe
+imbalance but their NLL is a probability mass, not a continuous likelihood.
+This is one seed / 40 epochs and is a **screening experiment**, not a ranking.
+
 ## 2. Multi-target conditional densities (E2)
 
 Median over 7 datasets × 3 seeds:
@@ -118,6 +127,20 @@ Mean over 16 PZ datasets × 3 seeds:
 TabM stage 2 improves PZRecipe in **48/48** dataset×seed cells on RMSE, CRPS and
 σ_NMAD.  It is still not a state-of-the-art replacement for the mature NSF on
 point accuracy.  Existing historical PZ flow/core summaries are E10/E11.
+
+### E10 historical PZ flow comparison (8 datasets)
+
+From [`pz_flow_summary.md`](pz_flow_summary.md), same features/budget:
+
+| Method | RMSE | NLL (winsorized) | CRPS | Cov90 | train_s |
+|:--|--:|--:|--:|--:|--:|
+| NormalizingFlow (cNSF) | 0.0482 | −1.431 | 0.0166 | 0.8691 | 2115 |
+| NormalizingFlow_cINN | 0.1932 | −2.043 | 0.0193 | 0.8806 | 896 |
+| MDN_K3 | 0.0595 | −2.221 | 0.0190 | 0.8915 | 22 |
+
+The 16-dataset PZ core run (E11) is the source of the NormalizingFlow/MDN
+numbers used in the PZRecipe comparison above; the 8-dataset table is retained
+because it isolates the cNSF vs cINN flow-family comparison.
 
 ## 8. What the experiments support
 
