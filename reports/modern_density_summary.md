@@ -59,3 +59,36 @@ Existing `flow_eiv` and `likelihood_ratio` suites, 3 seeds, 60-epoch budget.  Me
 - Existing `density_parity` baselines (sbi/pzflow) were not rerun in this targeted run; only torchregress methods were selected.
 
 Artifacts: `reports/modern_density_results.json`, `reports/noise_aware_results.json`, `reports/forward_inversion_contrastive_results.json`. Raw harness JSONs are in the CANFAR run archives.
+
+## 4. Normalizing Flow Map (`NFM`) — noise-aware suite
+
+Run `release_20261021_1003`: 2 synthetic datasets × 3 seeds, 60 epochs, shared
+encoder.  NFM is trained on noisy observed labels; evaluation is on clean test
+labels.  The real-data `density_parity` NFM run was skipped by the dataset
+loader (network timeout for `mt_enb`), so only the self-contained synthetic
+suite is reported here.
+
+| method | n | mean RMSE | mean CRPS | mean Cov90 | mean NLL |
+|---|--:|--:|--:|--:|--:|
+| NSF | 6 | 0.7044 | 0.4041 | 0.934 | 1.125 |
+| MDN | 6 | 0.7025 | 0.4024 | 0.932 | 1.102 |
+| **NFM** | **6** | **0.8818** | **0.5064** | **0.857** | **1.300** |
+
+The tabular NFM is underfit at this budget and is clearly worse than NSF/MDN on
+these small synthetic problems.  It is a research implementation for exact
+likelihood + flow-map few-step transport, not a recommended regression default
+yet.  A larger architecture/training budget is required before comparing it
+fairly with the mature flows.
+
+## 5. WALDO and conformalized-density status
+
+- `WaldoConformal` and `WaldoPosteriorCalibrator` are implemented and unit
+  tested on synthetic Gaussian/posterior data (coverage, scalar intervals,
+  multi-target Wald regions).
+- `ConformalizedDensity` / `ContrastiveFlowConformal` are implemented and unit
+  tested against scalar Gaussian level sets and a contrastive-flow-shaped mock.
+- These were not added as harness rows in this round: a proper WALDO harness
+  needs a simulator/parameter-grid protocol, and conformal coverage must be
+  evaluated on a held-out calibration split.  The library classes are the
+  validated building blocks; do not claim benchmark coverage numbers for them
+  yet.
