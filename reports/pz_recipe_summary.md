@@ -2,6 +2,11 @@
 
 Full task sets 1–4, **all 16 p(z) datasets**, **3 seeds**, **60 epochs**, CANFAR GPU run `release_20261020_1127` (8 shards).  `PZRecipe` = CE+CDF+RnC-N FT-Transformer stage 1; `PZRecipe_TabM` adds the paper-style TabM stage-2 classifier on frozen features (200 bins).
 
+> Matched-budget follow-up (16 datasets, 1 seed, 60 epochs): see
+> [`density_experiments_summary.md`](density_experiments_summary.md#7-pzrecipe-and-pz-conditional-distributions-e8e11)
+> and [`pz_matched_results.json`](pz_matched_results.json).  It confirms NSF wins
+> RMSE/median NLL/CRPS while PZRecipe is ~3× faster and has slightly better coverage.
+
 ## Aggregate (16 datasets × 3 seeds)
 
 | method | n | mean RMSE | median NLL | mean CRPS | mean coverage90 | mean σ_NMAD | mean PIT-CvM | mean local-W1 | mean train_s |
