@@ -180,18 +180,29 @@ available for that experiment.
 PZRecipe is a **binned conditional CDF** model, not a flow, but belongs in the
 conditional-density comparison.  Full table: [`pz_recipe_summary.md`](pz_recipe_summary.md).
 
-Mean over 16 PZ datasets × 3 seeds:
+**Matched-budget run** (E9b, `release_20261022_0940`): 16 datasets, 1 seed,
+60 epochs, same split/budget, `PZRecipe` vs `NormalizingFlow` (cNSF):
+
+| Method | RMSE | median NLL | CRPS | Cov90 | σ_NMAD | train_s |
+|:--|--:|--:|--:|--:|--:|--:|
+| PZRecipe | 0.0578 | −2.0212 | 0.0195 | **0.8794** | 0.0131 | **694** |
+| NormalizingFlow | **0.0480** | **−2.2209** | **0.0174** | 0.8670 | **0.0128** | 2107 |
+
+The matched run confirms the historical picture: **NSF wins point accuracy,
+median NLL and CRPS; PZRecipe is ~3× faster and has slightly better coverage**
+(0.879 vs 0.867, still below nominal 0.90).  This is a 1-seed comparison; the
+3-seed PZRecipe/TabM table below is the separately-run E9 result.
+
+Three-seed PZRecipe/TabM (E9):
 
 | Method | RMSE | median NLL | CRPS | Cov90 | σ_NMAD | train_s |
 |:--|--:|--:|--:|--:|--:|--:|
 | PZRecipe | 0.0581 | −2.002 | 0.0196 | 0.8762 | 0.0131 | 693 |
 | PZRecipe_TabM | **0.0520** | **−2.114** | **0.0174** | 0.8702 | **0.0119** | 733 |
-| NormalizingFlow (historical) | **0.0480** | −2.2209 | 0.0174 | 0.8670 | 0.0128 | 2129 |
-| MDN_K3 (historical) | 0.0594 | −2.2065 | 0.0199 | 0.8897 | 0.0138 | 22 |
 
 TabM stage 2 improves PZRecipe in **48/48** dataset×seed cells on RMSE, CRPS and
-σ_NMAD.  It is still not a state-of-the-art replacement for the mature NSF on
-point accuracy.  Existing historical PZ flow/core summaries are E10/E11.
+σ_NMAD.  It is still not a replacement for the mature NSF on point accuracy.
+Historical PZ flow/core summaries are E10/E11.
 
 ### E10 historical PZ flow comparison (8 datasets)
 
