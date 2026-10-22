@@ -333,6 +333,21 @@ class NoiseAwareDensitySuite(HarnessRunner):
                         "Notes": self.method_notes(method),
                     }
                 )
+            except SkipMethod as exc:
+                rows.append(
+                    {
+                        **base,
+                        "NLL": None,
+                        "RMSE": None,
+                        "CRPS": None,
+                        "Coverage90": None,
+                        "PITCVM": None,
+                        "RareRMSE": None,
+                        "train_s": None,
+                        "eval_s": None,
+                        "Notes": f"skipped: {exc}",
+                    }
+                )
             except Exception as exc:  # noqa: BLE001
                 rows.append(
                     {
