@@ -80,6 +80,7 @@ _METRICS = (
     "CRPS",
     "Cov90_marg",
     "Cov90_joint",
+    "FailureRate",
     "PIT_KS",
     "CorrErr",
     "Params",
@@ -196,6 +197,10 @@ def _scores(
     lo = torch.quantile(S, 0.05, dim=1)
     hi = torch.quantile(S, 0.95, dim=1)
     out["Cov90_marg"] = float(((Y >= lo) & (Y <= hi)).double().mean())
+    # A flow can emit finite but absurd tails; flag both NaN/Inf and >1e3 sigma.
+    mag = S.abs().amax(dim=(1, 2))
+    finite = torch.isfinite(S).all(dim=(1, 2))
+    out["FailureRate"] = float((~finite | (mag > 1e3)).double().mean())
     pit = (S <= Y[:, None, :]).double().mean(1).numpy()  # [N, D]
     grid = np.sort(pit, axis=0)
     ecdf = np.arange(1, N + 1)[:, None] / N
