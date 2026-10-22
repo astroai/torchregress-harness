@@ -34,6 +34,7 @@ from suites._backbones import _MLP, _hidden_size
 _METHODS = [
     "NSF",
     "NSF_noise",
+    "NSF_noise_CTI",
     "MDN",
     "MDN_noise",
     "Binned",
@@ -126,6 +127,7 @@ def _eval(
     X: np.ndarray,
     y: np.ndarray,
     cfg: HarnessConfig,
+    calibrator: Any = None,
 ) -> dict[str, float | None]:
     dev = current_device()
     xt = torch.as_tensor(X, dtype=torch.float32, device=dev)
@@ -189,6 +191,25 @@ def _eval(
     lo = np.quantile(s, 0.05, axis=1)
     hi = np.quantile(s, 0.95, axis=1)
     cov = float(np.mean((y_np >= lo) & (y_np <= hi)))
+    from torchregress.metrics import energy_score, variogram_score
+
+    es = energy_score(s.transpose(1, 0, 2), y_np)
+    vs = variogram_score(s.transpose(1, 0, 2), y_np) if y_np.shape[1] > 1 else None
+    cti_cov = cti_width = None
+    if calibrator is not None:
+        with torch.no_grad():
+            cti_cov = float(
+                calibrator.contains(lambda c, v: -base_loss.log_prob(c, v), ctx, yt).double().mean()
+            )
+            if y_np.shape[1] == 1:
+                lo_t, hi_t = calibrator.predict_interval(
+                    lambda c, v: -base_loss.log_prob(c, v),
+                    ctx,
+                    float(y_np.min()) - 4.0,
+                    float(y_np.max()) + 4.0,
+                )
+                cti_width = float((hi_t - lo_t).mean())
+                cti_cov = float(((yt >= lo_t) & (yt <= hi_t)).double().mean())
     pit = np.mean(s <= y_np[:, None, :], axis=1)
     # PIT CvM on the first marginal (paper-style aggregate).
     from torchregress.metrics import pit_cvm
@@ -203,6 +224,10 @@ def _eval(
         "RMSE": rmse,
         "CRPS": crps,
         "Coverage90": cov,
+        "CTICoverage90": cti_cov,
+        "CTIWidth90": cti_width,
+        "Energy": es,
+        "Variogram": vs,
         "PITCVM": pit_cvm_val,
         "RareRMSE": rare_rmse,
     }
@@ -243,6 +268,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
         return {
             "NSF": "clean NSF on noisy observed labels; no measurement model",
             "NSF_noise": "NSF with Gaussian-Hermite label-noise marginal likelihood",
+            "NSF_noise_CTI": "noise-aware NSF + split-conformal CTI level-set calibration",
             "MDN": "clean diagonal MDN on noisy observed labels",
             "MDN_noise": "MDN with analytic Gaussian convolution (sigma^2 added to variance)",
             "Binned": "smoothed binned-CDF head on noisy labels",
@@ -310,20 +336,48 @@ class NoiseAwareDensitySuite(HarnessRunner):
             }
             try:
                 t0 = perf_counter()
-                modules, loss_fn, kind = self._build(method, X, Y, sigma, cfg)
+                calibrated = method.endswith("_CTI")
+                if calibrated:
+                    rng = np.random.default_rng(cfg.seed)
+                    perm = rng.permutation(len(X))
+                    n_cal = max(50, int(0.2 * len(X)))
+                    cal_idx, fit_idx = perm[:n_cal], perm[n_cal:]
+                    X_fit, Y_fit, sigma_fit = X[fit_idx], Y[fit_idx], sigma[fit_idx]
+                else:
+                    cal_idx = None
+                    X_fit, Y_fit, sigma_fit = X, Y, sigma
+                modules, loss_fn, kind = self._build(method, X_fit, Y_fit, sigma_fit, cfg)
                 _train(
                     modules,
                     loss_fn,
-                    X,
-                    Y,
-                    sigma if method.endswith("_noise") else None,
+                    X_fit,
+                    Y_fit,
+                    sigma_fit if ("noise" in method) else None,
                     cfg,
                     epochs=None,
                 )
                 fit_s = perf_counter() - t0
                 t1 = perf_counter()
                 model, base_loss = modules[0], (modules[1] if len(modules) > 1 else modules[0])
-                metrics = _eval(model, base_loss, kind, Xte, Yte, cfg)
+                calibrator = None
+                if calibrated:
+                    clean = getattr(base_loss, "base_loss", base_loss)
+                    ctx_cal = model(
+                        torch.as_tensor(X[cal_idx], dtype=torch.float32, device=current_device())
+                    )
+                    y_cal_t = torch.as_tensor(
+                        Y[cal_idx], dtype=torch.float32, device=current_device()
+                    )
+                    if y_cal_t.ndim == 1:
+                        y_cal_t = y_cal_t.unsqueeze(-1)
+                    from torchregress.losses import ConformalizedDensity
+
+                    calibrator = ConformalizedDensity(alpha=0.1, grid_size=200)
+                    if hasattr(clean, "log_prob"):
+                        calibrator.calibrate(lambda c, v: -clean.log_prob(c, v), ctx_cal, y_cal_t)
+                    else:
+                        calibrator = None
+                metrics = _eval(model, base_loss, kind, Xte, Yte, cfg, calibrator=calibrator)
                 rows.append(
                     {
                         **base,
@@ -343,6 +397,10 @@ class NoiseAwareDensitySuite(HarnessRunner):
                         "Coverage90": None,
                         "PITCVM": None,
                         "RareRMSE": None,
+                        "CTICoverage90": None,
+                        "CTIWidth90": None,
+                        "Energy": None,
+                        "Variogram": None,
                         "train_s": None,
                         "eval_s": None,
                         "Notes": f"skipped: {exc}",
@@ -358,6 +416,10 @@ class NoiseAwareDensitySuite(HarnessRunner):
                         "Coverage90": None,
                         "PITCVM": None,
                         "RareRMSE": None,
+                        "CTICoverage90": None,
+                        "CTIWidth90": None,
+                        "Energy": None,
+                        "Variogram": None,
                         "train_s": None,
                         "eval_s": None,
                         "Notes": f"failed: {type(exc).__name__}: {exc}",
@@ -390,7 +452,8 @@ class NoiseAwareDensitySuite(HarnessRunner):
                 hidden_features=[64, 64],
             ).to(dev)
             loss_fn = NormalizingFlowLoss(flow=flow).to(dev)
-            if method.endswith("_noise"):
+            noise_aware = "noise" in method
+            if noise_aware:
                 loss_fn = NoiseAwareDensityLoss(loss_fn, mode="quadrature" if d == 1 else "mc").to(
                     dev
                 )
