@@ -355,11 +355,19 @@ class DensityParitySuite(HarnessRunner):
             from torchregress.models import NormalizingFlowMap
 
             enc = self._encoder(in_dim, hidden).to(dev)
+            nfm_arch = os.environ.get("TORCHREGRESS_NFM_ARCH", "coupling")
+            nfm_layers = int(os.environ.get("TORCHREGRESS_NFM_LAYERS", "3"))
+            nfm_hidden = int(os.environ.get("TORCHREGRESS_NFM_HIDDEN", str(FLOW_HIDDEN)))
+            nfm_nll_weight = float(os.environ.get("TORCHREGRESS_NFM_NLL_WEIGHT", "0.1"))
+            tarflow_layers = int(os.environ.get("TORCHREGRESS_NFM_TARFLOW_LAYERS", "3"))
             nfm = NormalizingFlowMap(
                 out_dim,
                 hidden,
-                n_layers=3,
-                hidden=(FLOW_HIDDEN, FLOW_HIDDEN),
+                n_layers=nfm_layers,
+                hidden=(nfm_hidden, nfm_hidden),
+                arch=nfm_arch,
+                nll_weight=nfm_nll_weight,
+                tarflow_layers=tarflow_layers,
             ).to(dev)
             return {"kind": "tr_nfm", "modules": [enc, nfm], "enc": enc, "nfm": nfm}
         if method == "torchregress_CFM":
