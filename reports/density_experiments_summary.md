@@ -14,8 +14,9 @@ listed at the end.
 | E3 | Known-label-noise densities (clean vs noise-aware NSF/MDN/binned, CFM) | 2 synthetic (scalar, 2-target) | 3 × 60 | **CANFAR GPU** `release_20261020_2032` | [`noise_aware_results.json`](noise_aware_results.json) |
 | E4 | Forward inversion + contrastive normalizing flows | synthetic EIV + SBI tasks | 3 × 60 | **CANFAR GPU** `release_20261020_1939` | [`forward_inversion_contrastive_results.json`](forward_inversion_contrastive_results.json) |
 | E5 | NFM (coupling) on known-noise targets | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261021_1003` | [`nfm_noise_results.json`](nfm_noise_results.json) |
+| E5b | NFM on real multi-target data, cached OpenML/UCI | 5 real datasets | 3 × 60 | **CANFAR GPU** `release_20261022_0749` | [`nfm_real_results.json`](nfm_real_results.json) |
 | E6 | NFM TARFlow-style architecture comparison | 2 synthetic | 3 × 4×60 | **CANFAR GPU** `release_20261021_1433` | [`nfm_tarflow_results.json`](nfm_tarflow_results.json) |
-| E7 | Conformalized ContrastiveFlow / CTI / Mondrian / WALDO | synthetic scalar + 2-target | 1 × 60 | **local CPU screening, provisional** | [`conformal_density_bench.json`](conformal_density_bench.json) |
+| E7 | Conformalized ContrastiveFlow / CTI / Mondrian / WALDO | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0750` | [`conformal_density_canfar_results.json`](conformal_density_canfar_results.json); local screen [`conformal_density_bench.json`](conformal_density_bench.json) |
 | E8 | PZRecipe stage 1 on the LSST DESC PZ challenge | 16 PZ datasets | 1 × 15 | **CANFAR GPU** `release_20261020_1005` | [`pz_recipe_all_results.json`](pz_recipe_all_results.json) |
 | E9 | PZRecipe + TabM stage 2 | 16 PZ datasets | 3 × 60 | **CANFAR GPU** `release_20261020_1127` | [`pz_recipe_summary.md`](pz_recipe_summary.md), `pz_recipe_all_results_long.json` |
 | E10 | Existing PZ flow comparison (cNSF vs cINN) | 8 PZ flow datasets | existing run | historical harness | [`pz_flow_summary.md`](pz_flow_summary.md) |
@@ -87,28 +88,54 @@ regression density.  ForwardInversion is an EIV tool, not a general density win.
 
 ## 5. Normalizing Flow Map (E5–E6)
 
+### E5b: real multi-target data with a cached dataset
+
+The earlier failed real-data run was a cache/network problem, not a model
+result.  I staged the OpenML/UCI files on `/arc` and reran NFM on **5 real
+datasets × 3 seeds, 60 epochs** (`release_20261022_0749`):
+
+| Dataset | NLL | CRPS | Cov90 | NFM RMSE-equivalent |
+|:--|--:|--:|--:|:--|
+| california_housing | 0.656 | 0.254 | 0.915 | — |
+| mt_enb | 0.618 | 0.172 | 0.986 | — |
+| mt_jura | 2.537 | 0.319 | 0.927 | — |
+| mt_rf1 | 1.745 | 0.131 | 0.999 | — |
+| mt_scm20d | 5.936 | 0.217 | 0.977 | — |
+
+NFM is still clearly worse than the matched NSF/BPF rows (E2) on NLL/CRPS, so
+this is **not** evidence for replacing NSF/MDN.  It is now a real-data result
+rather than a synthetic-only claim.  The cached data path is
+`/arc/projects/ots/torchregress-harness/datasets/cache/tr_cache`; no laptop
+training was used.
+
+### E5/E6 synthetic architecture comparison
+
 | NFM variant | RMSE | CRPS | NLL | Notes |
 |:--|--:|--:|--:|:--|
 | coupling (3×64, 60 ep) | 0.8818 | 0.5064 | 1.300 | earlier noise-aware run |
 | TARFlow (3×128, 4×60 ep) | 0.9356 | 0.5533 | 1.326 | `release_20261021_1433`; not better |
 
-NFM is underfit at this budget and is not a recommended default.  TARFlow is
-implemented (`arch="tarflow"`) and promising at larger budgets, but the current
-tabular harness does not justify replacing NSF/MDN.
+TARFlow is implemented (`arch="tarflow"`) and promising at larger budgets, but
+the current tabular harness does not justify replacing NSF/MDN.
 
-## 6. Conformal (E7, provisional/local)
+## 6. Conformal (E7, CANFAR 3 seeds)
 
-| Dataset | Model | NLL | Sample cov90 | CTI cov | CTI width | Mondrian cov | WALDO cov |
-|:--|:--|--:|--:|--:|--:|--:|--:|
-| scalar | NSF | 1.190 | 0.887 | 0.890 | 2.696 | 0.898 | 0.905 |
-| scalar | ContrastiveFlow | 1.161 | 0.888 | 0.905 | 2.740 | 0.910 | 0.903 |
-| multi | NSF | 1.810 | 0.880 | 0.863 | — | 0.885 | 0.903 |
-| multi | ContrastiveFlow | 1.870 | 0.870 | 0.908 | — | 0.893 | 0.908 |
+Canonical CANFAR run `release_20261022_0750`; 2 synthetic datasets × 3 seeds,
+80 epochs.  Coverage is on a clean test split; nominal **0.90**.
 
-ContrastiveFlowConformal works; Mondrian group thresholds are the cheapest
-improvement (multi NSF 0.863→0.885; scalar ContrastiveFlow 0.905→0.910).
-WALDO is a comparable alternative; its simulator-free density wrapper
-(`WaldoDensityConformal`) uses moments from density samples.
+| Dataset | Model | NLL | Raw cov | CTI cov | Mondrian cov | WALDO cov |
+|:--|:--|--:|--:|--:|--:|--:|
+| scalar | NSF | 1.183 | 0.885 | 0.909 | 0.910 | 0.896 |
+| scalar | ContrastiveFlow | 1.168 | 0.901 | 0.906 | 0.908 | 0.907 |
+| multi | NSF | 1.813 | 0.881 | 0.892 | 0.894 | 0.895 |
+| multi | ContrastiveFlow | 1.804 | 0.874 | 0.893 | 0.895 | 0.891 |
+
+ContrastiveFlowConformal works: canonical multi-target CTI coverage is 0.893
+and scalar 0.906, comparable to NSF.  Mondrian target-tercile groups consistently
+nudge coverage toward nominal; WALDO density regions are a comparable
+alternative.  The earlier one-seed/local screen (0.863 multi NSF) is superseded
+by this CANFAR run.  Full 48-row artifact:
+[`conformal_density_canfar_results.json`](conformal_density_canfar_results.json).
 
 ## 7. PZRecipe and PZ conditional distributions (E8–E11)
 
