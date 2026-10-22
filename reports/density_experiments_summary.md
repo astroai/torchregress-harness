@@ -15,8 +15,10 @@ listed at the end.
 | E4 | Forward inversion + contrastive normalizing flows | synthetic EIV + SBI tasks | 3 × 60 | **CANFAR GPU** `release_20261020_1939` | [`forward_inversion_contrastive_results.json`](forward_inversion_contrastive_results.json) |
 | E5 | NFM (coupling) on known-noise targets | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261021_1003` | [`nfm_noise_results.json`](nfm_noise_results.json) |
 | E5b | NFM on real multi-target data, cached OpenML/UCI | 5 real datasets | 3 × 60 | **CANFAR GPU** `release_20261022_0749` | [`nfm_real_results.json`](nfm_real_results.json) |
+| E5c | Joint multi-target binned CDF on known-noise synthetic data | synthetic 2-target | 3 × 60 | **CANFAR GPU** `release_20261022_0853` | [`binned_joint_results.json`](binned_joint_results.json) |
 | E6 | NFM TARFlow-style architecture comparison | 2 synthetic | 3 × 4×60 | **CANFAR GPU** `release_20261021_1433` | [`nfm_tarflow_results.json`](nfm_tarflow_results.json) |
 | E7 | Conformalized ContrastiveFlow / CTI / Mondrian / WALDO | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0750` | [`conformal_density_canfar_results.json`](conformal_density_canfar_results.json); local screen [`conformal_density_bench.json`](conformal_density_bench.json) |
+| E7b | WALDO + local critical-value regressor | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0852` | [`conformal_qr_results.json`](conformal_qr_results.json) |
 | E8 | PZRecipe stage 1 on the LSST DESC PZ challenge | 16 PZ datasets | 1 × 15 | **CANFAR GPU** `release_20261020_1005` | [`pz_recipe_all_results.json`](pz_recipe_all_results.json) |
 | E9 | PZRecipe + TabM stage 2 | 16 PZ datasets | 3 × 60 | **CANFAR GPU** `release_20261020_1127` | [`pz_recipe_summary.md`](pz_recipe_summary.md), `pz_recipe_all_results_long.json` |
 | E10 | Existing PZ flow comparison (cNSF vs cINN) | 8 PZ flow datasets | existing run | historical harness | [`pz_flow_summary.md`](pz_flow_summary.md) |
@@ -136,6 +138,42 @@ nudge coverage toward nominal; WALDO density regions are a comparable
 alternative.  The earlier one-seed/local screen (0.863 multi NSF) is superseded
 by this CANFAR run.  Full 48-row artifact:
 [`conformal_density_canfar_results.json`](conformal_density_canfar_results.json).
+
+### E5c: joint multi-target binned CDF
+
+`JointBinnedDensityLoss` is a true joint histogram for low-dimensional targets
+(here 2 targets, 25×25 bins), with Gaussian-smoothed soft targets.  CANFAR
+`release_20261022_0853`, multi-target synthetic set, 3 seeds:
+
+| Method | RMSE | CRPS | Cov90 | NLL (mass) |
+|:--|--:|--:|--:|--:|
+| Binned_joint | 0.7121 | 0.4108 | 0.958 | 1.640 |
+| Binned_joint_noise | 0.7121 | 0.4119 | 0.971 | 1.654 |
+
+For reference, the matched NSF row in E3 is RMSE 0.7044 / CRPS 0.4041.  The
+joint binned head is competitive on point/CRPS but **under-covers less / over-covers**
+relative to nominal 90%, and its NLL is a probability mass, not a continuous
+density.  Scalar datasets are skipped by design.  This closes the structural
+gap: the noise-robust binned branch now has a joint multi-target head.
+
+### E7b: WALDO critical-value regression
+
+`WaldoCriticalValueRegressor` was added and evaluated on the same CANFAR
+conformal suite (`release_20261022_0852`).  Mean coverage over 3 seeds:
+
+| Dataset | Method | Default WALDO | WALDO + local QR |
+|:--|:--|--:|--:|
+| scalar | NSF | 0.896 | 0.895 |
+| scalar | ContrastiveFlow | 0.907 | 0.897 |
+| multi | NSF | 0.895 | 0.888 |
+| multi | ContrastiveFlow | 0.891 | 0.879 |
+
+The local quantile regressor did **not** improve coverage on this synthetic
+problem; it slightly under-covered and did not shrink widths consistently.
+This is a negative but useful result: keep the simpler split-conformal/global
+threshold for small synthetic calibration sets, and test QR again only with a
+larger, genuinely heteroscedastic calibration set.  The API and tests remain
+available for that experiment.
 
 ## 7. PZRecipe and PZ conditional distributions (E8–E11)
 
