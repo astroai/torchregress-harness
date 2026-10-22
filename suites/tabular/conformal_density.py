@@ -37,6 +37,8 @@ _METHODS = (
     "ContrastiveFlow_CTI",
     "ContrastiveFlow_CTI_Mondrian",
     "ContrastiveFlow_WALDO",
+    "NSF_WALDO_QR",
+    "ContrastiveFlow_WALDO_QR",
 )
 _EPOCHS = 80
 _N_FIT, _N_CAL, _N_TEST = 3000, 1200, 2000
@@ -79,6 +81,8 @@ class ConformalDensitySuite(HarnessRunner):
             "ContrastiveFlow_CTI": "marginal CTI conformal around ContrastiveFlow density",
             "ContrastiveFlow_CTI_Mondrian": "Mondrian CTI around ContrastiveFlow density",
             "ContrastiveFlow_WALDO": "WALDO regions from ContrastiveFlow samples",
+            "NSF_WALDO_QR": "WALDO regions with a fitted simulator-free critical-value regressor",
+            "ContrastiveFlow_WALDO_QR": "ContrastiveFlow WALDO with critical-value regression",
         }[method]
 
     def fit(self, method: str, splits: dict[str, Any], config: HarnessConfig) -> dict[str, Any]:
@@ -166,7 +170,20 @@ class ConformalDensitySuite(HarnessRunner):
                 groups_test=groups_test,
             )
             sample_fn = _sample_fn(loss_fn, enc)
+            from torchregress.losses import WaldoCriticalValueRegressor
+
             waldo = _waldo_metrics(loss_fn, sample_fn, ctx_cal, y_cal_t, x_test, y_test, enc)
+            reg = WaldoCriticalValueRegressor(alpha=0.1, n_bins=6, min_samples_per_bin=10)
+            waldo_qr = _waldo_metrics(
+                loss_fn,
+                sample_fn,
+                ctx_cal,
+                y_cal_t,
+                x_test,
+                y_test,
+                enc,
+                critical_value_regressor=reg,
+            )
             common = {
                 "Library": "torchregress",
                 "LibraryVersion": self.library_version(base_name),
@@ -188,6 +205,12 @@ class ConformalDensitySuite(HarnessRunner):
                     "Mondrian CTI (target terciles)",
                 ),
                 (f"{base_name}_WALDO", waldo["WaldoCov"], waldo["WaldoWidth"], "WALDO density"),
+                (
+                    f"{base_name}_WALDO_QR",
+                    waldo_qr["WaldoCov"],
+                    waldo_qr["WaldoWidth"],
+                    "WALDO + critical-value regressor",
+                ),
             ]
             for name, coverage, width, note in specs:
                 rows.append(

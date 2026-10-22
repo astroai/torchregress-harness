@@ -175,8 +175,15 @@ def _waldo_metrics(
     X_test: np.ndarray,
     Y_test: np.ndarray,
     enc: nn.Module,
+    *,
+    critical_value_regressor: Any = None,
 ) -> dict[str, float]:
-    cp = WaldoDensityConformal(alpha=0.1, covariance_type="full", n_samples=128)
+    cp = WaldoDensityConformal(
+        alpha=0.1,
+        covariance_type="full",
+        n_samples=128,
+        critical_value_regressor=critical_value_regressor,
+    )
 
     # Clarify that sample_fn consumes encoded context, not raw features.
     def encoded_sample_fn(context: torch.Tensor, n_samples: int) -> torch.Tensor:
