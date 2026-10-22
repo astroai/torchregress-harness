@@ -16,6 +16,7 @@ listed at the end.
 | E5 | NFM (coupling) on known-noise targets | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261021_1003` | [`nfm_noise_results.json`](nfm_noise_results.json) |
 | E5b | NFM on real multi-target data, cached OpenML/UCI | 5 real datasets | 3 × 60 | **CANFAR GPU** `release_20261022_0749` | [`nfm_real_results.json`](nfm_real_results.json) |
 | E5c | Joint multi-target binned CDF on known-noise synthetic data | synthetic 2-target | 3 × 60 | **CANFAR GPU** `release_20261022_0853` | [`binned_joint_results.json`](binned_joint_results.json) |
+| E5d | Ambitious tokenized TARFlow on real multi-target data | mt_jura (3), mt_rf1 (8), mt_scm20d (16) | 3 seeds | **CANFAR GPU** `release_20261022_1205` (running) | artifacts under `/arc/.../runs/release_20261022_1205/tabular` |
 | E6 | NFM TARFlow-style architecture comparison | 2 synthetic | 3 × 4×60 | **CANFAR GPU** `release_20261021_1433` | [`nfm_tarflow_results.json`](nfm_tarflow_results.json) |
 | E7 | Conformalized ContrastiveFlow / CTI / Mondrian / WALDO | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0750` | [`conformal_density_canfar_results.json`](conformal_density_canfar_results.json); local screen [`conformal_density_bench.json`](conformal_density_bench.json) |
 | E7b | WALDO + local critical-value regressor | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0852` | [`conformal_qr_results.json`](conformal_qr_results.json) |
@@ -139,6 +140,20 @@ nudge coverage toward nominal; WALDO density regions are a comparable
 alternative.  The earlier one-seed/local screen (0.863 multi NSF) is superseded
 by this CANFAR run.  Full 48-row artifact:
 [`conformal_density_canfar_results.json`](conformal_density_canfar_results.json).
+
+### E5d: ambitious tokenized TARFlow
+
+The earlier TARFlow comparison used the lean per-layer causal transformer.  The
+ambitious run uses the new `TokenizedTARFlowLayer`: explicit context/time tokens,
+one token per target, a causal **3-layer** Transformer per flow layer,
+`128` hidden units, 2 flow layers, and NLL weight 0.5.  It runs on the 3-, 8- and
+16-target real datasets (`mt_jura`, `mt_rf1`, `mt_scm20d`), 3 seeds, on CANFAR
+GPU `release_20261022_1205`.
+
+Initial partial artifact (mt_jura seed 0): NLL 2.85, CRPS 0.381 — worse than the
+matched NSF/BPF rows, so this remains an architecture experiment, not a default
+recommendation.  Full artifacts and comparison will be added when the 3-seed job
+completes.
 
 ### E5c: joint multi-target binned CDF
 
