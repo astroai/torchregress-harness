@@ -12,6 +12,7 @@ listed at the end.
 | E1 | Density-head factorial (clean/noisy × imbalance × budget) | synthetic scalar, 1 seed | 1 × 40 | **local CPU screening** | [`density_robustness.md`](density_robustness.md), `.json` |
 | E2 | Multi-target density parity: NSF/MAF/cINN/BPF/CFM/MDN | 7 real/synthetic tabular datasets | 3 × 60 | **CANFAR GPU** `release_20261020_1653` | [`modern_density_results.json`](modern_density_results.json) |
 | E3 | Known-label-noise densities (clean vs noise-aware NSF/MDN/binned, CFM) | 2 synthetic (scalar, 2-target) | 3 × 60 | **CANFAR GPU** `release_20261020_2032` | [`noise_aware_results.json`](noise_aware_results.json) |
+| E3b | CTI-calibrated noise-aware NSF on clean test labels | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261022_1224` | [`noise_cti_results.json`](noise_cti_results.json) |
 | E4 | Forward inversion + contrastive normalizing flows | synthetic EIV + SBI tasks | 3 × 60 | **CANFAR GPU** `release_20261020_1939` | [`forward_inversion_contrastive_results.json`](forward_inversion_contrastive_results.json) |
 | E5 | NFM (coupling) on known-noise targets | 2 synthetic | 3 × 60 | **CANFAR GPU** `release_20261021_1003` | [`nfm_noise_results.json`](nfm_noise_results.json) |
 | E5b | NFM on real multi-target data, cached OpenML/UCI | 5 real datasets | 3 × 60 | **CANFAR GPU** `release_20261022_0749` | [`nfm_real_results.json`](nfm_real_results.json) |
@@ -74,6 +75,26 @@ Clean-test evaluation, mean over 2 datasets × 3 seeds:
 `_nn` = noise-aware.  `*` Binned NLL is a probability mass, not a continuous
 density.  The analytic MDN convolution gives the largest NLL gain; both
 noise-aware variants trade about 4–5 coverage points for likelihood fit.
+
+### E3b: CTI-calibrated noise-aware density
+
+`NSF_noise_CTI` trains the same Gaussian-Hermite noise-aware NSF on an 80% fit
+split and calibrates a split-conformal CTI threshold on the held-out 20%.
+CANFAR `release_20261022_1224`, 2 synthetic datasets × 3 seeds:
+
+| Dataset | Method | NLL | Raw Cov90 | CTI Cov90 | CTI width | Energy | Variogram |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| scalar | NSF_noise | 0.854 | 0.885 | — | — | 0.399 | — |
+| scalar | NSF_noise_CTI | 0.873 | 0.884 | **0.952** | 2.276 | 0.401 | — |
+| multi | NSF_noise | 1.346 | 0.891 | — | — | 0.608 | 0.057 |
+| multi | NSF_noise_CTI | 1.389 | 0.893 | **0.963** | — | 0.611 | 0.059 |
+
+The calibrated variant fixes the under-coverage direction but is now
+**over-conservative** (0.95–0.96 vs nominal 0.90), and the split reduces training
+data, so NLL/CRPS are slightly worse.  This is a proof-of-concept, not a tuned
+final answer: the next step is to choose the calibration split/level and compare
+interval width and conditional coverage by target region.  Energy/variogram
+metrics are now reported in the noise-aware suite as well.
 
 ## 4. EIV and contrastive SBI (E4)
 
