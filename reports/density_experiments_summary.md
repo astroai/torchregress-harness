@@ -21,6 +21,7 @@ listed at the end.
 | E7b | WALDO + local critical-value regressor | synthetic scalar + 2-target | 3 × 80 | **CANFAR GPU** `release_20261022_0852` | [`conformal_qr_results.json`](conformal_qr_results.json) |
 | E8 | PZRecipe stage 1 on the LSST DESC PZ challenge | 16 PZ datasets | 1 × 15 | **CANFAR GPU** `release_20261020_1005` | [`pz_recipe_all_results.json`](pz_recipe_all_results.json) |
 | E9 | PZRecipe + TabM stage 2 | 16 PZ datasets | 3 × 60 | **CANFAR GPU** `release_20261020_1127` | [`pz_recipe_summary.md`](pz_recipe_summary.md), `pz_recipe_all_results_long.json` |
+| E9b | **Matched-budget** PZRecipe vs NormalizingFlow | 16 PZ datasets | 1 × 60 | **CANFAR GPU** `release_20261022_0940` | [`pz_matched_results.json`](pz_matched_results.json) |
 | E10 | Existing PZ flow comparison (cNSF vs cINN) | 8 PZ flow datasets | existing run | historical harness | [`pz_flow_summary.md`](pz_flow_summary.md) |
 | E11 | Existing PZ core heads (16 datasets) | 16 PZ datasets | existing run | historical harness | [`pz_core_summary.md`](pz_core_summary.md) |
 
