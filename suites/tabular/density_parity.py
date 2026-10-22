@@ -264,6 +264,7 @@ class DensityParitySuite(HarnessRunner):
                     "torchregress_cINN",
                     "torchregress_BPF",
                     "torchregress_CFM",
+                    "torchregress_NFM",
                     "sbi_MAF",
                     "sbi_zuko_MAF",
                     "torchregress_MDN",

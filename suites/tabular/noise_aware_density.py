@@ -28,10 +28,21 @@ from torch import nn
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
-from harness.runners import HarnessConfig, HarnessRunner
+from harness.runners import HarnessConfig, HarnessRunner, SkipMethod
 from suites._backbones import _MLP, _hidden_size
 
-_METHODS = ["NSF", "NSF_noise", "MDN", "MDN_noise", "Binned", "Binned_noise", "CFM", "NFM"]
+_METHODS = [
+    "NSF",
+    "NSF_noise",
+    "MDN",
+    "MDN_noise",
+    "Binned",
+    "Binned_noise",
+    "Binned_joint",
+    "Binned_joint_noise",
+    "CFM",
+    "NFM",
+]
 _N_TRAIN, _N_TEST = 5000, 2000
 _SMOKE_TRAIN, _SMOKE_TEST = 512, 128
 
@@ -141,6 +152,13 @@ def _eval(
         elif kind == "mdn":
             nll = float(base_loss(ctx, yt))
             samples = base_loss.sample(ctx, n_samples=n_s).transpose(0, 1).cpu().numpy()
+        elif kind == "binned_joint":
+            logits = ctx
+            nll = float(-base_loss.log_prob(logits, yt).mean())
+            samples = base_loss.sample(logits, n_samples=n_s)
+            if samples.shape[0] == n_s:
+                samples = samples.transpose(0, 1)
+            samples = samples.cpu().numpy()
         elif kind == "binned":
             logits = ctx
             y_idx = (
@@ -230,6 +248,8 @@ class NoiseAwareDensitySuite(HarnessRunner):
             "Binned": "smoothed binned-CDF head on noisy labels",
             "Binned_noise": "binned-CDF head with Gaussian-smoothed soft targets",
             "CFM": "OT-CFM (32 Euler steps) on noisy labels; sample-based metrics only",
+            "Binned_joint": "joint multi-target binned histogram on noisy labels; no deconvolution",
+            "Binned_joint_noise": "joint multi-target binned histogram with Gaussian-smoothed soft targets",
             "NFM": "tabular Normalizing Flow Map on noisy labels; exact density, no noise model",
         }[method]
 
@@ -275,7 +295,7 @@ class NoiseAwareDensitySuite(HarnessRunner):
         # Noise sigma must be in standardized target units.
         sigma = sigma / sd
         multi = Y.shape[1] > 1
-        methods = [m for m in self.methods() if not (multi and m.startswith("Binned"))]
+        methods = [m for m in self.methods() if not (multi and m in {"Binned", "Binned_noise"})]
         rows: list[dict[str, Any]] = []
         for method in methods:
             set_harness_seed(cfg.seed)
@@ -390,6 +410,37 @@ class NoiseAwareDensitySuite(HarnessRunner):
                 return loss_fn(out, yb, sigma=sig) if sig is not None else loss_fn(out, yb)
 
             return [model, mdn], train_loss, "mdn"
+        if method.startswith("Binned_joint"):
+            from torchregress.losses import JointBinnedDensityLoss
+
+            if d < 2:
+                raise SkipMethod("JointBinnedDensityLoss requires a multi-target dataset")
+            k = 25 if d == 2 else 15
+            edges = torch.linspace(-6.0, 6.0, k + 1)
+            binned_joint = JointBinnedDensityLoss([edges] * d, max_joint_bins=4096).to(dev)
+            head_joint = nn.Linear(hidden, binned_joint.joint_bins).to(dev)
+
+            class _JointBinnedModel(nn.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.encoder = encoder
+                    self.head = head_joint
+
+                def forward(self, x):
+                    return self.head(self.encoder(x))
+
+            model_joint = _JointBinnedModel().to(dev)
+            if method.endswith("_noise"):
+
+                def train_loss(xb, yb, sig):
+                    return binned_joint(model_joint(xb), yb, sigma=sig)
+            else:
+
+                def train_loss(xb, yb, sig):
+                    del sig
+                    return binned_joint(model_joint(xb), yb)
+
+            return [model_joint, binned_joint], train_loss, "binned_joint"
         if method.startswith("Binned"):
             edges = torch.linspace(-6.0, 6.0, 65)
             binned = BinnedDensityLoss(edges).to(dev)
