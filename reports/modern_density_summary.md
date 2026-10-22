@@ -4,10 +4,10 @@
 
 !!! warning "Compute provenance"
     Sections 1–5 and 7 are CANFAR GPU harness runs (run tags are listed at
-    each section).  Section 6, the conformalized-ContrastiveFlow screen, was run
-    locally on CPU as a fast code/statistics check and is **provisional**: rerun
-    it on CANFAR before citing those coverage/width numbers as final.  No local
-    laptop run is used for the PZRecipe or modern-density headline tables.
+    each section).  Section 6 is now the **CANFAR 3-seed re-run**
+    (`release_20261022_0750`); the earlier one-seed local screen is retained only
+    as a historical artifact.  No laptop run is used for the PZRecipe or
+    modern-density headline tables.
 
 Runs: `release_20261020_1653` (density_parity), `release_20261020_2032` (noise_aware_density), `release_20261020_1939` (flow_eiv + likelihood_ratio).  All on CANFAR GPU with shared encoders/training budgets and 3 seeds unless noted.
 
@@ -73,9 +73,10 @@ Artifacts: `reports/modern_density_results.json`, `reports/noise_aware_results.j
 
 Run `release_20261021_1003`: 2 synthetic datasets × 3 seeds, 60 epochs, shared
 encoder.  NFM is trained on noisy observed labels; evaluation is on clean test
-labels.  The real-data `density_parity` NFM run was skipped by the dataset
-loader (network timeout for `mt_enb`), so only the self-contained synthetic
-suite is reported here.
+labels.  The synthetic architecture comparison is shown here.  The real-data NFM run now
+also exists: cached OpenML/UCI data on CANFAR `release_20261022_0749`, 5 real
+datasets × 3 seeds.  It remains worse than NSF/BPF on NLL/CRPS; see the
+canonical summary for the per-dataset table.
 
 | method | n | mean RMSE | mean CRPS | mean Cov90 | mean NLL |
 |---|--:|--:|--:|--:|--:|
@@ -96,48 +97,44 @@ fairly with the mature flows.
   multi-target Wald regions).
 - `ConformalizedDensity` / `ContrastiveFlowConformal` are implemented and unit
   tested against scalar Gaussian level sets and a contrastive-flow-shaped mock.
-- These were not added as harness rows in this round: a proper WALDO harness
-  needs a simulator/parameter-grid protocol, and conformal coverage must be
-  evaluated on a held-out calibration split.  The library classes are the
-  validated building blocks; do not claim benchmark coverage numbers for them
-  yet.
+- `WaldoDensityConformal` and `ConformalizedDensity` now have CANFAR harness
+  rows (section 6); `WaldoCriticalValueRegressor` was also tested there.
+  The QR variant did not improve coverage on the small synthetic calibration
+  set (section 6), so it remains available but not a default.
 
-## 6. Conformalized ContrastiveFlow benchmark (`tools/conformal_density_bench.py`)
+## 6. Conformalized ContrastiveFlow benchmark (CANFAR)
 
-Synthetic scalar and two-target conditional densities, shared MLP encoder,
-60 epochs, one seed.  `CTI` = marginal density level-set conformal;
-`CTI_Mondrian` = separate thresholds by calibration-target terciles; `Waldo` =
-WALDO score with full conditional covariance from samples.  Coverage is measured
-on a clean test set with nominal 90% regions.
+CANFAR `release_20261022_0750`: synthetic scalar and two-target conditional
+densities, shared MLP encoder, 80 epochs, **3 seeds**.  `CTI` = marginal
+density level-set conformal; `CTI_Mondrian` = target-tercile groups; `Waldo` =
+WALDO score with full conditional covariance from samples.  Nominal 90%.
 
-| dataset | model | test NLL | sample cov90 | CTI cov | CTI width | Mondrian cov | Waldo cov |
-|:--|:--|--:|--:|--:|--:|--:|--:|
-| scalar | NSF | 1.190 | 0.887 | 0.890 | 2.696 | 0.898 | 0.905 |
-| scalar | ContrastiveFlow | 1.161 | 0.888 | 0.905 | 2.740 | 0.910 | 0.903 |
-| multi | NSF | 1.810 | 0.880 | 0.863 | — | 0.885 | 0.903 |
-| multi | ContrastiveFlow | 1.870 | 0.870 | 0.908 | — | 0.893 | 0.908 |
+| dataset | model | test NLL | raw cov | CTI cov | Mondrian cov | Waldo cov |
+|:--|:--|--:|--:|--:|--:|--:|
+| scalar | NSF | 1.183 | 0.885 | 0.909 | 0.910 | 0.896 |
+| scalar | ContrastiveFlow | 1.168 | 0.901 | 0.906 | 0.908 | 0.907 |
+| multi | NSF | 1.813 | 0.881 | 0.892 | 0.894 | 0.895 |
+| multi | ContrastiveFlow | 1.804 | 0.874 | 0.893 | 0.895 | 0.891 |
 
-**ContrastiveFlowConformal works:** its marginal CTI coverage is 0.905
-(scalar) and 0.908 (multi), and the scalar density/width is comparable to the
-NSF conformal band.  Its test NLL/CRPS are slightly worse on the multi-target
-task.
+**ContrastiveFlowConformal works:** canonical multi-target CTI coverage is
+0.893 and scalar 0.906, comparable to NSF.  Its multi-target NLL is slightly
+better than NSF here; CRPS is slightly worse.  Mondrian groups consistently move
+coverage toward nominal at a small width cost.  The local one-seed screen
+(0.863 multi NSF) is superseded.
 
-**Improvements found:**
-- **Mondrian (group) thresholds** lift the multi-target NSF coverage from
-  **0.863 → 0.885** and scalar ContrastiveFlow from **0.905 → 0.910** at a small
-  width cost.  This is the cheapest practical improvement.
-- **WALDO** reaches 0.903/0.908 coverage with similar width, but it is a
-  different Wald region and requires conditional moments; it is a useful
-  alternative when the density is overconfident.
-- The remaining gap is **conditional** coverage: target-tercile Mondrian is
-  coarse.  A proper test needs context/difficulty groups and repeated seeds.
+**WALDO critical-value regression** (`release_20261022_0852`) did **not**
+improve coverage on this small synthetic calibration set (scalar NSF default
+0.896 vs QR 0.895; multi ContrastiveFlow 0.891 vs QR 0.879).  Keep the simpler
+global/binned threshold as default; retest QR only with a larger, genuinely
+heteroscedastic calibration set.
 
 ## 7. NFM architecture experiment: coupling vs TARFlow
 
 `NormalizingFlowMap(arch="tarflow")` adds a causal-transformer autoregressive
-layer (TARFlow-style) for low-dimensional tabular targets.  The first
-`density_parity` NFM run was skipped by a dataset download timeout; the
-self-contained noise-aware suite was used for the architecture check.
+layer (TARFlow-style) for low-dimensional tabular targets.  The first `density_parity` NFM run failed on a dataset download timeout; after
+staging the files on CANFAR it completed (`release_20261022_0749`) and still
+underperformed NSF/BPF.  The self-contained noise-aware suite is used for the
+architecture check below.
 
 | NFM variant | mean RMSE | mean CRPS | mean NLL | notes |
 |:--|--:|--:|--:|:--|
