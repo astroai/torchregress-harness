@@ -8,8 +8,8 @@
 #
 # <repo>    torchregress | torchregress-harness | torchregress-research
 # <ref>     commit SHA or branch of that repo on github.com/sfabbro/<repo>
-# [lib_ref] torchregress SHA/branch checked out beside it (harness: ./.torchregress,
-#           research: ../torchregress). Defaults to <ref> for torchregress itself.
+# [lib_ref] torchregress SHA/branch checked out beside it as ../torchregress (the harness
+#           and research pixi envs install it from there). Defaults to <ref> for torchregress itself.
 # command   run from the repo root, e.g.  pixi run test   or  ./scripts/ci_local.sh
 #
 # Env: CPU (8), MEM (32), GPU (0), IMAGE (astroai/base:latest), DRY_RUN=1.
@@ -42,8 +42,8 @@ fetch() { # <repo> <ref> <dir>; public forks need no token
 }
 case "$CI_REPO" in
   torchregress) fetch torchregress "$CI_REF" "$W/torchregress" || exit 2; cd "$W/torchregress" ;;
-  torchregress-harness) fetch torchregress-harness "$CI_REF" "$W/h" || exit 2
-    fetch torchregress "$CI_LIB_REF" "$W/h/.torchregress" || exit 2; cd "$W/h" ;;
+  torchregress-harness) fetch torchregress "$CI_LIB_REF" "$W/torchregress" || exit 2  # pixi path ../torchregress
+    fetch torchregress-harness "$CI_REF" "$W/torchregress-harness" || exit 2; cd "$W/torchregress-harness" ;;
   torchregress-research) fetch torchregress "$CI_LIB_REF" "$W/torchregress" || exit 2
     fetch torchregress-research "$CI_REF" "$W/torchregress-research" || exit 2; cd "$W/torchregress-research" ;;
   *) echo "unknown repo $CI_REPO"; exit 2 ;;
