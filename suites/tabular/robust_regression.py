@@ -22,6 +22,14 @@ import numpy as np
 import torch
 from sklearn.linear_model import QuantileRegressor
 from sklearn.model_selection import train_test_split
+from torchregress.algorithms import (
+    IRLSBreakdownError,
+    IRLSCallbacks,
+    IRLSContinuationStage,
+    IRLSFitConfig,
+    IRLSFitResult,
+    iteratively_reweighted_fit,
+)
 
 # ---------------------------------------------------------------------------
 # Torchregress robust losses — all hard dependencies (from torchregress)
@@ -135,6 +143,64 @@ _TORCHREGRESS_LOSSES: dict[str, tuple] = {
 
 
 # ---------------------------------------------------------------------------
+# IRLS on a linear model (iteratively_reweighted_fit + WLS refits)
+# ---------------------------------------------------------------------------
+
+# method -> continuation stages (a single stage is plain IRLS).
+_IRLS_STAGES: dict[str, tuple[IRLSContinuationStage, ...]] = {
+    "IRLS": (IRLSContinuationStage(max_iter=50, weight="huber", weight_params={"delta": 1.345}),),
+    "IRLS_HuberTukey": (
+        IRLSContinuationStage(max_iter=50, weight="huber", weight_params={"delta": 1.345}),
+        IRLSContinuationStage(max_iter=50, weight="tukey", weight_params={"c": 4.685}),
+    ),
+}
+
+
+def _irls_device() -> torch.device:
+    """Harness device for the float64 WLS solves (MPS has no float64: CPU there)."""
+    device = current_device()
+    return torch.device("cpu") if device.type == "mps" else device
+
+
+def _fit_irls_linear(
+    X_np: np.ndarray,
+    y_np: np.ndarray,
+    stages: tuple[IRLSContinuationStage, ...],
+) -> tuple[torch.Tensor, IRLSFitResult[torch.Tensor]]:
+    """M-estimation of ``y ~ [X, 1]`` by IRLS with a weighted least-squares refit per step.
+
+    Started from OLS (statsmodels RLM convention), MAD scale.  The WLS callback
+    raises ``IRLSBreakdownError`` when fewer rows than coefficients keep a
+    positive weight (redescending Tukey weights can zero rows), which the
+    library turns into a ``breakdown`` termination instead of a garbage refit.
+    """
+    device = _irls_device()
+    X = torch.from_numpy(np.asarray(X_np)).double().to(device)
+    y = torch.from_numpy(np.asarray(y_np).reshape(-1)).double().to(device)
+    design = torch.cat([X, torch.ones_like(X[:, :1])], dim=1)
+    n_coef = design.shape[1]
+
+    def _wls(_: torch.Tensor, precision: torch.Tensor) -> torch.Tensor:
+        if int((precision > 0).sum().item()) < n_coef:
+            raise IRLSBreakdownError(
+                f"only {int((precision > 0).sum().item())} rows keep positive weight; "
+                f"{n_coef} coefficients need at least as many"
+            )
+        root = precision.sqrt()
+        beta = torch.linalg.lstsq(design * root[:, None], y * root).solution
+        if not bool(torch.isfinite(beta).all().item()):
+            raise IRLSBreakdownError("weighted least-squares solve returned non-finite values")
+        return beta
+
+    problem = IRLSCallbacks(residuals_fn=lambda beta: y - design @ beta, weighted_fit_fn=_wls)
+    beta0 = torch.linalg.lstsq(design, y).solution
+    result = iteratively_reweighted_fit(problem, beta0, IRLSFitConfig(continuation=stages))
+    if not result.converged:
+        raise RuntimeError(f"IRLS did not converge ({result.termination}): {result.message}")
+    return result.state, result
+
+
+# ---------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------
 
@@ -185,11 +251,13 @@ class RobustRegressionSuite(HarnessRunner):
                 "MultiExpectile",  # torchregress: MLP 3-expectile head (MLP-only)
                 "QuantileCrossover",  # torchregress: 3-quantile head + crossing penalty
                 "IRLS",  # torchregress iterative solver on _Linear
+                "IRLS_HuberTukey",  # IRLS continuation: Huber stage, then Tukey biweight
+                "IRLS_ReweightFixed",  # robust weights of fixed LS predictions (no refit)
                 "ExpectileCrossover",  # torchregress: 3-expectile head + crossing penalty
             ]
         )
         if _STATSMODELS_AVAILABLE:
-            methods.append("statsmodels_RLM")
+            methods.extend(["statsmodels_RLM", "statsmodels_RLM_HuberTukey"])
         if _LIGHTGBM_AVAILABLE:
             methods.append("LightGBM")
         if _XGBOOST_AVAILABLE:
@@ -201,7 +269,7 @@ class RobustRegressionSuite(HarnessRunner):
             return "LightGBM"
         if method == "XGBoost":
             return "XGBoost"
-        if method == "statsmodels_RLM":
+        if method.startswith("statsmodels_RLM"):
             return "statsmodels"
         if method == "sklearn_QuantileRegressor":
             return "sklearn"
@@ -220,6 +288,22 @@ class RobustRegressionSuite(HarnessRunner):
             return "MLP 3-quantile head + crossing penalty — ordered intervals"
         if method == "IRLS":
             return "iteratively_reweighted_fit: Huber(1.345) IRLS with WLS refits on a linear model"
+        if method == "IRLS_HuberTukey":
+            return (
+                "iteratively_reweighted_fit with IRLSContinuationStage: Huber(1.345) stage then "
+                "Tukey biweight(4.685), MAD scale, WLS refits on [X, 1] from OLS; WLS signals "
+                "IRLSBreakdownError when fewer than p rows keep positive weight "
+                "(parity: statsmodels_RLM_HuberTukey)"
+            )
+        if method == "statsmodels_RLM_HuberTukey":
+            return "statsmodels RLM TukeyBiweight(4.685) started from the RLM HuberT(1.345) fit"
+        if method == "IRLS_ReweightFixed":
+            return (
+                "reweight_fixed_predictions on the least-squares linear fit (MSE_Linear): "
+                "Tukey(4.685) weights of the FIXED training residuals with MAD scale -- NOT a "
+                "refit; test predictions equal the least-squares fit; Reweight_* columns "
+                "describe the weights"
+            )
         if method == "ExpectileCrossover":
             return "MLP 3-expectile head + crossing penalty — ordered expectiles"
         if method.endswith("_Linear"):
@@ -323,45 +407,58 @@ class RobustRegressionSuite(HarnessRunner):
             return {"type": "multi_expectile", "model": model}
 
         # --- Torchregress: IRLS solver on a linear model ---
-        elif method == "IRLS":
-            from torchregress.algorithms import (
-                IRLSCallbacks,
-                IRLSFitConfig,
-                iteratively_reweighted_fit,
-            )
-
-            # Small dense solve: float64 on CPU (MPS has no float64 lstsq).
-            X = torch.from_numpy(X_train_np).double()
-            y = torch.from_numpy(y_train_np).double()
-
-            # Huber M-estimation by IRLS with a weighted least-squares refit on
-            # [X, 1] at every step (statsmodels RLM: HuberT(1.345), MAD scale),
-            # started from the OLS fit.
-            design = torch.cat([X, torch.ones_like(X[:, :1])], dim=1)
-
-            def _wls(_: torch.Tensor, precision: torch.Tensor) -> torch.Tensor:
-                root = precision.sqrt()
-                return torch.linalg.lstsq(design * root[:, None], y * root).solution
-
-            problem = IRLSCallbacks(
-                residuals_fn=lambda beta: y - design @ beta,
-                weighted_fit_fn=_wls,
-            )
-            beta0 = torch.linalg.lstsq(design, y).solution
-            result = iteratively_reweighted_fit(
-                problem,
-                beta0,
-                IRLSFitConfig(max_iter=50, weight="huber", weight_params={"delta": 1.345}),
-            )
-            if not result.converged:
-                raise RuntimeError(f"IRLS did not converge: {result.message}")
-
-            model = _Linear(X.shape[1], out_dim=1)
+        elif method in _IRLS_STAGES:
+            beta, result = _fit_irls_linear(X_train_np, y_train_np, _IRLS_STAGES[method])
+            model = _Linear(X_train_np.shape[1], out_dim=1)
             with torch.no_grad():
-                model.fc.weight.copy_(result.state[:-1].unsqueeze(0).float())
-                model.fc.bias.copy_(result.state[-1:].float())
+                model.fc.weight.copy_(beta[:-1].unsqueeze(0).float())
+                model.fc.bias.copy_(beta[-1:].float())
             model.eval()
-            return {"type": "torch", "model": model}
+            return {
+                "type": "torch",
+                "model": model,
+                "diagnostics": {
+                    "IRLS_Iterations": float(result.iterations),
+                    "IRLS_FinalESS": float(result.effective_sample_size),
+                    "IRLS_ZeroWeightFrac": float((result.weights == 0).double().mean().item()),
+                },
+            }
+
+        # --- Torchregress: robust weights for FIXED predictions (no refit) ---
+        elif method == "IRLS_ReweightFixed":
+            from torchregress.algorithms import IRLSConfig, reweight_fixed_predictions
+
+            X = torch.from_numpy(X_train_np).float().to(current_device())
+            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+            model = _Linear(X.shape[1], out_dim=1)
+            _train_lbfgs(model, WeightedMSELoss(), X, y, max_iter=500, tolerance_grad=1e-7)
+            model.eval()
+            # Tukey(4.685) weights of the fixed least-squares residuals with a
+            # MAD scale; mini-batched inference inside the library.
+            reweighted = reweight_fixed_predictions(
+                model,
+                X,
+                y,
+                config=IRLSConfig(
+                    base_loss="gaussian",
+                    weight_fn="tukey",
+                    weight_params={"c": 4.685},
+                    variance_type="robust",
+                    max_iter=3,
+                    batch_size=65536,
+                ),
+            )
+            precision = reweighted[2]  # (y_pred, loss_history, precision)
+            w = precision.detach().double().reshape(-1)
+            return {
+                "type": "torch",
+                "model": model,
+                "diagnostics": {
+                    "Reweight_ZeroWeightFrac": float((w == 0).double().mean().item()),
+                    "Reweight_DownweightedFrac": float((w < 0.5).double().mean().item()),
+                    "Reweight_MeanWeight": float(w.mean().item()),
+                },
+            }
 
         # --- Torchregress: _Linear variants (LBFGS, parity with statsmodels RLM) ---
         elif method.endswith("_Linear"):
@@ -407,6 +504,15 @@ class RobustRegressionSuite(HarnessRunner):
             )
             result = rlm.fit(maxiter=100)
             return {"type": "statsmodels_rlm", "model": result}
+
+        # --- statsmodels RLM: Huber start, then Tukey biweight (continuation) ---
+        elif method == "statsmodels_RLM_HuberTukey":
+            X_const = sm.add_constant(X_train_np, prepend=True, has_constant="add")
+            huber = sm.RLM(y_train_np, X_const, M=sm.robust.norms.HuberT(t=1.345)).fit(maxiter=100)
+            tukey = sm.RLM(y_train_np, X_const, M=sm.robust.norms.TukeyBiweight(c=4.685)).fit(
+                maxiter=100, start_params=huber.params
+            )
+            return {"type": "statsmodels_rlm", "model": tukey}
 
         # --- LightGBM ---
         elif method == "LightGBM":
@@ -477,7 +583,10 @@ class RobustRegressionSuite(HarnessRunner):
             with torch.no_grad():
                 X = torch.from_numpy(X_test).float().to(current_device())
                 y_pred = m(X).squeeze(-1).detach().cpu().numpy()
-            return {"y_pred": y_pred}
+            out: dict[str, Any] = {"y_pred": y_pred}
+            if "diagnostics" in model_state:
+                out["_diagnostics"] = dict(model_state["diagnostics"])
+            return out
         elif model_type == "irls_var":
             m = model_state["model"]
             with torch.no_grad():
@@ -523,3 +632,16 @@ class RobustRegressionSuite(HarnessRunner):
             return {"y_pred": np.asarray(y_pred).reshape(-1)}
 
         raise ValueError(f"Unknown model type: {model_type}")
+
+    def evaluate(
+        self,
+        method: str,
+        predictions: dict[str, np.ndarray],
+        y_test: np.ndarray,
+        config: HarnessConfig,
+    ) -> dict[str, float]:
+        diagnostics = predictions.pop("_diagnostics", None)
+        metrics = super().evaluate(method, predictions, y_test, config)
+        if isinstance(diagnostics, dict):
+            metrics.update({k: float(v) for k, v in diagnostics.items()})
+        return metrics

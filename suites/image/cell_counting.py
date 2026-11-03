@@ -2,9 +2,11 @@
 
 Targets are non-negative integer counts (never standardized). Compares
 torchregress count losses (Poisson deviance, zero-inflated Poisson,
-negative-binomial) and the Poisson-Gaussian imaging-noise loss against
-MSE/GaussianNLL point/distribution baselines on fluorescence-microscopy
-images where variance grows with the count (Poisson-native data).
+negative-binomial), the exact Poisson (x) Gaussian detector likelihood
+(``PoissonGaussianLoss``: Poisson count convolved with Gaussian read noise) and
+the Poisson/Gaussian contamination-mixture losses against MSE/GaussianNLL
+point/distribution baselines on fluorescence-microscopy images where variance
+grows with the count (Poisson-native data).
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import torch
 import torch.nn as nn
 
 from harness.core import set_harness_seed
+from harness.devices import current_device
 from harness.runners import HarnessConfig
 
 from ._base import (
@@ -52,6 +55,7 @@ class CellCountingSuite(ImageHarnessRunner):
             "CNN+NegBin",
             "CNN+GaussianNLL",
             "CNN+PoissonGaussian",
+            "CNN+PoissonGaussianConv",
             "CNN+EnhancedPG_fixed",
             "CNN+EnhancedPG_learned",
             "CNN+PoissonGaussianLR",
@@ -70,6 +74,12 @@ class CellCountingSuite(ImageHarnessRunner):
             "CNN+NegBin": "CNN log-link + NB NLL with learned dispersion (overdispersed counts)",
             "CNN+GaussianNLL": "CNN + diagonal Gaussian NLL (2-head comparison row)",
             "CNN+PoissonGaussian": "CNN log-lambda + Poisson/Gaussian contamination-mixture NLL",
+            "CNN+PoissonGaussianConv": (
+                "CNN log-lambda + exact Poisson(x)Gaussian convolution NLL (PoissonGaussianLoss: "
+                "gain=1, offset=0, learned read-noise variance = excess Gaussian spread); "
+                "mean/std are the exact predictive moments (lambda, lambda + read_var), "
+                "ExactNLL is the convolution NLL on test counts"
+            ),
             "CNN+EnhancedPG_fixed": "CNN + calibrated PG (gain=1, read=2.0, shot=1.0 fixed)",
             "CNN+EnhancedPG_learned": "CNN + PG with learned gain/shot noise",
             "CNN+PoissonGaussianLR": "CNN log-lambda + PG likelihood-ratio (diagnostic form)",
@@ -165,6 +175,19 @@ class CellCountingSuite(ImageHarnessRunner):
                 m, PoissonGaussianContaminationMixtureLoss(log_input=True), train_loader, config
             )
             return {"type": "log_rate", "model": m}
+        if method == "CNN+PoissonGaussianConv":
+            from torchregress.losses import PoissonGaussianLoss
+
+            m = self._build_cnn(in_channels=in_channels, out_dim=1)
+            pg = PoissonGaussianLoss(
+                log_input=True,
+                gain=1.0,
+                offset=0.0,
+                read_noise_variance=1.0,
+                learn_read_noise=True,
+            )
+            _train_image_model(m, pg, train_loader, config, loss_params=list(pg.parameters()))
+            return {"type": "poisson_gaussian_conv", "model": m, "loss_fn": pg}
         if method == "CNN+EnhancedPG_fixed":
             from torchregress.losses.poisson_gaussian import (
                 EnhancedPoissonGaussianContaminationMixtureLoss,
@@ -239,6 +262,26 @@ class CellCountingSuite(ImageHarnessRunner):
                 "mean": mean,
                 "std": std,
             }
+        if t == "poisson_gaussian_conv":
+            pg = model_state["loss_fn"]
+            rates = []
+            with torch.no_grad():
+                for (xb,) in loader:
+                    rates.append(torch.exp(model(xb.to(device)).reshape(-1)).cpu())
+                rate = torch.cat(rates).to(torch.float64).numpy()
+                gain, offset, read_var = (
+                    float(v) for v in pg.detector_parameters(torch.zeros((), dtype=torch.float64))
+                )
+            # Exact predictive moments of y = g*K + b + eps, K ~ Poisson(rate).
+            mean = gain * rate + offset
+            std = np.sqrt(gain**2 * rate + read_var)
+            return {
+                "y_pred": np.clip(mean, 0, None),
+                "mean": mean,
+                "std": std,
+                "_pg_rate": rate,
+                "_pg_detector": np.array([gain, offset, read_var], dtype=np.float64),
+            }
         outs = []
         with torch.no_grad():
             for (xb,) in loader:
@@ -251,6 +294,42 @@ class CellCountingSuite(ImageHarnessRunner):
                     outs.append(out.reshape(-1).cpu().numpy())
         y_pred = np.concatenate(outs).reshape(-1).astype(np.float32)
         return {"y_pred": np.clip(y_pred, 0, None)}
+
+    def evaluate(
+        self,
+        method: str,
+        predictions: dict[str, np.ndarray],
+        y_test: np.ndarray,
+        config: HarnessConfig,
+    ) -> dict[str, float]:
+        rate = predictions.pop("_pg_rate", None)
+        detector = predictions.pop("_pg_detector", None)
+        metrics = super().evaluate(method, predictions, y_test, config)
+        if rate is not None and detector is not None:
+            metrics["ExactNLL"] = _poisson_gaussian_test_nll(rate, detector, y_test)
+        return metrics
+
+
+def _poisson_gaussian_test_nll(rate: np.ndarray, detector: np.ndarray, y_test: np.ndarray) -> float:
+    """Mean exact Poisson(x)Gaussian NLL of the test counts (library kernel).
+
+    Float64 on the harness device (float32 on MPS, which has no float64); the
+    kernel chunks over count terms, so memory does not grow with the test set.
+    """
+    from torchregress.losses import PoissonGaussianLoss
+
+    device = current_device()
+    dtype = torch.float32 if device.type == "mps" else torch.float64
+    gain, offset, read_var = (float(v) for v in detector)
+    loss_fn = PoissonGaussianLoss(
+        gain=gain, offset=offset, read_noise_variance=read_var, reduction="mean"
+    )
+    with torch.no_grad():
+        nll = loss_fn(
+            torch.as_tensor(rate, dtype=dtype, device=device).reshape(-1),
+            torch.as_tensor(np.asarray(y_test), dtype=dtype, device=device).reshape(-1),
+        )
+    return float(nll.item())
 
 
 class _ZIPWrapper(nn.Module):

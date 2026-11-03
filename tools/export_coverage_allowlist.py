@@ -195,28 +195,15 @@ ALLOWLIST: dict[str, str] = {
     "build_consensus_predictive_batch": "consensus builder called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "distributional_pseudo_loss": "pseudo-label loss called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "conformal_width_to_weight": "needs per-batch conformal intervals on unlabeled rows; no conformal pseudo-labeling row yet",
-    # ------------------------------------------- 0.3.0 exports without a row yet
-    # Added to torchregress after the last harness sweep; each names the suite
-    # that should take it.
-    "PoissonGaussianLoss": "no row yet: exact shot-plus-read-noise detector NLL belongs in cell_counting next to the contamination-mixture rows",
-    "CumulativeCDFLoss": "no row yet: binned cumulative-CDF loss belongs in distributional_bins / ordinal",
-    "cumulative_cdf_loss": "functional twin of CumulativeCDFLoss (no row yet)",
-    "UncertaintyAwareConR": "no row yet: label-uncertainty ConR variant belongs in imbalanced_representation next to ConR",
-    "binned_cdf": "binned-density helper; harness computes PIT/CRPS itself (harness.metrics)",
-    "crps_from_binned_cdf": "binned-density CRPS; harness computes CRPS itself (harness.metrics), parity pending metrics parity tests",
-    "paired_bootstrap_ci": "statistics helper for paired method comparisons; no behaviour to score",
-    "frozen_readout_metrics": "representation diagnostic; no representation-geometry report in the harness yet",
-    "neighbour_target_gap": "representation diagnostic; no representation-geometry report in the harness yet",
-    "representation_geometry_report": "representation diagnostic; no representation-geometry report in the harness yet",
-    "target_ordering": "representation diagnostic; no representation-geometry report in the harness yet",
-    "IRLSProblem": "typing Protocol for iteratively_reweighted_fit callbacks (covered in robust_regression); no behaviour",
-    "IRLSFitResult": _RESULT,
-    "IRLSIteration": _RESULT,
-    "IRLSBreakdownError": "exception raised by weighted-solve callbacks; no behaviour to score",
-    "IRLSContinuationStage": _CONFIG,
-    "IRLSConfig": "configuration for reweight_fixed_predictions (not benchmarked; see below)",
-    "reweight_fixed_predictions": "fixed-prediction reweighting utility (no refit); robust_regression benchmarks the refit-capable iteratively_reweighted_fit",
-    "robust_weights": "weight function called inside iteratively_reweighted_fit (covered in robust_regression)",
-    "FTTransformer": "no row yet: FT-Transformer backbone belongs in sklearn_baselines / foundation_model next to TabularMLP",
-    "FeatureTokenizer": "tokenizer layer built inside FTTransformer",
+    # ------------------------------------------- 0.3.0 helpers covered indirectly
+    # Components, types and functional twins of 0.3.0 exports that have rows;
+    # each names the row or parity test that exercises it.
+    "cumulative_cdf_loss": "functional twin of CumulativeCDFLoss (covered in distributional_bins / ordinal); parity vs scoringrules.rps_score in tests/test_binned_cdf_parity.py",
+    "frozen_readout_metrics": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs sklearn LinearRegression / KNeighborsRegressor in tests/test_representation_metrics_parity.py",
+    "neighbour_target_gap": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs sklearn NearestNeighbors in tests/test_representation_metrics_parity.py",
+    "target_ordering": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs scipy spearmanr(pdist) in tests/test_representation_metrics_parity.py",
+    "IRLSProblem": "typing Protocol for iteratively_reweighted_fit callbacks (robust_regression uses the IRLSCallbacks adapter); no behaviour",
+    "IRLSIteration": "per-iteration diagnostics record inside IRLSFitResult.history (IRLS rows report iterations/ESS from the result); no behaviour",
+    "robust_weights": "weight function called inside iteratively_reweighted_fit (IRLS / IRLS_HuberTukey rows); parity vs statsmodels HuberT/TukeyBiweight and psi(r)/r in tests/test_irls_weights_parity.py",
+    "FeatureTokenizer": "tokenizer layer built inside FTTransformer (covered in sklearn_baselines / likelihoods)",
 }
