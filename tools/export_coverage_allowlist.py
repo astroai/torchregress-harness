@@ -199,11 +199,6 @@ ALLOWLIST: dict[str, str] = {
     # Added to torchregress after the last harness sweep; each names the suite
     # that should take it.
     "PoissonGaussianLoss": "no row yet: exact shot-plus-read-noise detector NLL belongs in cell_counting next to the contamination-mixture rows",
-    "ContrastiveFlowConformal": "no row yet: conformal level sets around ContrastiveFlowLoss belong in likelihood_ratio / conformal_density",
-    "WaldoConformal": "no row yet: WALDO confidence regions belong in sbi_parity / multivariate_intervals",
-    "WaldoDensityConformal": "no row yet: WALDO regions for density samplers belong in conformal_density",
-    "WaldoPosteriorCalibrator": "no row yet: WALDO posterior calibration belongs in sbi_parity",
-    "waldo_statistic": "functional statistic used inside the WALDO conformal classes (no row yet)",
     "CumulativeCDFLoss": "no row yet: binned cumulative-CDF loss belongs in distributional_bins / ordinal",
     "cumulative_cdf_loss": "functional twin of CumulativeCDFLoss (no row yet)",
     "UncertaintyAwareConR": "no row yet: label-uncertainty ConR variant belongs in imbalanced_representation next to ConR",
@@ -232,5 +227,4 @@ ALLOWLIST: dict[str, str] = {
     "robust_weights": "weight function called inside iteratively_reweighted_fit (covered in robust_regression)",
     "FTTransformer": "no row yet: FT-Transformer backbone belongs in sklearn_baselines / foundation_model next to TabularMLP",
     "FeatureTokenizer": "tokenizer layer built inside FTTransformer",
-    "GaussianCopulaSplineHead": "no row yet: correlated spline flow head belongs in density_parity",
 }

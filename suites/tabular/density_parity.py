@@ -21,6 +21,20 @@ implementation alone:
 ``sbi_NPE_NSF`` is a reference row: sbi's own NPE trainer and defaults
 (``append_simulations(theta=y, x=X)``), i.e. sbi used out of the box.
 
+``torchregress_CopulaSpline`` (``GaussianCopulaSplineHead``: full-covariance
+Gaussian base, per-coordinate monotone splines) is a joint spline flow with a
+Gaussian copula.  Beyond the shared scores its rows report ``MargNLL`` (NLL with
+random coordinates missing, by the head's exact marginalization) and
+``MargQuadErr`` (masked log-density vs the joint integrated over the hidden
+coordinate by quadrature; exact marginalization leaves only quadrature error).
+
+Scale: training data stay on the host and are streamed to the device one
+mini-batch at a time; training sets of >= 200k rows (``synthetic_multitarget_big``,
+1M rows) use batch >= 2048, at most 20 epochs and patience 3.  Rows report
+``train_s``/``eval_s`` and, on CUDA, ``PeakGPUMemMB``.  ``pzflow_NSF`` and
+``sbi_NPE_NSF`` use their own full-data trainers and are reported as skipped at
+that scale.
+
 Targets are standardised per dimension on the training split and every
 metric is reported in those units (comparable across methods and datasets).
 Metrics: joint NLL; energy score (ES); variogram score (VS, p=0.5, sensitive
@@ -45,17 +59,46 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size
+from suites.tabular._scale import (
+    BIG_BATCH,
+    BIG_MAX_EPOCHS,
+    BIG_PATIENCE,
+    chunked_rows,
+    is_big,
+    peak_memory_mb,
+    reset_peak_memory,
+    to_device,
+)
 
 N_EVAL_SAMPLES = 200
 MAX_TEST_ROWS = 1000
 FLOW_HIDDEN = 64
 FLOW_TRANSFORMS = 3
 MDN_COMPONENTS = 10
+COPULA_WIDTH = 128
+COPULA_BINS = 8
+# Missing-coordinate marginalization check: rows, quadrature grid half-width
+# (standardized target units) and grid points for the one hidden coordinate.
+MARG_CHECK_ROWS = 32
+MARG_GRID_HALF_WIDTH = 30.0
+MARG_GRID_POINTS = 6001
 VAL_FRACTION = 0.1
 PATIENCE = 10
 # Early stopping decides the length; the cap only bounds runaway runs.
 MAX_EPOCHS = 300
 N_DUMP_ROWS = 5
+# Rows that train with their own (non-streamed, full-data) trainer: not run on
+# >= BIG_ROWS training sets, reported as skipped with this reason.
+_OWN_TRAINER = {
+    "pzflow_NSF": (
+        "pzflow trains with its own JAX loop on the full host DataFrame (cfg.batch_size, "
+        "cfg.epochs, no device routing); not a mini-batch-streamed row at >= 200k rows"
+    ),
+    "sbi_NPE_NSF": (
+        "sbi NPE reference uses sbi's own trainer and data loader (no harness streaming or "
+        "large-batch schedule); not run at >= 200k rows"
+    ),
+}
 # Set to a directory to save predicted samples of the first N_DUMP_ROWS test rows
 # per method (tools/plot_density_parity.py draws them as corner plots).
 DUMP_ENV = "DENSITY_PARITY_DUMP_DIR"
@@ -84,6 +127,8 @@ _METRICS = (
     "PIT_KS",
     "CorrErr",
     "Params",
+    "MargNLL",
+    "MargQuadErr",
 )
 
 
@@ -102,41 +147,44 @@ def _fit_shared(
     """Adam + early stopping on a validation split; restores the best weights.
 
     ``nll(xb, yb)`` returns per-row negative log-likelihoods.  Returns the
-    number of epochs run.
+    number of epochs run.  The data stay on the host: each mini-batch (and
+    each validation chunk) is copied to the device on its own, so >= 1M-row
+    datasets never sit on the GPU.  Training sets of ``_scale.BIG_ROWS`` rows
+    or more use the large-data schedule (batch >= ``BIG_BATCH``, at most
+    ``BIG_MAX_EPOCHS`` epochs, patience ``BIG_PATIENCE``).
     """
-    dev = current_device()
     rng = np.random.default_rng(cfg.seed)
     perm = rng.permutation(len(X))
     n_val = max(1, int(VAL_FRACTION * len(X)))
     va, tr = perm[:n_val], perm[n_val:]
-    Xt = torch.as_tensor(X, dtype=torch.float32, device=dev)
-    Yt = torch.as_tensor(Y, dtype=torch.float32, device=dev)
+    X_val, Y_val = X[np.sort(va)], Y[np.sort(va)]
     params = [p for m in modules for p in m.parameters()]
     opt = torch.optim.Adam(params, lr=cfg.lr)
     best, best_state, bad, epoch = float("inf"), None, 0, 0
-    batch = int(cfg.batch_size)
-    for epoch in range(1, (2 if cfg.smoke else MAX_EPOCHS) + 1):
+    big = is_big(len(tr))
+    batch = max(int(cfg.batch_size), BIG_BATCH) if big else int(cfg.batch_size)
+    max_epochs = 2 if cfg.smoke else (BIG_MAX_EPOCHS if big else MAX_EPOCHS)
+    patience = BIG_PATIENCE if big else PATIENCE
+    for epoch in range(1, max_epochs + 1):
         for m in modules:
             m.train()
         order = tr[rng.permutation(len(tr))]
         for start in range(0, len(order), batch):
-            idx = torch.as_tensor(order[start : start + batch], device=dev)
-            loss = nll(Xt[idx], Yt[idx]).mean()
+            idx = order[start : start + batch]
+            loss = nll(to_device(X[idx]), to_device(Y[idx])).mean()
             opt.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(params, 5.0)
             opt.step()
         for m in modules:
             m.eval()
-        with torch.no_grad():
-            vidx = torch.as_tensor(va, device=dev)
-            v = float(nll(Xt[vidx], Yt[vidx]).mean())
+        v = float(np.mean(chunked_rows(nll, X_val, Y_val)))
         if v < best - 1e-4:
             best, bad = v, 0
             best_state = [copy.deepcopy(m.state_dict()) for m in modules]
         else:
             bad += 1
-            if bad >= PATIENCE:
+            if bad >= patience:
                 break
     if best_state is not None:
         for m, st in zip(modules, best_state, strict=True):
@@ -252,6 +300,7 @@ class DensityParitySuite(HarnessRunner):
             "energy_efficiency",
             "california_housing",
             "pzflow_galaxies",
+            "synthetic_multitarget_big",
         ]
 
     def methods(self) -> list[str]:
@@ -273,6 +322,7 @@ class DensityParitySuite(HarnessRunner):
                     "sbi_MAF",
                     "sbi_zuko_MAF",
                     "torchregress_MDN",
+                    "torchregress_CopulaSpline",
                     "sbi_MDN",
                     "sbi_NPE_NSF",
                 )
@@ -291,6 +341,7 @@ class DensityParitySuite(HarnessRunner):
             "sbi_MAF",
             "sbi_zuko_MAF",
             "torchregress_MDN",
+            "torchregress_CopulaSpline",
             "sbi_MDN",
             "sbi_NPE_NSF",
         ]
@@ -323,6 +374,13 @@ class DensityParitySuite(HarnessRunner):
             "sbi_MAF": "sbi posterior_nn('maf') = nflows MAF (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "sbi_zuko_MAF": "sbi posterior_nn('zuko_maf') (3 transforms, 64 hidden), shared encoder as embedding_net; shared trainer",
             "torchregress_MDN": "MixtureDensityLoss K=10, full covariance; shared encoder + 2x64 hidden head (as sbi MDN); shared trainer",
+            "torchregress_CopulaSpline": (
+                "GaussianCopulaSplineHead (full-Cholesky Gaussian base + per-coordinate RQ "
+                f"splines, {COPULA_BINS} bins, width {COPULA_WIDTH}) on shared encoder; shared "
+                "trainer. MargNLL: NLL of the observed coordinates with ~1/3 of each row's "
+                "coordinates masked (exact analytic marginalization); MargQuadErr: max |masked "
+                "log p - log of the joint integrated over one hidden coordinate by quadrature|"
+            ),
             "sbi_MDN": "sbi posterior_nn('mdn') K=10 full covariance, shared encoder as embedding_net; shared trainer",
             "sbi_NPE_NSF": "reference: sbi NPE trainer and defaults (5 transforms, 50 hidden, own early stopping)",
         }[method]
@@ -381,6 +439,14 @@ class DensityParitySuite(HarnessRunner):
             enc = self._encoder(in_dim, hidden).to(dev)
             velocity = FlowMatchingMLP(out_dim, hidden, hidden=(FLOW_HIDDEN, FLOW_HIDDEN)).to(dev)
             return {"kind": "tr_cfm", "modules": [enc, velocity], "enc": enc, "velocity": velocity}
+        if method == "torchregress_CopulaSpline":
+            from torchregress.models import GaussianCopulaSplineHead
+
+            enc = self._encoder(in_dim, hidden).to(dev)
+            head = GaussianCopulaSplineHead(
+                hidden, out_dim, width=COPULA_WIDTH, bins=COPULA_BINS
+            ).to(dev)
+            return {"kind": "tr_copula", "modules": [enc, head], "enc": enc, "head": head}
         if method == "torchregress_MDN":
             from torchregress.losses import MixtureDensityLoss
 
@@ -426,6 +492,13 @@ class DensityParitySuite(HarnessRunner):
         k = state["kind"]
         if k == "tr_flow":
             return lambda xb, yb: -state["loss"].log_prob(state["enc"](xb), yb)
+        if k == "tr_copula":
+            head = state["head"]
+            return lambda xb, yb: (
+                -head.intrinsic_log_prob(
+                    state["enc"](xb), yb, torch.ones_like(yb, dtype=torch.bool)
+                )
+            )
         if k == "tr_mdn":
             mdn = state["mdn"]
             return lambda xb, yb: mdn._calculate_nll(
@@ -469,6 +542,17 @@ class DensityParitySuite(HarnessRunner):
                     s = nfm.sample(ctx, n_samples=n_s)
                     ctx_r = ctx.repeat_interleave(n_s, dim=0)
                     lp_s = nfm.log_prob(ctx_r, s.reshape(b * n_s, D)).reshape(b, n_s)
+                elif k == "tr_copula":
+                    head = state["head"]
+                    ctx = state["enc"](xb)
+                    full = torch.ones_like(yb, dtype=torch.bool)
+                    lp = head.intrinsic_log_prob(ctx, yb, full)
+                    s = head.sample(ctx, n_s).transpose(0, 1)  # [S, B, D] -> [B, S, D]
+                    ctx_r = ctx.repeat_interleave(n_s, dim=0)
+                    flat = s.reshape(b * n_s, D)
+                    lp_s = head.intrinsic_log_prob(
+                        ctx_r, flat, torch.ones_like(flat, dtype=torch.bool)
+                    ).reshape(b, n_s)
                 elif k == "tr_cfm":
                     from torchregress.models import sample_cfm
 
@@ -497,6 +581,69 @@ class DensityParitySuite(HarnessRunner):
         lp_out = np.concatenate(lps)
         lp_s_out = np.concatenate(lps_s) if lps_s else None
         return lp_out, np.concatenate(samp), lp_s_out
+
+    @staticmethod
+    @torch.no_grad()
+    def _copula_marginal_checks(
+        state: dict[str, Any], X: np.ndarray, Y: np.ndarray, seed: int
+    ) -> dict[str, float | None]:
+        """Missing-coordinate checks of ``GaussianCopulaSplineHead`` (D >= 2 only).
+
+        ``MargNLL``: mean NLL of the observed coordinates when each coordinate
+        is hidden with probability 1/3 (at least one stays observed), computed
+        by the head's exact marginalization.  ``MargQuadErr``: for
+        ``MARG_CHECK_ROWS`` test rows, hide one coordinate ``j`` and compare the
+        head's masked log-density with ``log`` of the *joint* density
+        integrated over ``y_j`` by the trapezoid rule on a dense grid (float64
+        targets).  Exact marginalization makes the gap quadrature error only.
+        """
+        n, d = Y.shape
+        if d < 2:
+            return {"MargNLL": None, "MargQuadErr": None}
+        head, enc = state["head"], state["enc"]
+        rng = np.random.default_rng(seed)
+        mask = rng.random((n, d)) >= 1.0 / 3.0
+        empty = ~mask.any(axis=1)
+        mask[empty, rng.integers(0, d, size=int(empty.sum()))] = True
+        mask_lp = []
+        for start in range(0, n, 1024):
+            xb = to_device(X[start : start + 1024])
+            yb = to_device(Y[start : start + 1024])
+            mb = torch.as_tensor(mask[start : start + 1024], device=yb.device)
+            mask_lp.append(head.intrinsic_log_prob(enc(xb), yb, mb).cpu().numpy())
+        marg_nll = float(-np.mean(np.concatenate(mask_lp)))
+
+        grid = torch.linspace(
+            -MARG_GRID_HALF_WIDTH,
+            MARG_GRID_HALF_WIDTH,
+            MARG_GRID_POINTS,
+            dtype=torch.float64,
+        )
+        dx = float(grid[1] - grid[0])
+        log_w = torch.full_like(grid, np.log(dx))
+        log_w[[0, -1]] = np.log(dx / 2.0)
+        errs = []
+        for i in range(min(MARG_CHECK_ROWS, n)):
+            j = i % d
+            ctx = enc(to_device(X[i : i + 1]))
+            y0 = to_device(Y[i : i + 1], dtype=torch.float64)
+            hide = torch.ones_like(y0, dtype=torch.bool)
+            hide[0, j] = False
+            lp_mask = head.intrinsic_log_prob(ctx, y0, hide).double().cpu()
+            vals = y0.repeat(MARG_GRID_POINTS, 1)
+            vals[:, j] = grid.to(vals.device)
+            lp_joint = (
+                head.intrinsic_log_prob(
+                    ctx.expand(MARG_GRID_POINTS, -1),
+                    vals,
+                    torch.ones_like(vals, dtype=torch.bool),
+                )
+                .double()
+                .cpu()
+            )
+            lp_quad = torch.logsumexp(lp_joint + log_w, dim=0)
+            errs.append(float((lp_mask.reshape(()) - lp_quad).abs()))
+        return {"MargNLL": marg_nll, "MargQuadErr": float(np.max(errs))}
 
     def _pzflow(
         self, X: np.ndarray, Y: np.ndarray, Xte: np.ndarray, Yte: np.ndarray, cfg: HarnessConfig
@@ -592,12 +739,26 @@ class DensityParitySuite(HarnessRunner):
                 "Dataset": dataset_name,
                 "Suite": self.name,
                 "NTargets": out_dim,
+                "NTrain": int(len(X)),
                 "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
                 "Device": str(current_device()),
             }
             if self._image_channels is not None and method in ("pzflow_NSF", "sbi_NPE_NSF"):
                 continue  # pzflow takes tabular columns only; NPE reference is tabular-only
+            if is_big(len(X)) and method in _OWN_TRAINER:
+                rows.append(
+                    {
+                        **base,
+                        **dict.fromkeys(_METRICS),
+                        "train_s": None,
+                        "eval_s": None,
+                        "PeakGPUMemMB": None,
+                        "Notes": f"skipped: {_OWN_TRAINER[method]}",
+                    }
+                )
+                continue
             try:
+                reset_peak_memory()
                 t0 = perf_counter()
                 if method == "pzflow_NSF":
                     lp, samples, lp_s, n_params = self._pzflow(X, Y, Xte, Yte, cfg)
@@ -616,6 +777,8 @@ class DensityParitySuite(HarnessRunner):
                     t1 = perf_counter()
                     lp, samples, lp_s = self._log_prob_and_sample(state, Xte, Yte, n_s)
                 scores = _scores(Yte, samples, lp, lp_s)
+                if method == "torchregress_CopulaSpline":
+                    scores.update(self._copula_marginal_checks(state, Xte, Yte, cfg.seed))
                 dump_dir = os.environ.get(DUMP_ENV)
                 if dump_dir:
                     os.makedirs(dump_dir, exist_ok=True)
@@ -634,6 +797,7 @@ class DensityParitySuite(HarnessRunner):
                         "Epochs": epochs,
                         "train_s": fit_s,
                         "eval_s": perf_counter() - t1,
+                        "PeakGPUMemMB": peak_memory_mb(),
                         "Notes": self.method_notes(method),
                     }
                 )
@@ -644,6 +808,7 @@ class DensityParitySuite(HarnessRunner):
                         **dict.fromkeys(_METRICS),
                         "train_s": None,
                         "eval_s": None,
+                        "PeakGPUMemMB": peak_memory_mb(),
                         "Notes": f"failed: {type(exc).__name__}: {exc}",
                     }
                 )

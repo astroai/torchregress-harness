@@ -24,6 +24,11 @@ Methods
   calibrated by ``SLSConformal`` (box of the calibrated region)
 * ``MultivariateGaussian+Conformal`` — matched baseline: Mahalanobis-score
   ``MultivariateScoreConformal`` ellipsoid (box), same carve
+* ``MultivariateGaussian+WALDO`` — the same Gaussian model and carve, calibrated by
+  ``WaldoConformal`` (full covariance, constant critical value): the joint Wald
+  ellipsoid, scored as a region (``RegionCoverage``/``RegionLogVol``) and as
+  its exact axis box; parity columns check ``waldo_statistic`` and the WALDO
+  threshold against ``MultivariateScoreConformal``
 * ``MultivariateGaussian+LevelSetCP`` — the same Gaussian model and carve, with a
   ``LevelSetConformalPredictor`` on the negative log-density score: the
   calibrated region is the highest-density ellipsoid whose radius adapts to the
@@ -450,6 +455,31 @@ def _sls_region_box(
         return mu.detach().cpu().numpy(), y_np.min(axis=0), y_np.max(axis=0)
 
 
+def _ellipsoid_log_volume(cov: torch.Tensor, radius: float) -> float:
+    """Mean log-volume of ``{y : (y - mu)^T cov^-1 (y - mu) <= radius}`` over rows."""
+    import math
+
+    if math.isinf(radius) and radius > 0:
+        return float("inf")
+    if not radius > 0:
+        return float("-inf")
+    d = cov.shape[-1]
+    log_unit_ball = 0.5 * d * math.log(math.pi) - math.lgamma(0.5 * d + 1.0)
+    logdet = torch.linalg.slogdet(cov.double())[1]
+    return float((log_unit_ball + 0.5 * d * math.log(radius) + 0.5 * logdet).mean())
+
+
+def _waldo_statistic_parity(mean: torch.Tensor, target: torch.Tensor, cov: torch.Tensor) -> float:
+    """Max relative gap of ``waldo_statistic`` vs a float64 Cholesky Mahalanobis distance."""
+    from torchregress.losses import waldo_statistic
+
+    tau = waldo_statistic(mean, target, cov, covariance_type="full").double()
+    diff = (target - mean).double().unsqueeze(-1)
+    chol = torch.linalg.cholesky(cov.double())
+    ref = (diff * torch.cholesky_solve(diff, chol)).sum(dim=(-2, -1))
+    return float(((tau - ref).abs() / ref.abs().clamp_min(1.0)).max())
+
+
 def _gaussian_density_level_set_cp(D: int, *, alpha: float = 0.1, grid_size: int = 2048) -> Any:
     """Density (HPD) level-set conformal predictor for a full-covariance Gaussian head.
 
@@ -601,6 +631,7 @@ _CONFORMAL_METHODS = (
     "SLS_lowrank+SLSConformal",
     "MultivariateGaussian+Conformal",
     "MultivariateGaussian+LevelSetCP",
+    "MultivariateGaussian+WALDO",
 )
 _CONFORMAL_CAL_FRAC = 0.25  # same as ConformalSuite.CALIBRATION_FRAC
 
@@ -665,6 +696,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "SLS_lowrank+SLSConformal",
             "MultivariateGaussian+Conformal",
             "MultivariateGaussian+LevelSetCP",
+            "MultivariateGaussian+WALDO",
             "MDN",
             "MultiQuantile",
             "HeteroEnsembleCov",
@@ -725,6 +757,13 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MultivariateGaussian+LevelSetCP": _CONF_NOTE.format(
                 "LevelSetConformalPredictor on the Gaussian negative log-density "
                 "(HPD ellipsoid, volume-adaptive radius), grid-searched box"
+            ),
+            "MultivariateGaussian+WALDO": _CONF_NOTE.format(
+                "WaldoConformal (full covariance, global critical value) joint Wald ellipsoid; "
+                "box = exact axis projection. RegionCoverage/RegionLogVol score the ellipsoid "
+                "itself; WaldoStatParityErr = max rel. gap of waldo_statistic vs a float64 "
+                "Cholesky Mahalanobis; WaldoThr vs MVScoreThr compares WALDO's threshold with "
+                "MultivariateScoreConformal's finite-sample one on the same scores"
             ),
             "MDN": "multivariate mixture (3 full-cov Gaussians) → sampled intervals + full scoring",
             "MultiQuantile": "marginal 10/50/90% quantiles per dim → own intervals (no joint samples)",
@@ -1171,7 +1210,11 @@ class MultivariateIntervalsSuite(HarnessRunner):
         yc = torch.from_numpy(carved["y_cal"]).float().to(dev)
         in_dim = X.shape[1]
 
-        if method in ("MultivariateGaussian+Conformal", "MultivariateGaussian+LevelSetCP"):
+        if method in (
+            "MultivariateGaussian+Conformal",
+            "MultivariateGaussian+LevelSetCP",
+            "MultivariateGaussian+WALDO",
+        ):
             from torchregress.losses import MultivariateGaussianLoss
             from torchregress.losses.conformal import MultivariateScoreConformal
 
@@ -1199,6 +1242,28 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 cov_c = _covariance_from_cholesky_params(out_c[:, D:], D)
             predictor = MultivariateScoreConformal(alpha=0.1)
             predictor.calibrate(mu_c.detach(), cov_c.detach(), yc)
+            if method == "MultivariateGaussian+WALDO":
+                # Same seed, carve and base model as MultivariateGaussian+Conformal:
+                # with a constant critical value WALDO's Wald ellipsoid is the
+                # Mahalanobis region, so the two thresholds should agree.
+                from torchregress.losses import WaldoConformal
+
+                waldo = WaldoConformal(alpha=0.1, covariance_type="full")
+                waldo.calibrate(mu_c.detach(), yc, cov_c.detach())
+                return {
+                    "type": "mv_gaussian_waldo",
+                    "model": model,
+                    "predictor": waldo,
+                    "n_features": D,
+                    "n_cal": int(Xc.shape[0]),
+                    "parity": {
+                        "WaldoStatParityErr": _waldo_statistic_parity(
+                            mu_c.detach(), yc, cov_c.detach()
+                        ),
+                        "WaldoThr": float(waldo.q_hat) if waldo.q_hat is not None else None,
+                        "MVScoreThr": predictor.region_radius(),
+                    },
+                }
             return {
                 "type": "mv_gaussian_conformal",
                 "model": model,
@@ -1611,6 +1676,39 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
+                "_region": {
+                    "contains": lambda y, p=model_state["predictor"], m=mean, c=cov: p.covers(
+                        m, c, y
+                    ),
+                    "log_volume": _ellipsoid_log_volume(cov, r_val),
+                },
+            }
+
+        # --- MultivariateGaussian+WALDO → WaldoConformal Wald ellipsoid (box) ---
+        elif model_type == "mv_gaussian_waldo":
+            model = model_state["model"]
+            model.eval()
+            waldo = model_state["predictor"]
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                mean = out[:, :D]
+                cov = _covariance_from_cholesky_params(out[:, D:], D)
+            q = float(waldo.q_hat)
+            var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8).detach().cpu().numpy()
+            half = np.sqrt(q * var)
+            mean_np = mean.detach().cpu().numpy()
+            return {
+                "lower": (mean_np - half).reshape(-1),
+                "upper": (mean_np + half).reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_region": {
+                    "contains": lambda y, p=waldo, m=mean, c=cov: p.contains(m, y, c),
+                    "log_volume": _ellipsoid_log_volume(cov, q),
+                },
+                "_extra_metrics": dict(model_state["parity"]),
             }
 
         # --- MultivariateGaussian+LevelSetCP → box of the HPD level set ---
@@ -1690,6 +1788,18 @@ class MultivariateIntervalsSuite(HarnessRunner):
             # Per-dimension coverage
             for d in range(D):
                 metrics[f"Coverage_D{d}"] = float(np.mean(in_interval[:, d]))
+
+            # Joint ellipsoidal regions (not their boxes): exact membership and
+            # mean log-volume, so region rows compare on the region itself.
+            region: Any = predictions.get("_region")
+            if region is not None:
+                y_t = torch.as_tensor(y_true, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    inside = region["contains"](y_t)
+                metrics["RegionCoverage"] = float(inside.double().mean())
+                metrics["RegionLogVol"] = float(region["log_volume"])
+            extra: Any = predictions.get("_extra_metrics", {})
+            metrics.update(extra)
 
             # Library mean pinball over predicted quantile levels (SQR-style
             # rows stash per-level values; averaged over output dims).

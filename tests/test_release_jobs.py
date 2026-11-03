@@ -57,5 +57,5 @@ def test_unknown_group() -> None:
 def test_group_job_counts() -> None:
     """Job counts quoted in RELEASE_0.3_STATUS.md (update both together)."""
     counts = {g: len(jobs(g)) for g in ("tabular", *GROUPS)}
-    assert len(jobs("tabular_big")) == 3
+    assert len(jobs("tabular_big")) == 5
     assert counts == {"tabular": 251, "sbi": 5, "fm": 14, "image": 31}
