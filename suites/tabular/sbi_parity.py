@@ -6,7 +6,7 @@ density-estimator family:
 
 * NSF: ``torchregress_NSF`` (zuko) vs ``sbi_NPE`` (sbi NPE, NSF) vs ``pzflow_NSF`` (JAX)
 * MAF: ``torchregress_MAF`` vs ``sbi_NPE_MAF``
-* MDN: ``torchregress_MDN`` (``MDNLoss``, K=10, full covariance) vs ``sbi_NPE_MDN`` (K=10, full)
+* MDN: ``torchregress_MDN`` (``MixtureDensityLoss``, K=10, full covariance) vs ``sbi_NPE_MDN`` (K=10, full)
 
 ``sbi_FMPE`` (flow matching) and ``sbi_NPSE`` (score-based) are reference rows
 with no torchregress counterpart.
@@ -149,7 +149,7 @@ class SBIParitySuite(HarnessRunner):
                 "recommended_tail_bound(theta_train); pair: sbi_NPE"
             ),
             "torchregress_MAF": "zuko MAF conditional flow; pair: sbi_NPE_MAF",
-            "torchregress_MDN": f"MDNLoss, {MDN_COMPONENTS} diagonal components; pair: sbi_NPE_MDN",
+            "torchregress_MDN": f"MixtureDensityLoss, {MDN_COMPONENTS} full-covariance components; pair: sbi_NPE_MDN",
             "pzflow_NSF": "pzflow Flow, default bijector (JAX)",
             "sbi_NPE": "sbi NPE, NSF density estimator (matched capacity)",
             "sbi_NPE_MAF": "sbi NPE, MAF density estimator (matched capacity)",
@@ -214,10 +214,12 @@ class SBIParitySuite(HarnessRunner):
             return {"type": "torchregress_nsf", "model": model, "flow": loss_fn}
 
         if method == "torchregress_MDN":
-            from torchregress.losses.mdn import MDNLoss
+            from torchregress.losses.mdn import MixtureDensityLoss
 
             # Full covariance, as sbi_NPE_MDN (needs torchregress >= 0.3 sampling).
-            mdn = MDNLoss(n_components=MDN_COMPONENTS, n_features=out_dim, covariance_type="full")
+            mdn = MixtureDensityLoss(
+                n_components=MDN_COMPONENTS, n_features=out_dim, covariance_type="full"
+            )
             model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=mdn.expected_output_size)
             _train_one(
                 model,

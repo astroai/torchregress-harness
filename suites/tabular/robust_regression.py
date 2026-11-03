@@ -219,7 +219,7 @@ class RobustRegressionSuite(HarnessRunner):
         if method == "QuantileCrossover":
             return "MLP 3-quantile head + crossing penalty — ordered intervals"
         if method == "IRLS":
-            return "iteratively_reweighted_least_squares on _Linear (Huber weights)"
+            return "iteratively_reweighted_fit: Huber(1.345) IRLS with WLS refits on a linear model"
         if method == "ExpectileCrossover":
             return "MLP 3-expectile head + crossing penalty — ordered expectiles"
         if method.endswith("_Linear"):
@@ -324,23 +324,42 @@ class RobustRegressionSuite(HarnessRunner):
 
         # --- Torchregress: IRLS solver on a linear model ---
         elif method == "IRLS":
-            from torchregress.algorithms.irls import (
-                IRLSConfig,
-                iteratively_reweighted_least_squares,
+            from torchregress.algorithms import (
+                IRLSCallbacks,
+                IRLSFitConfig,
+                iteratively_reweighted_fit,
             )
 
-            X = torch.from_numpy(X_train_np).float().to(current_device())
-            y = torch.from_numpy(y_train_np).float().to(current_device()).unsqueeze(1)
+            # Small dense solve: float64 on CPU (MPS has no float64 lstsq).
+            X = torch.from_numpy(X_train_np).double()
+            y = torch.from_numpy(y_train_np).double()
 
-            in_dim = X.shape[1]
-            # 1-col head + MAD ('robust') variance: no variance head needed.
-            model = _Linear(in_dim, out_dim=1)
-            iteratively_reweighted_least_squares(
-                model,
-                X,
-                y,
-                config=IRLSConfig(base_loss="huber", max_iter=10, variance_type="robust"),
+            # Huber M-estimation by IRLS with a weighted least-squares refit on
+            # [X, 1] at every step (statsmodels RLM: HuberT(1.345), MAD scale),
+            # started from the OLS fit.
+            design = torch.cat([X, torch.ones_like(X[:, :1])], dim=1)
+
+            def _wls(_: torch.Tensor, precision: torch.Tensor) -> torch.Tensor:
+                root = precision.sqrt()
+                return torch.linalg.lstsq(design * root[:, None], y * root).solution
+
+            problem = IRLSCallbacks(
+                residuals_fn=lambda beta: y - design @ beta,
+                weighted_fit_fn=_wls,
             )
+            beta0 = torch.linalg.lstsq(design, y).solution
+            result = iteratively_reweighted_fit(
+                problem,
+                beta0,
+                IRLSFitConfig(max_iter=50, weight="huber", weight_params={"delta": 1.345}),
+            )
+            if not result.converged:
+                raise RuntimeError(f"IRLS did not converge: {result.message}")
+
+            model = _Linear(X.shape[1], out_dim=1)
+            with torch.no_grad():
+                model.fc.weight.copy_(result.state[:-1].unsqueeze(0).float())
+                model.fc.bias.copy_(result.state[-1:].float())
             model.eval()
             return {"type": "torch", "model": model}
 

@@ -12,7 +12,7 @@ Methods
 - DiscreteWasserstein1   : MLP + DiscreteWasserstein1Loss (K logits, W1 to the
                            one-hot class on the unit-spaced class grid, i.e. the
                            expected class distance E_p|Z - y|); PMF median
-- CORAL                  : MLP + CORALLoss (torchregress, CORAL-style cumulative ordinal)
+- CORAL                  : MLP + CORALHead + CumulativeLinkLoss (torchregress, CORAL-style cumulative ordinal)
 - CORN                   : MLP + corn_loss from coral-pytorch (K-1 logits)
 - mord_LogisticAT        : mord.LogisticAT (all-threshold ordinal logistic)
 - statsmodels_OrderedModel : statsmodels OrderedModel(distr='logit')
@@ -26,7 +26,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchregress.losses import (
-    CORALLoss,
     CumulativeLinkLoss,
     DiscreteWasserstein1Loss,
     OrdinalCrossEntropyLoss,
@@ -299,7 +298,7 @@ class OrdinalSuite(HarnessRunner):
             backbone = _MLP(in_dim, _ordinal_hidden, out_dim=_ordinal_hidden)
             head = CORALHead(in_features=_ordinal_hidden, num_classes=n_classes)
             model = nn.Sequential(backbone, head).to(current_device())
-            _train_one(model, CORALLoss(), X, y, config, epochs=_ordinal_epochs)
+            _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "CORN":
@@ -479,7 +478,7 @@ class OrdinalSuite(HarnessRunner):
                 "3× cumulative-link MLPs — PMF-space averaging + support-moment classes"
             ),
             "CORAL": (
-                "MLP + CORALHead + CORALLoss — shared-weight monotonic-bias head "
+                "MLP + CORALHead + CumulativeLinkLoss — shared-weight monotonic-bias head "
                 "(b₁≥…≥b_{K-1}) per Cao et al. 2020; rank-consistent predictions"
             ),
             "CORN": (

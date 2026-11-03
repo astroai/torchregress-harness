@@ -75,6 +75,9 @@ class SplitMetadata(TypedDict, total=False):
     _pz_taskset: int
     _pz_simulation: str
     _pz_scenario: str
+    _nz_taskset: int
+    _nz_simulation: str
+    _nz_scenario: str
     ra_train: np.ndarray
     ra_test: np.ndarray
     dec_train: np.ndarray

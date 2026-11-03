@@ -584,7 +584,7 @@ def _apply(
             # CV+ aggregates (n_test, n_pool) scores: predict in row blocks.
             pred, lo, hi = mapie_predict_blocked(ccr, X_test, n_ref=len(y_pool))
             return _interval(lo, hi, pred)
-        from torchregress.losses.conformal import CVPlus, JackknifePlus
+        from torchregress.losses.conformal import CVPlus
 
         n_folds = int(fold.max()) + 1
         oof = np.empty_like(y_pool)
@@ -594,8 +594,9 @@ def _apply(
             m = base.factory().fit(X_pool[tr], y_pool[tr])
             oof[~tr] = m.predict(X_pool[~tr])
             member_test[k] = m.predict(X_test)
-        cp_cls = JackknifePlus if loo else CVPlus
-        cvp = cp_cls(alpha=alpha)
+        # Jackknife+ is CV+ with K = n (leave-one-out folds); ``fold`` already
+        # holds one fold per row when ``loo`` is set.
+        cvp = CVPlus(alpha=alpha)
         cvp.calibrate_ensemble(_t(oof[:, None]), _t(y_pool[:, None]), torch.as_tensor(fold))
         lo, hi = cvp.predict_interval(_t(member_test[:, :, None]))
         return _interval(_np(lo), _np(hi), member_test.mean(axis=0))
@@ -741,7 +742,7 @@ class UQLayerSuite(HarnessRunner):
             "MAPIE_CQR_asym": "mapie ConformalizedQuantileRegressor(prefit), default asymmetric correction",
             "tr_CVPlus": "torchregress CVPlus, K=5 refits on train+cal (same KFold as MAPIE)",
             "MAPIE_CVPlus": "mapie CrossConformalRegressor(method='plus', same KFold) on train+cal",
-            "tr_JackknifePlus": "torchregress JackknifePlus, LOO refits on train+cal",
+            "tr_JackknifePlus": "torchregress CVPlus with K = n (Jackknife+), LOO refits on train+cal",
             "MAPIE_JackknifePlus": "mapie CrossConformalRegressor(plus, LeaveOneOut) on train+cal",
             "tr_VTS": "torchregress VarianceTemperatureScaler fitted on the calibration split",
             "tr_IsoMean+VTS": "IsotonicMeanCalibrator on cal half A, VarianceTemperatureScaler on half B",

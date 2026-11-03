@@ -69,7 +69,7 @@ class CellCountingSuite(ImageHarnessRunner):
             "CNN+ZIP": "CNN log-rate + zero-inflation logit (excess-zero counts)",
             "CNN+NegBin": "CNN log-link + NB NLL with learned dispersion (overdispersed counts)",
             "CNN+GaussianNLL": "CNN + diagonal Gaussian NLL (2-head comparison row)",
-            "CNN+PoissonGaussian": "CNN log-lambda + shot+readout imaging-noise NLL",
+            "CNN+PoissonGaussian": "CNN log-lambda + Poisson/Gaussian contamination-mixture NLL",
             "CNN+EnhancedPG_fixed": "CNN + calibrated PG (gain=1, read=2.0, shot=1.0 fixed)",
             "CNN+EnhancedPG_learned": "CNN + PG with learned gain/shot noise",
             "CNN+PoissonGaussianLR": "CNN log-lambda + PG likelihood-ratio (diagnostic form)",
@@ -158,18 +158,22 @@ class CellCountingSuite(ImageHarnessRunner):
             _train_image_model(m, GaussianNLLLoss(), train_loader, config)
             return {"type": "gaussian_nll", "model": m}
         if method == "CNN+PoissonGaussian":
-            from torchregress.losses.poisson_gaussian import PoissonGaussianMixtureLoss
+            from torchregress.losses.poisson_gaussian import PoissonGaussianContaminationMixtureLoss
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
-            _train_image_model(m, PoissonGaussianMixtureLoss(log_input=True), train_loader, config)
+            _train_image_model(
+                m, PoissonGaussianContaminationMixtureLoss(log_input=True), train_loader, config
+            )
             return {"type": "log_rate", "model": m}
         if method == "CNN+EnhancedPG_fixed":
-            from torchregress.losses.poisson_gaussian import EnhancedPoissonGaussianMixtureLoss
+            from torchregress.losses.poisson_gaussian import (
+                EnhancedPoissonGaussianContaminationMixtureLoss,
+            )
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
             _train_image_model(
                 m,
-                EnhancedPoissonGaussianMixtureLoss(
+                EnhancedPoissonGaussianContaminationMixtureLoss(
                     log_input=True, gain=1.0, offset=0.0, read_noise=2.0, shot_noise=1.0
                 ),
                 train_loader,
@@ -177,10 +181,12 @@ class CellCountingSuite(ImageHarnessRunner):
             )
             return {"type": "log_rate", "model": m}
         if method == "CNN+EnhancedPG_learned":
-            from torchregress.losses.poisson_gaussian import EnhancedPoissonGaussianMixtureLoss
+            from torchregress.losses.poisson_gaussian import (
+                EnhancedPoissonGaussianContaminationMixtureLoss,
+            )
 
             m = self._build_cnn(in_channels=in_channels, out_dim=1)
-            loss_fn = EnhancedPoissonGaussianMixtureLoss(
+            loss_fn = EnhancedPoissonGaussianContaminationMixtureLoss(
                 log_input=True, gain="learn", offset=0.0, read_noise=2.0, shot_noise="learn"
             )
             _train_image_model(
