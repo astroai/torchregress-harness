@@ -9,6 +9,7 @@
 #   scripts/canfar_launch_release.sh logs     # events + log tail of each group -> release_logs.txt
 #   scripts/canfar_launch_release.sh fill [group [ids]]  # (re)submit missing replicas as single sessions
 #   DRY_RUN=1 scripts/canfar_launch_release.sh launch   # parse only, submit nothing
+#   HARNESS_BRANCH=x LIB_BRANCH=y ... launch  # run pushed branch tips instead of origin/main
 #   ALL_GPU=1 scripts/canfar_launch_release.sh launch   # every group on a GPU session
 #   FLEX=1 scripts/canfar_launch_release.sh launch      # flexible CPU/RAM slices (queue-friendly)
 #   RUN_GROUPS="fm image" scripts/canfar_launch_release.sh launch   # only some groups
@@ -72,18 +73,18 @@ gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
   gh auth token
 }
 
-pushed_sha() { # <repo dir> -> HEAD sha, after checking it is on origin/main
-  local dir="$1" head remote
+pushed_sha() { # <repo dir> [branch] -> HEAD sha, after checking it is on origin/<branch>
+  local dir="$1" branch="${2:-main}" head remote
   head=$(git -C "$dir" rev-parse HEAD)
-  remote=$(git -C "$dir" ls-remote origin refs/heads/main 2>/dev/null | cut -f1)
+  remote=$(git -C "$dir" ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)
   if [ -z "$remote" ] && [ -n "${GH_TOKEN:-}" ]; then
     # No ssh key (agent sandbox): ask GitHub over HTTPS with the token instead.
     local url
     url=$(git -C "$dir" remote get-url origin | sed -E 's#^(git@|ssh://git@)github.com[:/]#https://github.com/#')
     remote=$(git -C "$dir" -c http.extraHeader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" \
-      ls-remote "$url" refs/heads/main | cut -f1)
+      ls-remote "$url" "refs/heads/$branch" | cut -f1)
   fi
-  [ "$head" = "$remote" ] || die "$dir: HEAD $head is not origin/main ($remote); push first"
+  [ "$head" = "$remote" ] || die "$dir: HEAD $head is not origin/$branch ($remote); push first"
   echo "$head"
 }
 
@@ -276,8 +277,8 @@ export COLUMNS=100000
 
 case "${1:-}" in
   launch)
-    HARNESS_REF=$(pushed_sha "$HERE")
-    LIB_REF=$(pushed_sha "$LIB_DIR")
+    HARNESS_REF=$(pushed_sha "$HERE" "${HARNESS_BRANCH:-main}")
+    LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
     GH_TOKEN=$(gh_token)
     RUN_TAG="release_$(date +%Y%m%d_%H%M)"
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
@@ -315,12 +316,12 @@ case "${1:-}" in
     load_state
     # Fill sessions run the harness HEAD (it must know SHARD_ID); the benchmark
     # code itself is unchanged when only scripts/ moved since the launch.
-    HARNESS_REF=$(pushed_sha "$HERE")
+    HARNESS_REF=$(pushed_sha "$HERE" "${HARNESS_BRANCH:-main}")
     echo "FILL_HARNESS_REF=$HARNESS_REF" >> "$STATE"
     # FILL_LIB_LATEST=1: run the fill against the current pushed torchregress
     # (a library fix needed by the refilled jobs) instead of the run's pin.
     if [ "${FILL_LIB_LATEST:-0}" = 1 ]; then
-      LIB_REF=$(pushed_sha "$LIB_DIR")
+      LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
       echo "FILL_LIB_REF=$LIB_REF" >> "$STATE"
     fi
     GH_TOKEN=$(gh_token)
@@ -403,8 +404,8 @@ PY
     ;;
   stage)
     # One-off: stage slow real datasets on /arc (scripts/skaha_stage_data.sh).
-    HARNESS_REF=$(pushed_sha "$HERE")
-    LIB_REF=$(pushed_sha "$LIB_DIR")
+    HARNESS_REF=$(pushed_sha "$HERE" "${HARNESS_BRANCH:-main}")
+    LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
     RUN_TAG="stage_$(date +%Y%m%d_%H%M)"
     GH_TOKEN=$(gh_token)
     set_env_args
