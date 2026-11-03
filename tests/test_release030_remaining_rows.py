@@ -132,6 +132,8 @@ def test_likelihoods_ft_transformer_row(monkeypatch: pytest.MonkeyPatch) -> None
     assert _ok(row), row
     for key in ("NLL", "CRPS", "Coverage"):
         assert np.isfinite(row[key]), row
+    assert row["FT_EpochsRun"] <= row["FT_EpochsBudget"] == 2
+    assert row["FT_TokenBudgetCapped"] in (0.0, 1.0)
 
 
 def test_token_budget_caps_wide_tables_only() -> None:
@@ -140,5 +142,10 @@ def test_token_budget_caps_wide_tables_only() -> None:
     cpu = torch.device("cpu")
     assert token_budget_epochs(60, 16_000, 10, cpu) == 60
     assert token_budget_epochs(60, 16_000, 987, cpu) == 12
-    assert token_budget_epochs(60, 1_200_000, 71, torch.device("cuda")) == 60
+    cuda = torch.device("cuda")
+    # A whole A100 (108 SMs) keeps the full 60 epochs on folktables_all scale ...
+    assert token_budget_epochs(60, 1_200_000, 71, cuda, sms=108) == 60
+    # ... an H100 MIG 1g slice (16 SMs) gets the same wall clock, fewer epochs.
+    assert token_budget_epochs(60, 1_332_114, 71, cuda, sms=16) == 15
+    assert token_budget_epochs(60, 2_170_759, 9, cuda, sms=16) == 60
     assert token_budget_epochs(60, 10**9, 10**4, cpu) == 1

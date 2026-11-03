@@ -21,11 +21,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(_ROOT), str(_ROOT / "src")]
 
 import torch  # noqa: E402
+from suites._backbones import _MLP, _hidden_size  # noqa: E402
 from torch import nn  # noqa: E402
 from torch.profiler import ProfilerActivity, profile  # noqa: E402
 
 from harness.devices import set_default_device  # noqa: E402
-from suites._backbones import _MLP, _hidden_size  # noqa: E402
 
 BS = 1024
 
@@ -67,7 +67,11 @@ def _bench(name: str, step, steps: int, prof_steps: int = 10) -> float:
     ka = prof.key_averages()
     syncs = sum(e.count for e in ka if e.key in ("cudaStreamSynchronize", "cudaDeviceSynchronize"))
     d2h = sum(e.count for e in ka if "Memcpy DtoH" in e.key)
-    launches = sum(e.count for e in ka if e.key in ("cudaLaunchKernel", "cuLaunchKernel", "cudaLaunchKernelExC"))
+    launches = sum(
+        e.count
+        for e in ka
+        if e.key in ("cudaLaunchKernel", "cuLaunchKernel", "cudaLaunchKernelExC")
+    )
     print(
         f"PROF {name}: per step syncs={syncs / prof_steps:.1f} d2h={d2h / prof_steps:.1f} "
         f"kernel_launches={launches / prof_steps:.0f}",
@@ -86,7 +90,10 @@ def main() -> None:
     dev = set_default_device("auto")
     if dev.type == "cuda":
         p = torch.cuda.get_device_properties(0)
-        print(f"ENV {p.name} sms={p.multi_processor_count} mem={p.total_memory / 2**30:.2f}GiB", flush=True)
+        print(
+            f"ENV {p.name} sms={p.multi_processor_count} mem={p.total_memory / 2**30:.2f}GiB",
+            flush=True,
+        )
     only = set(filter(None, args.only.split(",")))
     g = torch.Generator().manual_seed(0)
     n = 200_000
@@ -134,20 +141,34 @@ def main() -> None:
                     for i in range(20):
                         step(i)
                     fam._betacf = orig
-                    print(f"SKEWT_ITERS {tag}: ~{calls['it'] / max(calls['n'], 1):.0f} CF iterations/call (upper bracket)")
+                    print(
+                        f"SKEWT_ITERS {tag}: ~{calls['it'] / max(calls['n'], 1):.0f} CF iterations/call (upper bracket)"
+                    )
                 step = _step_fn(m, lf, list(m.parameters()), X, y, opt_kw)
                 _bench(tag, step, args.steps if key != "skewt" else 50)
         if (not only or "mdn" in only) and d_in == 8:
-            m = _MLP(d_in, h, MixtureDensityLoss(n_components=3, n_features=1).expected_output_size).to(dev)
+            m = _MLP(
+                d_in, h, MixtureDensityLoss(n_components=3, n_features=1).expected_output_size
+            ).to(dev)
             lf = MixtureDensityLoss(n_components=3, n_features=1)
             _bench("mdn_d8", _step_fn(m, lf, list(m.parameters()), X, y, {}), args.steps)
         if not only or "nsf" in only:
             from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
 
-            flow = create_flow_model(n_features=1, context_dim=h, flow_type="nsf", n_transforms=3, hidden_features=[64, 64])
+            flow = create_flow_model(
+                n_features=1,
+                context_dim=h,
+                flow_type="nsf",
+                n_transforms=3,
+                hidden_features=[64, 64],
+            )
             m = _MLP(d_in, h, h).to(dev)
             lf = NormalizingFlowLoss(flow=flow).to(dev)
-            _bench(f"nsf_d{d_in}", _step_fn(m, lf, list(m.parameters()) + list(flow.parameters()), X, y, {}), 100)
+            _bench(
+                f"nsf_d{d_in}",
+                _step_fn(m, lf, list(m.parameters()) + list(flow.parameters()), X, y, {}),
+                100,
+            )
         if not only or "ftt" in only:
             from torchregress.models import FTTransformer
 

@@ -30,11 +30,11 @@ sys.path[:0] = [str(_ROOT), str(_ROOT / "src")]
 
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+from suites.tabular.likelihoods import LikelihoodsSuite  # noqa: E402
 
 from harness.datasets import load_dataset  # noqa: E402
 from harness.devices import set_default_device  # noqa: E402
 from harness.runners import HarnessConfig  # noqa: E402
-from suites.tabular.likelihoods import LikelihoodsSuite  # noqa: E402
 
 
 class _Heartbeat:
@@ -116,7 +116,10 @@ def main() -> None:
                     torch.cuda.synchronize()
                 rec[f"{phase}_s"] = round(time.perf_counter() - t, 2)
                 rec[f"{phase}_peak_gib"] = round(_peak_gib(), 3)
-                print(f"  {method} {phase}: {rec[f'{phase}_s']}s peak={rec[f'{phase}_peak_gib']}GiB", flush=True)
+                print(
+                    f"  {method} {phase}: {rec[f'{phase}_s']}s peak={rec[f'{phase}_peak_gib']}GiB",
+                    flush=True,
+                )
             rec["metrics"] = {k: metrics.get(k) for k in ("NLL", "CRPS", "Coverage", "RMSE")}
             ft = state.get("ft") if isinstance(state, dict) else None
             if ft is not None:
@@ -136,7 +139,9 @@ def main() -> None:
         results.append(rec)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps({"env": info, "dataset": args.dataset, "rows": results}, indent=1))
+        args.output.write_text(
+            json.dumps({"env": info, "dataset": args.dataset, "rows": results}, indent=1)
+        )
 
 
 if __name__ == "__main__":

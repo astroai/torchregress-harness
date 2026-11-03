@@ -6,6 +6,7 @@ suite file.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import numpy as np
@@ -91,7 +92,8 @@ def _train_one(
     epochs: int | None = None,
     batch_size: int | None = None,
     lr: float | None = None,
-) -> None:
+    cuda_graph: bool = False,
+) -> bool:
     """Train one model with Adam mini-batch SGD.
 
     Parameters
@@ -115,6 +117,18 @@ def _train_one(
         Overrides ``config.batch_size``.
     lr : float | None
         Overrides ``config.lr``.
+    cuda_graph : bool
+        On CUDA, replay each full-batch training step as a captured CUDA graph
+        (same batches, loss and Adam update; see :func:`_train_graphed`).  Small
+        heads on >1M-row tables are bound by host-side kernel launches, not by the
+        GPU (measured on an H100 MIG 1g slice: 0.13 ms of GPU work in a 4.8 ms
+        step).  Steps that synchronise with the host cannot be captured; they
+        train eagerly.
+
+    Returns
+    -------
+    bool
+        ``True`` when the steps were replayed as a CUDA graph.
     """
     _epochs = epochs if epochs is not None else config.epochs if config is not None else 60
     _batch = (
@@ -126,7 +140,6 @@ def _train_one(
     if loss_params is not None:
         params.extend(p for p in loss_params if p.requires_grad)
 
-    opt = optim.Adam(params, lr=_lr)
     device = next(model.parameters()).device
     # Learnable losses (flows, SLS, dispersion params) must ride the model's
     # device — mirrors _train_image_model. Without this, GPU runs mix
@@ -137,6 +150,13 @@ def _train_one(
     y_dev = y.to(device)
     n = X_dev.shape[0]
 
+    if cuda_graph and device.type == "cuda":
+        if _train_graphed(
+            model, loss_fn, params, X_dev, y_dev, _epochs, _batch, _lr, transform_output
+        ):
+            return True
+
+    opt = optim.Adam(params, lr=_lr)
     for _ in range(_epochs):
         perm = torch.randperm(n, device=device)
         for i in range(0, n, _batch):
@@ -148,6 +168,98 @@ def _train_one(
             loss = loss_fn(out, y_dev[idx])
             loss.backward()
             opt.step()
+    return False
+
+
+def _train_graphed(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    params: list[torch.Tensor],
+    X: torch.Tensor,
+    y: torch.Tensor,
+    epochs: int,
+    batch: int,
+    lr: float,
+    transform_output: Any = None,
+) -> bool:
+    """:func:`_train_one`'s loop with every full batch replayed as one CUDA graph.
+
+    The optimisation is the eager loop's: the same ``randperm`` batches from the
+    device generator, the same loss and Adam (``capturable=True``, the same
+    update computed with on-device step counters).  Capture needs a few warm-up
+    steps; they run on a side stream and are then undone (parameters restored,
+    Adam moments and step counters reset to their fresh-optimizer zeros), so the
+    trained model has seen exactly ``epochs`` passes.  The ragged last batch of
+    an epoch runs eagerly through the same optimizer.
+
+    Returns ``False`` without training (parameters restored) when the step
+    cannot be captured, e.g. a loss that synchronises with the host every step.
+    """
+    n = X.shape[0]
+    if n < batch:
+        return False
+    modules = [model, loss_fn] if isinstance(loss_fn, nn.Module) else [model]
+    saved = [copy.deepcopy(m.state_dict()) for m in modules]
+    opt = optim.Adam(params, lr=lr, capturable=True)
+    static_idx = torch.arange(batch, device=X.device)
+
+    def step(idx: torch.Tensor) -> None:
+        out = model(X[idx])
+        if transform_output is not None:
+            out = transform_output(out)
+        loss_fn(out, y[idx]).backward()
+        opt.step()
+
+    def restore() -> None:
+        for m, state in zip(modules, saved):
+            m.load_state_dict(state)
+        for st in opt.state.values():
+            for v in st.values():
+                if torch.is_tensor(v):
+                    v.zero_()  # fresh Adam: step 0, zero first and second moments
+
+    graph = torch.cuda.CUDAGraph()
+    try:
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            # First step outside sync checking: one-time input checks (e.g. the
+            # flow loss' spline-range warning) may read a value back once.
+            opt.zero_grad(set_to_none=True)
+            step(static_idx)
+            previous = torch.cuda.get_sync_debug_mode()
+            torch.cuda.set_sync_debug_mode("error")
+            try:
+                for _ in range(2):
+                    opt.zero_grad(set_to_none=True)
+                    step(static_idx)
+            finally:
+                torch.cuda.set_sync_debug_mode(previous)
+        torch.cuda.current_stream().wait_stream(side)
+        torch.cuda.synchronize()
+        restore()
+        opt.zero_grad(set_to_none=True)
+        with torch.cuda.graph(graph):
+            step(static_idx)
+    except RuntimeError:
+        torch.cuda.synchronize()
+        restore()
+        for p in params:
+            p.grad = None
+        return False
+
+    for _ in range(epochs):
+        perm = torch.randperm(n, device=X.device)
+        for i in range(0, n, batch):
+            idx = perm[i : i + batch]
+            if idx.shape[0] == batch:
+                static_idx.copy_(idx)
+                graph.replay()
+            else:
+                # Zero in place: the gradients are the graph's static buffers.
+                opt.zero_grad(set_to_none=False)
+                step(idx)
+    return True
 
 
 def _train_lbfgs(
