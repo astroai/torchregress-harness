@@ -13,6 +13,8 @@
 # command   run from the repo root, e.g.  pixi run test   or  ./scripts/ci_local.sh
 #
 # Env: CPU (8), MEM (32), GPU (0), IMAGE (astroai/base:latest), DRY_RUN=1.
+# GitHub token: GH_TOKEN, else ~/.ghtok (fine-grained PAT, read access to the sfabbro
+# forks), else `gh auth token`. Invalid tokens are dropped (public forks still work).
 # Logs: /arc/projects/ots/torchregress-ci/<name>/{run.log,exit_code}
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
@@ -66,7 +68,11 @@ case "${1:-}" in
     lib_ref="$ref"; if [ "$1" != "--" ]; then lib_ref="$1"; shift; fi
     [ "$1" = "--" ] || die "missing -- before command"; shift
     case "$name" in *[!a-z0-9-]*) die "name: lowercase letters, digits and - only" ;; esac
-    token="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+    # Token lookup, same order as canfar_launch_release.sh: GH_TOKEN, then ~/.ghtok (a
+    # long-lived fine-grained PAT survives gh keyring resets), then the gh CLI.
+    token="${GH_TOKEN:-}"
+    [ -z "$token" ] && [ -s "$HOME/.ghtok" ] && token="$(tr -d ' \n\r' < "$HOME/.ghtok")"
+    [ -z "$token" ] && token="$(gh auth token 2>/dev/null || true)"
     # A stale token makes GitHub refuse even public fetches: send only a valid one.
     if [ -n "$token" ] && [ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" https://api.github.com/user)" != 200 ]; then
       echo "warning: GitHub token is invalid; launching without it" >&2; token=""
