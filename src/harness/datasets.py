@@ -2328,7 +2328,10 @@ def _load_folktables_all(
     50 states + PR: ~3M person rows (~1.5M after the employment filter) —
     the >1M-row likelihood scale. ``n_samples=None`` (default) keeps the
     full filtered set; pass an int for a seeded subsample (smoke/debug).
-    Falls back to California Housing if the fetch fails.
+    Falls back to California Housing if the fetch fails.  The target
+    (PINCP, dollars) is returned raw, but this loader does NOT set
+    ``_skip_y_standardization``, so :func:`load_dataset` z-scores it with the
+    train mean/std: downstream scores are in z units of income, not dollars.
     """
     splits: SplitMetadata = {}
     try:
