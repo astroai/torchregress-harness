@@ -1624,6 +1624,90 @@ def _load_synthetic_mv_bimodal(
     }
 
 
+# Fixed generator design of ``synthetic_multitarget_big`` (independent of the
+# data seed and of ``n_samples``, so every size and seed shares one p(y | x)).
+_MT_BIG_DESIGN_SEED = 20261103
+_MT_BIG_COMPONENTS = 3
+
+
+def _load_synthetic_multitarget_big(
+    n_samples: int = 1_100_000,
+    n_test: int = 100_000,
+    n_features: int = 20,
+    n_targets: int = 6,
+    seed: int = 42,
+) -> SplitsDict:
+    """Generate a >= 1M-row multi-target conditional density problem on the fly.
+
+    Scale benchmark for joint density and conformal heads (no download).  The
+    default draw has 1,000,000 training and 100,000 test rows, 20 correlated
+    features and 6 targets.  Given ``x``:
+
+    * a latent component ``c in {0, 1, 2}`` is drawn from ``softmax(x W)``
+      (gate depends on ``x``), so ``p(y | x)`` is multimodal with
+      ``x``-dependent mode weights;
+    * ``y = tanh(x B) C + m_c + s(x) * e / g`` where ``m_c`` are separated
+      component means, ``s(x) = exp(0.35 tanh(x_1))`` is heteroscedastic,
+      ``e ~ N(0, R_c)`` has a component-specific correlation matrix (the
+      copula is a mixture, not Gaussian) and ``g = sqrt(chi2_5 / 5)`` is shared
+      by all targets (multivariate-t tails with tail dependence);
+    * target 4 is skewed (``y4 + 0.15 y4^2``) and target 5 is log-normal
+      (``exp(0.25 (mu_5 + s(x) e_5))``, Gaussian part only, so its moments exist).
+
+    Rows are iid; the last ``n_test`` rows form the test split.  Targets are
+    returned in raw units with shape ``[N, n_targets]`` (no harness
+    standardization; suites standardize per dimension on the training split).
+    """
+    if n_samples < 10 or n_features < 2 or n_targets < 6:
+        raise ValueError("synthetic_multitarget_big needs >= 10 rows, 2 features, 6 targets")
+    n_test = int(min(n_test, max(2, n_samples // 5)))
+    design = np.random.default_rng(_MT_BIG_DESIGN_SEED)
+    mixing = design.standard_normal((n_features, n_features)) / np.sqrt(n_features)
+    mixing += np.eye(n_features)
+    gate = design.standard_normal((n_features, _MT_BIG_COMPONENTS)) * 0.6
+    hidden = design.standard_normal((n_features, 16)) / np.sqrt(n_features)
+    readout = design.standard_normal((16, n_targets)) * 0.8
+    means = design.standard_normal((_MT_BIG_COMPONENTS, n_targets)) * 2.0
+    chols = []
+    for _ in range(_MT_BIG_COMPONENTS):
+        a = design.standard_normal((n_targets, n_targets))
+        cov = a @ a.T + 0.5 * np.eye(n_targets)
+        sd = np.sqrt(np.diag(cov))
+        chols.append(np.linalg.cholesky(cov / np.outer(sd, sd)))
+
+    rng = np.random.default_rng(seed)
+    X = (rng.standard_normal((n_samples, n_features)) @ mixing).astype(np.float32)
+    logits = X @ gate
+    logits -= logits.max(axis=1, keepdims=True)
+    probs = np.exp(logits)
+    probs /= probs.sum(axis=1, keepdims=True)
+    u = rng.random(n_samples)[:, None]
+    comp = (u > np.cumsum(probs, axis=1)[:, :-1]).sum(axis=1)
+    mu = np.tanh(X @ hidden) @ readout + means[comp]
+    z = rng.standard_normal((n_samples, n_targets))
+    e = np.empty_like(z)
+    for k, chol in enumerate(chols):
+        rows = comp == k
+        e[rows] = z[rows] @ chol.T
+    g = np.sqrt(rng.chisquare(5.0, size=n_samples) / 5.0)[:, None]
+    scale = np.exp(0.35 * np.tanh(X[:, 1]))[:, None]
+    y = mu + scale * e / g
+    y[:, 4] = y[:, 4] + 0.15 * y[:, 4] ** 2
+    # Log-normal target from the Gaussian part only (exp of a t tail has no moments).
+    y[:, 5] = np.exp(0.25 * (mu[:, 5] + scale[:, 0] * e[:, 5]))
+    y = y.astype(np.float32)
+    n_train = n_samples - n_test
+    return {
+        "X_train": X[:n_train],
+        "X_test": X[n_train:],
+        "y_train": y[:n_train],
+        "y_test": y[n_train:],
+        "n_targets": int(n_targets),
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Conditional flow benchmark datasets (pzflow parity)
 # ---------------------------------------------------------------------------
@@ -6927,6 +7011,20 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Gaussian methods fail — NF/SLS should excel."
         ),
         loader=_registry_loader(_load_synthetic_mv_bimodal),
+    ),
+    "synthetic_multitarget_big": DatasetInfo(
+        name="synthetic_multitarget_big",
+        category="synthetic",
+        n_features=20,
+        n_samples=1_100_000,
+        description=(
+            "Generated on the fly (no download): 1M train + 100k test rows, 20 correlated "
+            "features, 6 correlated targets. x-gated 3-component mixture (multimodal), "
+            "component-specific correlations, shared multivariate-t tails, heteroscedastic "
+            "scale, one skewed and one log-normal target. Scale benchmark for joint "
+            "density / conformal heads (CPU vs GPU)."
+        ),
+        loader=_registry_loader(_load_synthetic_multitarget_big),
     ),
     # --- Conditional flow benchmarks (pzflow parity) ---
     "synthetic_cond_gaussian": DatasetInfo(

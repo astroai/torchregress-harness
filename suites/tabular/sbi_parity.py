@@ -17,7 +17,10 @@ observation draw posterior samples and score C2ST vs reference draws
 and reference log-prob where the method exposes conditional densities
 (pzflow models the joint — honestly N/A there). Independently simulated,
 held-out theta/x pairs provide marginal 95% coverage and SBC rank
-diagnostics. The same posteriors are also scored with sbi's own diagnostics
+diagnostics, and joint WALDO regions: ``WaldoPosteriorCalibrator`` calibrated on
+half of those cases from the method's own posterior draws and scored on the
+other half (``WALDO_Cov90``), next to the uncalibrated chi2 Wald ellipsoid
+(``Wald_Cov90_chi2``). The same posteriors are also scored with sbi's own diagnostics
 (``run_sbc``/``check_sbc`` and TARP), an independent implementation: if the
 harness's SBC and sbi's disagree on a method, one of them is wrong.
 Custom run() aggregates over observations.
@@ -73,6 +76,50 @@ class _FixedDrawsPosterior:
         if n > self._draws.shape[0]:
             raise ValueError(f"asked for {n} draws, only {self._draws.shape[0]} stored")
         return self._draws[:n]
+
+
+_WALDO_ALPHA = 0.1
+_WALDO_KEYS = ("WALDO_Cov90", "WALDO_Thr", "Wald_Cov90_chi2")
+
+
+def _waldo_posterior_diagnostics(
+    theta: np.ndarray, draws: np.ndarray, alpha: float = _WALDO_ALPHA
+) -> dict[str, float]:
+    """Joint WALDO regions from a method's own posterior draws at the SBC simulations.
+
+    ``WaldoPosteriorCalibrator`` (full covariance) is calibrated on the first
+    half of the held-out ``(theta, x)`` SBC cases and its joint Wald region is
+    scored on the second half (``WALDO_Cov90``, nominal ``1 - alpha``).
+    ``Wald_Cov90_chi2`` is the uncalibrated Wald ellipsoid on the same test
+    cases with the asymptotic ``chi2_D`` critical value (``waldo_statistic`` on
+    the posterior mean/covariance): the gap between the two is what the
+    calibration layer buys for that posterior.
+
+    ``theta`` is ``[N, D]`` and ``draws`` ``[S, N, D]``.
+    """
+    from scipy.stats import chi2
+    from torchregress.losses import WaldoPosteriorCalibrator, waldo_statistic
+
+    samples = torch.as_tensor(np.swapaxes(draws, 0, 1), dtype=torch.float64)  # [N, S, D]
+    target = torch.as_tensor(theta, dtype=torch.float64).reshape(samples.shape[0], -1)
+    half = len(target) // 2
+    if half < 2:
+        raise ValueError(f"WALDO needs >= 4 SBC cases (2 calibration + 2 test), got {len(target)}")
+    cp = WaldoPosteriorCalibrator(alpha=alpha, covariance_type="full")
+    cp.calibrate(samples[:half], target[:half])
+    inside = cp.contains(samples[half:], target[half:])
+    test = samples[half:]
+    mean = test.mean(dim=1)
+    centered = test - mean.unsqueeze(1)
+    cov = centered.transpose(1, 2) @ centered / max(test.shape[1] - 1, 1)
+    tau = waldo_statistic(mean, target[half:], cov, covariance_type="full")
+    crit = float(chi2.ppf(1.0 - alpha, df=target.shape[1]))
+    threshold = cp.threshold
+    return {
+        "WALDO_Cov90": float(inside.double().mean()),
+        "WALDO_Thr": float("nan") if threshold is None else float(threshold),
+        "Wald_Cov90_chi2": float((tau <= crit).double().mean()),
+    }
 
 
 class SBIParitySuite(HarnessRunner):
@@ -534,6 +581,7 @@ class SBIParitySuite(HarnessRunner):
                     "SBC_Coverage95": None,
                     "SBC_RankMean": None,
                     "SBC_RankKS": None,
+                    **dict.fromkeys(_WALDO_KEYS),
                     "train_s": None,
                     "eval_s": None,
                     "SyntheticFallback": False,
@@ -581,6 +629,7 @@ class SBIParitySuite(HarnessRunner):
                         lps.append(lp)
                 draws = self._sbc_draws(model_state, splits, cfg)
                 sbc = self._sbc_diagnostics(model_state, splits, cfg, draws=draws)
+                sbc.update(_waldo_posterior_diagnostics(draws[0], draws[2]))
                 diag_note = ""
                 try:
                     sbc.update(self._sbi_diagnostics(draws, np.asarray(splits["y_train"])))
@@ -619,6 +668,7 @@ class SBIParitySuite(HarnessRunner):
                     "SBI_SBC_KSpMin": None,
                     "TARP_ATC": None,
                     "TARP_KSp": None,
+                    **dict.fromkeys(_WALDO_KEYS),
                     "train_s": None,
                     "eval_s": None,
                     "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
