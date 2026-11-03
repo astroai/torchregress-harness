@@ -1,6 +1,6 @@
 {
-  "torchregress_version": "0.2.0",
-  "torchregress_commit": "2a99f4c",
+  "torchregress_version": "0.3.0b1",
+  "torchregress_commit": "a72fdb3",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -26,14 +26,12 @@
         "status": "covered",
         "reason": ""
       },
-      "AsymmetricLeastSquaresLoss": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "alias of ExpectileLoss (covered in robust_regression)"
-      },
       "BalancedMSEBMC": {
         "suites": [
-          "imbalanced_representation"
+          "imbalanced_representation",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal"
         ],
         "status": "covered",
         "reason": ""
@@ -74,7 +72,10 @@
           "fm_multitarget",
           "fm_uq_scenarios",
           "foundation_model",
+          "nz_challenge",
           "photoz_imaging",
+          "pz_cp",
+          "pz_removal",
           "sklearn_baselines",
           "stress_matrix",
           "uq",
@@ -99,17 +100,16 @@
         "status": "covered",
         "reason": ""
       },
-      "BoxCoxTransformLoss": {
+      "BinnedDensityLoss": {
         "suites": [
-          "tweedie"
+          "noise_aware_density"
         ],
         "status": "covered",
         "reason": ""
       },
-      "CORALLoss": {
+      "BoxCoxTransformLoss": {
         "suites": [
-          "ordinal",
-          "r2c_conformal"
+          "tweedie"
         ],
         "status": "covered",
         "reason": ""
@@ -119,6 +119,9 @@
           "conformal",
           "fm_multitarget",
           "fm_uq_scenarios",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "uq",
           "uq_layer"
         ],
@@ -137,6 +140,9 @@
           "conformal",
           "fm_multitarget",
           "fm_uq_scenarios",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "uq_layer"
         ],
         "status": "covered",
@@ -209,13 +215,26 @@
         "status": "allowlisted",
         "reason": "abstract base class; exercised through its covered subclasses"
       },
+      "ConformalizedDensity": {
+        "suites": [
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "ConsistencyRegLoss": {
         "suites": [],
         "status": "allowlisted",
         "reason": "uncertain-ground-truth teacher/student loss; semi_supervised covers TeacherStudentTrainer/SAGEReg instead"
       },
+      "ContrastiveFlowConformal": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: conformal level sets around ContrastiveFlowLoss belong in likelihood_ratio / conformal_density"
+      },
       "ContrastiveFlowLoss": {
         "suites": [
+          "conformal_density",
           "distributional_bins",
           "likelihood_ratio"
         ],
@@ -228,6 +247,11 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "CumulativeCDFLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: binned cumulative-CDF loss belongs in distributional_bins / ordinal"
       },
       "CumulativeLinkLoss": {
         "suites": [
@@ -251,6 +275,9 @@
       "DensityWeightedLoss": {
         "suites": [
           "image_robust",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "stress_matrix"
         ],
         "status": "covered",
@@ -279,7 +306,7 @@
         "status": "covered",
         "reason": ""
       },
-      "EnhancedPoissonGaussianMixtureLoss": {
+      "EnhancedPoissonGaussianContaminationMixtureLoss": {
         "suites": [
           "cell_counting"
         ],
@@ -308,14 +335,10 @@
           "age_regression",
           "depth_estimation",
           "distributional_bins",
-          "photoz_imaging"
-        ],
-        "status": "covered",
-        "reason": ""
-      },
-      "ExpectileCrossover": {
-        "suites": [
-          "robust_regression"
+          "nz_challenge",
+          "photoz_imaging",
+          "pz_cp",
+          "pz_removal"
         ],
         "status": "covered",
         "reason": ""
@@ -388,6 +411,11 @@
         "status": "covered",
         "reason": ""
       },
+      "GaussianLatentForwardObservationNLLLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: quadrature forward-observation NLL belongs in eiv / noise_aware_density"
+      },
       "GaussianNLLLoss": {
         "suites": [
           "age_regression",
@@ -407,8 +435,10 @@
           "keypoint_regression",
           "likelihoods",
           "multivariate_intervals",
+          "nz_challenge",
           "photoz_imaging",
-          "pz_challenge",
+          "pz_cp",
+          "pz_removal",
           "semi_supervised",
           "sklearn_baselines",
           "stress_matrix",
@@ -430,6 +460,9 @@
       "InputNoiseAugmentationLoss": {
         "suites": [
           "eiv",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "stress_matrix"
         ],
         "status": "covered",
@@ -456,19 +489,17 @@
         "status": "covered",
         "reason": ""
       },
-      "JackknifePlus": {
-        "suites": [
-          "fm_multitarget",
-          "fm_uq_scenarios",
-          "uq_layer"
-        ],
-        "status": "covered",
-        "reason": ""
-      },
       "JohnsonSUNLLLoss": {
         "suites": [
           "distributional_bins",
           "likelihoods"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "JointBinnedDensityLoss": {
+        "suites": [
+          "noise_aware_density"
         ],
         "status": "covered",
         "reason": ""
@@ -501,6 +532,9 @@
           "fm_multitarget",
           "fm_uq_scenarios",
           "image_conformal",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "uq_layer"
         ],
         "status": "covered",
@@ -539,17 +573,15 @@
         "status": "covered",
         "reason": ""
       },
-      "MDNLoss": {
-        "suites": [
-          "sbi_parity"
-        ],
-        "status": "covered",
-        "reason": ""
-      },
       "MahalanobisFrontier": {
         "suites": [],
         "status": "allowlisted",
         "reason": "SLS frontier component built inside SLSLoss/SLSConformal (covered)"
+      },
+      "MarginalizedMultiSourceGaussianNLLLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: multi-source shared-latent NLL needs a multi-survey dataset suite"
       },
       "MixtureDensityLoss": {
         "suites": [
@@ -564,8 +596,12 @@
           "image_density_parity",
           "likelihoods",
           "multivariate_intervals",
+          "noise_aware_density",
+          "nz_challenge",
           "photoz_imaging",
-          "pz_challenge",
+          "pz_cp",
+          "pz_removal",
+          "sbi_parity",
           "uq_shift"
         ],
         "status": "covered",
@@ -597,8 +633,10 @@
           "fm_uq_scenarios",
           "image_conformal",
           "multivariate_intervals",
+          "nz_challenge",
           "photoz_imaging",
-          "pz_challenge",
+          "pz_cp",
+          "pz_removal",
           "r2c_conformal",
           "robust_regression",
           "sklearn_baselines",
@@ -644,6 +682,13 @@
         "status": "covered",
         "reason": ""
       },
+      "NoiseAwareDensityLoss": {
+        "suites": [
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "NoisyInputPredictor": {
         "suites": [
           "eiv"
@@ -673,6 +718,7 @@
       "NormalizingFlowLoss": {
         "suites": [
           "age_regression",
+          "conformal_density",
           "distributional_bins",
           "engression_parity",
           "fm_multitarget",
@@ -682,8 +728,11 @@
           "likelihood_ratio",
           "likelihoods",
           "multivariate_intervals",
+          "noise_aware_density",
+          "nz_challenge",
           "photoz_imaging",
-          "pz_challenge",
+          "pz_cp",
+          "pz_removal",
           "pzflow_parity",
           "sbi_parity"
         ],
@@ -704,9 +753,23 @@
         "status": "covered",
         "reason": ""
       },
+      "PackedObservations": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "input container for the multi-source losses; no behaviour to score"
+      },
       "PoissonDevianceLoss": {
         "suites": [
           "cell_counting"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "PoissonGaussianContaminationMixtureLoss": {
+        "suites": [
+          "age_regression",
+          "cell_counting",
+          "photoz_imaging"
         ],
         "status": "covered",
         "reason": ""
@@ -718,14 +781,10 @@
         "status": "covered",
         "reason": ""
       },
-      "PoissonGaussianMixtureLoss": {
-        "suites": [
-          "age_regression",
-          "cell_counting",
-          "photoz_imaging"
-        ],
-        "status": "covered",
-        "reason": ""
+      "PoissonGaussianLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: exact shot-plus-read-noise detector NLL belongs in cell_counting next to the contamination-mixture rows"
       },
       "PoissonLikelihoodRatioLoss": {
         "suites": [
@@ -783,13 +842,6 @@
         "status": "covered",
         "reason": ""
       },
-      "QuantileCrossover": {
-        "suites": [
-          "robust_regression"
-        ],
-        "status": "covered",
-        "reason": ""
-      },
       "QuantileCrossoverLoss": {
         "suites": [
           "robust_regression"
@@ -831,6 +883,11 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "abstract base class; exercised through its covered subclasses"
+      },
+      "RobustMultiSourceGaussianNLLLoss": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: robust multi-source NLL needs a multi-survey dataset suite"
       },
       "SLSConformal": {
         "suites": [
@@ -887,6 +944,9 @@
           "fm_multitarget",
           "fm_uq_scenarios",
           "image_conformal",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal",
           "uq_layer"
         ],
         "status": "covered",
@@ -952,6 +1012,11 @@
         "status": "covered",
         "reason": ""
       },
+      "UncertaintyAwareConR": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: label-uncertainty ConR variant belongs in imbalanced_representation next to ConR"
+      },
       "UnionFrontier": {
         "suites": [],
         "status": "allowlisted",
@@ -961,6 +1026,28 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "SLS flow component built inside SLSLoss (covered)"
+      },
+      "WaldoConformal": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: WALDO confidence regions belong in sbi_parity / multivariate_intervals"
+      },
+      "WaldoCriticalValueRegressor": {
+        "suites": [
+          "conformal_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WaldoDensityConformal": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: WALDO regions for density samplers belong in conformal_density"
+      },
+      "WaldoPosteriorCalibrator": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: WALDO posterior calibration belongs in sbi_parity"
       },
       "WeightedCrossEntropyLoss": {
         "suites": [
@@ -999,8 +1086,11 @@
           "fm_uq_scenarios",
           "label_shift",
           "missing_data",
+          "nz_challenge",
           "ordinal",
           "ppi",
+          "pz_cp",
+          "pz_removal",
           "robust_regression",
           "sklearn_baselines",
           "streaming_tta",
@@ -1088,6 +1178,7 @@
       "create_flow_model": {
         "suites": [
           "age_regression",
+          "conformal_density",
           "distributional_bins",
           "engression_parity",
           "fm_multitarget",
@@ -1097,8 +1188,11 @@
           "likelihood_ratio",
           "likelihoods",
           "multivariate_intervals",
+          "noise_aware_density",
+          "nz_challenge",
           "photoz_imaging",
-          "pz_challenge",
+          "pz_cp",
+          "pz_removal",
           "pzflow_parity",
           "sbi_parity"
         ],
@@ -1115,10 +1209,10 @@
         "status": "allowlisted",
         "reason": "factory/registry helper; the losses it builds are benchmarked directly"
       },
-      "create_mdn_loss": {
+      "cumulative_cdf_loss": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "factory/registry helper; the losses it builds are benchmarked directly"
+        "reason": "functional twin of CumulativeCDFLoss (no row yet)"
       },
       "discrete_wasserstein1": {
         "suites": [],
@@ -1258,6 +1352,11 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "waldo_statistic": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "functional statistic used inside the WALDO conformal classes (no row yet)"
       }
     },
     "metrics": {
@@ -1288,11 +1387,6 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
-      },
-      "ExpectedCalibrationError": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
       },
       "GaussianNLLEnsemble": {
         "suites": [
@@ -1330,11 +1424,6 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
-      },
-      "MarginalCalibrationError": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
       },
       "MeanPredictionIntervalWidth": {
         "suites": [],
@@ -1445,39 +1534,10 @@
         "status": "covered",
         "reason": ""
       },
-      "bias": {
-        "suites": [
-          "age_regression",
-          "cell_counting",
-          "censored_imaging",
-          "crowd_counting",
-          "depth_estimation",
-          "eiv",
-          "flow_eiv",
-          "fm_multitarget",
-          "image_calibration",
-          "image_conformal",
-          "image_density_parity",
-          "image_ensembles_uq",
-          "image_robust",
-          "keypoint_regression",
-          "likelihoods",
-          "photoz_imaging",
-          "sklearn_baselines",
-          "tweedie"
-        ],
-        "status": "covered",
-        "reason": ""
-      },
-      "calibration_metrics_report": {
+      "binned_cdf": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "report aggregator over calibration metrics; harness reports PIT-based ECE/MACE"
-      },
-      "calibration_score": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+        "reason": "binned-density helper; harness computes PIT/CRPS itself (harness.metrics)"
       },
       "censoring_rate": {
         "suites": [],
@@ -1508,9 +1568,15 @@
         "status": "allowlisted",
         "reason": "metric not scored by any suite; checked against scoringrules / scipy references in tests/test_metrics_scoringrules_parity.py"
       },
+      "crps_from_binned_cdf": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "binned-density CRPS; harness computes CRPS itself (harness.metrics), parity pending metrics parity tests"
+      },
       "crps_from_samples": {
         "suites": [
           "likelihoods",
+          "noise_aware_density",
           "photoz_imaging"
         ],
         "status": "covered",
@@ -1540,6 +1606,7 @@
       "energy_score": {
         "suites": [
           "multivariate_intervals",
+          "noise_aware_density",
           "pzflow_parity"
         ],
         "status": "covered",
@@ -1580,10 +1647,10 @@
         "status": "allowlisted",
         "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
       },
-      "expected_calibration_error": {
+      "frozen_readout_metrics": {
         "suites": [],
         "status": "allowlisted",
-        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
+        "reason": "representation diagnostic; no representation-geometry report in the harness yet"
       },
       "gaussian_nll": {
         "suites": [
@@ -1663,11 +1730,6 @@
         "status": "allowlisted",
         "reason": "OOD score; only the aggregate ood_metrics_report is used (test_time_adaptation shift severity)"
       },
-      "marginal_calibration_error": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "quantile-calibration error; harness reports ECE/MACE/RMSCE from PIT values (harness.metrics.compute_calibration_metrics); parity pending metrics parity tests"
-      },
       "mean_absolute_class_error": {
         "suites": [
           "ordinal"
@@ -1694,6 +1756,18 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
+      },
+      "neighbour_target_gap": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "representation diagnostic; no representation-geometry report in the harness yet"
+      },
+      "nmad": {
+        "suites": [
+          "photoz_imaging"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "noisy_target_gaussian_nll": {
         "suites": [],
@@ -1727,6 +1801,11 @@
         "status": "covered",
         "reason": ""
       },
+      "paired_bootstrap_ci": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "statistics helper for paired method comparisons; no behaviour to score"
+      },
       "pinball_loss": {
         "suites": [],
         "status": "allowlisted",
@@ -1741,10 +1820,15 @@
         "status": "covered",
         "reason": ""
       },
-      "prediction_interval_coverage": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "compatibility alias of prediction_interval_coverage_probability"
+      "pit_cvm": {
+        "suites": [
+          "noise_aware_density",
+          "nz_challenge",
+          "pz_cp",
+          "pz_removal"
+        ],
+        "status": "covered",
+        "reason": ""
       },
       "prediction_interval_coverage_probability": {
         "suites": [],
@@ -1778,6 +1862,11 @@
         "status": "allowlisted",
         "reason": "report aggregator; harness computes point metrics in harness.core"
       },
+      "representation_geometry_report": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "representation diagnostic; no representation-geometry report in the harness yet"
+      },
       "risk_coverage_curve": {
         "suites": [],
         "status": "allowlisted",
@@ -1787,6 +1876,8 @@
         "suites": [
           "censored",
           "censored_imaging",
+          "noise_aware_density",
+          "nz_challenge",
           "ordinal",
           "ppi",
           "tweedie"
@@ -1829,6 +1920,11 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "called for every row by harness.metrics.compute_all_metrics (src/, outside the suite scan)"
+      },
+      "target_ordering": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "representation diagnostic; no representation-geometry report in the harness yet"
       },
       "tarp_coverage": {
         "suites": [
@@ -1875,7 +1971,8 @@
       },
       "variogram_score": {
         "suites": [
-          "multivariate_intervals"
+          "multivariate_intervals",
+          "noise_aware_density"
         ],
         "status": "covered",
         "reason": ""
@@ -1893,6 +1990,16 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "CommonScaleSplineHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: multi-source calibration head needs a multi-survey dataset suite"
+      },
+      "ConditionBiasHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: multi-source calibration head needs a multi-survey dataset suite"
       },
       "ExpectedCalibrationError": {
         "suites": [],
@@ -1923,6 +2030,11 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "RelativeSurveySplineHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: multi-source calibration head needs a multi-survey dataset suite"
       },
       "RepresentationShiftInflator": {
         "suites": [
@@ -1976,11 +2088,17 @@
           "keypoint_regression",
           "likelihoods",
           "photoz_imaging",
+          "robust_regression",
           "sklearn_baselines",
           "tweedie"
         ],
         "status": "covered",
         "reason": ""
+      },
+      "bspline_basis_with_derivative": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "spline basis helper used inside the multi-source calibration heads"
       },
       "calibration_metrics_report": {
         "suites": [],
@@ -2203,12 +2321,49 @@
         "status": "covered",
         "reason": ""
       },
-      "IRLSConfig": {
+      "IRLSBreakdownError": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "exception raised by weighted-solve callbacks; no behaviour to score"
+      },
+      "IRLSCallbacks": {
         "suites": [
           "robust_regression"
         ],
         "status": "covered",
         "reason": ""
+      },
+      "IRLSConfig": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration for reweight_fixed_predictions (not benchmarked; see below)"
+      },
+      "IRLSContinuationStage": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "configuration dataclass consumed by a covered estimator; no behaviour to score"
+      },
+      "IRLSFitConfig": {
+        "suites": [
+          "robust_regression"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "IRLSFitResult": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "IRLSIteration": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "result container returned by a covered estimator; not called directly"
+      },
+      "IRLSProblem": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "typing Protocol for iteratively_reweighted_fit callbacks (covered in robust_regression); no behaviour"
       },
       "IVON": {
         "suites": [
@@ -2309,12 +2464,22 @@
         "status": "covered",
         "reason": ""
       },
-      "iteratively_reweighted_least_squares": {
+      "iteratively_reweighted_fit": {
         "suites": [
           "robust_regression"
         ],
         "status": "covered",
         "reason": ""
+      },
+      "reweight_fixed_predictions": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "fixed-prediction reweighting utility (no refit); robust_regression benchmarks the refit-capable iteratively_reweighted_fit"
+      },
+      "robust_weights": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "weight function called inside iteratively_reweighted_fit (covered in robust_regression)"
       },
       "sample_synthetic_environments": {
         "suites": [],
@@ -2585,6 +2750,7 @@
       },
       "PPIConfig": {
         "suites": [
+          "nz_challenge",
           "ppi"
         ],
         "status": "covered",
@@ -2653,6 +2819,7 @@
       },
       "ppi_mean_ci": {
         "suites": [
+          "nz_challenge",
           "ppi"
         ],
         "status": "covered",
@@ -2674,6 +2841,7 @@
       },
       "ppi_quantile_ci": {
         "suites": [
+          "nz_challenge",
           "ppi"
         ],
         "status": "covered",
@@ -2735,11 +2903,6 @@
         "suites": [],
         "status": "allowlisted",
         "reason": "result container returned by a covered estimator; not called directly"
-      },
-      "SelfAgreementTrainer": {
-        "suites": [],
-        "status": "allowlisted",
-        "reason": "alias of TeacherStudentTrainer (same class; covered in semi_supervised)"
       },
       "TeacherStudentTrainer": {
         "suites": [
@@ -2823,6 +2986,39 @@
       }
     },
     "models": {
+      "FTTransformer": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: FT-Transformer backbone belongs in sklearn_baselines / foundation_model next to TabularMLP"
+      },
+      "FeatureTokenizer": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "tokenizer layer built inside FTTransformer"
+      },
+      "FlowMatchingMLP": {
+        "suites": [
+          "fm_multitarget",
+          "image_density_parity",
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "GaussianCopulaSplineHead": {
+        "suites": [],
+        "status": "allowlisted",
+        "reason": "no row yet: correlated spline flow head belongs in density_parity"
+      },
+      "NormalizingFlowMap": {
+        "suites": [
+          "fm_multitarget",
+          "image_density_parity",
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "PeriodicEmbedding": {
         "suites": [],
         "status": "allowlisted",
@@ -2876,6 +3072,15 @@
         "status": "covered",
         "reason": ""
       },
+      "cfm_loss": {
+        "suites": [
+          "fm_multitarget",
+          "image_density_parity",
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "fit_tabular": {
         "suites": [
           "conformal",
@@ -2899,16 +3104,25 @@
         ],
         "status": "covered",
         "reason": ""
+      },
+      "sample_cfm": {
+        "suites": [
+          "fm_multitarget",
+          "image_density_parity",
+          "noise_aware_density"
+        ],
+        "status": "covered",
+        "reason": ""
       }
     }
   },
   "summary": {
-    "exports": 407,
-    "covered": 260,
-    "allowlisted": 147,
+    "exports": 438,
+    "covered": 266,
+    "allowlisted": 172,
     "uncovered": 0,
-    "unique_names": 399,
-    "unique_covered": 258
+    "unique_names": 437,
+    "unique_covered": 265
   },
   "stale_allowlist": []
 }
