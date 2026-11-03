@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Benchmarking harness for torchregress against external regression libraries on known tabular and image datasets."
 authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = [
+  "linux-64",
+  # CANFAR GPU nodes: CUDA 12.9 driver, compute capability >= 8.0 (A100, L40S, H100).
+  { name = "linux-64-cuda", platform = "linux-64", cuda = { driver = "12.9", arch = "8.0" } },
+]
 
 [dependencies]
 python = "3.13.*"
@@ -52,15 +56,17 @@ torchregress-harness = { path = ".", editable = true }
 default = { features = ["dev", "test"], solve-group = "default" }
 gpu = { features = ["gpu", "dev", "test"], solve-group = "gpu" }
 
+[feature.gpu]
+platforms = ["linux-64-cuda"]
+
 [feature.gpu.dependencies]
+pytorch-gpu = ">=2.14.1"
 # Headers for in-env CUDA extension builds (torchsort, needed by torchcp):
 # pytorch-gpu ships nvcc tools but not cuda_runtime.h.
 cuda-cudart-dev = "12.9.*"
 cuda-cccl = "12.9.*"
 cuda-nvcc = "12.9.*"
 
-[feature.gpu.system-requirements]
-cuda = "12"
 
 [tasks]
 lint = { cmd = "ruff check src/harness tests tools suites && ruff format --check src/harness tests tools suites" }
