@@ -366,6 +366,9 @@ class ConformalDensitySuite(HarnessRunner):
                 t1 = perf_counter()
                 raw = _raw_metrics(loss_fn, ctx_test, y_test_t)
                 raw_s = perf_counter() - t1
+                # Peak over the whole row (training, encoding and raw sampling); the
+                # sampling chunks dominate on large data.
+                row_peak = peak_memory_mb()
             except Exception as exc:  # noqa: BLE001 — row-level resilience
                 note = f"failed: {type(exc).__name__}: {exc}"
                 rows += [
@@ -382,7 +385,8 @@ class ConformalDensitySuite(HarnessRunner):
                     CoverageKind="marginal",
                     Width90=raw["Width90"],
                     eval_s=raw_s,
-                    PeakGPUMemMB=train_peak,
+                    PeakGPUMemMB=row_peak,
+                    TrainPeakGPUMemMB=train_peak,
                     Notes=self.method_notes(base_name),
                 )
             )

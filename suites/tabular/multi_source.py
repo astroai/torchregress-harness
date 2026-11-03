@@ -1160,7 +1160,7 @@ class MultiSourceSuite(HarnessRunner):
             try:
                 metrics = self._run_method(method, dataset_name, train, test, cfg)
                 if dev.type == "cuda":
-                    metrics["PeakCUDAMemMB"] = torch.cuda.max_memory_allocated(dev) / 2**20
+                    metrics["PeakGPUMemMB"] = torch.cuda.max_memory_allocated(dev) / 2**20
                 rows.append({**base, **metrics, "Notes": self.method_notes(method)})
             except Exception as exc:
                 rows.append(
