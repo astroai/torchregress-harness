@@ -8,9 +8,9 @@ platforms = ["linux-64"]
 
 [dependencies]
 python = "3.13.*"
-pytorch = ">=2.0"
-numpy = ">=1.24"
-scipy = ">=1.10"
+pytorch = ">=2.14.1"
+numpy = ">=2.5.4"
+scipy = ">=1.18.1"
 scikit-learn = "*"
 # httpx/requests: required by huggingface_hub>=1 and torch_geometric (both
 # present in the offline /arc env); missing here made torchmetrics and every
@@ -21,7 +21,7 @@ pandas = "*"
 matplotlib = "*"
 tqdm = "*"
 zuko = "*"
-torchmetrics = "*"
+torchmetrics = ">=1.9.0"
 # Comparator deps from conda-forge so pip never swaps in a PyPI torch build
 # (CUDA 13) or builds against a mismatched toolkit on headless GPU nodes.
 pip = "*"
