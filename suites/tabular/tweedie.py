@@ -1,9 +1,11 @@
-"""Tweedie / compound-Poisson regression suite: torchregress vs scikit-lego.
+"""Tweedie / compound-Poisson regression suite: torchregress vs scikit-learn and statsmodels GLMs.
 
-Ported from ``torchregress/examples/external_comparison_tweedie_vs_sklego.py``.
+Ported from ``torchregress/examples/external_comparison_tweedie_vs_sklego.py``
+(removed from torchregress in 0.3.0; this suite is its home).
 
 Compares torchregress's ``TweedieLoss`` and ``CompoundPoissonLoss`` against
-scikit-lego's ``GLMRegressor(distribution="tweedie")`` on zero-inflated
+scikit-learn's ``TweedieRegressor(link="log")`` and a statsmodels Tweedie GLM
+on zero-inflated
 compound Poisson-Gamma data.
 
 Canonical scenarios
@@ -31,13 +33,6 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner, SkipMethod
 from suites._backbones import _MLP, _hidden_size, _Linear, _train_lbfgs, _train_one
-
-try:
-    from sklego.linear_model import GLMRegressor
-
-    _SKLEGO_AVAILABLE = True
-except ImportError:
-    _SKLEGO_AVAILABLE = False
 
 try:
     import statsmodels.api as sm
@@ -141,7 +136,7 @@ class TweedieSuite(HarnessRunner):
 
     @property
     def description(self) -> str:
-        return "Tweedie / compound-Poisson: torchregress vs statsmodels GLM (ground truth) vs scikit-lego"
+        return "Tweedie / compound-Poisson: torchregress vs statsmodels GLM (ground truth) vs scikit-learn"
 
     @property
     def supported_datasets(self) -> list[str]:
@@ -168,13 +163,12 @@ class TweedieSuite(HarnessRunner):
         methods = linear_methods + mlp_methods
         if _STATSMODELS_AVAILABLE:
             methods.append("statsmodels_GLM")
-        if _SKLEGO_AVAILABLE:
-            methods.append("sklego_GLMRegressor")
+        methods.append("sklearn_TweedieRegressor")
         return methods
 
     def library_name(self, method: str) -> str:
-        if method.startswith("sklego"):
-            return "scikit-lego"
+        if method.startswith("sklearn"):
+            return "scikit-learn"
         if method.startswith("statsmodels"):
             return "statsmodels"
         return "torchregress"
@@ -281,19 +275,21 @@ class TweedieSuite(HarnessRunner):
             model.eval()
             return {"type": "warped", "model": model, "loss_fn": loss_fn}
 
-        elif method == "sklego_GLMRegressor":
+        elif method == "sklearn_TweedieRegressor":
+            from sklearn.linear_model import TweedieRegressor
+
             p_power = float(splits.get("p_power", 1.5))
-            glm = GLMRegressor(
-                distribution="tweedie",
+            glm = TweedieRegressor(
                 power=p_power,
-                alpha=1.0,
+                alpha=0.0,  # unpenalized, like the statsmodels GLM
+                link="log",
                 fit_intercept=True,
                 solver="lbfgs",
                 max_iter=200,
             )
             glm.fit(X_train_np, y_train_np)
 
-            return {"type": "sklego", "model": glm}
+            return {"type": "sklearn_glm", "model": glm}
 
         elif method == "statsmodels_GLM":
             p_power = float(splits.get("p_power", 1.5))
@@ -334,7 +330,7 @@ class TweedieSuite(HarnessRunner):
                 mu = loss_fn.inverse(warped).squeeze(-1).cpu().numpy()
             return {"y_pred": np.clip(np.asarray(mu, dtype=np.float64), 0, None)}
 
-        elif model["type"] == "sklego":
+        elif model["type"] == "sklearn_glm":
             glm = model["model"]
             mu = np.asarray(glm.predict(X_test), dtype=np.float64)
             return {"y_pred": mu}
@@ -376,8 +372,8 @@ class TweedieSuite(HarnessRunner):
             return "MLP + SqrtTransformLoss (variance-stabilizing warp + MSE)"
         elif method == "statsmodels_GLM":
             return "GLM(family=Tweedie, link=log) via IRLS — gold-standard ground truth"
-        elif method == "sklego_GLMRegressor":
-            return "log-link GLM with tweedie deviance; capacity not matched"
+        elif method == "sklearn_TweedieRegressor":
+            return "log-link GLM with tweedie deviance (scikit-lego 0.9 has no GLM); capacity not matched"
         return ""
 
     def evaluate(
