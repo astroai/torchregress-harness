@@ -17,15 +17,14 @@ from __future__ import annotations
 import argparse
 import functools
 import json
+import os
+import sys
 import traceback
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
 import torch
-
-from harness.devices import set_default_device
-from harness.runners import HarnessConfig
 
 LOG: list[dict[str, Any]] = []
 _T0 = perf_counter()
@@ -83,6 +82,13 @@ def main() -> int:
     ap.add_argument("--sample-log-every", type=int, default=5)
     ap.add_argument("--output", type=Path, default=Path("conformal_density_memory.json"))
     args = ap.parse_args()
+
+    # As tools/run_all.py: repo root + src importable, NVML denied on CANFAR GPU slices.
+    os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+    root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(root), str(root / "src")]
+    from harness.devices import set_default_device
+    from harness.runners import HarnessConfig
 
     set_default_device("cuda")
     device = torch.cuda.current_device()
