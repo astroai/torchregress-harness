@@ -22,6 +22,14 @@ def make_multi_target(y: Tensor, *, rho: float, gen: torch.Generator, train_idx:
     return torch.stack([y_std_all, rho * y_std_all + eps], dim=-1)
 
 
+# OpenML (data_id, target) for the real tabular datasets, tabular-benchmark copies.
+_OPENML_IDS: dict[str, tuple[int, str]] = {
+    "superconductivity": (44148, "criticaltemp"),
+    "diamonds": (44044, "price"),
+    "year_prediction_msd": (44027, "year"),
+}
+
+
 def load_tabular(
     name: str,
     seed: int,
@@ -54,20 +62,19 @@ def load_tabular(
         idx = torch.randperm(raw.data.shape[0], generator=gen)[:n_cap]
         x = torch.as_tensor(raw.data[idx.numpy()], dtype=torch.float32)
         y = torch.as_tensor(raw.target[idx.numpy()], dtype=torch.float32)
-    elif name in ("superconductivity", "diamonds", "year_prediction_msd"):
-        # fallback to synthetic if openml not cached; never fail CI
-        try:
-            from torchregress.utils.openml_relaxed import fetch_openml_dataset
+    elif name in _OPENML_IDS:
+        # Real data only: a failed download raises instead of returning a
+        # synthetic proxy under a real dataset's name. The relaxed ARFF parser
+        # also encodes diamonds' nominal columns (sklearn's pandas parser fails).
+        from torchregress.utils.openml_relaxed import fetch_openml_regression
 
-            x, y = fetch_openml_dataset(name, n_cap=n_cap, allow_download=False)
-            x = torch.as_tensor(x, dtype=torch.float32)
-            y = torch.as_tensor(y, dtype=torch.float32).reshape(-1)
-        except Exception:
-            # synthetic proxy
-            n = min(n_cap, 5000)
-            d = 20
-            x = torch.randn(n, d, generator=gen)
-            y = x[:, 0] * 2.0 + torch.randn(n, generator=gen) * 0.5
+        data_id, target = _OPENML_IDS[name]
+        x_np, y_np, _ = fetch_openml_regression(
+            data_id=data_id, name=None, version=1, target_column=target
+        )
+        idx = torch.randperm(x_np.shape[0], generator=gen)[:n_cap].numpy()
+        x = torch.as_tensor(x_np[idx], dtype=torch.float32)
+        y = torch.as_tensor(y_np[idx], dtype=torch.float32).reshape(-1)
     else:
         n = min(n_cap, 5000)
         d = 10

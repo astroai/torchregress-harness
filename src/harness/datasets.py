@@ -214,16 +214,19 @@ def _load_openml_year(
     try:
         from sklearn.datasets import fetch_openml
 
+        # OpenML 44027 is YearPredictionMSD ("year", tabular-benchmark copy).
+        # 44031, used before 0.3.0, is California housing: 8 features, not 90.
         data = fetch_openml(
-            data_id=data_id or 44031,
+            data_id=data_id or 44027,
+            target_column="year",
             parser="pandas",
             as_frame=True,
             data_home=str(_image_cache_dir() / "sklearn"),
         )
-        df = data.frame
-        target_col = df.columns[-1]
-        X = df.drop(columns=[target_col]).values.astype(np.float64)
-        y = df[target_col].values.astype(np.float64)
+        X = data.data.values.astype(np.float64)
+        y = data.target.values.astype(np.float64)
+        if X.shape[1] != 90:
+            raise ValueError(f"expected 90 YearPredictionMSD features, got {X.shape[1]}")
     except Exception:
         # Fallback: synthetic data with similar dimensions (DATA-01/02:
         # provenance flags let result rows disclose non-real data).

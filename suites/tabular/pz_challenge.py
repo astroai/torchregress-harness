@@ -61,8 +61,6 @@ _METHODS = [
     "InputNoiseAug_MLP",
     "DensityWeighted_MLP",
     "BMC_MLP",
-    "PZRecipe",
-    "PZRecipe_TabM",
 ]
 _QUANTILES = (0.05, 0.16, 0.5, 0.84, 0.95)
 _ALPHA = 0.10
@@ -257,96 +255,8 @@ class PZChallengeSuite(HarnessRunner):
             "InputNoiseAug_MLP": "EIV-style input-noise augmentation from per-band magnitude errors",
             "DensityWeighted_MLP": "label-density weighted MSE (imbalanced targets)",
             "BMC_MLP": "noise-adaptive Balanced MSE (BMC) for imbalanced targets",
-            "PZRecipe": "two-stage FT-Transformer: CE+CDF+RnC-N quantile-bin p(z); no stage-2 TabM",
-            "PZRecipe_TabM": "PZRecipe stage 1 + paper-style TabM stage-2 classifier (200 bins)",
         }
         return notes.get(method, "")
-
-    def _fit_pz_recipe(
-        self,
-        method: str,
-        X_t: torch.Tensor,
-        y_t: torch.Tensor,
-        in_dim: int,
-        config: HarnessConfig,
-        *,
-        tabm_stage2: bool,
-    ) -> dict[str, Any]:
-        from torchregress.losses import PZRecipeLoss
-        from torchregress.models import PZRecipe
-
-        device = current_device()
-        y_np = y_t.detach().cpu().numpy().reshape(-1)
-        n_bins = 100
-        q = np.linspace(0.0, 1.0, n_bins + 2)[1:-1]
-        centers_np = np.quantile(y_np, q)
-        if len(np.unique(centers_np)) < n_bins:
-            centers_np = np.linspace(float(y_np.min()), float(y_np.max()), n_bins)
-        centers = torch.as_tensor(centers_np, dtype=torch.float32, device=device)
-        model = PZRecipe(
-            in_dim,
-            n_bins=n_bins,
-            d_token=64,
-            n_layers=2,
-            n_heads=4,
-            stage2_bins=200 if tabm_stage2 else n_bins,
-        ).to(device)
-        loss_fn = PZRecipeLoss(centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1).to(device)
-        opt = torch.optim.AdamW(model.parameters(), lr=min(config.lr, 5e-4), weight_decay=1e-5)
-        n = len(X_t)
-        bs = min(max(1024, int(config.batch_size)), n)
-        for _ in range(int(config.epochs)):
-            perm = torch.randperm(n, device=device)
-            for start in range(0, n, bs):
-                idx = perm[start : start + bs]
-                opt.zero_grad(set_to_none=True)
-                logits = model(X_t[idx], stage=1)
-                features = model.encode(X_t[idx])
-                loss = loss_fn(logits, y_t[idx].reshape(-1), features=features)
-                loss.backward()
-                opt.step()
-        model.eval()
-        if not tabm_stage2:
-            return {"type": "pz_recipe", "model": model, "centers": centers}
-
-        # Paper-style stage 2: freeze the FT-Transformer, train a TabM
-        # classifier on its features and 200 redshift-quantile bins.
-        from tabm import TabM
-
-        stage2_bins = 200
-        q2 = np.linspace(0.0, 1.0, stage2_bins + 2)[1:-1]
-        centers2_np = np.quantile(y_np, q2)
-        if len(np.unique(centers2_np)) < stage2_bins:
-            centers2_np = np.linspace(float(y_np.min()), float(y_np.max()), stage2_bins)
-        centers2 = torch.as_tensor(centers2_np, dtype=torch.float32, device=device)
-        tabm = TabM.make(
-            n_num_features=64,
-            d_out=stage2_bins,
-            k=8,
-            n_blocks=2,
-            d_block=256,
-            dropout=0.0,
-        ).to(device)
-        opt2 = torch.optim.AdamW(tabm.parameters(), lr=min(config.lr, 5e-4), weight_decay=1e-4)
-        stage2_epochs = int(config.epochs)
-        for _ in range(stage2_epochs):
-            perm = torch.randperm(n, device=device)
-            for start in range(0, n, bs):
-                idx = perm[start : start + bs]
-                with torch.no_grad():
-                    features = model.encode(X_t[idx])
-                    labels = (
-                        torch.searchsorted(centers2, y_t[idx].reshape(-1)).clamp(1, stage2_bins) - 1
-                    )
-                opt2.zero_grad(set_to_none=True)
-                out = tabm(features)  # [B, k, n_bins]
-                loss = F.cross_entropy(
-                    out.reshape(-1, stage2_bins), labels.repeat_interleave(out.shape[1])
-                )
-                loss.backward()
-                opt2.step()
-        tabm.eval()
-        return {"type": "pz_recipe_tabm", "model": model, "stage2": tabm, "centers": centers2}
 
     def fit(self, method: str, splits: dict[str, Any], config: HarnessConfig) -> dict[str, Any]:
         set_harness_seed(config.seed)
@@ -360,10 +270,6 @@ class PZChallengeSuite(HarnessRunner):
         in_dim = X_t.shape[1]
         hidden = _hidden_size(in_dim)
 
-        if method in {"PZRecipe", "PZRecipe_TabM"}:
-            return self._fit_pz_recipe(
-                method, X_t, y_t, in_dim, config, tabm_stage2=method == "PZRecipe_TabM"
-            )
         if method == "MSE_MLP":
             model = _MLP(in_dim, hidden, 1).to(current_device())
             _train_one(
@@ -681,9 +587,7 @@ class PZChallengeSuite(HarnessRunner):
         n = len(X_test)
         chunk = 50_000
         if n <= chunk:
-            out = self._predict_impl(method, model_state, X_test, config)
-            out["_raw_features"] = X_test
-            return out
+            return self._predict_impl(method, model_state, X_test, config)
         parts = [
             self._predict_impl(method, model_state, X_test[start : start + chunk], config)
             for start in range(0, n, chunk)
@@ -695,7 +599,6 @@ class PZChallengeSuite(HarnessRunner):
                 continue
             arr = np.concatenate(vals, axis=0)
             merged[key] = arr
-        merged["_raw_features"] = X_test
         return merged
 
     def _predict_impl(
@@ -948,42 +851,24 @@ class PZChallengeSuite(HarnessRunner):
         metrics["SigmaNMAD"] = float(1.4826 * np.median(np.abs(delta - med)))
         metrics["OutlierFraction15"] = float(np.mean(np.abs(delta) > 0.15))
         metrics["BiasZ"] = float(med)
-        # Paper diagnostics: PIT CvM, local photometric PIT-W1, central-68% width.
-        try:
-            from torchregress.metrics import pdf_width_68, pit_cvm, pit_local_w1
+        # PIT Cramer-von Mises against Uniform(0, 1).
+        from torchregress.metrics import pit_cvm
 
-            pit = metrics.get("PIT")
-            if pit is None and "samples" in pred:
-                sm = np.asarray(pred["samples"], dtype=np.float64)
-                pit = np.mean(sm <= z[:, None], axis=1)
-            if pit is None and "mean" in pred and "std" in pred:
-                from scipy.stats import norm
+        pit = metrics.get("PIT")
+        if pit is None and "samples" in pred:
+            sm = np.asarray(pred["samples"], dtype=np.float64)
+            pit = np.mean(sm <= z[:, None], axis=1)
+        if pit is None and "mean" in pred and "std" in pred:
+            from scipy.stats import norm
 
-                pit = norm.cdf(
-                    z,
-                    loc=np.asarray(pred["mean"], dtype=np.float64),
-                    scale=np.maximum(np.asarray(pred["std"], dtype=np.float64), 1e-9),
-                )
-            if pit is not None:
-                pit = np.asarray(pit, dtype=np.float64).reshape(-1)
-                metrics["PITCVM"] = float(pit_cvm(pit))
-            if "samples" in pred:
-                metrics["W68"] = float(pdf_width_68(pred["samples"], z))
-            elif "mean" in pred and "std" in pred:
-                metrics["W68"] = float(
-                    np.median(2.0 * 0.994457883209753 * np.asarray(pred["std"]) / (1.0 + z))
-                )
-            raw = pred.get("_raw_features")
-            if raw is not None and pit is not None:
-                metrics["LocalW1"] = float(
-                    pit_local_w1(
-                        _build_features(np.asarray(raw)),
-                        pit,
-                        k=min(100, max(2, len(pit) - 1)),
-                    )
-                )
-        except Exception:
-            pass
+            pit = norm.cdf(
+                z,
+                loc=np.asarray(pred["mean"], dtype=np.float64),
+                scale=np.maximum(np.asarray(pred["std"], dtype=np.float64), 1e-9),
+            )
+        if pit is not None:
+            pit = np.asarray(pit, dtype=np.float64).reshape(-1)
+            metrics["PITCVM"] = float(pit_cvm(pit))
         if "quantile_values" in pred and "quantile_levels" in pred:
             qv = np.asarray(pred["quantile_values"], dtype=np.float64)
             levels = np.asarray(pred["quantile_levels"], dtype=np.float64)
