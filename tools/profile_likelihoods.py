@@ -19,17 +19,22 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import threading
 import time
 from pathlib import Path
 
-import numpy as np
-import torch
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+_ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(_ROOT), str(_ROOT / "src")]
 
-from harness.datasets import load_dataset
-from harness.devices import set_default_device
-from harness.runners import HarnessConfig
-from suites.tabular.likelihoods import LikelihoodsSuite
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+
+from harness.datasets import load_dataset  # noqa: E402
+from harness.devices import set_default_device  # noqa: E402
+from harness.runners import HarnessConfig  # noqa: E402
+from suites.tabular.likelihoods import LikelihoodsSuite  # noqa: E402
 
 
 class _Heartbeat:
