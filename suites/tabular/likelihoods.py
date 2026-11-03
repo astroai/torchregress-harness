@@ -53,6 +53,7 @@ from suites.tabular._likelihood_designs import run_design as run_family_design
 _N_SAMPLES = 256
 _BIG_BATCH = 1024
 _FORWARD_CHUNK = 65536  # rows per inference chunk for the MLP heads
+_SAMPLE_CHUNK_DRAWS = 1 << 21  # predictive draws per NSF sampling chunk (rows x samples)
 
 
 def _raw_outputs(state: dict[str, Any], X: np.ndarray, device: torch.device) -> torch.Tensor:
@@ -274,18 +275,20 @@ class LikelihoodsSuite(HarnessRunner):
             modname, clsname, out_dim = _FAMILY_LOSS[family]
             mod = importlib.import_module(modname)
             model = _MLP(X.shape[1], _hidden_size(X.shape[1]), out_dim=out_dim)
-            _train_one(
+            graphed = _train_one(
                 model,
                 getattr(mod, clsname)(),
                 torch.from_numpy(X).to(current_device()),
                 torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "family",
                 "family": family,
+                "cuda_graph": graphed,
                 "model": model,
                 "y_mean": y_mean,
                 "y_std": y_std,
@@ -313,17 +316,19 @@ class LikelihoodsSuite(HarnessRunner):
 
             mdn_loss = MixtureDensityLoss(n_components=3, n_features=1)
             model = _MLP(X.shape[1], _hidden_size(X.shape[1]), mdn_loss.expected_output_size)
-            _train_one(
+            graphed = _train_one(
                 model,
                 mdn_loss,
                 torch.from_numpy(X).to(current_device()),
                 torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "mdn",
+                "cuda_graph": graphed,
                 "model": model,
                 "loss_fn": mdn_loss,
                 "y_mean": y_mean,
@@ -343,20 +348,24 @@ class LikelihoodsSuite(HarnessRunner):
             )
             model = _MLP(X.shape[1], hidden, out_dim=hidden)
             loss_fn = NormalizingFlowLoss(flow=flow)
-            _train_one(
+            # ``y`` is already z-scored with (mu, sc) above; predict/NLL undo
+            # exactly that one affine map.  (Up to 0.3.0b1 the flow trained on
+            # ((y - mu) / sc), standardizing twice, so its samples and NLL came
+            # back on the z scale instead of native units.)
+            graphed = _train_one(
                 model,
                 loss_fn,
                 torch.from_numpy(X).to(current_device()),
-                torch.from_numpy(((y - mu) / sc).astype(np.float32))
-                .to(current_device())
-                .unsqueeze(1),
+                torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 loss_params=list(flow.parameters()),
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "nsf",
+                "cuda_graph": graphed,
                 "model": model,
                 "flow": loss_fn,
                 "y_mean": mu,
@@ -439,10 +448,19 @@ class LikelihoodsSuite(HarnessRunner):
             model.eval()
             with torch.no_grad():
                 ctx = model(torch.from_numpy(Xt).to(dev))
-                samp = flow_loss.sample(ctx, n_samples=_N_SAMPLES)
-            samples = (
-                np.asarray(samp.detach().cpu(), dtype=np.float64).reshape(_N_SAMPLES, -1) * sc + mu
-            )
+                # Inverting the spline flow for n_samples x rows draws at once
+                # needs ~1 KiB of activations per draw (542k test rows: >100 GiB);
+                # sample row chunks so the peak is bounded on an ~11 GiB slice.
+                step = _SAMPLE_CHUNK_DRAWS // _N_SAMPLES
+                samp = torch.cat(
+                    [
+                        flow_loss.sample(ctx[i : i + step], n_samples=_N_SAMPLES)
+                        .reshape(-1, _N_SAMPLES)
+                        .cpu()
+                        for i in range(0, len(ctx), step)
+                    ]
+                )  # [N, S]
+            samples = np.asarray(samp.T, dtype=np.float64) * sc + mu  # [S, N]
             out = {
                 "samples": samples,
                 "ctx": ctx.detach().cpu().numpy().astype(np.float64),
@@ -553,8 +571,16 @@ class LikelihoodsSuite(HarnessRunner):
                 model.eval()
                 ctx = model(torch.from_numpy(np.asarray(X_test, dtype=np.float32)).to(dev))
                 yt_std = torch.from_numpy(((y_arr - mu) / sc).astype(np.float32)).reshape(-1, 1)
-                lp = flow_loss.log_prob(ctx, yt_std.to(ctx.device, ctx.dtype))
-                return float(-lp.mean().item() + np.log(sc))
+                yt_std = yt_std.to(ctx.device, ctx.dtype)
+                lp = torch.cat(
+                    [
+                        flow_loss.log_prob(
+                            ctx[i : i + _FORWARD_CHUNK], yt_std[i : i + _FORWARD_CHUNK]
+                        )
+                        for i in range(0, len(ctx), _FORWARD_CHUNK)
+                    ]
+                )
+                return float(-lp.double().mean().item() + np.log(sc))
             if t == "catboost":
                 from torchregress.metrics import gaussian_nll
 
@@ -636,6 +662,16 @@ class LikelihoodsSuite(HarnessRunner):
                     "Device": str(_dev()),
                     "Notes": self.method_notes(method),
                 }
+                if state.get("cuda_graph"):
+                    row["Notes"] = f"{row['Notes']}; training steps replayed as a CUDA graph"
+                ft = state.get("ft")
+                if ft is not None:
+                    # Epochs actually trained against the configured budget (the
+                    # device token-pass budget can cap them; see _ft_transformer).
+                    row["FT_EpochsRun"] = float(ft.epochs_run)
+                    row["FT_EpochsBudget"] = float(ft.epochs_budget)
+                    row["FT_TokenBudgetCapped"] = float(ft.capped_by_token_budget)
+                    row["Notes"] = f"{row['Notes']}; {ft.notes()}"
             except Exception as exc:  # noqa: BLE001 — row-level resilience
                 row = {
                     "Method": f"{self.name}/{method}",
