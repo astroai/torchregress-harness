@@ -50,7 +50,7 @@ from sklearn.tree import DecisionTreeRegressor
 # ---------------------------------------------------------------------------
 # Torchregress losses
 # ---------------------------------------------------------------------------
-from torchregress.losses import BetaNLLLoss, MultiQuantileLoss
+from torchregress.losses import BetaNLLLoss, MultiQuantileLoss, WeightedMSELoss
 
 from harness.core import set_harness_seed
 from harness.devices import current_device
@@ -63,7 +63,8 @@ from suites._backbones import (
     _train_lbfgs,
     _train_one,
 )
-from suites._tabular_mlp import N_MEMBERS, fit_tabmlp, predict_point
+from suites._ft_transformer import fit_ft_transformer
+from suites._tabular_mlp import N_MEMBERS, fit_tabmlp, predict_point, tabular_epochs
 
 # ---------------------------------------------------------------------------
 # Registry: sklearn methods
@@ -216,6 +217,7 @@ class SklearnBaselinesSuite(HarnessRunner):
         "MSE",
         "TabularMLP",
         "TabularMLP_Ens5",
+        "FTTransformer",
     ]
 
     def methods(self) -> list[str]:
@@ -248,6 +250,14 @@ class SklearnBaselinesSuite(HarnessRunner):
             return (
                 "5 TabularMLP members (fit_tabular_ensemble, seeds seed..seed+4), MSE head, "
                 "member predictions averaged; library defaults, epochs = min(100, config.epochs)"
+            )
+        if method == "FTTransformer":
+            return (
+                "torchregress.models FTTransformer (library defaults: d_token=128, 3 layers, "
+                "4 heads, dropout 0.1) + WeightedMSELoss; TabularPreprocessor inputs; AdamW "
+                "lr=1e-4, wd=1e-5 (Gorishniy et al. 2021 defaults), batch 256, 15% validation "
+                "early stopping (patience 10); epochs = min(100, config.epochs) further capped by "
+                "a device token-pass budget (FT_Epochs* columns)"
             )
         if method == "sklearn_MLPRegressor":
             return "3-layer MLP (ReLU) + Adam + MSE — Glorot init (torchregress uses Kaiming); converges to same optimum at 200+ epochs"
@@ -360,6 +370,18 @@ class SklearnBaselinesSuite(HarnessRunner):
             )
             return {"type": "tabular_mlp", "fit": fit}
 
+        # --- torchregress: FT-Transformer backbone, MSE head ---
+        elif method == "FTTransformer":
+            fit = fit_ft_transformer(
+                X_train_np,
+                y_train_np,
+                WeightedMSELoss(),
+                1,
+                config,
+                epochs=tabular_epochs(config),
+            )
+            return {"type": "ft_transformer", "fit": fit}
+
         # --- sklearn MLPRegressor — direct parity with torchregress MSE ---
         elif method == "sklearn_MLPRegressor":
             hidden = _hidden_size(in_dim)
@@ -438,6 +460,16 @@ class SklearnBaselinesSuite(HarnessRunner):
             y_pred = (A @ coef).detach().cpu().numpy().reshape(-1)
             return {"y_pred": y_pred}
 
+        # --- torchregress: FT-Transformer → y_pred (chunked inference) ---
+        elif model_type == "ft_transformer":
+            fit = model_state["fit"]
+            return {
+                "y_pred": fit.forward(X_test)[:, 0].double().numpy(),
+                "_diag_FT_EpochsRun": np.array(float(fit.epochs_run)),
+                "_diag_FT_EpochsBudget": np.array(float(fit.epochs_budget)),
+                "_diag_FT_TokenBudgetCapped": np.array(float(fit.capped_by_token_budget)),
+            }
+
         # --- torchregress: TabularMLP → y_pred ---
         elif model_type == "tabular_mlp":
             return {"y_pred": predict_point(model_state["fit"], X_test)}
@@ -474,3 +506,18 @@ class SklearnBaselinesSuite(HarnessRunner):
             return {"y_pred": y_pred}
 
         raise ValueError(f"Unknown model type: {model_type}")
+
+    def evaluate(
+        self,
+        method: str,
+        predictions: dict[str, Any],
+        y_test: np.ndarray,
+        config: HarnessConfig,
+    ) -> dict[str, float]:
+        diagnostics = {
+            key.removeprefix("_diag_"): float(predictions.pop(key))
+            for key in [k for k in predictions if k.startswith("_diag_")]
+        }
+        metrics = super().evaluate(method, predictions, y_test, config)
+        metrics.update(diagnostics)
+        return metrics

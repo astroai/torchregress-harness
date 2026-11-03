@@ -46,11 +46,30 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
+from suites._ft_transformer import fit_ft_transformer
 from suites.tabular._likelihood_designs import DESIGNS as FAMILY_DESIGNS
 from suites.tabular._likelihood_designs import run_design as run_family_design
 
 _N_SAMPLES = 256
 _BIG_BATCH = 1024
+_FORWARD_CHUNK = 65536  # rows per inference chunk for the MLP heads
+
+
+def _raw_outputs(state: dict[str, Any], X: np.ndarray, device: torch.device) -> torch.Tensor:
+    """Head outputs for ``X`` on ``device``, computed in chunks (test sets reach 1e6 rows)."""
+    if "ft" in state:
+        return state["ft"].forward(X).to(device)
+    model = state["model"]
+    model.eval()
+    Xt = np.asarray(X, dtype=np.float32)
+    with torch.no_grad():
+        outs = [
+            model(torch.from_numpy(Xt[i : i + _FORWARD_CHUNK]).to(device))
+            for i in range(0, len(Xt), _FORWARD_CHUNK)
+        ]
+    return torch.cat(outs)
+
+
 _Z = 1.6448536269514722
 
 
@@ -167,6 +186,7 @@ class LikelihoodsSuite(HarnessRunner):
             "AsymmetricLaplace",
             "MDN_K3",
             "NSF",
+            "FTT_GaussianNLL",
             "CatBoost_Uncertainty",
             "LightGBM_Point",
         ]
@@ -205,6 +225,12 @@ class LikelihoodsSuite(HarnessRunner):
             "AsymmetricLaplace": "ALD NLL (3-head: loc, scale, kappa)",
             "MDN_K3": "3-component diagonal mixture density network",
             "NSF": "zuko NSF flow; internal z-score (spline bound) with native-unit NLL correction",
+            "FTT_GaussianNLL": (
+                "torchregress.models FTTransformer backbone (library defaults) + diagonal Gaussian "
+                "NLL head, same z-scored targets and batch as GaussianNLL; TabularPreprocessor "
+                "inputs, AdamW lr=1e-4 wd=1e-5, config.epochs capped by a device token-pass "
+                "budget, chunked inference"
+            ),
             "CatBoost_Uncertainty": "CatBoost RMSEWithUncertainty (mean+var), scored Gaussian",
             "LightGBM_Point": "LightGBM L2 point baseline (no distribution)",
         }.get(method, "")
@@ -261,6 +287,24 @@ class LikelihoodsSuite(HarnessRunner):
                 "type": "family",
                 "family": family,
                 "model": model,
+                "y_mean": y_mean,
+                "y_std": y_std,
+            }
+        if method == "FTT_GaussianNLL":
+            ft = fit_ft_transformer(
+                X,
+                y,
+                GaussianNLLLoss(),
+                2,
+                config,
+                epochs=int(config.epochs),
+                batch_size=bs,
+                val_fraction=0.0,  # peers train a fixed budget without early stopping
+            )
+            return {
+                "type": "family",
+                "family": "gaussian",
+                "ft": ft,
                 "y_mean": y_mean,
                 "y_std": y_std,
             }
@@ -362,10 +406,7 @@ class LikelihoodsSuite(HarnessRunner):
         dev = current_device()
         t0 = perf_counter()
         if t == "family":
-            model = model_state["model"]
-            model.eval()
-            with torch.no_grad():
-                raw = model(torch.from_numpy(Xt).to(dev))
+            raw = _raw_outputs(model_state, Xt, dev)
             with torch.no_grad():
                 samp = _family_samples(model_state["family"], raw, _N_SAMPLES, config.seed)
             mu, sc = float(model_state["y_mean"]), float(model_state["y_std"])
@@ -488,9 +529,7 @@ class LikelihoodsSuite(HarnessRunner):
             if t == "family":
                 mu = float(model_state["y_mean"])
                 sc = float(model_state["y_std"])
-                model = model_state["model"]
-                model.eval()
-                raw = model(torch.from_numpy(np.asarray(X_test, dtype=np.float32)).to(dev))
+                raw = _raw_outputs(model_state, np.asarray(X_test, dtype=np.float32), dev)
                 yt_std = torch.from_numpy(((y_arr - mu) / sc).astype(np.float32)).reshape(-1, 1)
                 return float(
                     _family_nll(model_state["family"], raw.detach().cpu(), yt_std).item()
