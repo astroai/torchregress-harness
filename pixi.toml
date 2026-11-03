@@ -48,6 +48,10 @@ scoringrules = ">=0.11.0,<0.12"
 properscoring = ">=0.1,<0.2"
 hypothesis = ">=6.168.5,<7"
 
+[feature.test.pypi-dependencies]
+# pz_challenge TabM rows; tests/test_pz_challenge_suite.py records its version.
+tabm = ">=0.0.3,<0.1"
+
 [pypi-dependencies]
 torchregress = { path = "../torchregress", editable = true }
 torchregress-harness = { path = ".", editable = true }

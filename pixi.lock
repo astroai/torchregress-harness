@@ -264,6 +264,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zuko-1.6.0-pyhd8ed1ab_0.conda
       - pypi: ../torchregress
       - pypi: ./
+      - pypi: https://files.pythonhosted.org/packages/18/b9/cef7a26a7999740d5067406b6e856fe0f18f1dd8bd2052e05f4bf4846c5e/rtdl_num_embeddings-0.0.12-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/6c/4f/cce9db4b2505c1d5664f7131ea6c115446fe8425c61d7c75b12162a4f25d/tabm-0.0.3-py3-none-any.whl
       linux-64-cuda:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-8_kmp_llvm.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/alsa-lib-1.2.16.1-h7cc23a3_1.conda
@@ -536,6 +538,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zuko-1.6.0-pyhd8ed1ab_0.conda
       - pypi: ../torchregress
       - pypi: ./
+      - pypi: https://files.pythonhosted.org/packages/18/b9/cef7a26a7999740d5067406b6e856fe0f18f1dd8bd2052e05f4bf4846c5e/rtdl_num_embeddings-0.0.12-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/6c/4f/cce9db4b2505c1d5664f7131ea6c115446fe8425c61d7c75b12162a4f25d/tabm-0.0.3-py3-none-any.whl
   gpu:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -844,6 +848,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zuko-1.6.0-pyhd8ed1ab_0.conda
       - pypi: ../torchregress
       - pypi: ./
+      - pypi: https://files.pythonhosted.org/packages/18/b9/cef7a26a7999740d5067406b6e856fe0f18f1dd8bd2052e05f4bf4846c5e/rtdl_num_embeddings-0.0.12-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/6c/4f/cce9db4b2505c1d5664f7131ea6c115446fe8425c61d7c75b12162a4f25d/tabm-0.0.3-py3-none-any.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-8_kmp_llvm.conda
   build_number: 8
@@ -6800,3 +6806,19 @@ packages:
   - ty ; extra == 'dev'
   - torchregress-harness[conformal,bayesian,tweedie,foundation,boosting,image,sbi,causal,distributional,scoring,invertible,engression,pz,test,dev] ; extra == 'all'
   requires_python: '>=3.12,<3.16'
+- pypi: https://files.pythonhosted.org/packages/18/b9/cef7a26a7999740d5067406b6e856fe0f18f1dd8bd2052e05f4bf4846c5e/rtdl_num_embeddings-0.0.12-py3-none-any.whl
+  name: rtdl-num-embeddings
+  version: 0.0.12
+  sha256: 87fd61270118915cf40888f2164f3a1f0353edf702f15fd91e71a147d23c930d
+  requires_dist:
+  - torch>=1.12,<3
+  requires_python: '>=3.9'
+- pypi: https://files.pythonhosted.org/packages/6c/4f/cce9db4b2505c1d5664f7131ea6c115446fe8425c61d7c75b12162a4f25d/tabm-0.0.3-py3-none-any.whl
+  name: tabm
+  version: 0.0.3
+  sha256: 6cabed3cb436fef5e8a45f46097fd745f51b3e16be16d555b9af16cffda7f944
+  requires_dist:
+  - torch>=1.12,<3
+  - rtdl-num-embeddings>=0.0.12,<0.1
+  - typing-extensions>=4.6.0,<5
+  requires_python: '>=3.9'
