@@ -41,7 +41,13 @@ echo "== $CI_NAME: $CI_REPO@$CI_REF lib@$CI_LIB_REF on $(hostname) $(date -u +%F
 W="/scratch/ci-$CI_NAME"; rm -rf "$W"; mkdir -p "$W"
 export HOME="${HOME:-/scratch}" PIXI_HOME="$W/.pixi" PIXI_CACHE_DIR="/scratch/pixi-cache" RATTLER_CACHE_DIR="/scratch/pixi-cache"
 unpack() { # <repo> <sha>: committed tree shipped by the launcher to /arc
-  tar -xzf "$CI_SRC_DIR/$1-$2.tar.gz" -C "$W" && echo "   $1 -> $2"
+  tar -xzf "$CI_SRC_DIR/$1-$2.tar.gz" -C "$W" || return 1
+  # pre-commit (and anything else that asks git) needs a repository: record the
+  # shipped tree as a single local commit.
+  git -C "$W/$1" init -q && git -C "$W/$1" add -A \
+    && git -C "$W/$1" -c user.name=canfar-ci -c user.email=ci@localhost \
+      commit -q -m "$1@$2" || return 1
+  echo "   $1 -> $2"
 }
 case "$CI_REPO" in
   torchregress) unpack torchregress "$CI_REF" || exit 2; cd "$W/torchregress" ;;
