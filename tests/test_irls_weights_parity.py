@@ -111,10 +111,8 @@ def test_weights_are_psi_over_r(
 def test_reweight_fixed_predictions_matches_statsmodels_tukey(device: str) -> None:
     """Tukey weights of fixed residuals with MAD scale; the model is NOT refit.
 
-    Odd ``n`` so ``torch.median`` (lower middle for even counts) and
-    ``np.median`` agree.  The library normalises the MAD with the rounded
-    constant 1.4826, statsmodels with ``1 / Phi^-1(0.75) = 1.482602218...``;
-    the reference uses 1.4826 so the comparison is exact to round-off.
+    The library MAD uses the textbook median and ``1 / Phi^-1(0.75)``, the same as
+    statsmodels' ``mad`` (torchregress >= 0.3.0).
     """
     rng = np.random.default_rng(1)
     n, d = 401, 3
@@ -144,7 +142,7 @@ def test_reweight_fixed_predictions_matches_statsmodels_tukey(device: str) -> No
     assert all(torch.equal(a, b) for a, b in zip(before, model.parameters()))  # no refit
     resid = y - (X @ np.array([0.9, -1.8, 0.4]) + 0.2)
     np.testing.assert_allclose(y_pred.cpu().numpy().ravel(), y - resid, rtol=RTOL, atol=1e-12)
-    scale = 1.4826 * mad(resid, c=1.0, center=np.median(resid))
+    scale = mad(resid, center=np.median(resid))
     expected = norms.TukeyBiweight(c=4.685).weights(resid / (scale + 1e-8))
     np.testing.assert_allclose(precision.cpu().numpy().ravel(), expected, rtol=1e-10, atol=1e-14)
     # Fixed residuals: the weights (and the weighted loss) cannot change between iterations.

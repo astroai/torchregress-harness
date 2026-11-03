@@ -287,7 +287,7 @@ def test_robust_point_metrics_vs_scipy(rng: np.random.Generator) -> None:
         tm.update(t_yp, t_y)
         _close(tm.compute(), ref)
 
-    ref = 1.4826 * median_abs_deviation(e, scale=1.0)
+    ref = median_abs_deviation(e, scale="normal")  # 1 / Phi^-1(0.75)
     _close(M.median_absolute_deviation(yp, y), ref)
     mad = _f64(M.MedianAbsoluteDeviation())
     mad.update(t_yp, t_y)

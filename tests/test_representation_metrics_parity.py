@@ -20,11 +20,8 @@ Continuous random features make neighbour ties have probability zero, so the
 k-NN sets agree exactly; the remaining differences are float64 round-off of
 distance and least-squares computations (``rtol = 1e-9``).
 
-Median convention: the library takes medians with ``torch.median``, which for
-an even count returns the *lower* of the two middle values instead of their
-average (``np.median``).  As in ``test_metrics_scoringrules_parity.py`` the
-exact relation is pinned rather than the tolerance loosened: odd sample sizes
-are checked against the textbook median, even sizes against the lower middle.
+Medians are textbook medians (``np.median``, the average of the two middle values
+for an even count) and NMAD uses ``1 / Phi^-1(0.75)``, as in torchregress >= 0.3.0.
 
 ``paired_bootstrap_ci`` vs ``scipy.stats.bootstrap(paired=True, method="percentile")``:
 the two use different random streams, so the comparison is Monte-Carlo, with a
@@ -56,10 +53,7 @@ def rng(request: pytest.FixtureRequest) -> np.random.Generator:
     return np.random.default_rng(request.param)
 
 
-def _lower_median(x: np.ndarray) -> float:
-    """``torch.median`` convention: the lower middle value for an even count."""
-    xs = np.sort(np.asarray(x).reshape(-1))
-    return float(xs[(len(xs) - 1) // 2])
+_MAD_SCALE = 1.482602218505602  # 1 / Phi^-1(0.75)
 
 
 def _features(rng: np.random.Generator, n: int = 300, d: int = 6) -> tuple[np.ndarray, np.ndarray]:
@@ -81,7 +75,7 @@ def test_neighbour_target_gap_matches_sklearn(rng: np.random.Generator, k: int, 
     _, idx = nn.kneighbors(_standardize(f))
     assert np.all(idx[:, 0] == np.arange(len(y)))  # self first: no exact ties
     gaps = np.abs(y[idx[:, 1:]] - y[:, None]).mean(axis=1)
-    median = np.median(gaps) if n % 2 else _lower_median(gaps)
+    median = np.median(gaps)
     expected = median / y.std(ddof=1)
     assert neighbour_target_gap(f, y, k=k) == pytest.approx(expected, rel=RTOL, abs=ATOL)
 
@@ -109,9 +103,9 @@ def test_frozen_readout_metrics_match_sklearn(rng: np.random.Generator) -> None:
         err = pred - y[test]
         assert got[f"{name}_RMSE"] == pytest.approx(np.sqrt(np.mean(err**2)), rel=RTOL)
         assert got[f"{name}_MAE"] == pytest.approx(np.mean(np.abs(err)), rel=RTOL)
-        # NMAD = 1.4826 * median|err|; 80 test points (even): lower-middle convention.
+        # NMAD = median|err| / Phi^-1(0.75); 80 test points (even count).
         assert len(err) % 2 == 0
-        assert got[f"{name}_NMAD"] == pytest.approx(1.4826 * _lower_median(np.abs(err)), rel=RTOL)
+        assert got[f"{name}_NMAD"] == pytest.approx(_MAD_SCALE * np.median(np.abs(err)), rel=RTOL)
 
 
 def test_report_equals_components(rng: np.random.Generator) -> None:
