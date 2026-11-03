@@ -259,6 +259,9 @@ def _train_graphed(
                 # Zero in place: the gradients are the graph's static buffers.
                 opt.zero_grad(set_to_none=False)
                 step(idx)
+    # Release the graph's private memory pool (the gradients live in it).
+    opt.zero_grad(set_to_none=True)
+    del graph
     return True
 
 
