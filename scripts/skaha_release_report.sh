@@ -5,7 +5,7 @@
 #   - tools/check_provenance.py over every job artifact (strict-data gate)
 #   - tools/seed_spread.py per group (flaky rows across seeds)
 #   - a job ledger: which (suite, dataset, seed) produced rows and which failed
-# Env: RUN_TAG, HARNESS_REF, LIB_REF, GH_TOKEN (as for skaha_release.sh).
+# Env: RUN_TAG, HARNESS_REF, LIB_REF, SRC_DIR (as for skaha_release.sh).
 set -uo pipefail
 : "${RUN_TAG:?}" "${HARNESS_REF:?}" "${LIB_REF:?}"
 ARC_PROJ="${ARC_PROJ:-/arc/projects/ots/torchregress-harness}"
@@ -18,11 +18,10 @@ export PIXI_UV_CACHE_DIR="$UV_CACHE_DIR" RATTLER_CACHE_DIR="$PIXI_CACHE_DIR"
 
 WORK="/scratch/release-report-$RUN_TAG"
 mkdir -p "$WORK" && cd "$WORK" || exit 2
+SRC_DIR="${SRC_DIR:-/arc/projects/ots/torchregress-ci/src}"
 for spec in "torchregress $LIB_REF" "torchregress-harness $HARNESS_REF"; do
   set -- $spec
-  rm -rf "$1" && git init -q "$1"
-  git -C "$1" -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "${GH_TOKEN:-}" | base64 | tr -d '\n')" fetch -q --depth 1 \
-    "https://github.com/sfabbro/$1.git" "$2" && git -C "$1" checkout -q FETCH_HEAD || exit 2
+  rm -rf "$1" && tar -xzf "$SRC_DIR/$1-$2.tar.gz" -C "$WORK" || exit 2
 done
 cd torchregress-harness || exit 2
 command -v pixi >/dev/null 2>&1 || { curl -fsSL https://pixi.sh/install.sh | bash; export PATH="$HOME/.pixi/bin:$PATH"; }

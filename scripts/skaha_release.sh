@@ -13,7 +13,7 @@
 #   GROUP          tabular | sbi | fm | image (required)
 #   HARNESS_REF    torchregress-harness commit to run (required)
 #   LIB_REF        torchregress commit to run (required)
-#   GH_TOKEN       read token for the private sfabbro/torchregress-harness fork
+#   SRC_DIR        where the launcher shipped the code tarballs (default /arc/projects/ots/torchregress-ci/src)
 #   HF_TOKEN       optional Hugging Face token (not needed for TabICL / sdm / TabPFN weights)
 #   TABPFN_TOKEN   optional Prior Labs API key (account that accepted the TabPFN licence);
 #                  when set, TabPFN is installed and benchmarked
@@ -92,19 +92,12 @@ log "run=$RUN_TAG harness=$HARNESS_REF lib=$LIB_REF seeds=[$SEEDS] epochs=$EPOCH
 # --- 1. code at the pushed SHAs -------------------------------------------------
 WORK="/scratch/release-$RUN_TAG-$GROUP-$RID"
 mkdir -p "$WORK" && cd "$WORK" || exit 2
-fetch_repo() { # <repo> <ref>
-  local url="https://github.com/sfabbro/$1.git"
-  rm -rf "$1" && git init -q "$1"
-  if [ -n "${GH_TOKEN:-}" ]; then
-    git -C "$1" -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" fetch -q --depth 1 "$url" "$2"
-  else
-    git -C "$1" fetch -q --depth 1 "$url" "$2"
-  fi && git -C "$1" checkout -q FETCH_HEAD
-}
-for attempt in 1 2 3; do
-  fetch_repo torchregress "$LIB_REF" && fetch_repo torchregress-harness "$HARNESS_REF" && break
-  log "git fetch attempt $attempt failed; retrying in 30s"; sleep 30
-  [ "$attempt" = 3 ] && { log "FATAL: cannot fetch code"; exit 2; }
+# Committed trees shipped by the launcher (scripts/_ship_src.sh); no GitHub access.
+SRC_DIR="${SRC_DIR:-/arc/projects/ots/torchregress-ci/src}"
+for spec in "torchregress $LIB_REF" "torchregress-harness $HARNESS_REF"; do
+  set -- $spec
+  rm -rf "$1"
+  tar -xzf "$SRC_DIR/$1-$2.tar.gz" -C "$WORK" || { log "FATAL: cannot unpack $SRC_DIR/$1-$2.tar.gz"; exit 2; }
 done
 cd "$WORK/torchregress-harness" || exit 2
 

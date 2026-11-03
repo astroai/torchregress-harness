@@ -14,9 +14,8 @@
 #   FLEX=1 scripts/canfar_launch_release.sh launch      # flexible CPU/RAM slices (queue-friendly)
 #   RUN_GROUPS="fm image" scripts/canfar_launch_release.sh launch   # only some groups
 #
-# Needs: `canfar` CLI already logged in (`canfar auth login`), GH_TOKEN exported or
-# `gh` logged in (the token lets the sessions fetch the private harness fork), both forks
-# pushed (the script checks).  HF_TOKEN is optional (TabICL / sdm / TabPFN weights
+# Needs: `canfar` CLI already logged in (`canfar auth login`) and both forks pushed
+# (the script checks; sessions get the code from /arc, not from GitHub).  HF_TOKEN is optional (TabICL / sdm / TabPFN weights
 # are public on the Hub).  TabPFN runs when a Prior Labs API key is found: env
 # TABPFN_TOKEN, else the file ~/.canfar/tabpfn_token (the account must have
 # accepted the TabPFN licence at https://ux.priorlabs.ai).
@@ -44,7 +43,9 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 # Credentials, discovered the same way on the Mac and in an agent sandbox:
 # - CANFAR: ~/.canfar/cadcproxy.pem (make ~/.ssl/cadcproxy.pem a symlink to it so
 #   every `canfar login` refreshes this file), or a sandbox mount of ~/.canfar.
-# - GitHub: GH_TOKEN, else ~/.ghtok, else a logged-in gh CLI (see gh_token).
+# - GitHub: none. The harness and torchregress commits are shipped as `git archive`
+#   tarballs to /arc (scripts/_ship_src.sh); sessions unpack them, so no GitHub
+#   credential is ever sent to CANFAR. Pushing first is still required (provenance).
 export PATH="$HOME/.local/bin:$PATH"
 if [ -z "${CANFAR_CERTIFICATE:-}" ]; then
   for c in "$HOME/.canfar/cadcproxy.pem" "$HOME/mnt/.canfar/cadcproxy.pem"; do
@@ -55,7 +56,6 @@ if [ -z "${CANFAR_CERTIFICATE:-}" ]; then
     fi
   done
 fi
-[ -z "${GH_TOKEN:-}" ] && [ -s "$HOME/.ghtok" ] && GH_TOKEN="$(cat "$HOME/.ghtok")" && export GH_TOKEN
 # Prior Labs key for TabPFN: kept next to the CANFAR cert (same folder the agent
 # sandbox mounts), never in the repo.
 # NO_TABPFN=1: launch without the TabPFN key (and without TabPFN rows).
@@ -67,23 +67,19 @@ elif [ -z "${TABPFN_TOKEN:-}" ]; then
   done
 fi
 command -v canfar >/dev/null || die "canfar CLI not found (pip install canfar; canfar login)"
-gh_token() { # GH_TOKEN from the environment, else from a logged-in gh CLI
-  if [ -n "${GH_TOKEN:-}" ]; then echo "$GH_TOKEN"; return; fi
-  command -v gh >/dev/null || die "set GH_TOKEN (read access to sfabbro/torchregress-harness) or log in with gh"
-  gh auth token
+# shellcheck source=scripts/_ship_src.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_ship_src.sh"
+ship_release_src() { # ship HARNESS_REF and LIB_REF (when set) to /arc for the sessions
+  ship_src "$HERE" torchregress-harness "$HARNESS_REF" >/dev/null || die "cannot ship harness $HARNESS_REF"
+  if [ -n "${LIB_REF:-}" ]; then
+    ship_src "$LIB_DIR" torchregress "$LIB_REF" >/dev/null || die "cannot ship torchregress $LIB_REF"
+  fi
 }
 
 pushed_sha() { # <repo dir> [branch] -> HEAD sha, after checking it is on origin/<branch>
   local dir="$1" branch="${2:-main}" head remote
   head=$(git -C "$dir" rev-parse HEAD)
   remote=$(git -C "$dir" ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)
-  if [ -z "$remote" ] && [ -n "${GH_TOKEN:-}" ]; then
-    # No ssh key (agent sandbox): ask GitHub over HTTPS with the token instead.
-    local url
-    url=$(git -C "$dir" remote get-url origin | sed -E 's#^(git@|ssh://git@)github.com[:/]#https://github.com/#')
-    remote=$(git -C "$dir" -c http.extraHeader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')" \
-      ls-remote "$url" "refs/heads/$branch" | cut -f1)
-  fi
   [ "$head" = "$remote" ] || die "$dir: HEAD $head is not origin/$branch ($remote); push first"
   echo "$head"
 }
@@ -92,14 +88,13 @@ pushed_sha() { # <repo dir> [branch] -> HEAD sha, after checking it is on origin
 # command line, so the bootstrap travels hex-encoded and exec'd in the session.
 bootstrap() { # <script path inside the harness repo>
   # Single-quoted literal, not a heredoc inside $(...): bash 3.2 misparses those.
-  local code='import base64, os, subprocess
+  local code='import os, subprocess
 w = "/scratch/bootstrap-" + os.environ["RUN_TAG"] + "-" + os.environ.get("GROUP", "report") + "-" + os.environ.get("REPLICA_ID", "1")
 subprocess.run(["rm", "-rf", w], check=True)
-subprocess.run(["git", "init", "-q", w], check=True)
-auth = base64.b64encode(("x-access-token:" + os.environ.get("GH_TOKEN", "")).encode()).decode()
-subprocess.run(["git", "-C", w, "-c", "http.extraheader=Authorization: Basic " + auth, "fetch", "-q", "--depth", "1", "https://github.com/sfabbro/torchregress-harness.git", os.environ["HARNESS_REF"]], check=True)
-subprocess.run(["git", "-C", w, "checkout", "-q", "FETCH_HEAD"], check=True)
-os.execvp("bash", ["bash", w + "/SCRIPT"])'
+os.makedirs(w)
+tarball = os.environ["SRC_DIR"] + "/torchregress-harness-" + os.environ["HARNESS_REF"] + ".tar.gz"
+subprocess.run(["tar", "-xzf", tarball, "-C", w], check=True)
+os.execvp("bash", ["bash", w + "/torchregress-harness/SCRIPT"])'
   code="${code/SCRIPT/$1}"
   # No spaces (canfar word-splits the command) and no double quotes (Skaha
   # embeds the args in a double-quoted YAML list).
@@ -112,7 +107,7 @@ name_tag() { local t="${RUN_TAG#release_}"; echo "${t//_/}"; }
 ENV_ARGS=()
 set_env_args() {
   ENV_ARGS=(-e "RUN_TAG=$RUN_TAG" -e "HARNESS_REF=$HARNESS_REF" -e "LIB_REF=$LIB_REF"
-    -e "GH_TOKEN=$GH_TOKEN" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS"
+    -e "SRC_DIR=$SRC_ARC_DIR" -e "SEEDS=$SEEDS" -e "EPOCHS=$EPOCHS"
     -e "JOB_TIMEOUT=${JOB_TIMEOUT:-6h}" -e "JOB_RETRIES=${JOB_RETRIES:-1}")
   [ -n "${HF_TOKEN:-}" ] && ENV_ARGS+=(-e "HF_TOKEN=$HF_TOKEN")
   [ "${WITH_TABPFN:-0}" = 1 ] && ENV_ARGS+=(-e "TORCHREGRESS_HARNESS_WITH_TABPFN=1")
@@ -261,7 +256,7 @@ load_state() {
   . "$STATE"
 }
 
-# canfar prints full request URLs (with the GH_TOKEN env) on errors: never echo the token.
+# canfar prints full request URLs (with the env) on errors: never echo a token.
 redact() {
   # Exact-value redaction of every secret we pass, then pattern fallbacks.  The
   # canfar CLI must not wrap lines (COLUMNS below): a token split across two
@@ -279,7 +274,7 @@ case "${1:-}" in
   launch)
     HARNESS_REF=$(pushed_sha "$HERE" "${HARNESS_BRANCH:-main}")
     LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
-    GH_TOKEN=$(gh_token)
+    ship_release_src
     RUN_TAG="release_$(date +%Y%m%d_%H%M)"
     printf 'RUN_TAG=%s\nHARNESS_REF=%s\nLIB_REF=%s\n' "$RUN_TAG" "$HARNESS_REF" "$LIB_REF" > "$STATE"
     set_env_args
@@ -324,7 +319,7 @@ case "${1:-}" in
       LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
       echo "FILL_LIB_REF=$LIB_REF" >> "$STATE"
     fi
-    GH_TOKEN=$(gh_token)
+    ship_release_src
     set_env_args
     echo "run $RUN_TAG  fill harness $HARNESS_REF  torchregress $LIB_REF"
     if [ -n "${2:-}" ]; then
@@ -346,7 +341,7 @@ case "${1:-}" in
     ;;
   report)
     load_state
-    GH_TOKEN=$(gh_token)
+    ship_release_src
     set_env_args
     out=$(canfar create headless "$IMAGE" ${DRY[@]+"${DRY[@]}"} --name "trr-report-$(name_tag)" \
       --cpu 4 --memory 16 ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} -- python3 -c "$(bootstrap scripts/skaha_release_report.sh)" 2>&1) \
@@ -407,7 +402,7 @@ PY
     HARNESS_REF=$(pushed_sha "$HERE" "${HARNESS_BRANCH:-main}")
     LIB_REF=$(pushed_sha "$LIB_DIR" "${LIB_BRANCH:-main}")
     RUN_TAG="stage_$(date +%Y%m%d_%H%M)"
-    GH_TOKEN=$(gh_token)
+    ship_release_src
     set_env_args
     # STAGE_WHAT=tabred (or folktables): stage only those (default: both).
     [ -n "${STAGE_WHAT:-}" ] && ENV_ARGS+=(-e "STAGE_WHAT=$STAGE_WHAT")

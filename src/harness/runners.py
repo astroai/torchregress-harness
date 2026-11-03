@@ -361,7 +361,7 @@ class HarnessRunner(ABC):
     # ------------------------------------------------------------------
 
     def _failed_row(
-        self, method: str, dataset_name: str, splits: dict[str, Any], exc: BaseException
+        self, method: str, dataset_name: str, splits: SplitsDict, exc: BaseException
     ) -> dict[str, Any]:
         """Row for a method that raised: null metrics and ``failed: <error>`` notes."""
         return {

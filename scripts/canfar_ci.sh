@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
 # Run a test/CI command for torchregress, torchregress-harness or torchregress-research
-# on a CANFAR headless session, against commits already pushed to the sfabbro forks.
+# on a CANFAR headless session. The commits are shipped as `git archive` tarballs to
+# /arc/projects/ots/torchregress-ci/src (scripts/_ship_src.sh), so sessions need no
+# GitHub access and no GitHub credentials are ever sent to CANFAR.
 #
 #   canfar_ci.sh launch <name> <repo> <ref> [lib_ref] -- <command...>
 #   canfar_ci.sh status            # canfar ps for ci sessions
 #   canfar_ci.sh logs <session-id> # session log (also kept on /arc)
 #
 # <repo>    torchregress | torchregress-harness | torchregress-research
-# <ref>     commit SHA or branch of that repo on github.com/sfabbro/<repo>
-# [lib_ref] torchregress SHA/branch checked out beside it as ../torchregress (the harness
-#           and research pixi envs install it from there). Defaults to <ref> for torchregress itself.
+# <ref>     commit SHA or branch, resolved in the local clone (../<repo> next to the harness,
+#           or the harness itself); it needs no push
+# [lib_ref] torchregress commit unpacked beside it as ../torchregress (the harness and
+#           research pixi envs install it from there). Defaults to <ref> for torchregress itself.
 # command   run from the repo root, e.g.  pixi run test   or  ./scripts/ci_local.sh
 #
 # Env: CPU (8), MEM (32), GPU (0), IMAGE (astroai/base:latest), DRY_RUN=1.
-# GitHub token: GH_TOKEN, else ~/.ghtok (fine-grained PAT, read access to the sfabbro
-# forks), else `gh auth token`. Invalid tokens are dropped (public forks still work).
 # Logs: /arc/projects/ots/torchregress-ci/<name>/{run.log,exit_code}
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/_ship_src.sh
+. "$HERE/scripts/_ship_src.sh"
 IMAGE="${IMAGE:-astroai/base:latest}"
 die() { echo "ERROR: $*" >&2; exit 1; }
 hex() { printf '%s' "$1" | od -An -tx1 | tr -d ' \n'; }
@@ -36,18 +40,14 @@ exec > >(tee "$OUT/run.log") 2>&1
 echo "== $CI_NAME: $CI_REPO@$CI_REF lib@$CI_LIB_REF on $(hostname) $(date -u +%FT%TZ)"
 W="/scratch/ci-$CI_NAME"; rm -rf "$W"; mkdir -p "$W"
 export HOME="${HOME:-/scratch}" PIXI_HOME="$W/.pixi" PIXI_CACHE_DIR="/scratch/pixi-cache" RATTLER_CACHE_DIR="/scratch/pixi-cache"
-AUTH=()
-[ -n "${GH_TOKEN:-}" ] && AUTH=(-c "http.extraheader=Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')")
-fetch() { # <repo> <ref> <dir>; public forks need no token
-  git init -q "$3" && git -C "$3" "${AUTH[@]}" fetch -q --depth 1 "https://github.com/sfabbro/$1.git" "$2" \
-    && git -C "$3" checkout -q FETCH_HEAD && echo "   $1 -> $(git -C "$3" rev-parse HEAD)"
+unpack() { # <repo> <sha>: committed tree shipped by the launcher to /arc
+  tar -xzf "$CI_SRC_DIR/$1-$2.tar.gz" -C "$W" && echo "   $1 -> $2"
 }
 case "$CI_REPO" in
-  torchregress) fetch torchregress "$CI_REF" "$W/torchregress" || exit 2; cd "$W/torchregress" ;;
-  torchregress-harness) fetch torchregress "$CI_LIB_REF" "$W/torchregress" || exit 2  # pixi path ../torchregress
-    fetch torchregress-harness "$CI_REF" "$W/torchregress-harness" || exit 2; cd "$W/torchregress-harness" ;;
-  torchregress-research) fetch torchregress "$CI_LIB_REF" "$W/torchregress" || exit 2
-    fetch torchregress-research "$CI_REF" "$W/torchregress-research" || exit 2; cd "$W/torchregress-research" ;;
+  torchregress) unpack torchregress "$CI_REF" || exit 2; cd "$W/torchregress" ;;
+  torchregress-harness | torchregress-research)
+    unpack torchregress "$CI_LIB_REF" || exit 2  # pixi path ../torchregress
+    unpack "$CI_REPO" "$CI_REF" || exit 2; cd "$W/$CI_REPO" ;;
   *) echo "unknown repo $CI_REPO"; exit 2 ;;
 esac
 command -v pixi >/dev/null || { curl -fsSL https://pixi.sh/install.sh | bash >/dev/null; export PATH="$PIXI_HOME/bin:$PATH"; }
@@ -68,25 +68,26 @@ case "${1:-}" in
     lib_ref="$ref"; if [ "$1" != "--" ]; then lib_ref="$1"; shift; fi
     [ "$1" = "--" ] || die "missing -- before command"; shift
     case "$name" in *[!a-z0-9-]*) die "name: lowercase letters, digits and - only" ;; esac
-    # Token lookup, same order as canfar_launch_release.sh: GH_TOKEN, then ~/.ghtok (a
-    # long-lived fine-grained PAT survives gh keyring resets), then the gh CLI.
-    token="${GH_TOKEN:-}"
-    [ -z "$token" ] && [ -s "$HOME/.ghtok" ] && token="$(tr -d ' \n\r' < "$HOME/.ghtok")"
-    [ -z "$token" ] && token="$(gh auth token 2>/dev/null || true)"
-    # A stale token makes GitHub refuse even public fetches: send only a valid one.
-    if [ -n "$token" ] && [ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" https://api.github.com/user)" != 200 ]; then
-      echo "warning: GitHub token is invalid; launching without it" >&2; token=""
+    case "$repo" in
+      torchregress) repo_dir="$HERE/../torchregress" ;;
+      torchregress-harness) repo_dir="$HERE" ;;
+      torchregress-research) repo_dir="$HERE/../torchregress-research" ;;
+      *) die "unknown repo $repo" ;;
+    esac
+    sha=$(ship_src "$repo_dir" "$repo" "$ref") || die "cannot ship $repo@$ref"
+    lib_sha=$sha
+    if [ "$repo" != torchregress ]; then
+      lib_sha=$(ship_src "$HERE/../torchregress" torchregress "$lib_ref") || die "cannot ship torchregress@$lib_ref"
     fi
-    [ -n "$token" ] || [ "$repo" = torchregress ] || die "no GitHub token (gh auth login); $repo is private"
     boot="exec(bytes.fromhex('$(hex "import os;open('/tmp/ci_runner.sh','w').write(bytes.fromhex(os.environ['CI_RUNNER_HEX']).decode());os.execvp('bash',['bash','/tmp/ci_runner.sh'])")').decode())"
     dry=(); [ "${DRY_RUN:-0}" = 1 ] && dry=(--dry-run)
     gpu=(); [ "${GPU:-0}" -gt 0 ] && gpu=(--gpu "$GPU")
     canfar create headless "$IMAGE" ${dry[@]+"${dry[@]}"} --name "ci-$name" --cpu "${CPU:-8}" --memory "${MEM:-32}" \
-      ${gpu[@]+"${gpu[@]}"} -e "CI_NAME=$name" -e "CI_REPO=$repo" -e "CI_REF=$ref" -e "CI_LIB_REF=$lib_ref" \
-      -e "CI_CMD_HEX=$(hex "$*")" -e "CI_RUNNER_HEX=$(hex "$RUNNER")" -e "GH_TOKEN=$token" \
-      -- python3 -c "$boot" 2>&1 | sed -E "s/(GH_TOKEN=)[^ ]+/\1***/g; s/('GH_TOKEN': ')[^']+/\1***/g; s/(CI_RUNNER_HEX': ')[0-9a-f]+/\1.../g"
+      ${gpu[@]+"${gpu[@]}"} -e "CI_NAME=$name" -e "CI_REPO=$repo" -e "CI_REF=$sha" -e "CI_LIB_REF=$lib_sha" -e "CI_SRC_DIR=$SRC_ARC_DIR" \
+      -e "CI_CMD_HEX=$(hex "$*")" -e "CI_RUNNER_HEX=$(hex "$RUNNER")" \
+      -- python3 -c "$boot" 2>&1 | sed -E "s/(CI_RUNNER_HEX': ')[0-9a-f]+/\1.../g"
     ;;
   status) canfar ps --all 2>&1 | grep -E "NAME|ci-" || true ;;
   logs) [ -n "${2:-}" ] || die "usage: logs <session-id>"; canfar logs "$2" ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
