@@ -84,7 +84,8 @@ def main() -> int:
     ap.add_argument("--output", type=Path, default=Path("conformal_density_memory.json"))
     args = ap.parse_args()
 
-    device = set_default_device("cuda")
+    set_default_device("cuda")
+    device = torch.cuda.current_device()
     total = torch.cuda.get_device_properties(device).total_memory
     fraction = min(1.0, args.cap_gib * 2**30 / total)
     torch.cuda.set_per_process_memory_fraction(fraction, device)
