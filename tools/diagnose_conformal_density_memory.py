@@ -47,7 +47,8 @@ def _mark(stage: str, **extra: Any) -> None:
 
 
 def _wrap(owner: Any, name: str, label: str, every: int = 0) -> None:
-    fn = getattr(owner, name)
+    # Look in the class __dict__: getattr unwraps staticmethods.
+    fn = vars(owner)[name] if isinstance(owner, type) else getattr(owner, name)
     raw = fn.__func__ if isinstance(fn, staticmethod) else fn
     calls = {"n": 0}
 
@@ -61,10 +62,9 @@ def _wrap(owner: Any, name: str, label: str, every: int = 0) -> None:
         try:
             out = raw(*args, **kwargs)
         except Exception:
-            if not _FIRST_ERROR:
-                _FIRST_ERROR.append(traceback.format_exc())
-                _mark(f"{label}:error", call=n)
-                print(_FIRST_ERROR[0], flush=True)
+            _FIRST_ERROR.append(traceback.format_exc())
+            _mark(f"{label}:error", call=n)
+            print(_FIRST_ERROR[-1], flush=True)
             raise
         if not quiet:
             _mark(f"{label}:exit", call=n)
