@@ -4903,7 +4903,7 @@ packages:
   - conformal-tights>=0.5.0 ; extra == 'conformal'
   - botorch ; extra == 'bayesian'
   - gpytorch ; extra == 'bayesian'
-  - scikit-lego ; extra == 'tweedie'
+  - statsmodels ; extra == 'tweedie'
   - tabpfn>=9.1 ; extra == 'foundation'
   - tabicl>=2.2 ; extra == 'foundation'
   - structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@main ; extra == 'foundation'
