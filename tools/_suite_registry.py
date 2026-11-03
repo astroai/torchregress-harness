@@ -42,6 +42,7 @@ from suites.tabular.label_shift import LabelShiftSuite
 from suites.tabular.likelihood_ratio import LikelihoodRatioSuite
 from suites.tabular.likelihoods import LikelihoodsSuite
 from suites.tabular.missing_data import MissingDataSuite
+from suites.tabular.multi_source import MultiSourceSuite
 from suites.tabular.multivariate_intervals import MultivariateIntervalsSuite
 from suites.tabular.noise_aware_density import NoiseAwareDensitySuite
 from suites.tabular.nz_challenge import NZChallengeSuite
@@ -118,6 +119,7 @@ ALL_SUITES: dict[str, type[HarnessRunner]] = {
     "pz_flow": PZFlowSuite,
     "nz_challenge": NZChallengeSuite,
     "noise_aware_density": NoiseAwareDensitySuite,
+    "multi_source": MultiSourceSuite,
     "pz_cp": PZCPExtendedSuite,
     "pz_ood": PZOODSuite,
     "pz_removal": PZRemovalSuite,

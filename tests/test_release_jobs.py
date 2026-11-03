@@ -47,6 +47,9 @@ def test_new_suites_and_models_are_scheduled() -> None:
     }
     assert ("density_parity", "mt_rf1") in tab_pairs
     assert ("image_density_parity", "udacity_steering") in set(jobs("image"))
+    # multi_source: small catalogues on CPU, the 1M-object variant on the GPU big-data group.
+    assert ("multi_source", "multisurvey") in tab_pairs
+    assert ("multi_source", "multisurvey_big") in set(jobs("tabular_big"))
 
 
 def test_unknown_group() -> None:
@@ -57,5 +60,5 @@ def test_unknown_group() -> None:
 def test_group_job_counts() -> None:
     """Job counts quoted in RELEASE_0.3_STATUS.md (update both together)."""
     counts = {g: len(jobs(g)) for g in ("tabular", *GROUPS)}
-    assert len(jobs("tabular_big")) == 5
-    assert counts == {"tabular": 251, "sbi": 5, "fm": 14, "image": 31}
+    assert len(jobs("tabular_big")) == 6
+    assert counts == {"tabular": 259, "sbi": 5, "fm": 14, "image": 31}
