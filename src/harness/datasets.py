@@ -840,7 +840,7 @@ def _load_galaxiesml_eiv(
     try:
         import urllib.request
 
-        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
+        import h5py  # optional big-corpus dep
         from sklearn.preprocessing import StandardScaler
 
         bands = ["g", "r", "i", "z", "y"]
@@ -977,7 +977,7 @@ def _load_galaxiesml_cutouts(
     """
     splits: SplitMetadata = {}
     try:
-        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
+        import h5py  # optional big-corpus dep
 
         cache = _image_cache_dir() / "galaxiesml"
         tr_path = cache / "training.hdf5"
@@ -1240,7 +1240,7 @@ def _load_pz_challenge(
     import tarfile
     import urllib.request
 
-    import h5py  # ty: ignore[unresolved-import]
+    import h5py
 
     cache = _image_cache_dir() / "pz_data_challenge"
     local_dir = os.environ.get("TORCHREGRESS_PZ_CHALLENGE_DIR")
@@ -3537,7 +3537,7 @@ def _load_nyu_depth_v2(
 
     # Load .mat file
     try:
-        import h5py  # ty: ignore[unresolved-import]  # optional dep, imported lazily with a friendly ImportError
+        import h5py  # optional dep, imported lazily with a friendly ImportError
     except ImportError:
         try:
             import scipy.io as sio
