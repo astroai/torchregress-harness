@@ -1087,6 +1087,18 @@ def _nz_root() -> pathlib.Path:
     )
 
 
+def _nz_public_files(root: pathlib.Path, pattern: str) -> list[pathlib.Path]:
+    """Public-archive n(z) files under ``root`` matching ``pattern``, sorted.
+
+    The reserved archive unpacks to ``root/reserved`` with the same file names,
+    so a bare ``root.glob("**/...")`` also matches the reserved copies, in
+    filesystem order.
+    """
+    return sorted(
+        p for p in root.glob(f"**/{pattern}") if "reserved" not in p.relative_to(root).parts
+    )
+
+
 def _ensure_nz_archive(root: pathlib.Path, taskset: int) -> pathlib.Path:
     import tarfile
 
@@ -1094,7 +1106,7 @@ def _ensure_nz_archive(root: pathlib.Path, taskset: int) -> pathlib.Path:
     archive = root / f"public_nz_t{taskset}.tgz"
     if not archive.exists():
         urllib.request.urlretrieve(NZ_CHALLENGE_URLS[taskset], archive)
-    if not any(root.glob(f"**/nz_challenge_taskset_{taskset}_*.hdf5")):
+    if not _nz_public_files(root, f"nz_challenge_taskset_{taskset}_*.hdf5"):
         with tarfile.open(archive, "r:gz") as tar:
             tar.extractall(root)
     return root
@@ -1120,16 +1132,22 @@ def _load_nz_challenge(
     n_samples: int | None = None,
     seed: int = 42,
 ) -> SplitsDict:
-    """LSST DESC n(z) challenge: DDF truth training, WFD public photometry.
+    """LSST DESC n(z) challenge: DDF truth training, WFD reserved test set.
 
-    Evaluation truth for WFD comes from the post-challenge ``reserved`` archive
-    (object-id matched); this is an internal benchmark, not a challenge submission.
+    Training uses the public DDF files (photometry + redshift). The test set is
+    the post-challenge ``reserved`` WFD file, which carries its own photometry
+    and redshift. It cannot be joined to the public WFD file: their object ids
+    are disjoint and the photometry differs row by row (checked on tasksets
+    1-2, both simulations, 1yr and 4yr), so the public WFD file has no truth
+    and is not used. This is an internal benchmark, not a challenge submission.
     """
     import h5py
 
     root = _ensure_nz_archive(_nz_root(), taskset)
     _ensure_nz_reserved(root)
-    ddf = sorted(root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_ddf_*.hdf5"))
+    ddf = _nz_public_files(
+        root, f"nz_challenge_taskset_{taskset}_{simulation}_{scenario}_ddf_*.hdf5"
+    )
     if not ddf:
         raise FileNotFoundError(
             f"no n(z) DDF files for taskset {taskset} {simulation} {scenario} under {root}"
@@ -1159,10 +1177,12 @@ def _load_nz_challenge(
     X_train = np.concatenate([mags[keep], errs[keep]], axis=1).astype(np.float32)
     y_train = z[keep].astype(np.float32)
 
-    wfd_path = next(
-        root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5")
+    res_path = (
+        root / "reserved" / f"nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5"
     )
-    with h5py.File(wfd_path, "r") as f:
+    if not res_path.is_file():
+        raise FileNotFoundError(f"no reserved n(z) WFD file {res_path}")
+    with h5py.File(res_path, "r") as f:
         X_test = np.concatenate(
             [
                 np.stack(
@@ -1176,20 +1196,7 @@ def _load_nz_challenge(
             ],
             axis=1,
         ).astype(np.float32)
-        oid_test = np.asarray(f["object_id"][:], dtype=np.float64)
-    res_path = next(
-        root.glob(f"**/reserved/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5")
-    )
-    with h5py.File(res_path, "r") as f:
-        res_oid = np.asarray(f["object_id"][:], dtype=np.float64)
-        res_z = np.asarray(f["redshift"][:], dtype=np.float64)
-    order = np.argsort(res_oid)
-    sorted_oid = res_oid[order]
-    pos = np.searchsorted(sorted_oid, oid_test)
-    pos = np.clip(pos, 0, len(sorted_oid) - 1)
-    if not np.all(sorted_oid[pos] == oid_test):
-        raise ValueError("reserved n(z) object ids do not match WFD public file")
-    y_test = res_z[order][pos].astype(np.float32)
+        y_test = np.asarray(f["redshift"][:], dtype=np.float64).astype(np.float32)
 
     rng = np.random.default_rng(seed)
     if n_samples is not None and int(n_samples) < len(y_train):

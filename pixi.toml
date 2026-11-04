@@ -47,6 +47,8 @@ pyyaml = "*"
 scoringrules = ">=0.11.0,<0.12"
 properscoring = ">=0.1,<0.2"
 hypothesis = ">=6.168.5,<7"
+# n(z) loader test (tests/test_nz_challenge_loader.py) writes tiny HDF5 files.
+h5py = ">=3.10"
 
 [feature.test.pypi-dependencies]
 # pz_challenge TabM rows; tests/test_pz_challenge_suite.py records its version.
