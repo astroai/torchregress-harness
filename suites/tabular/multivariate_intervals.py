@@ -11,6 +11,16 @@ Methods
 * ``MultivariateGaussian`` — full-covariance Gaussian NLL → marginal intervals
   from Cholesky-parameterised covariance
 * ``NormalizingFlow`` — zuko NSF flow → sample-based quantile intervals
+* ``TarFlow`` — transformer autoregressive flow (``flow_type="tarflow"``,
+  deep-shallow blocks) → sample-based quantile intervals
+* ``NF_DensityEnsemble_K5`` — five NSF flows combined as a
+  ``torchregress.ensemble.DensityEnsemble`` mixture (equal weights): sampled
+  intervals, joint HPD levels from ``model_hpd_level`` and the mean epistemic
+  entropy (member mutual information) from ``entropy_decomposition``
+* Every density row (NormalizingFlow, TarFlow, NF_DensityEnsemble_K5) also
+  reports test NLL, joint highest-density-region coverage
+  (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95, and the KS distance of
+  the joint HPD levels (``sample_hpd_level``) from uniform
 * ``NF_Ensemble_K{2,5,10,20}`` — K independent NSF flows with pooled samples
   for per-dim quantile intervals (Proposal #10 extended to multivariate
   targets; K-sweep family per §15)
@@ -547,6 +557,44 @@ _ES_VAL_FRAC = 0.15
 _ES_PATIENCE = 10
 
 
+_HPD_LEVELS = (0.5, 0.68, 0.9, 0.95)
+
+
+def _density_metrics(density: dict[str, Any], y_true: np.ndarray) -> dict[str, float]:
+    """NLL and joint HPD coverage for a row exposing predictive log-densities.
+
+    ``density["log_prob"](y) -> [N]`` scores the targets. Joint HPD levels come
+    from ``density["hpd_level"](y)`` when the row provides it (e.g.
+    ``model_hpd_level``), else from ``sample_hpd_coverage`` on the stored
+    ``density["sample_log_prob"]`` ``[N, S]``.
+    """
+    from torchregress.metrics import (
+        kolmogorov_smirnov_uniform_statistic,
+        sample_hpd_coverage,
+        sample_hpd_level,
+    )
+
+    log_prob = density["log_prob"](y_true).detach().double().cpu()
+    out = {"NLL": float(-log_prob.mean())}
+    if "hpd_level" in density:
+        level = density["hpd_level"](y_true).detach().double().cpu()
+        coverage = [float((level <= c).double().mean()) for c in _HPD_LEVELS]
+    else:
+        lp_samples = density["sample_log_prob"].detach().double().cpu()
+        level = sample_hpd_level(log_prob, lp_samples).double()
+        coverage = sample_hpd_coverage(log_prob, lp_samples, _HPD_LEVELS).tolist()
+    # Calibrated joint regions make the HPD level uniform on [0, 1].
+    out["JointHPDLevelKS"] = float(
+        kolmogorov_smirnov_uniform_statistic(level.clamp(1e-6, 1 - 1e-6)).item()
+    )
+    for c, value in zip(_HPD_LEVELS, coverage, strict=True):
+        out[f"JointHPD{round(100 * c)}"] = float(value)
+    out["JointHPDCalErr"] = float(
+        np.mean([abs(v - c) for v, c in zip(coverage, _HPD_LEVELS, strict=True)])
+    )
+    return out
+
+
 def _train_sls_early_stop(
     model: nn.Module,
     loss_fn: nn.Module,
@@ -688,6 +736,8 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MultiTargetCP",
             "MVScore",
             "NormalizingFlow",
+            "TarFlow",
+            "NF_DensityEnsemble_K5",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
             "SLS_lowrank",
@@ -740,6 +790,15 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MVScore": "Mahalanobis-score conformal regions (bounding-box intervals)",
             "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
             "NormalizingFlow": "zuko NSF flow → sample-based quantile intervals per output dim",
+            "TarFlow": (
+                "transformer autoregressive flow (create_flow_model flow_type='tarflow', "
+                "width 64, deep-shallow n_layers=(4, 1, 1)) → sample-based quantile intervals; "
+                "NLL and joint HPD coverage"
+            ),
+            "NF_DensityEnsemble_K5": (
+                "DensityEnsemble of 5 NSF flows (seed offsets, equal weights) → mixture samples, "
+                "joint HPD levels via model_hpd_level, NLL, mean epistemic entropy"
+            ),
             "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
             "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
             "SLS_earlystop": (
@@ -950,6 +1009,51 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config, loss_params=list(flow.parameters()))
             model.eval()
             return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D}
+
+        # --- TarFlow: transformer autoregressive flow ---
+        elif method == "TarFlow":
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=D,
+                context_dim=context_dim,
+                flow_type="tarflow",
+                n_transforms=3,
+                hidden_features=[64],
+                n_layers=(4, 1, 1),
+            )
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(model, loss_fn, X, y, config, loss_params=list(flow.parameters()))
+            model.eval()
+            return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D}
+
+        # --- NF_DensityEnsemble_K5: DensityEnsemble mixture of 5 NSF flows ---
+        elif method == "NF_DensityEnsemble_K5":
+            from torchregress.ensemble import DensityEnsemble
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            heads: list[nn.Module] = []
+            encoders: list[nn.Module] = []
+            for i in range(5):
+                set_harness_seed(config.seed + i)
+                flow_i = create_flow_model(
+                    n_features=D,
+                    context_dim=context_dim,
+                    flow_type="nsf",
+                    n_transforms=self._NF_ENSEMBLE_TRANSFORMS,
+                    hidden_features=self._NF_ENSEMBLE_HIDDEN,
+                )
+                model_i = _MultiOutputMLP(in_dim, hidden, out_dim=context_dim)
+                loss_i = NormalizingFlowLoss(flow=flow_i)
+                _train_one(model_i, loss_i, X, y, config, loss_params=list(flow_i.parameters()))
+                model_i.eval()
+                heads.append(loss_i)
+                encoders.append(model_i)
+            ensemble = DensityEnsemble(heads, encoders).to(current_device()).eval()
+            return {"type": "density_ensemble", "ensemble": ensemble, "n_features": D}
 
         # --- NF_Ensemble_K{2,5,10,20}: K independent NSF flows (Proposal #10 extended) ---
         # K parsed from method name \u2014 architecture locked across the family
@@ -1581,6 +1685,17 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 context = model(X_t)
                 samples = flow_loss.sample(context, n_samples=512)  # (N, 512, D)
                 samples_np = samples.detach().cpu().numpy()
+                # Predictive log-density of every draw, [N, S], for joint HPD levels.
+                sample_log_prob = (
+                    flow_loss.distribution(context).log_prob(samples.transpose(0, 1)).T
+                )
+
+            def _target_log_prob(y_np: np.ndarray, _ctx: torch.Tensor = context) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return flow_loss.log_prob(_ctx, y_t)
+
+            density = {"log_prob": _target_log_prob, "sample_log_prob": sample_log_prob}
 
             lo_q = 0.05
             hi_q = 0.95
@@ -1596,6 +1711,42 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
+                "_density": density,
+            }
+
+        # --- DensityEnsemble → mixture samples, model_hpd_level, epistemic entropy ---
+        elif model_type == "density_ensemble":
+            from torchregress.metrics import model_hpd_level
+
+            ensemble = model_state["ensemble"]
+            X_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                samples = ensemble.sample(X_t, n_samples=512)  # (N, 512, D)
+                entropy = ensemble.entropy_decomposition(X_t, n_samples=64)
+            samples_np = samples.detach().cpu().numpy()
+
+            def _ensemble_log_prob(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return ensemble.log_prob(X_t, y_t)
+
+            def _ensemble_hpd_level(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                return model_hpd_level(ensemble, X_t, y_t, n_samples=512)
+
+            return {
+                "lower": np.quantile(samples_np, 0.05, axis=1).reshape(-1),
+                "upper": np.quantile(samples_np, 0.95, axis=1).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": _to_scoring_samples(samples_np, len(X_test), config.seed),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_density": {"log_prob": _ensemble_log_prob, "hpd_level": _ensemble_hpd_level},
+                "_extra_metrics": {
+                    "EpistemicEntropy": float(entropy["epistemic"].mean()),
+                    "AleatoricEntropy": float(entropy["aleatoric"].mean()),
+                },
             }
 
         # --- NF_Ensemble_K5 → pooled per-dim quantile intervals ---
@@ -1800,6 +1951,12 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 metrics["RegionLogVol"] = float(region["log_volume"])
             extra: Any = predictions.get("_extra_metrics", {})
             metrics.update(extra)
+
+            # Density rows: test NLL and joint highest-density-region coverage
+            # (multivariate calibration that per-dim PIT cannot see).
+            density: Any = predictions.get("_density")
+            if density is not None:
+                metrics.update(_density_metrics(density, y_true))
 
             # Library mean pinball over predicted quantile levels (SQR-style
             # rows stash per-level values; averaged over output dims).

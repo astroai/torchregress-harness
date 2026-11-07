@@ -1,6 +1,6 @@
 {
-  "torchregress_version": "0.3.0b1",
-  "torchregress_commit": "7df8aa4",
+  "torchregress_version": "0.3.0",
+  "torchregress_commit": "c48396e",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -1789,6 +1789,13 @@
         "status": "allowlisted",
         "reason": "harness computes this point metric itself (harness.core.compute_point_metrics); library parity pending the metrics parity tests"
       },
+      "model_hpd_level": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "neighbour_target_gap": {
         "suites": [],
         "status": "allowlisted",
@@ -1918,6 +1925,20 @@
           "ordinal",
           "ppi",
           "tweedie"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "sample_hpd_coverage": {
+        "suites": [
+          "multivariate_intervals"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "sample_hpd_level": {
+        "suites": [
+          "multivariate_intervals"
         ],
         "status": "covered",
         "reason": ""
@@ -2216,6 +2237,13 @@
       "CumulativeLinkEnsembleModel": {
         "suites": [
           "ordinal"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "DensityEnsemble": {
+        "suites": [
+          "multivariate_intervals"
         ],
         "status": "covered",
         "reason": ""
@@ -2799,6 +2827,13 @@
       }
     },
     "inference": {
+      "MixtureFractionEstimate": {
+        "suites": [
+          "likelihood_ratio"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "OrthogonalEstimate": {
         "suites": [],
         "status": "allowlisted",
@@ -2808,6 +2843,13 @@
         "suites": [
           "nz_challenge",
           "ppi"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
+      "WifiRatioEnsemble": {
+        "suites": [
+          "likelihood_ratio"
         ],
         "status": "covered",
         "reason": ""
@@ -3181,12 +3223,12 @@
     }
   },
   "summary": {
-    "exports": 438,
-    "covered": 293,
+    "exports": 444,
+    "covered": 299,
     "allowlisted": 145,
     "uncovered": 0,
-    "unique_names": 437,
-    "unique_covered": 292
+    "unique_names": 443,
+    "unique_covered": 298
   },
   "stale_allowlist": []
 }
