@@ -44,6 +44,36 @@ def fit_nsf_recipe(
     Returns ``(model, flow_loss, info)`` with ``info`` holding ``bound``,
     ``best_epoch``, ``epochs_run`` and ``n_val``.
     """
+    return fit_flow_recipe(
+        X,
+        y_std,
+        config,
+        in_dim=in_dim,
+        hidden=hidden,
+        n_transforms=n_transforms,
+        hidden_features=hidden_features,
+    )
+
+
+def fit_flow_recipe(
+    X: torch.Tensor,
+    y_std: torch.Tensor,
+    config: HarnessConfig,
+    *,
+    in_dim: int,
+    hidden: int,
+    flow_type: str = "nsf",
+    n_transforms: int = 3,
+    hidden_features: tuple[int, ...] = (64, 64),
+    seed: int | None = None,
+    **flow_kwargs: Any,
+) -> tuple[nn.Module, Any, dict[str, Any]]:
+    """The NSF recipe for any spline flow (``"nsf"``, ``"tarflow"``).
+
+    ``seed`` (default ``config.seed``) sets the validation carve and the batch
+    order, so ensemble members get their own carve. ``flow_kwargs`` go to
+    ``create_flow_model`` (e.g. ``n_layers`` for TarFlow).
+    """
     from torchregress.losses.nflows import (
         NormalizingFlowLoss,
         create_flow_model,
@@ -54,7 +84,7 @@ def fit_nsf_recipe(
     n_val = max(1, int(round(VAL_FRACTION * n)))
     if n - n_val < 2:
         raise ValueError(f"training split too small for a validation carve: n={n}")
-    gen = torch.Generator().manual_seed(int(config.seed))
+    gen = torch.Generator().manual_seed(int(config.seed if seed is None else seed))
     perm = torch.randperm(n, generator=gen)
     va, tr = perm[:n_val].to(X.device), perm[n_val:].to(X.device)
     X_tr, y_tr, X_va, y_va = X[tr], y_std[tr], X[va], y_std[va]
@@ -63,11 +93,12 @@ def fit_nsf_recipe(
     flow = create_flow_model(
         n_features=y_std.shape[1],
         context_dim=hidden,
-        flow_type="nsf",
+        flow_type=flow_type,
         n_transforms=n_transforms,
         hidden_features=list(hidden_features),
         bins=BINS,
         bound=bound,
+        **flow_kwargs,
     )
     model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=hidden).to(X.device)
     loss_fn = NormalizingFlowLoss(flow=flow).to(X.device)
