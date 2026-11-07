@@ -64,6 +64,7 @@ from typing import Any
 import numpy as np
 import torch
 from torchregress.inference import (
+    MixtureFractionEstimate,
     WifiRatioEnsemble,
     effective_sample_size,
     grid_log_posterior,
@@ -383,7 +384,7 @@ class LikelihoodRatioSuite(HarnessRunner):
         theta_mix = torch.where(from_joint.to(device)[:, None], theta_test, theta_prior)
         features = self._wifi_features(state["classifiers"], theta_mix, x_test)
         wifi = state["wifi"]
-        estimate = wifi.mixture_fraction(features)
+        estimate: MixtureFractionEstimate = wifi.mixture_fraction(features)
         realized = float(from_joint.double().mean())
         error = estimate.fraction - realized
         return {

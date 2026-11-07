@@ -18,8 +18,9 @@ Methods
   intervals, joint HPD levels from ``model_hpd_level`` and the mean epistemic
   entropy (member mutual information) from ``entropy_decomposition``
 * Every density row (NormalizingFlow, TarFlow, NF_DensityEnsemble_K5) also
-  reports test NLL and joint highest-density-region coverage
-  (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95
+  reports test NLL, joint highest-density-region coverage
+  (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95, and the KS distance of
+  the joint HPD levels (``sample_hpd_level``) from uniform
 * ``NF_Ensemble_K{2,5,10,20}`` — K independent NSF flows with pooled samples
   for per-dim quantile intervals (Proposal #10 extended to multivariate
   targets; K-sweep family per §15)
@@ -567,7 +568,11 @@ def _density_metrics(density: dict[str, Any], y_true: np.ndarray) -> dict[str, f
     ``model_hpd_level``), else from ``sample_hpd_coverage`` on the stored
     ``density["sample_log_prob"]`` ``[N, S]``.
     """
-    from torchregress.metrics import sample_hpd_coverage
+    from torchregress.metrics import (
+        kolmogorov_smirnov_uniform_statistic,
+        sample_hpd_coverage,
+        sample_hpd_level,
+    )
 
     log_prob = density["log_prob"](y_true).detach().double().cpu()
     out = {"NLL": float(-log_prob.mean())}
@@ -576,7 +581,12 @@ def _density_metrics(density: dict[str, Any], y_true: np.ndarray) -> dict[str, f
         coverage = [float((level <= c).double().mean()) for c in _HPD_LEVELS]
     else:
         lp_samples = density["sample_log_prob"].detach().double().cpu()
+        level = sample_hpd_level(log_prob, lp_samples).double()
         coverage = sample_hpd_coverage(log_prob, lp_samples, _HPD_LEVELS).tolist()
+    # Calibrated joint regions make the HPD level uniform on [0, 1].
+    out["JointHPDLevelKS"] = float(
+        kolmogorov_smirnov_uniform_statistic(level.clamp(1e-6, 1 - 1e-6)).item()
+    )
     for c, value in zip(_HPD_LEVELS, coverage, strict=True):
         out[f"JointHPD{round(100 * c)}"] = float(value)
     out["JointHPDCalErr"] = float(
