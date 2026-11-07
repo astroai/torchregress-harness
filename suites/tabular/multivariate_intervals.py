@@ -17,6 +17,10 @@ Methods
   ``torchregress.ensemble.DensityEnsemble`` mixture (equal weights): sampled
   intervals, joint HPD levels from ``model_hpd_level`` and the mean epistemic
   entropy (member mutual information) from ``entropy_decomposition``
+* ``NormalizingFlow_recipe`` / ``TarFlow_recipe`` / ``NF_DensityEnsemble_K5_recipe``
+  — the same flows trained with the documented recipe (``suites._flow_recipe``:
+  early stopping on a 15% validation carve, patience 10, best weights restored;
+  ``bound=recommended_tail_bound``, 16 bins) instead of the fixed epoch budget
 * Every density row (NormalizingFlow, TarFlow, NF_DensityEnsemble_K5) also
   reports test NLL, joint highest-density-region coverage
   (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95, and the KS distance of
@@ -558,6 +562,10 @@ _ES_PATIENCE = 10
 
 
 _HPD_LEVELS = (0.5, 0.68, 0.9, 0.95)
+_RECIPE_NOTE = (
+    "{} trained with the documented recipe (early stopping on a 15% validation carve, "
+    "patience 10, best weights restored; recommended_tail_bound; 16 bins)"
+)
 
 
 def _density_metrics(density: dict[str, Any], y_true: np.ndarray) -> dict[str, float]:
@@ -738,6 +746,9 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "NormalizingFlow",
             "TarFlow",
             "NF_DensityEnsemble_K5",
+            "NormalizingFlow_recipe",
+            "TarFlow_recipe",
+            "NF_DensityEnsemble_K5_recipe",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
             "SLS_lowrank",
@@ -798,6 +809,11 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "NF_DensityEnsemble_K5": (
                 "DensityEnsemble of 5 NSF flows (seed offsets, equal weights) → mixture samples, "
                 "joint HPD levels via model_hpd_level, NLL, mean epistemic entropy"
+            ),
+            "NormalizingFlow_recipe": _RECIPE_NOTE.format("NSF, 3 transforms, [64, 64]"),
+            "TarFlow_recipe": _RECIPE_NOTE.format("TarFlow, width 64, n_layers=(4, 1, 1)"),
+            "NF_DensityEnsemble_K5_recipe": _RECIPE_NOTE.format(
+                "DensityEnsemble of 5 NSF flows, each with its own validation carve"
             ),
             "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
             "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
@@ -1054,6 +1070,42 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 encoders.append(model_i)
             ensemble = DensityEnsemble(heads, encoders).to(current_device()).eval()
             return {"type": "density_ensemble", "ensemble": ensemble, "n_features": D}
+
+        # --- *_recipe: the same flows with the documented early-stopping recipe ---
+        elif method in ("NormalizingFlow_recipe", "TarFlow_recipe"):
+            from suites._flow_recipe import fit_flow_recipe
+
+            kwargs: dict[str, Any] = (
+                {"flow_type": "tarflow", "hidden_features": (64,), "n_layers": (4, 1, 1)}
+                if method == "TarFlow_recipe"
+                else {}
+            )
+            model, loss_fn, info = fit_flow_recipe(
+                X, y, config, in_dim=in_dim, hidden=hidden, **kwargs
+            )
+            return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D, **info}
+
+        elif method == "NF_DensityEnsemble_K5_recipe":
+            from torchregress.ensemble import DensityEnsemble
+
+            from suites._flow_recipe import fit_flow_recipe
+
+            heads, encoders, epochs = [], [], []
+            for i in range(5):
+                set_harness_seed(config.seed + i)
+                model_i, loss_i, info_i = fit_flow_recipe(
+                    X, y, config, in_dim=in_dim, hidden=hidden, seed=config.seed + i
+                )
+                heads.append(loss_i)
+                encoders.append(model_i)
+                epochs.append(info_i["best_epoch"])
+            ensemble = DensityEnsemble(heads, encoders).to(current_device()).eval()
+            return {
+                "type": "density_ensemble",
+                "ensemble": ensemble,
+                "n_features": D,
+                "best_epoch": float(np.mean(epochs)),
+            }
 
         # --- NF_Ensemble_K{2,5,10,20}: K independent NSF flows (Proposal #10 extended) ---
         # K parsed from method name \u2014 architecture locked across the family
