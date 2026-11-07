@@ -21,10 +21,13 @@ Methods
 - ``torchregress_NRE_wifi``: wifi ensemble (``inference.WifiRatioEnsemble``,
   Benevedes & Thaler 2025) over five balanced-NRE members trained on bootstrap
   resamples; grid posterior from the weighted log ratio. Extra metrics: mean
-  frequentist log-ratio standard error on the grid (``LogRatioStd``), and a
-  mixture-fraction check (``MixtureFractionEstimate``) on held-out joint and
-  product pairs mixed at kappa = 0.3 (``MixFrac_err``, ``MixFrac_z``,
-  ``MixFrac_std``, ``MixFrac_std_stat``).
+  frequentist log-ratio standard error (``LogRatioStd``), the sum of member
+  weights (``WifiWeightSum``; 1 means no rescaling), and a mixture-fraction
+  check (``MixtureFractionEstimate``) on the independent SBC simulations mixed
+  at kappa = 0.3 (``MixFrac_err``, ``MixFrac_z``, ``MixFrac_std``,
+  ``MixFrac_std_stat``). Members train on 75% of the pairs and the weights are
+  fit on the held-out 25%; with nearly collinear members the weight estimate
+  is noisy, which the sandwich errors report but the point posterior does not.
 - ``torchregress_ContrastiveFlow``: conditional flow trained with
   ``ContrastiveFlowLoss`` in its likelihood-ratio regime (``temperature=1``,
   ``margin=0``); posterior on the same grid from flow log-densities.
@@ -322,12 +325,20 @@ class LikelihoodRatioSuite(HarnessRunner):
         prior_low: float,
         prior_high: float,
     ) -> dict[str, Any]:
-        """Bootstrap balanced-NRE members, then wifi weights on all training pairs."""
+        """Bootstrap balanced-NRE members, then wifi weights on held-out pairs.
+
+        The weights are fit on a 25% carve the members never saw: fitting them
+        on the members' own bootstrap data lets the fit reward each member's
+        overfitting (stacking leakage), which sharpens the posterior.
+        """
         rng = np.random.default_rng(int(config.seed) + 41)
         n_members = 2 if config.smoke else WIFI_MEMBERS
+        order = rng.permutation(len(X))
+        n_fit = max(len(X) // 4, 2)
+        member_rows, weight_rows = order[n_fit:], order[:n_fit]
         classifiers = []
         for _ in range(n_members):
-            index = rng.integers(0, len(X), size=len(X))
+            index = rng.choice(member_rows, size=len(member_rows), replace=True)
             member = self._fit_nre(
                 "torchregress_NRE",
                 X[index],
@@ -339,12 +350,12 @@ class LikelihoodRatioSuite(HarnessRunner):
             )
             classifiers.append(member["classifier"])
         device = current_device()
-        X_t = self._tensor(X, device)
-        theta_t = self._tensor(theta, device)
+        X_t = self._tensor(X[weight_rows], device)
+        theta_t = self._tensor(theta[weight_rows], device)
         # Denominator pairs: each x with an independent prior theta (product law).
         gen = torch.Generator().manual_seed(int(config.seed) + 43)
         theta_marginal = _prior_negatives(
-            gen, len(X), 1, theta.shape[1], prior_low, prior_high, device
+            gen, len(weight_rows), 1, theta.shape[1], prior_low, prior_high, device
         )[:, 0]
         wifi = WifiRatioEnsemble().fit(
             self._wifi_features(classifiers, theta_t, X_t),
@@ -363,12 +374,18 @@ class LikelihoodRatioSuite(HarnessRunner):
     def _wifi_metrics(
         self, state: dict[str, Any], splits: dict[str, Any], config: HarnessConfig
     ) -> dict[str, float]:
-        """Mean log-ratio standard error and a held-out mixture-fraction check."""
+        """Log-ratio standard error, weight sum and a mixture-fraction check.
+
+        The check uses the independent SBC simulations (the test split holds
+        only a handful of observations): each simulated ``x`` keeps its own
+        ``theta`` with probability ``MIX_FRACTION`` (a draw from the joint law)
+        and otherwise gets a fresh prior ``theta`` (the product law).
+        """
         device = current_device()
-        x_test = self._tensor(np.asarray(splits["X_test"], dtype=np.float32), device)
-        n = x_test.shape[0]
-        theta_test = self._tensor(
-            np.asarray(splits["y_test"], dtype=np.float32).reshape(n, -1), device
+        x_sbc = self._tensor(np.asarray(splits["sbc_x"], dtype=np.float32), device)
+        n = x_sbc.shape[0]
+        theta_sbc = self._tensor(
+            np.asarray(splits["sbc_theta"], dtype=np.float32).reshape(n, -1), device
         )
         gen = torch.Generator().manual_seed(int(config.seed) + 47)
         from_joint = torch.rand(n, generator=gen) < MIX_FRACTION
@@ -376,23 +393,24 @@ class LikelihoodRatioSuite(HarnessRunner):
             gen,
             n,
             1,
-            theta_test.shape[1],
+            theta_sbc.shape[1],
             float(state["prior_low"]),
             float(state["prior_high"]),
             device,
         )[:, 0]
-        theta_mix = torch.where(from_joint.to(device)[:, None], theta_test, theta_prior)
-        features = self._wifi_features(state["classifiers"], theta_mix, x_test)
+        theta_mix = torch.where(from_joint.to(device)[:, None], theta_sbc, theta_prior)
+        features = self._wifi_features(state["classifiers"], theta_mix, x_sbc)
         wifi = state["wifi"]
         estimate: MixtureFractionEstimate = wifi.mixture_fraction(features)
-        realized = float(from_joint.double().mean())
-        error = estimate.fraction - realized
+        error = estimate.fraction - float(from_joint.double().mean())
+        finite_std = 0.0 < estimate.std < float("inf")
         return {
             "LogRatioStd": float(wifi.log_ratio_std(features).mean()),
+            "WifiWeightSum": float(wifi.weights_[1:].sum()),
             "MixFrac_err": float(error),
             "MixFrac_std": float(estimate.std),
             "MixFrac_std_stat": float(estimate.std_statistical),
-            "MixFrac_z": float(error / estimate.std) if estimate.std > 0 else float("nan"),
+            "MixFrac_z": float(error / estimate.std) if finite_std else float("nan"),
         }
 
     def _fit_contrastive_flow(
