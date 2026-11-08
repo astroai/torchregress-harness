@@ -135,3 +135,78 @@ def fit_flow_recipe(
     loss_fn.eval()
     info = {"bound": bound, "best_epoch": best_epoch, "epochs_run": ran, "n_val": n_val}
     return model, loss_fn, info
+
+
+def fit_mcd_recipe(
+    X: torch.Tensor,
+    y_std: torch.Tensor,
+    config: HarnessConfig,
+    *,
+    in_dim: int,
+    hidden: int,
+    n_transforms: int = 3,
+    hidden_features: tuple[int, ...] = (64, 64),
+    seed: int | None = None,
+) -> tuple[nn.Module, dict[str, Any]]:
+    """The same recipe for ``MarginalContrastiveDensity``.
+
+    NSF marginal ``p(y)`` (recommended bound, 16 bins) and a CNRE ratio
+    classifier on the raw features (two hidden layers of ``hidden`` units);
+    early stopping monitors ``MarginalContrastiveDensity.loss`` on the carve.
+    """
+    from torchregress.losses import build_ratio_classifier
+    from torchregress.losses.nflows import create_flow_model, recommended_tail_bound
+    from torchregress.models import MarginalContrastiveDensity
+
+    n = X.shape[0]
+    n_val = max(2, int(round(VAL_FRACTION * n)))
+    if n - n_val < 2:
+        raise ValueError(f"training split too small for a validation carve: n={n}")
+    gen = torch.Generator().manual_seed(int(config.seed if seed is None else seed))
+    perm = torch.randperm(n, generator=gen)
+    va, tr = perm[:n_val].to(X.device), perm[n_val:].to(X.device)
+    X_tr, y_tr, X_va, y_va = X[tr], y_std[tr], X[va], y_std[va]
+
+    bound = float(recommended_tail_bound(y_tr))
+    marginal = create_flow_model(
+        n_features=y_std.shape[1],
+        context_dim=0,
+        flow_type="nsf",
+        n_transforms=n_transforms,
+        hidden_features=list(hidden_features),
+        bins=BINS,
+        bound=bound,
+    )
+    classifier = build_ratio_classifier(
+        context_dim=in_dim, observable_dim=y_std.shape[1], hidden_dims=(hidden, hidden)
+    )
+    model = MarginalContrastiveDensity(marginal, classifier).to(X.device)
+    opt = torch.optim.Adam(model.parameters(), lr=config.lr)
+    max_epochs = config.epochs if config.smoke else MAX_EPOCHS
+    batch = max(2, int(config.batch_size))
+
+    best, best_state, best_epoch, bad, ran = float("inf"), None, 0, 0, 0
+    for epoch in range(max_epochs):
+        ran = epoch + 1
+        model.train()
+        for idx in torch.randperm(len(X_tr), generator=gen).to(X.device).split(batch):
+            if len(idx) < 2:
+                continue
+            opt.zero_grad()
+            model.loss(X_tr[idx], y_tr[idx]).backward()
+            opt.step()
+        model.eval()
+        with torch.no_grad():
+            val = float(model.loss(X_va, y_va))
+        if val < best - MIN_DELTA:
+            best, bad, best_epoch = val, 0, epoch
+            best_state = copy.deepcopy(model.state_dict())
+        else:
+            bad += 1
+            if bad >= PATIENCE:
+                break
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    model.eval()
+    info = {"bound": bound, "best_epoch": best_epoch, "epochs_run": ran, "n_val": n_val}
+    return model, info
