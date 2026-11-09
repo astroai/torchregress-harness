@@ -1,6 +1,6 @@
 {
   "torchregress_version": "0.3.0",
-  "torchregress_commit": "c48396e",
+  "torchregress_commit": "309b55c",
   "modules": {
     "losses": {
       "AFTLoss": {
@@ -1170,7 +1170,10 @@
       },
       "build_ratio_classifier": {
         "suites": [
-          "likelihood_ratio"
+          "distributional_bins",
+          "likelihood_ratio",
+          "multivariate_intervals",
+          "pzflow_parity"
         ],
         "status": "covered",
         "reason": ""
@@ -1316,6 +1319,7 @@
       "recommended_tail_bound": {
         "suites": [
           "distributional_bins",
+          "multivariate_intervals",
           "pzflow_parity",
           "sbi_parity"
         ],
@@ -2857,6 +2861,7 @@
       "effective_sample_size": {
         "suites": [
           "likelihood_ratio",
+          "multivariate_intervals",
           "robust_regression"
         ],
         "status": "covered",
@@ -3115,6 +3120,15 @@
         "status": "covered",
         "reason": ""
       },
+      "MarginalContrastiveDensity": {
+        "suites": [
+          "distributional_bins",
+          "multivariate_intervals",
+          "pzflow_parity"
+        ],
+        "status": "covered",
+        "reason": ""
+      },
       "NormalizingFlowMap": {
         "suites": [
           "fm_multitarget",
@@ -3223,12 +3237,12 @@
     }
   },
   "summary": {
-    "exports": 444,
-    "covered": 299,
+    "exports": 445,
+    "covered": 300,
     "allowlisted": 145,
     "uncovered": 0,
-    "unique_names": 443,
-    "unique_covered": 298
+    "unique_names": 444,
+    "unique_covered": 299
   },
   "stale_allowlist": []
 }
