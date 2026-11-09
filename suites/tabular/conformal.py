@@ -1096,7 +1096,7 @@ class ConformalSuite(HarnessRunner):
             "Zoo_UACQR": "torchregress UACQR (band-normalized) on MLP base",
             "Zoo_NexCP": "torchregress NonExchangeableCP (recency-weighted threshold) on MLP base",
             "Zoo_LocalMAD": "torchregress LocalConformalMAD (MAD-scaled) on Gaussian base",
-            "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — JackknifePlus is its K=n alias",
+            "Zoo_CVPlus": "torchregress CVPlus (K=5 refits, 1-2α guarantee) — Jackknife+ is CVPlus with K=n",
             "Zoo_EnbPI": "torchregress EnsembleBatchCP on bootstrap-OOB predictions",
             "CQR+MLP": "quantile MLP + MultiQuantileLoss + post-hoc CQR calibration (ConformalLoss(cqr) not used — it would be 2× loss scaling, same pinball formula)",
             "CQR+TabularMLP": "torchregress.models TabularMLP (library defaults, MultiQuantileLoss alpha/2, 1-alpha/2) + fit_tabular + post-hoc CQR calibration; epochs = min(100, config.epochs)",
@@ -1353,7 +1353,7 @@ class ConformalSuite(HarnessRunner):
             }
 
         # --- torchregress predictor zoo: CVPlus (K-fold refits) + EnbPI ---
-        # JackknifePlus is CVPlus with K=n (alias in the library) — no
+        # Jackknife+ is CVPlus with K=n (leave-one-out folds) — no
         # separate row: LOO refits don't scale; the K=5 row covers the API.
         elif method in ("Zoo_CVPlus", "Zoo_EnbPI"):
             from torchregress.losses.conformal import CVPlus, EnsembleBatchCP

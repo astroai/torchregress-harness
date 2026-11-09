@@ -6,6 +6,7 @@ fit/predict/evaluate/run protocol that emits standardized result rows.
 
 from __future__ import annotations
 
+import importlib.util
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from time import perf_counter
@@ -91,6 +92,20 @@ class HarnessConfig:
     standardize_targets: bool = True  # if True, StandardScaler on y_train/y_test
     output_dir: str = "results/latest"
     warmup_epochs: int = 20  # MSE warmup epochs before switching to MC (MSE_WarmupMC)
+
+
+def _is_missing_package(exc: ImportError) -> bool:
+    """True when ``exc`` means an optional package is not installed.
+
+    A plain ``ImportError("mapie not installed")`` raised by a suite's availability
+    check (no ``name``) counts as missing. A ``ModuleNotFoundError`` / ``ImportError``
+    naming a module counts as missing only if its top-level package cannot be found;
+    otherwise the package is installed and its API changed, which is a failure.
+    """
+    name = getattr(exc, "name", None)
+    if not name:
+        return True
+    return importlib.util.find_spec(name.split(".")[0]) is None
 
 
 class HarnessRunner(ABC):
@@ -345,6 +360,26 @@ class HarnessRunner(ABC):
     # Orchestration
     # ------------------------------------------------------------------
 
+    def _failed_row(
+        self, method: str, dataset_name: str, splits: SplitsDict, exc: BaseException
+    ) -> dict[str, Any]:
+        """Row for a method that raised: null metrics and ``failed: <error>`` notes."""
+        return {
+            "Method": f"{self.name}/{method}",
+            "Library": self.library_name(method),
+            "LibraryVersion": self.library_version(method),
+            "Dataset": dataset_name,
+            "Suite": self.name,
+            "RMSE": None,
+            "MAE": None,
+            "train_s": None,
+            "eval_s": None,
+            "SourceURL": splits.get("_source_url", ""),
+            "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
+            "Device": str(current_device()),
+            "Notes": f"failed: {type(exc).__name__}: {exc}",
+        }
+
     def run(
         self,
         dataset_name: str = "",
@@ -441,6 +476,11 @@ class HarnessRunner(ABC):
                 }
 
             except (ImportError, SkipMethod) as exc:
+                if isinstance(exc, ImportError) and not _is_missing_package(exc):
+                    # An installed package whose API moved (e.g. a renamed submodule) is a
+                    # failure of this row, not an optional dependency that is absent.
+                    rows.append(self._failed_row(method, dataset_name, splits, exc))
+                    continue
                 reason = str(exc) if isinstance(exc, SkipMethod) else f"{type(exc).__name__}: {exc}"
                 row = {
                     "Method": f"{self.name}/{method}",
@@ -459,21 +499,7 @@ class HarnessRunner(ABC):
                 }
 
             except Exception as exc:
-                row = {
-                    "Method": f"{self.name}/{method}",
-                    "Library": self.library_name(method),
-                    "LibraryVersion": self.library_version(method),
-                    "Dataset": dataset_name,
-                    "Suite": self.name,
-                    "RMSE": None,
-                    "MAE": None,
-                    "train_s": None,
-                    "eval_s": None,
-                    "SourceURL": splits.get("_source_url", ""),
-                    "SyntheticFallback": bool(splits.get("_synthetic_fallback", False)),
-                    "Device": str(current_device()),
-                    "Notes": f"failed: {type(exc).__name__}: {exc}",
-                }
+                row = self._failed_row(method, dataset_name, splits, exc)
 
             rows.append(row)
 

@@ -245,7 +245,7 @@ class AgeRegressionSuite(ImageHarnessRunner):
             "CNN+BetaNLL": "4-layer CNN + BetaNLL(beta=0.5) anti-collapse variant (same 2-head)",
             "CNN+FaithfulGaussian": "4-layer CNN + Faithful MSE/NLL-decoupled Gaussian (same 2-head)",
             "CNN+CRPS": "4-layer CNN + Gaussian CRPS (proper score, tail-robust NLL alternative)",
-            "CNN+PoissonGaussian": "4-layer CNN + Poisson-Gaussian imaging-noise NLL (log-lambda head, point)",
+            "CNN+PoissonGaussian": "4-layer CNN + Poisson/Gaussian contamination-mixture NLL (log-lambda head, point)",
             "CNN+ObservedStdNLL": "4-layer CNN + NoisyTarget NLL on observed rater std (APPA-REAL aleatoric gold)",
             "CNN+SLS": "4-layer CNN context + SLS min-volume level-set regions (tau=0.9)",
             "CNN+MDN_K2": "4-layer CNN + 2-component MDN (K-sweep minimum)",
@@ -348,13 +348,13 @@ class AgeRegressionSuite(ImageHarnessRunner):
             _train_image_model(model, FaithfulGaussianLoss(), train_loader, config)
             return {"type": "gaussian_nll", "model": model}
 
-        # --- PoissonGaussian (imaging shot+readout noise; log-lambda head) ---
+        # --- PoissonGaussian (Poisson/Gaussian contamination mixture; log-lambda head) ---
         elif method == "CNN+PoissonGaussian":
-            from torchregress.losses.poisson_gaussian import PoissonGaussianMixtureLoss
+            from torchregress.losses.poisson_gaussian import PoissonGaussianContaminationMixtureLoss
 
             model = self._build_cnn(in_channels=in_channels, out_dim=1)
             _train_image_model(
-                model, PoissonGaussianMixtureLoss(log_input=True), train_loader, config
+                model, PoissonGaussianContaminationMixtureLoss(log_input=True), train_loader, config
             )
             return {"type": "poisson_gaussian", "model": model}
 

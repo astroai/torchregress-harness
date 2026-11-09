@@ -431,7 +431,7 @@ class ImageConformalSuite(ImageHarnessRunner):
         Each branch imports and calls its library (no silent qhat reuse):
         - MAPIE: SplitConformalRegressor with a prefit CNN wrapper.
         - crepes: WrapRegressor around the CNN wrapper, calibrated.
-        - torchcp: SplitPredictor on torch loaders with the CNN module.
+        - torchcp: SplitPredictor(ABS(), model, alpha) (torchcp >= 1.2) with the CNN module.
         Any API mismatch raises (fail-fast) instead of silently emulating.
         """
         from ._base import _image_to_dataloader
@@ -559,25 +559,34 @@ class ImageConformalSuite(ImageHarnessRunner):
         return {"lower": intervals[:, 0], "upper": intervals[:, 1], "y_pred": pred}
 
     def _predict_torchcp(self, model: Any, X_cal: Any, y_cal: Any, X_test: Any) -> Any:
+        """torchcp >= 1.2 split predictor (score on the constructor, ``alpha`` too),
+        the same API as ``suites/tabular/conformal.py``'s ``torchcp_Split+Linear``."""
         import numpy as np
         import torch
-        from torchcp.regression.predictors import SplitPredictor
+        from torch.utils.data import DataLoader, TensorDataset
+        from torchcp.regression.predictor import SplitPredictor
+        from torchcp.regression.score import ABS
 
         device = next(model.parameters()).device
         model.eval()
-        # Build torch cal/test loaders in image layout.
-        from ._base import _image_to_dataloader
-
-        cal_loader = _image_to_dataloader(X_cal, np.asarray(y_cal), batch_size=64, shuffle=False)
-        test_loader = _image_to_dataloader(X_test, y=None, batch_size=64, shuffle=False)
-        predictor = SplitPredictor(model=model, device=device)
-        predictor.calibrate(cal_loader, alpha=self.ALPHA)
-        intervals = predictor.predict(test_loader)
-        intervals = np.asarray(intervals)
-        # torchcp returns (N,2) [lower, upper]; point = CNN forward.
-        pred = self._forward_point(model, np.asarray(X_test))
-        if intervals.ndim == 2 and intervals.shape[1] == 2:
-            return {"lower": intervals[:, 0], "upper": intervals[:, 1], "y_pred": pred}
-        # Fallback layout (N,1,2).
-        intervals = intervals.reshape(len(pred), -1)
-        return {"lower": intervals[:, 0], "upper": intervals[:, -1], "y_pred": pred}
+        x_cal = torch.as_tensor(np.asarray(X_cal), dtype=torch.float32, device=device)
+        y_cal_t = torch.as_tensor(np.asarray(y_cal).reshape(-1), dtype=torch.float32, device=device)
+        cal_loader = DataLoader(TensorDataset(x_cal, y_cal_t), batch_size=64, shuffle=False)
+        predictor = SplitPredictor(ABS(), model=model, alpha=self.ALPHA, device=str(device))
+        predictor.calibrate(cal_loader)
+        x_test = np.asarray(X_test)
+        parts = []
+        with torch.no_grad():
+            for start in range(0, len(x_test), 64):
+                xb = torch.as_tensor(x_test[start : start + 64], dtype=torch.float32, device=device)
+                out = predictor.predict(xb)
+                parts.append(
+                    out.detach().cpu().numpy() if torch.is_tensor(out) else np.asarray(out)
+                )
+        intervals = np.concatenate(parts, axis=0)
+        if intervals.ndim == 3 and intervals.shape[-2:] == (1, 2):
+            intervals = intervals.squeeze(axis=1)
+        if intervals.ndim != 2 or intervals.shape[-1] != 2:
+            raise RuntimeError(f"torchcp SplitPredictor unexpected output shape: {intervals.shape}")
+        pred = self._forward_point(model, x_test)
+        return {"lower": intervals[:, 0], "upper": intervals[:, 1], "y_pred": pred}

@@ -11,6 +11,25 @@ Methods
 * ``MultivariateGaussian`` — full-covariance Gaussian NLL → marginal intervals
   from Cholesky-parameterised covariance
 * ``NormalizingFlow`` — zuko NSF flow → sample-based quantile intervals
+* ``TarFlow`` — transformer autoregressive flow (``flow_type="tarflow"``,
+  deep-shallow blocks) → sample-based quantile intervals
+* ``NF_DensityEnsemble_K5`` — five NSF flows combined as a
+  ``torchregress.ensemble.DensityEnsemble`` mixture (equal weights): sampled
+  intervals, joint HPD levels from ``model_hpd_level`` and the mean epistemic
+  entropy (member mutual information) from ``entropy_decomposition``
+* ``NormalizingFlow_recipe`` / ``TarFlow_recipe`` / ``NF_DensityEnsemble_K5_recipe``
+  — the same flows trained with the documented recipe (``suites._flow_recipe``:
+  early stopping on a 15% validation carve, patience 10, best weights restored;
+  ``bound=recommended_tail_bound``, 16 bins) instead of the fixed epoch budget
+* ``MCD_recipe`` — Marginal Contrastive Discrimination
+  (``torchregress.models.MarginalContrastiveDensity``): an NSF marginal ``p(y)``
+  times a CNRE ratio classifier ``r(x, y)`` on the raw features, trained with the
+  same early-stopping recipe; samples by importance resampling of 8192 marginal
+  draws (``MCD_ESSFrac`` = mean effective-sample fraction of that bank)
+* Every density row (NormalizingFlow, TarFlow, NF_DensityEnsemble_K5) also
+  reports test NLL, joint highest-density-region coverage
+  (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95, and the KS distance of
+  the joint HPD levels (``sample_hpd_level``) from uniform
 * ``NF_Ensemble_K{2,5,10,20}`` — K independent NSF flows with pooled samples
   for per-dim quantile intervals (Proposal #10 extended to multivariate
   targets; K-sweep family per §15)
@@ -24,6 +43,11 @@ Methods
   calibrated by ``SLSConformal`` (box of the calibrated region)
 * ``MultivariateGaussian+Conformal`` — matched baseline: Mahalanobis-score
   ``MultivariateScoreConformal`` ellipsoid (box), same carve
+* ``MultivariateGaussian+WALDO`` — the same Gaussian model and carve, calibrated by
+  ``WaldoConformal`` (full covariance, constant critical value): the joint Wald
+  ellipsoid, scored as a region (``RegionCoverage``/``RegionLogVol``) and as
+  its exact axis box; parity columns check ``waldo_statistic`` and the WALDO
+  threshold against ``MultivariateScoreConformal``
 * ``MultivariateGaussian+LevelSetCP`` — the same Gaussian model and carve, with a
   ``LevelSetConformalPredictor`` on the negative log-density score: the
   calibrated region is the highest-density ellipsoid whose radius adapts to the
@@ -450,6 +474,31 @@ def _sls_region_box(
         return mu.detach().cpu().numpy(), y_np.min(axis=0), y_np.max(axis=0)
 
 
+def _ellipsoid_log_volume(cov: torch.Tensor, radius: float) -> float:
+    """Mean log-volume of ``{y : (y - mu)^T cov^-1 (y - mu) <= radius}`` over rows."""
+    import math
+
+    if math.isinf(radius) and radius > 0:
+        return float("inf")
+    if not radius > 0:
+        return float("-inf")
+    d = cov.shape[-1]
+    log_unit_ball = 0.5 * d * math.log(math.pi) - math.lgamma(0.5 * d + 1.0)
+    logdet = torch.linalg.slogdet(cov.double())[1]
+    return float((log_unit_ball + 0.5 * d * math.log(radius) + 0.5 * logdet).mean())
+
+
+def _waldo_statistic_parity(mean: torch.Tensor, target: torch.Tensor, cov: torch.Tensor) -> float:
+    """Max relative gap of ``waldo_statistic`` vs a float64 Cholesky Mahalanobis distance."""
+    from torchregress.losses import waldo_statistic
+
+    tau = waldo_statistic(mean, target, cov, covariance_type="full").double()
+    diff = (target - mean).double().unsqueeze(-1)
+    chol = torch.linalg.cholesky(cov.double())
+    ref = (diff * torch.cholesky_solve(diff, chol)).sum(dim=(-2, -1))
+    return float(((tau - ref).abs() / ref.abs().clamp_min(1.0)).max())
+
+
 def _gaussian_density_level_set_cp(D: int, *, alpha: float = 0.1, grid_size: int = 2048) -> Any:
     """Density (HPD) level-set conformal predictor for a full-covariance Gaussian head.
 
@@ -515,6 +564,48 @@ def _gaussian_density_level_set_cp(D: int, *, alpha: float = 0.1, grid_size: int
 
 _ES_VAL_FRAC = 0.15
 _ES_PATIENCE = 10
+
+
+_HPD_LEVELS = (0.5, 0.68, 0.9, 0.95)
+_RECIPE_NOTE = (
+    "{} trained with the documented recipe (early stopping on a 15% validation carve, "
+    "patience 10, best weights restored; recommended_tail_bound; 16 bins)"
+)
+
+
+def _density_metrics(density: dict[str, Any], y_true: np.ndarray) -> dict[str, float]:
+    """NLL and joint HPD coverage for a row exposing predictive log-densities.
+
+    ``density["log_prob"](y) -> [N]`` scores the targets. Joint HPD levels come
+    from ``density["hpd_level"](y)`` when the row provides it (e.g.
+    ``model_hpd_level``), else from ``sample_hpd_coverage`` on the stored
+    ``density["sample_log_prob"]`` ``[N, S]``.
+    """
+    from torchregress.metrics import (
+        kolmogorov_smirnov_uniform_statistic,
+        sample_hpd_coverage,
+        sample_hpd_level,
+    )
+
+    log_prob = density["log_prob"](y_true).detach().double().cpu()
+    out = {"NLL": float(-log_prob.mean())}
+    if "hpd_level" in density:
+        level = density["hpd_level"](y_true).detach().double().cpu()
+        coverage = [float((level <= c).double().mean()) for c in _HPD_LEVELS]
+    else:
+        lp_samples = density["sample_log_prob"].detach().double().cpu()
+        level = sample_hpd_level(log_prob, lp_samples).double()
+        coverage = sample_hpd_coverage(log_prob, lp_samples, _HPD_LEVELS).tolist()
+    # Calibrated joint regions make the HPD level uniform on [0, 1].
+    out["JointHPDLevelKS"] = float(
+        kolmogorov_smirnov_uniform_statistic(level.clamp(1e-6, 1 - 1e-6)).item()
+    )
+    for c, value in zip(_HPD_LEVELS, coverage, strict=True):
+        out[f"JointHPD{round(100 * c)}"] = float(value)
+    out["JointHPDCalErr"] = float(
+        np.mean([abs(v - c) for v, c in zip(coverage, _HPD_LEVELS, strict=True)])
+    )
+    return out
 
 
 def _train_sls_early_stop(
@@ -601,6 +692,7 @@ _CONFORMAL_METHODS = (
     "SLS_lowrank+SLSConformal",
     "MultivariateGaussian+Conformal",
     "MultivariateGaussian+LevelSetCP",
+    "MultivariateGaussian+WALDO",
 )
 _CONFORMAL_CAL_FRAC = 0.25  # same as ConformalSuite.CALIBRATION_FRAC
 
@@ -657,6 +749,12 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MultiTargetCP",
             "MVScore",
             "NormalizingFlow",
+            "TarFlow",
+            "NF_DensityEnsemble_K5",
+            "NormalizingFlow_recipe",
+            "TarFlow_recipe",
+            "NF_DensityEnsemble_K5_recipe",
+            "MCD_recipe",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
             "SLS_lowrank",
@@ -665,6 +763,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "SLS_lowrank+SLSConformal",
             "MultivariateGaussian+Conformal",
             "MultivariateGaussian+LevelSetCP",
+            "MultivariateGaussian+WALDO",
             "MDN",
             "MultiQuantile",
             "HeteroEnsembleCov",
@@ -708,6 +807,24 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MVScore": "Mahalanobis-score conformal regions (bounding-box intervals)",
             "WassersteinBound": "supervised mean+var (pseudo-labeled cov) via Wasserstein surrogate",
             "NormalizingFlow": "zuko NSF flow → sample-based quantile intervals per output dim",
+            "TarFlow": (
+                "transformer autoregressive flow (create_flow_model flow_type='tarflow', "
+                "width 64, deep-shallow n_layers=(4, 1, 1)) → sample-based quantile intervals; "
+                "NLL and joint HPD coverage"
+            ),
+            "NF_DensityEnsemble_K5": (
+                "DensityEnsemble of 5 NSF flows (seed offsets, equal weights) → mixture samples, "
+                "joint HPD levels via model_hpd_level, NLL, mean epistemic entropy"
+            ),
+            "NormalizingFlow_recipe": _RECIPE_NOTE.format("NSF, 3 transforms, [64, 64]"),
+            "TarFlow_recipe": _RECIPE_NOTE.format("TarFlow, width 64, n_layers=(4, 1, 1)"),
+            "NF_DensityEnsemble_K5_recipe": _RECIPE_NOTE.format(
+                "DensityEnsemble of 5 NSF flows, each with its own validation carve"
+            ),
+            "MCD_recipe": _RECIPE_NOTE.format(
+                "MCD: NSF marginal p(y) x CNRE ratio classifier r(x, y), "
+                "importance-resampled samples, Monte-Carlo-normalized log-density"
+            ),
             "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
             "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
             "SLS_earlystop": (
@@ -725,6 +842,13 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "MultivariateGaussian+LevelSetCP": _CONF_NOTE.format(
                 "LevelSetConformalPredictor on the Gaussian negative log-density "
                 "(HPD ellipsoid, volume-adaptive radius), grid-searched box"
+            ),
+            "MultivariateGaussian+WALDO": _CONF_NOTE.format(
+                "WaldoConformal (full covariance, global critical value) joint Wald ellipsoid; "
+                "box = exact axis projection. RegionCoverage/RegionLogVol score the ellipsoid "
+                "itself; WaldoStatParityErr = max rel. gap of waldo_statistic vs a float64 "
+                "Cholesky Mahalanobis; WaldoThr vs MVScoreThr compares WALDO's threshold with "
+                "MultivariateScoreConformal's finite-sample one on the same scores"
             ),
             "MDN": "multivariate mixture (3 full-cov Gaussians) → sampled intervals + full scoring",
             "MultiQuantile": "marginal 10/50/90% quantiles per dim → own intervals (no joint samples)",
@@ -911,6 +1035,93 @@ class MultivariateIntervalsSuite(HarnessRunner):
             _train_one(model, loss_fn, X, y, config, loss_params=list(flow.parameters()))
             model.eval()
             return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D}
+
+        # --- TarFlow: transformer autoregressive flow ---
+        elif method == "TarFlow":
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            flow = create_flow_model(
+                n_features=D,
+                context_dim=context_dim,
+                flow_type="tarflow",
+                n_transforms=3,
+                hidden_features=[64],
+                n_layers=(4, 1, 1),
+            )
+            model = _MultiOutputMLP(in_dim, hidden, out_dim=context_dim)
+            loss_fn = NormalizingFlowLoss(flow=flow)
+            _train_one(model, loss_fn, X, y, config, loss_params=list(flow.parameters()))
+            model.eval()
+            return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D}
+
+        # --- NF_DensityEnsemble_K5: DensityEnsemble mixture of 5 NSF flows ---
+        elif method == "NF_DensityEnsemble_K5":
+            from torchregress.ensemble import DensityEnsemble
+            from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+            context_dim = hidden
+            heads: list[nn.Module] = []
+            encoders: list[nn.Module] = []
+            for i in range(5):
+                set_harness_seed(config.seed + i)
+                flow_i = create_flow_model(
+                    n_features=D,
+                    context_dim=context_dim,
+                    flow_type="nsf",
+                    n_transforms=self._NF_ENSEMBLE_TRANSFORMS,
+                    hidden_features=self._NF_ENSEMBLE_HIDDEN,
+                )
+                model_i = _MultiOutputMLP(in_dim, hidden, out_dim=context_dim)
+                loss_i = NormalizingFlowLoss(flow=flow_i)
+                _train_one(model_i, loss_i, X, y, config, loss_params=list(flow_i.parameters()))
+                model_i.eval()
+                heads.append(loss_i)
+                encoders.append(model_i)
+            ensemble = DensityEnsemble(heads, encoders).to(current_device()).eval()
+            return {"type": "density_ensemble", "ensemble": ensemble, "n_features": D}
+
+        # --- *_recipe: the same flows with the documented early-stopping recipe ---
+        elif method in ("NormalizingFlow_recipe", "TarFlow_recipe"):
+            from suites._flow_recipe import fit_flow_recipe
+
+            kwargs: dict[str, Any] = (
+                {"flow_type": "tarflow", "hidden_features": (64,), "n_layers": (4, 1, 1)}
+                if method == "TarFlow_recipe"
+                else {}
+            )
+            model, loss_fn, info = fit_flow_recipe(
+                X, y, config, in_dim=in_dim, hidden=hidden, **kwargs
+            )
+            return {"type": "nflow", "model": model, "flow": loss_fn, "n_features": D, **info}
+
+        elif method == "NF_DensityEnsemble_K5_recipe":
+            from torchregress.ensemble import DensityEnsemble
+
+            from suites._flow_recipe import fit_flow_recipe
+
+            heads, encoders, epochs = [], [], []
+            for i in range(5):
+                set_harness_seed(config.seed + i)
+                model_i, loss_i, info_i = fit_flow_recipe(
+                    X, y, config, in_dim=in_dim, hidden=hidden, seed=config.seed + i
+                )
+                heads.append(loss_i)
+                encoders.append(model_i)
+                epochs.append(info_i["best_epoch"])
+            ensemble = DensityEnsemble(heads, encoders).to(current_device()).eval()
+            return {
+                "type": "density_ensemble",
+                "ensemble": ensemble,
+                "n_features": D,
+                "best_epoch": float(np.mean(epochs)),
+            }
+
+        elif method == "MCD_recipe":
+            from suites._flow_recipe import fit_mcd_recipe
+
+            model, info = fit_mcd_recipe(X, y, config, in_dim=in_dim, hidden=hidden)
+            return {"type": "mcd", "model": model, "n_features": D, **info}
 
         # --- NF_Ensemble_K{2,5,10,20}: K independent NSF flows (Proposal #10 extended) ---
         # K parsed from method name \u2014 architecture locked across the family
@@ -1171,7 +1382,11 @@ class MultivariateIntervalsSuite(HarnessRunner):
         yc = torch.from_numpy(carved["y_cal"]).float().to(dev)
         in_dim = X.shape[1]
 
-        if method in ("MultivariateGaussian+Conformal", "MultivariateGaussian+LevelSetCP"):
+        if method in (
+            "MultivariateGaussian+Conformal",
+            "MultivariateGaussian+LevelSetCP",
+            "MultivariateGaussian+WALDO",
+        ):
             from torchregress.losses import MultivariateGaussianLoss
             from torchregress.losses.conformal import MultivariateScoreConformal
 
@@ -1199,6 +1414,28 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 cov_c = _covariance_from_cholesky_params(out_c[:, D:], D)
             predictor = MultivariateScoreConformal(alpha=0.1)
             predictor.calibrate(mu_c.detach(), cov_c.detach(), yc)
+            if method == "MultivariateGaussian+WALDO":
+                # Same seed, carve and base model as MultivariateGaussian+Conformal:
+                # with a constant critical value WALDO's Wald ellipsoid is the
+                # Mahalanobis region, so the two thresholds should agree.
+                from torchregress.losses import WaldoConformal
+
+                waldo = WaldoConformal(alpha=0.1, covariance_type="full")
+                waldo.calibrate(mu_c.detach(), yc, cov_c.detach())
+                return {
+                    "type": "mv_gaussian_waldo",
+                    "model": model,
+                    "predictor": waldo,
+                    "n_features": D,
+                    "n_cal": int(Xc.shape[0]),
+                    "parity": {
+                        "WaldoStatParityErr": _waldo_statistic_parity(
+                            mu_c.detach(), yc, cov_c.detach()
+                        ),
+                        "WaldoThr": float(waldo.q_hat) if waldo.q_hat is not None else None,
+                        "MVScoreThr": predictor.region_radius(),
+                    },
+                }
             return {
                 "type": "mv_gaussian_conformal",
                 "model": model,
@@ -1516,6 +1753,17 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 context = model(X_t)
                 samples = flow_loss.sample(context, n_samples=512)  # (N, 512, D)
                 samples_np = samples.detach().cpu().numpy()
+                # Predictive log-density of every draw, [N, S], for joint HPD levels.
+                sample_log_prob = (
+                    flow_loss.distribution(context).log_prob(samples.transpose(0, 1)).T
+                )
+
+            def _target_log_prob(y_np: np.ndarray, _ctx: torch.Tensor = context) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return flow_loss.log_prob(_ctx, y_t)
+
+            density = {"log_prob": _target_log_prob, "sample_log_prob": sample_log_prob}
 
             lo_q = 0.05
             hi_q = 0.95
@@ -1531,6 +1779,78 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
+                "_density": density,
+            }
+
+        # --- DensityEnsemble → mixture samples, model_hpd_level, epistemic entropy ---
+        elif model_type == "density_ensemble":
+            from torchregress.metrics import model_hpd_level
+
+            ensemble = model_state["ensemble"]
+            X_t = torch.from_numpy(X_test).float().to(current_device())
+            with torch.no_grad():
+                samples = ensemble.sample(X_t, n_samples=512)  # (N, 512, D)
+                entropy = ensemble.entropy_decomposition(X_t, n_samples=64)
+            samples_np = samples.detach().cpu().numpy()
+
+            def _ensemble_log_prob(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return ensemble.log_prob(X_t, y_t)
+
+            def _ensemble_hpd_level(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                return model_hpd_level(ensemble, X_t, y_t, n_samples=512)
+
+            return {
+                "lower": np.quantile(samples_np, 0.05, axis=1).reshape(-1),
+                "upper": np.quantile(samples_np, 0.95, axis=1).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": _to_scoring_samples(samples_np, len(X_test), config.seed),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_density": {"log_prob": _ensemble_log_prob, "hpd_level": _ensemble_hpd_level},
+                "_extra_metrics": {
+                    "EpistemicEntropy": float(entropy["epistemic"].mean()),
+                    "AleatoricEntropy": float(entropy["aleatoric"].mean()),
+                },
+            }
+
+        # --- MCD → importance-resampled samples, normalized log-density ---
+        elif model_type == "mcd":
+            mcd = model_state["model"]
+            X_t = torch.from_numpy(X_test).float().to(current_device())
+            n_draws = 512
+            with torch.no_grad():
+                log_z = mcd.log_normalizer(X_t, n_samples=4096)
+                samples = mcd.sample(X_t, n_samples=n_draws, n_proposals=8192)
+                sample_log_prob = (
+                    mcd.log_prob(
+                        X_t.repeat_interleave(n_draws, dim=0),
+                        samples.reshape(-1, D),
+                        normalize=False,
+                    ).view(len(X_test), n_draws)
+                    - log_z[:, None]
+                )
+                ess = mcd.effective_sample_size(X_t, n_proposals=8192)
+            samples_np = samples.detach().cpu().numpy()
+
+            def _mcd_log_prob(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return mcd.log_prob(X_t, y_t, normalize=False) - log_z
+
+            return {
+                "lower": np.quantile(samples_np, 0.05, axis=1).reshape(-1),
+                "upper": np.quantile(samples_np, 0.95, axis=1).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": _to_scoring_samples(samples_np, len(X_test), config.seed),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_density": {"log_prob": _mcd_log_prob, "sample_log_prob": sample_log_prob},
+                "_extra_metrics": {"MCD_ESSFrac": float(ess.mean()) / 8192.0},
             }
 
         # --- NF_Ensemble_K5 → pooled per-dim quantile intervals ---
@@ -1611,6 +1931,39 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "_multi_output": True,
                 "_n_features": D,
                 "_y_test_shape": (len(X_test), D),
+                "_region": {
+                    "contains": lambda y, p=model_state["predictor"], m=mean, c=cov: p.covers(
+                        m, c, y
+                    ),
+                    "log_volume": _ellipsoid_log_volume(cov, r_val),
+                },
+            }
+
+        # --- MultivariateGaussian+WALDO → WaldoConformal Wald ellipsoid (box) ---
+        elif model_type == "mv_gaussian_waldo":
+            model = model_state["model"]
+            model.eval()
+            waldo = model_state["predictor"]
+            with torch.no_grad():
+                out = model(torch.from_numpy(X_test).float().to(current_device()))
+                mean = out[:, :D]
+                cov = _covariance_from_cholesky_params(out[:, D:], D)
+            q = float(waldo.q_hat)
+            var = torch.diagonal(cov, dim1=-2, dim2=-1).clamp_min(1e-8).detach().cpu().numpy()
+            half = np.sqrt(q * var)
+            mean_np = mean.detach().cpu().numpy()
+            return {
+                "lower": (mean_np - half).reshape(-1),
+                "upper": (mean_np + half).reshape(-1),
+                "y_pred": mean_np.reshape(-1),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_region": {
+                    "contains": lambda y, p=waldo, m=mean, c=cov: p.contains(m, y, c),
+                    "log_volume": _ellipsoid_log_volume(cov, q),
+                },
+                "_extra_metrics": dict(model_state["parity"]),
             }
 
         # --- MultivariateGaussian+LevelSetCP → box of the HPD level set ---
@@ -1690,6 +2043,24 @@ class MultivariateIntervalsSuite(HarnessRunner):
             # Per-dimension coverage
             for d in range(D):
                 metrics[f"Coverage_D{d}"] = float(np.mean(in_interval[:, d]))
+
+            # Joint ellipsoidal regions (not their boxes): exact membership and
+            # mean log-volume, so region rows compare on the region itself.
+            region: Any = predictions.get("_region")
+            if region is not None:
+                y_t = torch.as_tensor(y_true, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    inside = region["contains"](y_t)
+                metrics["RegionCoverage"] = float(inside.double().mean())
+                metrics["RegionLogVol"] = float(region["log_volume"])
+            extra: Any = predictions.get("_extra_metrics", {})
+            metrics.update(extra)
+
+            # Density rows: test NLL and joint highest-density-region coverage
+            # (multivariate calibration that per-dim PIT cannot see).
+            density: Any = predictions.get("_density")
+            if density is not None:
+                metrics.update(_density_metrics(density, y_true))
 
             # Library mean pinball over predicted quantile levels (SQR-style
             # rows stash per-level values; averaged over output dims).

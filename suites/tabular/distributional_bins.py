@@ -17,6 +17,9 @@ Methods
   identical across K; only the ensemble size varies.
 * ``MDN_K3`` — mixture density network → sample-based quantile intervals
 * ``Evidential`` — NIG evidential regression → Student-t predictive intervals
+* ``CumulativeCDF`` — 64-bin softmax head trained with ``CumulativeCDFLoss``
+  (binned CRPS); intervals, median, exact PIT and exact histogram CRPS
+  (``binned_cdf`` + ``crps_from_binned_cdf``) from the piecewise-linear CDF
 
 Evaluation
 ----------
@@ -83,6 +86,40 @@ _SKEW_METHODS: dict[str, dict[str, Any]] = {
 # ---------------------------------------------------------------------------
 
 _Z_SCORE = 1.645  # 90% prediction interval
+_CDF_BINS = 64  # CumulativeCDF head: equal-width bins over the padded train range
+
+
+def _cdf_bin_centers(y_train: torch.Tensor, n_bins: int = _CDF_BINS) -> torch.Tensor:
+    """Equal-width bin centers covering the train targets plus 5% padding per side."""
+    lo, hi = float(y_train.min()), float(y_train.max())
+    pad = 0.05 * max(hi - lo, 1e-3)
+    return torch.linspace(lo - pad, hi + pad, n_bins, dtype=torch.float32)
+
+
+def _edges_from_centers(centers: np.ndarray) -> np.ndarray:
+    """Bin edges of equal-width bins around ``centers`` (``K + 1`` values)."""
+    c = np.asarray(centers, dtype=np.float64)
+    h = float(c[1] - c[0])
+    return c[0] - 0.5 * h + h * np.arange(len(c) + 1, dtype=np.float64)
+
+
+def _piecewise_linear_quantile(edges: np.ndarray, cdf: np.ndarray, level: float) -> np.ndarray:
+    """Per-row quantile of the CDF that is linear between ``edges`` (``cdf``: ``[N, K+1]``)."""
+    n_bins = cdf.shape[1] - 1
+    idx = np.clip((cdf < level).sum(axis=1), 1, n_bins)
+    rows = np.arange(cdf.shape[0])
+    c0, c1 = cdf[rows, idx - 1], cdf[rows, idx]
+    t = (level - c0) / np.maximum(c1 - c0, 1e-300)
+    return edges[idx - 1] + np.clip(t, 0.0, 1.0) * (edges[idx] - edges[idx - 1])
+
+
+def _piecewise_linear_cdf_at(edges: np.ndarray, cdf: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Exact PIT ``F_i(y_i)`` of the piecewise-linear CDFs (0 below / 1 above the support)."""
+    n_bins = cdf.shape[1] - 1
+    j = np.clip(np.searchsorted(edges, y, side="right") - 1, 0, n_bins - 1)
+    t = np.clip((y - edges[j]) / (edges[j + 1] - edges[j]), 0.0, 1.0)
+    rows = np.arange(cdf.shape[0])
+    return cdf[rows, j] + t * (cdf[rows, j + 1] - cdf[rows, j])
 
 
 def _split_cp_intervals(
@@ -211,6 +248,7 @@ class DistributionalBinsSuite(HarnessRunner):
             *NF_ENSEMBLE_K_VARIANTS,
             "MDN_K3",
             "Evidential",
+            "CumulativeCDF",
             "MC_CP",
             "SLS_CP",
             "CTI",
@@ -270,6 +308,12 @@ class DistributionalBinsSuite(HarnessRunner):
             ),
             "MDN_K3": "3-component mixture density network → sample-based quantile intervals",
             "Evidential": "NIG evidential regression → Student-t predictive intervals",
+            "CumulativeCDF": (
+                f"{_CDF_BINS}-bin softmax head + CumulativeCDFLoss (binned CRPS on bin centers); "
+                "masses spread uniformly within bins → piecewise-linear CDF (binned_cdf): "
+                "quantile intervals, median, exact PIT and exact CRPS (crps_from_binned_cdf), "
+                "standardized target units"
+            ),
             "MC_CP": "NSF flow samples + MonteCarloConformal (mean center)",
             "SLS_CP": "SLS frontier (d=1) + SLSConformal grid predictor",
             "CTI": "NSF flow density + Conformal Thresholded Intervals (level sets)",
@@ -458,6 +502,16 @@ class DistributionalBinsSuite(HarnessRunner):
             _train_evidential(model, loss_fn, X_train, y_train, config)
             model.eval()
             return {"type": "evidential", "model": model, "loss_fn": loss_fn}
+
+        # --- CumulativeCDF: binned softmax head + binned-CRPS training ---
+        elif method == "CumulativeCDF":
+            from torchregress.losses import CumulativeCDFLoss
+
+            centers = _cdf_bin_centers(y_train)
+            model = _MLP(in_dim=in_dim, hidden=hidden, out_dim=len(centers))
+            _train_one(model, CumulativeCDFLoss(centers), X_train, y_train, config)
+            model.eval()
+            return {"type": "binned_cdf", "model": model, "centers": centers.numpy()}
 
         # --- MonteCarloCP: NF samples + MonteCarloConformal (mean center) ---
         elif method == "MC_CP":
@@ -747,6 +801,23 @@ class DistributionalBinsSuite(HarnessRunner):
                 X_t,
             )
             return {"lower": lo, "upper": hi}
+
+        # --- CumulativeCDF → piecewise-linear binned CDF ---
+        elif model_type == "binned_cdf":
+            from torchregress.metrics import binned_cdf
+
+            with torch.no_grad():
+                logits = model_state["model"](X_t)
+                probs = torch.softmax(logits, dim=-1).double().cpu().numpy()
+            edges = _edges_from_centers(model_state["centers"])
+            cdf = binned_cdf(probs)
+            return {
+                "lower": _piecewise_linear_quantile(edges, cdf, 0.05),
+                "upper": _piecewise_linear_quantile(edges, cdf, 0.95),
+                "y_pred": _piecewise_linear_quantile(edges, cdf, 0.5),
+                "_bin_edges": edges,
+                "_bin_cdf": cdf,
+            }
 
         # --- MonteCarloCP → sample-based conformal intervals ---
         elif model_type == "mc_cp":
@@ -1053,7 +1124,16 @@ class DistributionalBinsSuite(HarnessRunner):
         # Dispatcher auto-detects: samples (NF/MDN/Ensemble), mean+std
         # (GaussianNLL), gamma/nu/alpha/beta (Evidential).  Split_CP
         # falls back to uniform placeholder (it is calibrated by-design).
-        pit = compute_pit_values(predictions, y_true)
+        if "_bin_cdf" in predictions:
+            # Binned-CDF head: exact PIT and exact CRPS of the piecewise-linear CDF.
+            from torchregress.metrics import crps_from_binned_cdf
+
+            edges = np.asarray(predictions["_bin_edges"], dtype=np.float64)
+            cdf = np.asarray(predictions["_bin_cdf"], dtype=np.float64)
+            pit = _piecewise_linear_cdf_at(edges, cdf, y_true)
+            metrics["CRPS"] = float(crps_from_binned_cdf(edges, cdf, y_true))
+        else:
+            pit = compute_pit_values(predictions, y_true)
         if pit.size >= 3:
             metrics.update(pit_uniformity_tests(pit))
 

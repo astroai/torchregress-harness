@@ -5,11 +5,18 @@ skew-t, Johnson-SU, sinh-arcsinh, asymmetric-Laplace, MDN, NSF) against
 CatBoost uncertainty + LightGBM point baselines on RIGHT-SKEWED real
 targets (Folktables all-states income, NYC TLC fares, insurance claims).
 
-Targets stay RAW (loaders set ``_skip_y_standardization``) so likelihood
-rows see the true skew. Scoring is proper throughout: per-row NLL from
-the library elementwise functionals, CRPS/PIT from predictive samples,
-90% sample-quantile coverage/width, plus rows/sec throughput (efficiency
-is part of any SOTA claim at >1M rows).
+Scoring units depend on the loader.  ``tlc_fare`` and ``insurance_claims``
+set ``_skip_y_standardization``, so their rows are scored in the raw target
+units (TLC: dollars).  ``folktables_all`` does NOT set it: ``load_dataset``
+z-scores income with the train mean/std before the suite sees it, so its
+NLL / CRPS / width / RMSE / MAE are in z units of income (standard
+deviations), not dollars.  Either way the skew is intact (an affine map
+preserves shape).  "Native units" below means the units the suite receives.
+Scoring is proper throughout: per-row NLL from the library elementwise
+functionals, CRPS/PIT from predictive samples drawn from exactly the fitted
+distribution (no shape-parameter clamps; see ``_family_samples``), 90%
+sample-quantile coverage/width, plus rows/sec throughput (efficiency is part
+of any SOTA claim at >1M rows).
 
 Synthetic family designs
 ------------------------
@@ -27,10 +34,17 @@ Design notes
 ------------
 * SQR is not benchmarked here (quantile, not likelihood, objective).
 * NSF standardizes targets internally (z-score from train) because the
-  zuko spline bound cannot represent raw dollar-scale mass; samples are
+  zuko spline bound cannot represent raw-scale mass; samples are
   mapped back and NLL is corrected by ``+ log(std)`` to native units.
 * Torch rows train with batch >= 1024 (throughput-motivated; documented).
 * CatBoost ``RMSEWithUncertainty`` gives (mean, var); scored as Gaussian.
+* NLL and CRPS can disagree sharply for the flexible-tail families.  On
+  near-deterministic, discretized targets (TLC metered fares) the NLL fit
+  pairs a tiny scale with very heavy tails on the rare rows the features
+  cannot place (sinh-arcsinh ``delta`` up to ~11, Johnson-SU ``delta`` down
+  to ~0.04: lognormal-like tails with log-sd ``delta`` resp. ``1/delta``).
+  NLL charges such tails ~log(width); CRPS charges ~width, so a large CRPS
+  with a normal NLL is the fitted predictive, not a sampling artifact.
 """
 
 from __future__ import annotations
@@ -46,11 +60,31 @@ from harness.core import set_harness_seed
 from harness.devices import current_device
 from harness.runners import HarnessConfig, HarnessRunner
 from suites._backbones import _MLP, _hidden_size, _train_one
+from suites._ft_transformer import fit_ft_transformer
 from suites.tabular._likelihood_designs import DESIGNS as FAMILY_DESIGNS
 from suites.tabular._likelihood_designs import run_design as run_family_design
 
 _N_SAMPLES = 256
 _BIG_BATCH = 1024
+_FORWARD_CHUNK = 65536  # rows per inference chunk for the MLP heads
+_SAMPLE_CHUNK_DRAWS = 1 << 21  # predictive draws per NSF sampling chunk (rows x samples)
+
+
+def _raw_outputs(state: dict[str, Any], X: np.ndarray, device: torch.device) -> torch.Tensor:
+    """Head outputs for ``X`` on ``device``, computed in chunks (test sets reach 1e6 rows)."""
+    if "ft" in state:
+        return state["ft"].forward(X).to(device)
+    model = state["model"]
+    model.eval()
+    Xt = np.asarray(X, dtype=np.float32)
+    with torch.no_grad():
+        outs = [
+            model(torch.from_numpy(Xt[i : i + _FORWARD_CHUNK]).to(device))
+            for i in range(0, len(Xt), _FORWARD_CHUNK)
+        ]
+    return torch.cat(outs)
+
+
 _Z = 1.6448536269514722
 
 
@@ -59,62 +93,81 @@ def _softplus(x: torch.Tensor) -> torch.Tensor:
 
 
 def _family_samples(family: str, raw: torch.Tensor, n: int, seed: int) -> torch.Tensor:
-    """[n, N] predictive draws for a raw head output (torch-native).
+    """[n, N] float64 CPU draws from EXACTLY the predictive the NLL scores.
 
-    Shape parameters are clamped to sampling-stable ranges; this affects
-    only the predictive draws, never the trained NLL.
+    No shape parameter is clamped: the draws come from the same parameters
+    (``softplus(.) + 1e-6`` for positive ones, as in the library losses)
+    whose NLL the row reports, so CRPS / PIT / coverage / width score the
+    fitted distribution and not a lighter-tailed stand-in.  (Up to the
+    0.3.0 release run, JohnsonSU ``delta >= 0.3``, sinh-arcsinh
+    ``eps in [-8, 8]`` / ``delta <= 10``, skew-normal/skew-t ``|alpha| <= 10``,
+    skew-t ``nu in [2.1, 60]`` and ALD ``kappa in [0.2, 5]`` were clamped
+    here; on TLC fares that hid Johnson-SU tails whose exact CRPS is
+    astronomically large while the looser sinh-arcsinh clamp let its own
+    heavy tails through, so the two 4-parameter families looked 20x apart.)
+
+    Base variates are drawn on ``raw.device`` in ``raw.dtype`` (unchanged
+    random streams); the transforms run in float64 on the CPU so that
+    heavy-tailed draws (``sinh`` of large arguments) do not overflow to
+    ``inf`` in float32.
     """
     g = torch.Generator(device=raw.device)
     g.manual_seed(seed)
     N = raw.shape[0]
+    dev, dt = raw.device, raw.dtype
 
     def _randn(*shape: int) -> torch.Tensor:
-        return torch.randn(shape, generator=g, device=raw.device, dtype=raw.dtype)
+        return torch.randn(shape, generator=g, device=dev, dtype=dt)
 
+    def _f64(t: torch.Tensor) -> torch.Tensor:
+        return t.detach().to("cpu", torch.float64)
+
+    p = _f64(raw)
     if family == "gaussian":
-        mu, logs = raw[:, 0], raw[:, 1]
-        return mu[None] + torch.exp(0.5 * logs)[None] * _randn(n, N)
+        mu, logs = p[:, 0], p[:, 1]
+        return mu[None] + torch.exp(0.5 * logs)[None] * _f64(_randn(n, N))
     if family == "skewnormal":
-        xi, sig, alpha = raw[:, 0], _softplus(raw[:, 1]), raw[:, 2].clamp(-10, 10)
+        xi, sig, alpha = p[:, 0], _softplus(p[:, 1]), p[:, 2]
         delta = alpha / torch.sqrt(1 + alpha**2)
-        z = delta[None] * _randn(n, N).abs() + torch.sqrt(1 - delta**2)[None] * _randn(n, N)
+        h, e = _f64(_randn(n, N).abs()), _f64(_randn(n, N))
+        z = delta[None] * h + torch.sqrt(1 - delta**2)[None] * e
         return xi[None] + sig[None] * z
     if family == "skewt":
-        xi, om = raw[:, 0], _softplus(raw[:, 1])
-        alpha = raw[:, 2].clamp(-10, 10)
-        nu = _softplus(raw[:, 3]).clamp(2.1, 60.0)
+        xi, om, alpha = p[:, 0], _softplus(p[:, 1]), p[:, 2]
+        nu = _softplus(p[:, 3])
         delta = alpha / torch.sqrt(1 + alpha**2)
         # Chi-square via Gamma (device-safe representation).
-        gam = torch.distributions.Gamma(
-            nu[None].expand(n, N) / 2, torch.ones((), device=raw.device, dtype=raw.dtype)
-        ).sample()
+        gam = _f64(
+            torch.distributions.Gamma(
+                _softplus(raw[:, 3].detach())[None].expand(n, N) / 2,
+                torch.ones((), device=dev, dtype=dt),
+            ).sample()
+        )
         w = torch.sqrt(nu[None] / (2 * gam))
-        z = (delta[None] * _randn(n, N).abs() + torch.sqrt(1 - delta**2)[None] * _randn(n, N)) * w
+        h, e = _f64(_randn(n, N).abs()), _f64(_randn(n, N))
+        z = (delta[None] * h + torch.sqrt(1 - delta**2)[None] * e) * w
         return xi[None] + om[None] * z
     if family == "johnsonsu":
-        xi, lam = raw[:, 0], _softplus(raw[:, 1])
-        gamma, delta = raw[:, 2].clamp(-8, 8), _softplus(raw[:, 3]).clamp(0.3, 10.0)
-        u = torch.sinh((_randn(n, N) - gamma[None]) / delta[None])
+        xi, lam = p[:, 0], _softplus(p[:, 1])
+        gamma, delta = p[:, 2], _softplus(p[:, 3])
+        u = torch.sinh((_f64(_randn(n, N)) - gamma[None]) / delta[None])
         return xi[None] + lam[None] * u
     if family == "sinharcsinh":
-        mu, sig = raw[:, 0], _softplus(raw[:, 1])
-        eps_, delta = raw[:, 2].clamp(-8, 8), _softplus(raw[:, 3]).clamp(0.3, 10.0)
-        y = mu[None] + sig[None] * torch.sinh(delta[None] * torch.asinh(_randn(n, N)) + eps_[None])
-        return y
+        mu, sig = p[:, 0], _softplus(p[:, 1])
+        eps_, delta = p[:, 2], _softplus(p[:, 3])
+        z = _f64(_randn(n, N))
+        return mu[None] + sig[None] * torch.sinh(delta[None] * torch.asinh(z) + eps_[None])
     if family == "aslaplace":
-        mu, sig = raw[:, 0], _softplus(raw[:, 1])
-        kappa = _softplus(raw[:, 2]).clamp(0.2, 5.0)
-        p = (kappa**2 / (1 + kappa**2))[None]
-        e1 = torch.distributions.Exponential(
-            torch.ones((), device=raw.device, dtype=raw.dtype)
-        ).sample((n, N))
-        e2 = torch.distributions.Exponential(
-            torch.ones((), device=raw.device, dtype=raw.dtype)
-        ).sample((n, N))
+        mu, sig = p[:, 0], _softplus(p[:, 1])
+        kappa = _softplus(p[:, 2])
+        prob = (kappa**2 / (1 + kappa**2))[None]
+        one = torch.ones((), device=dev, dtype=dt)
+        e1 = _f64(torch.distributions.Exponential(one).sample((n, N)))
+        e2 = _f64(torch.distributions.Exponential(one).sample((n, N)))
         right = mu[None] + e1 * sig[None] * kappa[None] / np.sqrt(2.0)
         left = mu[None] - e2 * sig[None] / (np.sqrt(2.0) * kappa[None])
-        u = torch.rand(n, N, generator=g, device=raw.device, dtype=raw.dtype)
-        return torch.where(u < p, right, left)
+        u = _f64(torch.rand(n, N, generator=g, device=dev, dtype=dt))
+        return torch.where(u < prob, right, left)
     raise ValueError(f"Unknown family: {family}")
 
 
@@ -167,6 +220,7 @@ class LikelihoodsSuite(HarnessRunner):
             "AsymmetricLaplace",
             "MDN_K3",
             "NSF",
+            "FTT_GaussianNLL",
             "CatBoost_Uncertainty",
             "LightGBM_Point",
         ]
@@ -205,6 +259,12 @@ class LikelihoodsSuite(HarnessRunner):
             "AsymmetricLaplace": "ALD NLL (3-head: loc, scale, kappa)",
             "MDN_K3": "3-component diagonal mixture density network",
             "NSF": "zuko NSF flow; internal z-score (spline bound) with native-unit NLL correction",
+            "FTT_GaussianNLL": (
+                "torchregress.models FTTransformer backbone (library defaults) + diagonal Gaussian "
+                "NLL head, same z-scored targets and batch as GaussianNLL; TabularPreprocessor "
+                "inputs, AdamW lr=1e-4 wd=1e-5, config.epochs capped by a device token-pass "
+                "budget, chunked inference"
+            ),
             "CatBoost_Uncertainty": "CatBoost RMSEWithUncertainty (mean+var), scored Gaussian",
             "LightGBM_Point": "LightGBM L2 point baseline (no distribution)",
         }.get(method, "")
@@ -248,19 +308,39 @@ class LikelihoodsSuite(HarnessRunner):
             modname, clsname, out_dim = _FAMILY_LOSS[family]
             mod = importlib.import_module(modname)
             model = _MLP(X.shape[1], _hidden_size(X.shape[1]), out_dim=out_dim)
-            _train_one(
+            graphed = _train_one(
                 model,
                 getattr(mod, clsname)(),
                 torch.from_numpy(X).to(current_device()),
                 torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "family",
                 "family": family,
+                "cuda_graph": graphed,
                 "model": model,
+                "y_mean": y_mean,
+                "y_std": y_std,
+            }
+        if method == "FTT_GaussianNLL":
+            ft = fit_ft_transformer(
+                X,
+                y,
+                GaussianNLLLoss(),
+                2,
+                config,
+                epochs=int(config.epochs),
+                batch_size=bs,
+                val_fraction=0.0,  # peers train a fixed budget without early stopping
+            )
+            return {
+                "type": "family",
+                "family": "gaussian",
+                "ft": ft,
                 "y_mean": y_mean,
                 "y_std": y_std,
             }
@@ -269,17 +349,19 @@ class LikelihoodsSuite(HarnessRunner):
 
             mdn_loss = MixtureDensityLoss(n_components=3, n_features=1)
             model = _MLP(X.shape[1], _hidden_size(X.shape[1]), mdn_loss.expected_output_size)
-            _train_one(
+            graphed = _train_one(
                 model,
                 mdn_loss,
                 torch.from_numpy(X).to(current_device()),
                 torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "mdn",
+                "cuda_graph": graphed,
                 "model": model,
                 "loss_fn": mdn_loss,
                 "y_mean": y_mean,
@@ -299,20 +381,24 @@ class LikelihoodsSuite(HarnessRunner):
             )
             model = _MLP(X.shape[1], hidden, out_dim=hidden)
             loss_fn = NormalizingFlowLoss(flow=flow)
-            _train_one(
+            # ``y`` is already z-scored with (mu, sc) above; predict/NLL undo
+            # exactly that one affine map.  (Up to 0.3.0b1 the flow trained on
+            # ((y - mu) / sc), standardizing twice, so its samples and NLL came
+            # back on the z scale instead of native units.)
+            graphed = _train_one(
                 model,
                 loss_fn,
                 torch.from_numpy(X).to(current_device()),
-                torch.from_numpy(((y - mu) / sc).astype(np.float32))
-                .to(current_device())
-                .unsqueeze(1),
+                torch.from_numpy(y).to(current_device()).unsqueeze(1),
                 config,
                 loss_params=list(flow.parameters()),
                 batch_size=bs,
+                cuda_graph=True,
             )
             model.eval()
             return {
                 "type": "nsf",
+                "cuda_graph": graphed,
                 "model": model,
                 "flow": loss_fn,
                 "y_mean": mu,
@@ -362,16 +448,11 @@ class LikelihoodsSuite(HarnessRunner):
         dev = current_device()
         t0 = perf_counter()
         if t == "family":
-            model = model_state["model"]
-            model.eval()
-            with torch.no_grad():
-                raw = model(torch.from_numpy(Xt).to(dev))
+            raw = _raw_outputs(model_state, Xt, dev)
             with torch.no_grad():
                 samp = _family_samples(model_state["family"], raw, _N_SAMPLES, config.seed)
             mu, sc = float(model_state["y_mean"]), float(model_state["y_std"])
-            samples = (
-                samp.detach().cpu().numpy().astype(np.float64) * sc + mu
-            )  # [S, N] native units
+            samples = samp.numpy() * sc + mu  # [S, N] float64, suite-input units
             out: dict[str, Any] = {
                 "samples": samples,
                 "raw": raw.detach().cpu().numpy().astype(np.float64),
@@ -398,10 +479,19 @@ class LikelihoodsSuite(HarnessRunner):
             model.eval()
             with torch.no_grad():
                 ctx = model(torch.from_numpy(Xt).to(dev))
-                samp = flow_loss.sample(ctx, n_samples=_N_SAMPLES)
-            samples = (
-                np.asarray(samp.detach().cpu(), dtype=np.float64).reshape(_N_SAMPLES, -1) * sc + mu
-            )
+                # Inverting the spline flow for n_samples x rows draws at once
+                # needs ~1 KiB of activations per draw (542k test rows: >100 GiB);
+                # sample row chunks so the peak is bounded on an ~11 GiB slice.
+                step = _SAMPLE_CHUNK_DRAWS // _N_SAMPLES
+                samp = torch.cat(
+                    [
+                        flow_loss.sample(ctx[i : i + step], n_samples=_N_SAMPLES)
+                        .reshape(-1, _N_SAMPLES)
+                        .cpu()
+                        for i in range(0, len(ctx), step)
+                    ]
+                )  # [N, S]
+            samples = np.asarray(samp.T, dtype=np.float64) * sc + mu  # [S, N]
             out = {
                 "samples": samples,
                 "ctx": ctx.detach().cpu().numpy().astype(np.float64),
@@ -488,9 +578,7 @@ class LikelihoodsSuite(HarnessRunner):
             if t == "family":
                 mu = float(model_state["y_mean"])
                 sc = float(model_state["y_std"])
-                model = model_state["model"]
-                model.eval()
-                raw = model(torch.from_numpy(np.asarray(X_test, dtype=np.float32)).to(dev))
+                raw = _raw_outputs(model_state, np.asarray(X_test, dtype=np.float32), dev)
                 yt_std = torch.from_numpy(((y_arr - mu) / sc).astype(np.float32)).reshape(-1, 1)
                 return float(
                     _family_nll(model_state["family"], raw.detach().cpu(), yt_std).item()
@@ -514,8 +602,16 @@ class LikelihoodsSuite(HarnessRunner):
                 model.eval()
                 ctx = model(torch.from_numpy(np.asarray(X_test, dtype=np.float32)).to(dev))
                 yt_std = torch.from_numpy(((y_arr - mu) / sc).astype(np.float32)).reshape(-1, 1)
-                lp = flow_loss.log_prob(ctx, yt_std.to(ctx.device, ctx.dtype))
-                return float(-lp.mean().item() + np.log(sc))
+                yt_std = yt_std.to(ctx.device, ctx.dtype)
+                lp = torch.cat(
+                    [
+                        flow_loss.log_prob(
+                            ctx[i : i + _FORWARD_CHUNK], yt_std[i : i + _FORWARD_CHUNK]
+                        )
+                        for i in range(0, len(ctx), _FORWARD_CHUNK)
+                    ]
+                )
+                return float(-lp.double().mean().item() + np.log(sc))
             if t == "catboost":
                 from torchregress.metrics import gaussian_nll
 
@@ -597,6 +693,16 @@ class LikelihoodsSuite(HarnessRunner):
                     "Device": str(_dev()),
                     "Notes": self.method_notes(method),
                 }
+                if state.get("cuda_graph"):
+                    row["Notes"] = f"{row['Notes']}; training steps replayed as a CUDA graph"
+                ft = state.get("ft")
+                if ft is not None:
+                    # Epochs actually trained against the configured budget (the
+                    # device token-pass budget can cap them; see _ft_transformer).
+                    row["FT_EpochsRun"] = float(ft.epochs_run)
+                    row["FT_EpochsBudget"] = float(ft.epochs_budget)
+                    row["FT_TokenBudgetCapped"] = float(ft.capped_by_token_budget)
+                    row["Notes"] = f"{row['Notes']}; {ft.notes()}"
             except Exception as exc:  # noqa: BLE001 — row-level resilience
                 row = {
                     "Method": f"{self.name}/{method}",

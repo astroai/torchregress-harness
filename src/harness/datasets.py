@@ -75,6 +75,9 @@ class SplitMetadata(TypedDict, total=False):
     _pz_taskset: int
     _pz_simulation: str
     _pz_scenario: str
+    _nz_taskset: int
+    _nz_simulation: str
+    _nz_scenario: str
     ra_train: np.ndarray
     ra_test: np.ndarray
     dec_train: np.ndarray
@@ -211,16 +214,19 @@ def _load_openml_year(
     try:
         from sklearn.datasets import fetch_openml
 
+        # OpenML 44027 is YearPredictionMSD ("year", tabular-benchmark copy).
+        # 44031, used before 0.3.0, is California housing: 8 features, not 90.
         data = fetch_openml(
-            data_id=data_id or 44031,
+            data_id=data_id or 44027,
+            target_column="year",
             parser="pandas",
             as_frame=True,
             data_home=str(_image_cache_dir() / "sklearn"),
         )
-        df = data.frame
-        target_col = df.columns[-1]
-        X = df.drop(columns=[target_col]).values.astype(np.float64)
-        y = df[target_col].values.astype(np.float64)
+        X = data.data.values.astype(np.float64)
+        y = data.target.values.astype(np.float64)
+        if X.shape[1] != 90:
+            raise ValueError(f"expected 90 YearPredictionMSD features, got {X.shape[1]}")
     except Exception:
         # Fallback: synthetic data with similar dimensions (DATA-01/02:
         # provenance flags let result rows disclose non-real data).
@@ -834,7 +840,7 @@ def _load_galaxiesml_eiv(
     try:
         import urllib.request
 
-        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
+        import h5py  # optional big-corpus dep
         from sklearn.preprocessing import StandardScaler
 
         bands = ["g", "r", "i", "z", "y"]
@@ -971,7 +977,7 @@ def _load_galaxiesml_cutouts(
     """
     splits: SplitMetadata = {}
     try:
-        import h5py  # ty: ignore[unresolved-import]  # optional big-corpus dep
+        import h5py  # optional big-corpus dep
 
         cache = _image_cache_dir() / "galaxiesml"
         tr_path = cache / "training.hdf5"
@@ -1081,6 +1087,18 @@ def _nz_root() -> pathlib.Path:
     )
 
 
+def _nz_public_files(root: pathlib.Path, pattern: str) -> list[pathlib.Path]:
+    """Public-archive n(z) files under ``root`` matching ``pattern``, sorted.
+
+    The reserved archive unpacks to ``root/reserved`` with the same file names,
+    so a bare ``root.glob("**/...")`` also matches the reserved copies, in
+    filesystem order.
+    """
+    return sorted(
+        p for p in root.glob(f"**/{pattern}") if "reserved" not in p.relative_to(root).parts
+    )
+
+
 def _ensure_nz_archive(root: pathlib.Path, taskset: int) -> pathlib.Path:
     import tarfile
 
@@ -1088,7 +1106,7 @@ def _ensure_nz_archive(root: pathlib.Path, taskset: int) -> pathlib.Path:
     archive = root / f"public_nz_t{taskset}.tgz"
     if not archive.exists():
         urllib.request.urlretrieve(NZ_CHALLENGE_URLS[taskset], archive)
-    if not any(root.glob(f"**/nz_challenge_taskset_{taskset}_*.hdf5")):
+    if not _nz_public_files(root, f"nz_challenge_taskset_{taskset}_*.hdf5"):
         with tarfile.open(archive, "r:gz") as tar:
             tar.extractall(root)
     return root
@@ -1114,16 +1132,22 @@ def _load_nz_challenge(
     n_samples: int | None = None,
     seed: int = 42,
 ) -> SplitsDict:
-    """LSST DESC n(z) challenge: DDF truth training, WFD public photometry.
+    """LSST DESC n(z) challenge: DDF truth training, WFD reserved test set.
 
-    Evaluation truth for WFD comes from the post-challenge ``reserved`` archive
-    (object-id matched); this is an internal benchmark, not a challenge submission.
+    Training uses the public DDF files (photometry + redshift). The test set is
+    the post-challenge ``reserved`` WFD file, which carries its own photometry
+    and redshift. It cannot be joined to the public WFD file: their object ids
+    are disjoint and the photometry differs row by row (checked on tasksets
+    1-2, both simulations, 1yr and 4yr), so the public WFD file has no truth
+    and is not used. This is an internal benchmark, not a challenge submission.
     """
     import h5py
 
     root = _ensure_nz_archive(_nz_root(), taskset)
     _ensure_nz_reserved(root)
-    ddf = sorted(root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_ddf_*.hdf5"))
+    ddf = _nz_public_files(
+        root, f"nz_challenge_taskset_{taskset}_{simulation}_{scenario}_ddf_*.hdf5"
+    )
     if not ddf:
         raise FileNotFoundError(
             f"no n(z) DDF files for taskset {taskset} {simulation} {scenario} under {root}"
@@ -1153,10 +1177,12 @@ def _load_nz_challenge(
     X_train = np.concatenate([mags[keep], errs[keep]], axis=1).astype(np.float32)
     y_train = z[keep].astype(np.float32)
 
-    wfd_path = next(
-        root.glob(f"**/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5")
+    res_path = (
+        root / "reserved" / f"nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5"
     )
-    with h5py.File(wfd_path, "r") as f:
+    if not res_path.is_file():
+        raise FileNotFoundError(f"no reserved n(z) WFD file {res_path}")
+    with h5py.File(res_path, "r") as f:
         X_test = np.concatenate(
             [
                 np.stack(
@@ -1170,20 +1196,7 @@ def _load_nz_challenge(
             ],
             axis=1,
         ).astype(np.float32)
-        oid_test = np.asarray(f["object_id"][:], dtype=np.float64)
-    res_path = next(
-        root.glob(f"**/reserved/nz_challenge_taskset_{taskset}_{simulation}_{scenario}_wfd.hdf5")
-    )
-    with h5py.File(res_path, "r") as f:
-        res_oid = np.asarray(f["object_id"][:], dtype=np.float64)
-        res_z = np.asarray(f["redshift"][:], dtype=np.float64)
-    order = np.argsort(res_oid)
-    sorted_oid = res_oid[order]
-    pos = np.searchsorted(sorted_oid, oid_test)
-    pos = np.clip(pos, 0, len(sorted_oid) - 1)
-    if not np.all(sorted_oid[pos] == oid_test):
-        raise ValueError("reserved n(z) object ids do not match WFD public file")
-    y_test = res_z[order][pos].astype(np.float32)
+        y_test = np.asarray(f["redshift"][:], dtype=np.float64).astype(np.float32)
 
     rng = np.random.default_rng(seed)
     if n_samples is not None and int(n_samples) < len(y_train):
@@ -1227,7 +1240,7 @@ def _load_pz_challenge(
     import tarfile
     import urllib.request
 
-    import h5py  # ty: ignore[unresolved-import]
+    import h5py
 
     cache = _image_cache_dir() / "pz_data_challenge"
     local_dir = os.environ.get("TORCHREGRESS_PZ_CHALLENGE_DIR")
@@ -1613,6 +1626,90 @@ def _load_synthetic_mv_bimodal(
         "X_test": X_test,
         "y_train": y_train,
         "y_test": y_test,
+        "_multi_output": True,
+        "_skip_y_standardization": True,
+    }
+
+
+# Fixed generator design of ``synthetic_multitarget_big`` (independent of the
+# data seed and of ``n_samples``, so every size and seed shares one p(y | x)).
+_MT_BIG_DESIGN_SEED = 20261103
+_MT_BIG_COMPONENTS = 3
+
+
+def _load_synthetic_multitarget_big(
+    n_samples: int = 1_100_000,
+    n_test: int = 100_000,
+    n_features: int = 20,
+    n_targets: int = 6,
+    seed: int = 42,
+) -> SplitsDict:
+    """Generate a >= 1M-row multi-target conditional density problem on the fly.
+
+    Scale benchmark for joint density and conformal heads (no download).  The
+    default draw has 1,000,000 training and 100,000 test rows, 20 correlated
+    features and 6 targets.  Given ``x``:
+
+    * a latent component ``c in {0, 1, 2}`` is drawn from ``softmax(x W)``
+      (gate depends on ``x``), so ``p(y | x)`` is multimodal with
+      ``x``-dependent mode weights;
+    * ``y = tanh(x B) C + m_c + s(x) * e / g`` where ``m_c`` are separated
+      component means, ``s(x) = exp(0.35 tanh(x_1))`` is heteroscedastic,
+      ``e ~ N(0, R_c)`` has a component-specific correlation matrix (the
+      copula is a mixture, not Gaussian) and ``g = sqrt(chi2_5 / 5)`` is shared
+      by all targets (multivariate-t tails with tail dependence);
+    * target 4 is skewed (``y4 + 0.15 y4^2``) and target 5 is log-normal
+      (``exp(0.25 (mu_5 + s(x) e_5))``, Gaussian part only, so its moments exist).
+
+    Rows are iid; the last ``n_test`` rows form the test split.  Targets are
+    returned in raw units with shape ``[N, n_targets]`` (no harness
+    standardization; suites standardize per dimension on the training split).
+    """
+    if n_samples < 10 or n_features < 2 or n_targets < 6:
+        raise ValueError("synthetic_multitarget_big needs >= 10 rows, 2 features, 6 targets")
+    n_test = int(min(n_test, max(2, n_samples // 5)))
+    design = np.random.default_rng(_MT_BIG_DESIGN_SEED)
+    mixing = design.standard_normal((n_features, n_features)) / np.sqrt(n_features)
+    mixing += np.eye(n_features)
+    gate = design.standard_normal((n_features, _MT_BIG_COMPONENTS)) * 0.6
+    hidden = design.standard_normal((n_features, 16)) / np.sqrt(n_features)
+    readout = design.standard_normal((16, n_targets)) * 0.8
+    means = design.standard_normal((_MT_BIG_COMPONENTS, n_targets)) * 2.0
+    chols = []
+    for _ in range(_MT_BIG_COMPONENTS):
+        a = design.standard_normal((n_targets, n_targets))
+        cov = a @ a.T + 0.5 * np.eye(n_targets)
+        sd = np.sqrt(np.diag(cov))
+        chols.append(np.linalg.cholesky(cov / np.outer(sd, sd)))
+
+    rng = np.random.default_rng(seed)
+    X = (rng.standard_normal((n_samples, n_features)) @ mixing).astype(np.float32)
+    logits = X @ gate
+    logits -= logits.max(axis=1, keepdims=True)
+    probs = np.exp(logits)
+    probs /= probs.sum(axis=1, keepdims=True)
+    u = rng.random(n_samples)[:, None]
+    comp = (u > np.cumsum(probs, axis=1)[:, :-1]).sum(axis=1)
+    mu = np.tanh(X @ hidden) @ readout + means[comp]
+    z = rng.standard_normal((n_samples, n_targets))
+    e = np.empty_like(z)
+    for k, chol in enumerate(chols):
+        rows = comp == k
+        e[rows] = z[rows] @ chol.T
+    g = np.sqrt(rng.chisquare(5.0, size=n_samples) / 5.0)[:, None]
+    scale = np.exp(0.35 * np.tanh(X[:, 1]))[:, None]
+    y = mu + scale * e / g
+    y[:, 4] = y[:, 4] + 0.15 * y[:, 4] ** 2
+    # Log-normal target from the Gaussian part only (exp of a t tail has no moments).
+    y[:, 5] = np.exp(0.25 * (mu[:, 5] + scale[:, 0] * e[:, 5]))
+    y = y.astype(np.float32)
+    n_train = n_samples - n_test
+    return {
+        "X_train": X[:n_train],
+        "X_test": X[n_train:],
+        "y_train": y[:n_train],
+        "y_test": y[n_train:],
+        "n_targets": int(n_targets),
         "_multi_output": True,
         "_skip_y_standardization": True,
     }
@@ -2238,7 +2335,10 @@ def _load_folktables_all(
     50 states + PR: ~3M person rows (~1.5M after the employment filter) —
     the >1M-row likelihood scale. ``n_samples=None`` (default) keeps the
     full filtered set; pass an int for a seeded subsample (smoke/debug).
-    Falls back to California Housing if the fetch fails.
+    Falls back to California Housing if the fetch fails.  The target
+    (PINCP, dollars) is returned raw, but this loader does NOT set
+    ``_skip_y_standardization``, so :func:`load_dataset` z-scores it with the
+    train mean/std: downstream scores are in z units of income, not dollars.
     """
     splits: SplitMetadata = {}
     try:
@@ -3437,7 +3537,7 @@ def _load_nyu_depth_v2(
 
     # Load .mat file
     try:
-        import h5py  # ty: ignore[unresolved-import]  # optional dep, imported lazily with a friendly ImportError
+        import h5py  # optional dep, imported lazily with a friendly ImportError
     except ImportError:
         try:
             import scipy.io as sio
@@ -6921,6 +7021,20 @@ DATASET_REGISTRY: dict[str, DatasetInfo] = {
             "Gaussian methods fail — NF/SLS should excel."
         ),
         loader=_registry_loader(_load_synthetic_mv_bimodal),
+    ),
+    "synthetic_multitarget_big": DatasetInfo(
+        name="synthetic_multitarget_big",
+        category="synthetic",
+        n_features=20,
+        n_samples=1_100_000,
+        description=(
+            "Generated on the fly (no download): 1M train + 100k test rows, 20 correlated "
+            "features, 6 correlated targets. x-gated 3-component mixture (multimodal), "
+            "component-specific correlations, shared multivariate-t tails, heteroscedastic "
+            "scale, one skewed and one log-normal target. Scale benchmark for joint "
+            "density / conformal heads (CPU vs GPU)."
+        ),
+        loader=_registry_loader(_load_synthetic_multitarget_big),
     ),
     # --- Conditional flow benchmarks (pzflow parity) ---
     "synthetic_cond_gaussian": DatasetInfo(

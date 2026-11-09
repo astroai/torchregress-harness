@@ -59,7 +59,9 @@ _NOT_STAGED = (
 )
 # Datasets of >= 1M rows: their tabular-suite jobs form the ``tabular_big``
 # group (GPU, 128 GB) instead of sharing 32 GB CPU sessions with small jobs.
-BIG_DATASETS = frozenset({"tlc_fare", "folktables_eiv", "folktables_all"})
+BIG_DATASETS = frozenset(
+    {"tlc_fare", "folktables_eiv", "folktables_all", "synthetic_multitarget_big", "multisurvey_big"}
+)
 EXCLUDED_DATASETS = frozenset(
     {"imdb_wiki", "imdb_wiki_fullres", "nyu_depth_v2_fullres", *_NOT_STAGED}
 )

@@ -57,7 +57,6 @@ ALLOWLIST: dict[str, str] = {
     "ConformalPredictor": _BASE,
     "WeightedLossWrapper": "masking/weighting wrapper around torch losses; weighting is exercised via covered losses",
     "WeightedNLLLoss": "classification NLL wrapper (torch.nn.NLLLoss); no regression benchmark",
-    "AsymmetricLeastSquaresLoss": "alias of ExpectileLoss (covered in robust_regression)",
     "ConsistencyRegLoss": "uncertain-ground-truth teacher/student loss; semi_supervised covers TeacherStudentTrainer/SAGEReg instead",
     "PseudoLabelConsistencyLoss": "uncertain-ground-truth pseudo-label loss; no pseudo-label suite beyond semi_supervised yet",
     "discrete_wasserstein1": "functional twin of DiscreteWasserstein1Loss (covered in ordinal)",
@@ -76,7 +75,6 @@ ALLOWLIST: dict[str, str] = {
     "create_flow_loss": _FACTORY,
     "create_contrastive_flow_loss": _FACTORY,
     "create_gaussian_nll": _FACTORY,
-    "create_mdn_loss": _FACTORY,
     "create_loss_from_config": _FACTORY,
     "get_regression_loss": _FACTORY,
     "list_regression_losses": _FACTORY,
@@ -107,7 +105,6 @@ ALLOWLIST: dict[str, str] = {
     "MeanPredictionIntervalWidth": "harness computes width in harness.metrics.compute_interval_metrics (inf-aware)",
     "PredictionIntervalCoverageProbability": "harness computes coverage in harness.metrics.compute_interval_metrics",
     "prediction_interval_coverage_probability": "harness computes coverage in harness.metrics.compute_interval_metrics",
-    "prediction_interval_coverage": "compatibility alias of prediction_interval_coverage_probability",
     "Sharpness": "harness reports Sharpness (mean std) in harness.metrics.compute_distribution_metrics",
     "sharpness": "functional twin of Sharpness; harness computes it itself",
     "mean_squared_error": _HARNESS_POINT,
@@ -195,8 +192,18 @@ ALLOWLIST: dict[str, str] = {
     # --------------------------------------------------------- semi_supervised
     "SAGERegAgreement": _RESULT,
     "SAGERegOutput": _RESULT,
-    "SelfAgreementTrainer": "alias of TeacherStudentTrainer (same class; covered in semi_supervised)",
     "build_consensus_predictive_batch": "consensus builder called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "distributional_pseudo_loss": "pseudo-label loss called inside TeacherStudentTrainer and SAGERegLoss (covered)",
     "conformal_width_to_weight": "needs per-batch conformal intervals on unlabeled rows; no conformal pseudo-labeling row yet",
+    # ------------------------------------------- 0.3.0 helpers covered indirectly
+    # Components, types and functional twins of 0.3.0 exports that have rows;
+    # each names the row or parity test that exercises it.
+    "cumulative_cdf_loss": "functional twin of CumulativeCDFLoss (covered in distributional_bins / ordinal); parity vs scoringrules.rps_score in tests/test_binned_cdf_parity.py",
+    "frozen_readout_metrics": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs sklearn LinearRegression / KNeighborsRegressor in tests/test_representation_metrics_parity.py",
+    "neighbour_target_gap": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs sklearn NearestNeighbors in tests/test_representation_metrics_parity.py",
+    "target_ordering": "component of representation_geometry_report (covered in imbalanced_representation Rep_* columns); parity vs scipy spearmanr(pdist) in tests/test_representation_metrics_parity.py",
+    "IRLSProblem": "typing Protocol for iteratively_reweighted_fit callbacks (robust_regression uses the IRLSCallbacks adapter); no behaviour",
+    "IRLSIteration": "per-iteration diagnostics record inside IRLSFitResult.history (IRLS rows report iterations/ESS from the result); no behaviour",
+    "robust_weights": "weight function called inside iteratively_reweighted_fit (IRLS / IRLS_HuberTukey rows); parity vs statsmodels HuberT/TukeyBiweight and psi(r)/r in tests/test_irls_weights_parity.py",
+    "FeatureTokenizer": "tokenizer layer built inside FTTransformer (covered in sklearn_baselines / likelihoods)",
 }

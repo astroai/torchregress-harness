@@ -62,7 +62,7 @@ bayesian = [
     "gpytorch",
 ]
 tweedie = [
-    "scikit-lego",
+    "statsmodels",
 ]
 foundation = [
     "tabpfn>=9.1",

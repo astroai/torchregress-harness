@@ -233,7 +233,7 @@ class R2CConformalSuite(HarnessRunner):
             ),
             "R2C+CORAL": (
                 "MLP backbone + CORALHead(shared-weight, monotonic biases) "
-                "+ CORALLoss → R2CConformal.  Rank-consistent ordinal "
+                "+ CumulativeLinkLoss → R2CConformal.  Rank-consistent ordinal "
                 "architecture with R2C conformal on top."
             ),
             "torchcp_R2C": (
@@ -320,13 +320,13 @@ class R2CConformalSuite(HarnessRunner):
 
         # --- R2C+CORAL ---------------------------------------------------
         elif method == "R2C+CORAL":
-            from torchregress.losses import CORALLoss
+            from torchregress.losses import CumulativeLinkLoss
             from torchregress.utils.ordinal import CORALHead
 
             backbone = _MLP(in_dim=in_dim, hidden=hidden, out_dim=hidden)
             head = CORALHead(in_features=hidden, num_classes=n_bins)
             model = nn.Sequential(backbone, head)
-            loss_fn = CORALLoss()
+            loss_fn = CumulativeLinkLoss()
             _train_one(model, loss_fn, X_train, y_train_idx, config, epochs=150)
 
             return {

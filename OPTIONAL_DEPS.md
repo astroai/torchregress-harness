@@ -36,7 +36,7 @@ This pulls in **conformal + bayesian + tweedie + foundation + boosting + image +
 |---|---|---|
 | Conformal | `pip install -e ".[conformal]"` | `mapie>=1.5.0` (git pin in `EXTERNAL_PINS.md`), `crepes`, `torchcp`, `conformal-tights>=0.5.0`; puncc is a separate `--no-deps` install (see below) |
 | Bayesian | `pip install -e ".[bayesian]"` | `botorch`, `gpytorch` |
-| Tweedie   | `pip install -e ".[tweedie]"`  | `scikit-lego` |
+| Tweedie   | `pip install -e ".[tweedie]"`  | `statsmodels` (reference GLM; the scikit-learn `TweedieRegressor` row needs no extra) |
 | Foundation| `pip install -e ".[foundation]"` | `tabpfn>=9.1`, `tabicl>=2.2`, `structured-data-models` (git `main`) |
 | Boosting  | `pip install -e ".[boosting]"`   | `lightgbm`, `xgboost` |
 | Image     | `pip install -e ".[image]"`      | `torchvision`, `torch-uncertainty>=0.13.0`, `lightning`, `lightning-uq-box>=0.4.0` (git pins in `EXTERNAL_PINS.md`), `timm`, `requests`, `Pillow`, `h5py` |
@@ -100,7 +100,7 @@ pip install -e ".[conformal,bayesian,foundation]"
 | `pz` | `pz_challenge` downloads the public 281 MB archive and needs `h5py`; TabM rows need `tabm`. Without them the suite is unavailable/skipped |
 | `conformal` | MAPIE, crepes, torchcp, conformal-tights (`conformal_tights_CQR+GBR`) conformal rows; puncc (`puncc_Split+Linear`, `puncc_CQR+GBR`) when installed with `--no-deps`; the native `CQR+GBR(reference)` row needs no extra |
 | `bayesian` | BoTorch / GPyTorch Bayesian linear |
-| `tweedie` | scikit-lego Tweedie (`tweedie`) |
+| `tweedie` | statsmodels Tweedie GLM reference row (`tweedie`) |
 | `foundation` | TabPFN, TabICL, sdm KumoTabular / TabFM (`foundation_model`, FM UQ grid) |
 | `boosting` | LightGBM, XGBoost robust regression |
 | `image` | torchvision / lightning / timm image suites; torch-uncertainty `torch_uncertainty` row (>=0.13); lightning-uq-box `luqbox_*` rows (image_ensembles_uq, flattened-pixel comparators); timm `timm_*` rows; `h5py` / `Pillow` dataset loaders (GalaxiesML, image datasets) |

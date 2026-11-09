@@ -16,6 +16,18 @@ Methods
   ``inference.posterior_log_weights``.
 - ``torchregress_NRE_multiclass``: same with the multiclass (NRE-B/InfoNCE)
   criterion.
+- ``torchregress_CNRE``: contrastive NRE (``criterion="cnre"``, Miller et al.
+  2022, ``gamma=1``): the logit estimates the absolute log ratio.
+- ``torchregress_NRE_wifi``: wifi ensemble (``inference.WifiRatioEnsemble``,
+  Benevedes & Thaler 2025) over five balanced-NRE members trained on bootstrap
+  resamples; grid posterior from the weighted log ratio. Extra metrics: mean
+  frequentist log-ratio standard error (``LogRatioStd``), the sum of member
+  weights (``WifiWeightSum``; 1 means no rescaling), and a mixture-fraction
+  check (``MixtureFractionEstimate``) on the independent SBC simulations mixed
+  at kappa = 0.3 (``MixFrac_err``, ``MixFrac_z``, ``MixFrac_std``,
+  ``MixFrac_std_stat``). Members train on 75% of the pairs and the weights are
+  fit on the held-out 25%; with nearly collinear members the weight estimate
+  is noisy, which the sandwich errors report but the point posterior does not.
 - ``torchregress_ContrastiveFlow``: conditional flow trained with
   ``ContrastiveFlowLoss`` in its likelihood-ratio regime (``temperature=1``,
   ``margin=0``); posterior on the same grid from flow log-densities.
@@ -49,11 +61,14 @@ Notes
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import numpy as np
 import torch
 from torchregress.inference import (
+    MixtureFractionEstimate,
+    WifiRatioEnsemble,
     effective_sample_size,
     grid_log_posterior,
     maximum_likelihood_estimate,
@@ -83,9 +98,15 @@ GRID_SIZE = 41
 N_POSTERIOR_SAMPLES = 256
 N_SBC_CASES = 200
 
+_NRE_KINDS = {"torchregress_NRE", "torchregress_NRE_multiclass", "torchregress_CNRE"}
+WIFI_MEMBERS = 5
+MIX_FRACTION = 0.3
+
 _METHODS = [
     "torchregress_NRE",
     "torchregress_NRE_multiclass",
+    "torchregress_CNRE",
+    "torchregress_NRE_wifi",
     "torchregress_ContrastiveFlow",
     "torchregress_NPE",
     "sklearn_NRE",
@@ -191,6 +212,14 @@ class LikelihoodRatioSuite(HarnessRunner):
                 "balanced binary NRE (mismatched pairs), grid posterior via posterior_log_weights"
             ),
             "torchregress_NRE_multiclass": ("multiclass NRE-B/InfoNCE criterion, grid posterior"),
+            "torchregress_CNRE": (
+                "contrastive NRE (criterion='cnre', gamma=1, independent class), grid posterior"
+            ),
+            "torchregress_NRE_wifi": (
+                f"wifi ensemble over {WIFI_MEMBERS} bootstrap balanced-NRE members "
+                "(WifiRatioEnsemble), grid posterior; LogRatioStd and mixture-fraction "
+                f"check at kappa={MIX_FRACTION}"
+            ),
             "torchregress_ContrastiveFlow": (
                 "contrastive flow InfoNCE, temperature=1/margin=0, grid posterior"
             ),
@@ -228,8 +257,15 @@ class LikelihoodRatioSuite(HarnessRunner):
             observable_dim=X_t.shape[1],
             hidden_dims=(hidden, hidden),
         ).to(device)
-        criterion = "multiclass" if method.endswith("multiclass") else "bce"
+        if method.endswith("multiclass"):
+            criterion = "multiclass"
+        elif method.endswith("CNRE"):
+            criterion = "cnre"
+        else:
+            criterion = "bce"
         loss_fn = NeuralRatioLoss(classifier, criterion=criterion, reduction="mean")
+        # CNRE pairs each x with its own negative thetas (no negative_target).
+        use_negative_x = criterion != "cnre"
         optimizer = torch.optim.Adam(classifier.parameters(), lr=config.lr)
         rng = torch.Generator().manual_seed(int(config.seed) + 3)
         n_epochs = int(budget["epochs"])
@@ -254,11 +290,12 @@ class LikelihoodRatioSuite(HarnessRunner):
                 perm = torch.randperm(n, generator=rng)[: len(idx)].to(device)
                 neg_x = X_t[perm].unsqueeze(1).expand(-1, n_neg, -1)
                 optimizer.zero_grad(set_to_none=True)
+                negative_x = neg_x if use_negative_x else None
                 loss = loss_fn(
                     theta_batch,
                     x_batch,
                     negative_context=neg_theta,
-                    negative_target=neg_x,
+                    negative_target=negative_x,
                 )
                 if start == 0:
                     # Functional/class parity guard (same computation, same value).
@@ -268,7 +305,7 @@ class LikelihoodRatioSuite(HarnessRunner):
                             theta_batch,
                             x_batch,
                             negative_context=neg_theta,
-                            negative_target=neg_x,
+                            negative_target=negative_x,
                             criterion=criterion,
                         )
                     torch.testing.assert_close(check, loss.detach(), atol=1e-5, rtol=1e-5)
@@ -277,6 +314,104 @@ class LikelihoodRatioSuite(HarnessRunner):
 
         classifier.eval()
         return {"type": method, "classifier": classifier, "loss_fn": loss_fn}
+
+    def _fit_wifi(
+        self,
+        X: np.ndarray,
+        theta: np.ndarray,
+        config: HarnessConfig,
+        budget: dict[str, int],
+        *,
+        prior_low: float,
+        prior_high: float,
+    ) -> dict[str, Any]:
+        """Bootstrap balanced-NRE members, then wifi weights on held-out pairs.
+
+        The weights are fit on a 25% carve the members never saw: fitting them
+        on the members' own bootstrap data lets the fit reward each member's
+        overfitting (stacking leakage), which sharpens the posterior.
+        """
+        rng = np.random.default_rng(int(config.seed) + 41)
+        n_members = 2 if config.smoke else WIFI_MEMBERS
+        order = rng.permutation(len(X))
+        n_fit = max(len(X) // 4, 2)
+        member_rows, weight_rows = order[n_fit:], order[:n_fit]
+        classifiers = []
+        for _ in range(n_members):
+            index = rng.choice(member_rows, size=len(member_rows), replace=True)
+            member = self._fit_nre(
+                "torchregress_NRE",
+                X[index],
+                theta[index],
+                config,
+                budget,
+                prior_low=prior_low,
+                prior_high=prior_high,
+            )
+            classifiers.append(member["classifier"])
+        device = current_device()
+        X_t = self._tensor(X[weight_rows], device)
+        theta_t = self._tensor(theta[weight_rows], device)
+        # Denominator pairs: each x with an independent prior theta (product law).
+        gen = torch.Generator().manual_seed(int(config.seed) + 43)
+        theta_marginal = _prior_negatives(
+            gen, len(weight_rows), 1, theta.shape[1], prior_low, prior_high, device
+        )[:, 0]
+        wifi = WifiRatioEnsemble().fit(
+            self._wifi_features(classifiers, theta_t, X_t),
+            self._wifi_features(classifiers, theta_marginal, X_t),
+        )
+        return {"type": "wifi", "classifiers": classifiers, "wifi": wifi}
+
+    @staticmethod
+    def _wifi_features(
+        classifiers: list[Any], theta: torch.Tensor, x: torch.Tensor
+    ) -> torch.Tensor:
+        members = [partial(neural_ratio_logits, c) for c in classifiers]
+        with torch.no_grad():
+            return WifiRatioEnsemble.member_features(members, theta, x)
+
+    def _wifi_metrics(
+        self, state: dict[str, Any], splits: dict[str, Any], config: HarnessConfig
+    ) -> dict[str, float]:
+        """Log-ratio standard error, weight sum and a mixture-fraction check.
+
+        The check uses the independent SBC simulations (the test split holds
+        only a handful of observations): each simulated ``x`` keeps its own
+        ``theta`` with probability ``MIX_FRACTION`` (a draw from the joint law)
+        and otherwise gets a fresh prior ``theta`` (the product law).
+        """
+        device = current_device()
+        x_sbc = self._tensor(np.asarray(splits["sbc_x"], dtype=np.float32), device)
+        n = x_sbc.shape[0]
+        theta_sbc = self._tensor(
+            np.asarray(splits["sbc_theta"], dtype=np.float32).reshape(n, -1), device
+        )
+        gen = torch.Generator().manual_seed(int(config.seed) + 47)
+        from_joint = torch.rand(n, generator=gen) < MIX_FRACTION
+        theta_prior = _prior_negatives(
+            gen,
+            n,
+            1,
+            theta_sbc.shape[1],
+            float(state["prior_low"]),
+            float(state["prior_high"]),
+            device,
+        )[:, 0]
+        theta_mix = torch.where(from_joint.to(device)[:, None], theta_sbc, theta_prior)
+        features = self._wifi_features(state["classifiers"], theta_mix, x_sbc)
+        wifi = state["wifi"]
+        estimate: MixtureFractionEstimate = wifi.mixture_fraction(features)
+        error = estimate.fraction - float(from_joint.double().mean())
+        finite_std = 0.0 < estimate.std < float("inf")
+        return {
+            "LogRatioStd": float(wifi.log_ratio_std(features).mean()),
+            "WifiWeightSum": float(wifi.weights_[1:].sum()),
+            "MixFrac_err": float(error),
+            "MixFrac_std": float(estimate.std),
+            "MixFrac_std_stat": float(estimate.std_statistical),
+            "MixFrac_z": float(error / estimate.std) if finite_std else float("nan"),
+        }
 
     def _fit_contrastive_flow(
         self,
@@ -421,7 +556,11 @@ class LikelihoodRatioSuite(HarnessRunner):
         prior_low = float(splits.get("prior_low", theta.min()))
         prior_high = float(splits.get("prior_high", theta.max()))
         state: dict[str, Any]
-        if method in {"torchregress_NRE", "torchregress_NRE_multiclass"}:
+        if method == "torchregress_NRE_wifi":
+            state = self._fit_wifi(
+                X, theta, config, budget, prior_low=prior_low, prior_high=prior_high
+            )
+        elif method in _NRE_KINDS:
             state = self._fit_nre(
                 method, X, theta, config, budget, prior_low=prior_low, prior_high=prior_high
             )
@@ -462,9 +601,13 @@ class LikelihoodRatioSuite(HarnessRunner):
         x_t = torch.as_tensor(x_obs, dtype=torch.float32, device=device).reshape(1, -1)
         kind = state["type"]
         with torch.no_grad():
-            if kind in {"torchregress_NRE", "torchregress_NRE_multiclass"}:
+            if kind in _NRE_KINDS:
                 repeated_x = x_t.expand(grid_t.shape[0], -1)
                 scores = neural_ratio_logits(state["classifier"], grid_t, repeated_x)
+            elif kind == "wifi":
+                repeated_x = x_t.expand(grid_t.shape[0], -1)
+                features = self._wifi_features(state["classifiers"], grid_t, repeated_x)
+                scores = state["wifi"].log_ratio(features).float()
             elif kind == "contrastive_flow":
                 repeated_x = x_t.expand(grid_t.shape[0], -1)
                 scores = state["loss_fn"].log_prob(grid_t, repeated_x)
@@ -651,6 +794,8 @@ class LikelihoodRatioSuite(HarnessRunner):
             ),
         }
         metrics.update(self._calibration_metrics(state, splits, budget, config))
+        if state["type"] == "wifi":
+            metrics.update(self._wifi_metrics(state, splits, config))
         return metrics
 
     # ------------------------------------------------------------------

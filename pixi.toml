@@ -4,13 +4,17 @@ version = "0.1.0"
 description = "Benchmarking harness for torchregress against external regression libraries on known tabular and image datasets."
 authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = [
+  "linux-64",
+  # CANFAR GPU nodes: CUDA 12.9 driver, compute capability >= 8.0 (A100, L40S, H100).
+  { name = "linux-64-cuda", platform = "linux-64", cuda = { driver = "12.9", arch = "8.0" } },
+]
 
 [dependencies]
 python = "3.13.*"
-pytorch = ">=2.0"
-numpy = ">=1.24"
-scipy = ">=1.10"
+pytorch = ">=2.14.1"
+numpy = ">=2.5.4"
+scipy = ">=1.18.1"
 scikit-learn = "*"
 # httpx/requests: required by huggingface_hub>=1 and torch_geometric (both
 # present in the offline /arc env); missing here made torchmetrics and every
@@ -21,7 +25,7 @@ pandas = "*"
 matplotlib = "*"
 tqdm = "*"
 zuko = "*"
-torchmetrics = "*"
+torchmetrics = ">=1.9.0"
 # Comparator deps from conda-forge so pip never swaps in a PyPI torch build
 # (CUDA 13) or builds against a mismatched toolkit on headless GPU nodes.
 pip = "*"
@@ -43,6 +47,12 @@ pyyaml = "*"
 scoringrules = ">=0.11.0,<0.12"
 properscoring = ">=0.1,<0.2"
 hypothesis = ">=6.168.5,<7"
+# n(z) loader test (tests/test_nz_challenge_loader.py) writes tiny HDF5 files.
+h5py = ">=3.10"
+
+[feature.test.pypi-dependencies]
+# pz_challenge TabM rows; tests/test_pz_challenge_suite.py records its version.
+tabm = ">=0.0.3,<0.1"
 
 [pypi-dependencies]
 torchregress = { path = "../torchregress", editable = true }
@@ -52,15 +62,17 @@ torchregress-harness = { path = ".", editable = true }
 default = { features = ["dev", "test"], solve-group = "default" }
 gpu = { features = ["gpu", "dev", "test"], solve-group = "gpu" }
 
+[feature.gpu]
+platforms = ["linux-64-cuda"]
+
 [feature.gpu.dependencies]
+pytorch-gpu = ">=2.14.1"
 # Headers for in-env CUDA extension builds (torchsort, needed by torchcp):
 # pytorch-gpu ships nvcc tools but not cuda_runtime.h.
 cuda-cudart-dev = "12.9.*"
 cuda-cccl = "12.9.*"
 cuda-nvcc = "12.9.*"
 
-[feature.gpu.system-requirements]
-cuda = "12"
 
 [tasks]
 lint = { cmd = "ruff check src/harness tests tools suites && ruff format --check src/harness tests tools suites" }

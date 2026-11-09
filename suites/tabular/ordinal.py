@@ -12,7 +12,9 @@ Methods
 - DiscreteWasserstein1   : MLP + DiscreteWasserstein1Loss (K logits, W1 to the
                            one-hot class on the unit-spaced class grid, i.e. the
                            expected class distance E_p|Z - y|); PMF median
-- CORAL                  : MLP + CORALLoss (torchregress, CORAL-style cumulative ordinal)
+- CumulativeCDF          : MLP + CumulativeCDFLoss (K logits, squared CDF error on the
+                           class grid = ranked probability score); PMF median
+- CORAL                  : MLP + CORALHead + CumulativeLinkLoss (torchregress, CORAL-style cumulative ordinal)
 - CORN                   : MLP + corn_loss from coral-pytorch (K-1 logits)
 - mord_LogisticAT        : mord.LogisticAT (all-threshold ordinal logistic)
 - statsmodels_OrderedModel : statsmodels OrderedModel(distr='logit')
@@ -26,7 +28,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchregress.losses import (
-    CORALLoss,
+    CumulativeCDFLoss,
     CumulativeLinkLoss,
     DiscreteWasserstein1Loss,
     OrdinalCrossEntropyLoss,
@@ -156,6 +158,7 @@ class OrdinalSuite(HarnessRunner):
             "OrdinalCrossEntropy",
             "CumulativeLink",
             "DiscreteWasserstein1",
+            "CumulativeCDF",
             "CORAL",
             "CumulativeLinkEnsemble",
         ]
@@ -257,6 +260,15 @@ class OrdinalSuite(HarnessRunner):
             _train_one(model, w1, X, y.float(), config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
+        elif method == "CumulativeCDF":
+            # K logits; squared distance between the softmax CDF and the step
+            # CDF of the class on the unit class grid (the ranked probability
+            # score, i.e. a binned CRPS).
+            model = _MLP(in_dim, _ordinal_hidden, out_dim=n_classes)
+            rps = CumulativeCDFLoss(bin_centers=torch.arange(n_classes, dtype=torch.float32))
+            _train_one(model, rps, X, y.float(), config, epochs=_ordinal_epochs)
+            return {"type": "torch", "model": model, "n_classes": n_classes}
+
         elif method == "CumulativeLinkEnsemble":
             # 3× cumulative-link heads; PMF-space averaging via support moments.
             from torch.utils.data import DataLoader, TensorDataset
@@ -299,7 +311,7 @@ class OrdinalSuite(HarnessRunner):
             backbone = _MLP(in_dim, _ordinal_hidden, out_dim=_ordinal_hidden)
             head = CORALHead(in_features=_ordinal_hidden, num_classes=n_classes)
             model = nn.Sequential(backbone, head).to(current_device())
-            _train_one(model, CORALLoss(), X, y, config, epochs=_ordinal_epochs)
+            _train_one(model, CumulativeLinkLoss(), X, y, config, epochs=_ordinal_epochs)
             return {"type": "torch", "model": model, "n_classes": n_classes}
 
         elif method == "CORN":
@@ -380,9 +392,10 @@ class OrdinalSuite(HarnessRunner):
                     else:
                         probs = torch.sigmoid(logits)
                         y_pred = probs.gt(0.5).sum(dim=-1).long().detach().cpu().numpy()
-                elif method == "DiscreteWasserstein1":
-                    # W1 to a point mass is E_p|Z - y|: decode with the PMF
-                    # median (the absolute-loss Bayes action), not the mode.
+                elif method in ("DiscreteWasserstein1", "CumulativeCDF"):
+                    # W1 to a point mass is E_p|Z - y|; the RPS is a binned
+                    # CRPS: decode both with the PMF median (the absolute-loss
+                    # Bayes action), not the mode.
                     cdf = torch.softmax(logits, dim=-1).cumsum(dim=-1)
                     y_pred = (cdf < 0.5).sum(dim=-1).clamp(max=n_classes - 1)
                     y_pred = y_pred.long().detach().cpu().numpy()
@@ -475,11 +488,15 @@ class OrdinalSuite(HarnessRunner):
                 "MLP + DiscreteWasserstein1Loss — K logits, W1 to the one-hot class on the "
                 "class grid (= expected class distance); PMF-median prediction"
             ),
+            "CumulativeCDF": (
+                "MLP + CumulativeCDFLoss — K logits, squared softmax-CDF error to the class "
+                "step CDF on the class grid (ranked probability score); PMF-median prediction"
+            ),
             "CumulativeLinkEnsemble": (
                 "3× cumulative-link MLPs — PMF-space averaging + support-moment classes"
             ),
             "CORAL": (
-                "MLP + CORALHead + CORALLoss — shared-weight monotonic-bias head "
+                "MLP + CORALHead + CumulativeLinkLoss — shared-weight monotonic-bias head "
                 "(b₁≥…≥b_{K-1}) per Cao et al. 2020; rank-consistent predictions"
             ),
             "CORN": (
