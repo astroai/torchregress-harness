@@ -21,6 +21,11 @@ Methods
   — the same flows trained with the documented recipe (``suites._flow_recipe``:
   early stopping on a 15% validation carve, patience 10, best weights restored;
   ``bound=recommended_tail_bound``, 16 bins) instead of the fixed epoch budget
+* ``MCD_recipe`` — Marginal Contrastive Discrimination
+  (``torchregress.models.MarginalContrastiveDensity``): an NSF marginal ``p(y)``
+  times a CNRE ratio classifier ``r(x, y)`` on the raw features, trained with the
+  same early-stopping recipe; samples by importance resampling of 8192 marginal
+  draws (``MCD_ESSFrac`` = mean effective-sample fraction of that bank)
 * Every density row (NormalizingFlow, TarFlow, NF_DensityEnsemble_K5) also
   reports test NLL, joint highest-density-region coverage
   (``sample_hpd_coverage``) at 0.5 / 0.68 / 0.9 / 0.95, and the KS distance of
@@ -749,6 +754,7 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "NormalizingFlow_recipe",
             "TarFlow_recipe",
             "NF_DensityEnsemble_K5_recipe",
+            "MCD_recipe",
             *NF_ENSEMBLE_K_VARIANTS,
             "SLS",
             "SLS_lowrank",
@@ -814,6 +820,10 @@ class MultivariateIntervalsSuite(HarnessRunner):
             "TarFlow_recipe": _RECIPE_NOTE.format("TarFlow, width 64, n_layers=(4, 1, 1)"),
             "NF_DensityEnsemble_K5_recipe": _RECIPE_NOTE.format(
                 "DensityEnsemble of 5 NSF flows, each with its own validation carve"
+            ),
+            "MCD_recipe": _RECIPE_NOTE.format(
+                "MCD: NSF marginal p(y) x CNRE ratio classifier r(x, y), "
+                "importance-resampled samples, Monte-Carlo-normalized log-density"
             ),
             "SLS": "Super-Level-Set regression → boundary sampling + inverse flow → marginal intervals per output dim",
             "SLS_lowrank": "SLS with low-rank frontier (dense-Cholesky boundary sampling) → scalable SLS",
@@ -1106,6 +1116,12 @@ class MultivariateIntervalsSuite(HarnessRunner):
                 "n_features": D,
                 "best_epoch": float(np.mean(epochs)),
             }
+
+        elif method == "MCD_recipe":
+            from suites._flow_recipe import fit_mcd_recipe
+
+            model, info = fit_mcd_recipe(X, y, config, in_dim=in_dim, hidden=hidden)
+            return {"type": "mcd", "model": model, "n_features": D, **info}
 
         # --- NF_Ensemble_K{2,5,10,20}: K independent NSF flows (Proposal #10 extended) ---
         # K parsed from method name \u2014 architecture locked across the family
@@ -1799,6 +1815,42 @@ class MultivariateIntervalsSuite(HarnessRunner):
                     "EpistemicEntropy": float(entropy["epistemic"].mean()),
                     "AleatoricEntropy": float(entropy["aleatoric"].mean()),
                 },
+            }
+
+        # --- MCD → importance-resampled samples, normalized log-density ---
+        elif model_type == "mcd":
+            mcd = model_state["model"]
+            X_t = torch.from_numpy(X_test).float().to(current_device())
+            n_draws = 512
+            with torch.no_grad():
+                log_z = mcd.log_normalizer(X_t, n_samples=4096)
+                samples = mcd.sample(X_t, n_samples=n_draws, n_proposals=8192)
+                sample_log_prob = (
+                    mcd.log_prob(
+                        X_t.repeat_interleave(n_draws, dim=0),
+                        samples.reshape(-1, D),
+                        normalize=False,
+                    ).view(len(X_test), n_draws)
+                    - log_z[:, None]
+                )
+                ess = mcd.effective_sample_size(X_t, n_proposals=8192)
+            samples_np = samples.detach().cpu().numpy()
+
+            def _mcd_log_prob(y_np: np.ndarray) -> torch.Tensor:
+                y_t = torch.as_tensor(y_np, dtype=torch.float32, device=current_device())
+                with torch.no_grad():
+                    return mcd.log_prob(X_t, y_t, normalize=False) - log_z
+
+            return {
+                "lower": np.quantile(samples_np, 0.05, axis=1).reshape(-1),
+                "upper": np.quantile(samples_np, 0.95, axis=1).reshape(-1),
+                "y_pred": samples_np.mean(axis=1).reshape(-1),
+                "samples": _to_scoring_samples(samples_np, len(X_test), config.seed),
+                "_multi_output": True,
+                "_n_features": D,
+                "_y_test_shape": (len(X_test), D),
+                "_density": {"log_prob": _mcd_log_prob, "sample_log_prob": sample_log_prob},
+                "_extra_metrics": {"MCD_ESSFrac": float(ess.mean()) / 8192.0},
             }
 
         # --- NF_Ensemble_K5 → pooled per-dim quantile intervals ---
